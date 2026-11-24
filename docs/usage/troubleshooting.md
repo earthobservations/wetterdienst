@@ -182,8 +182,10 @@ the answer, see [Concurrency](restapi.md#concurrency).
 
 ## Other things that go wrong
 
-- **`403 sql-disabled`**: the server does not enable the `sql` and `sql_values` filters (`WD_RESTAPI_SQL=true` does).
-  In the library and the command line they work.
+- **`422` `sql was removed` or `sql_values was removed`**: the REST API and the MCP tools take no SQL any more; the
+  message says what to do. In the library and the command line it works.
+- **A warning at start that names `WD_RESTAPI_SQL`**: the setting was removed and the variable is set to true; the
+  server runs without SQL. Remove the variable.
 - **`400 image-too-large`**: a chart longer than 8192 px on a side; lower `width`, `height` or `scale`.
 - **`ImageTimeoutError`, exit 1, `504 image-timeout`**: Chrome, which Kaleido starts for every image, did not finish
   within 120 seconds and was closed with its processes. A retry usually works. If it keeps happening, start Chrome

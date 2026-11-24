@@ -53,7 +53,7 @@ out are those, so it does not repeat `file-skipped`. Which stations it names:
 A request that names its stations by id (`stations=`, `filter_by_station_id`) has a third warning,
 `station-without-rows` (GH-3828): the ids that returned no rows while other stations of the request did.
 Its message names the window and what narrowed the request, as `parameter-without-rows` does, and does not say what
-the other stations have: at least one returned rows, but `sql_values` may cut them all away afterwards.
+the other stations have: at least one returned rows, and the stations named had none.
 
 - It is told for that selection alone (a point, a box, a name or a rank has empty stations as the ordinary case, and a
   ranked walk stops early), after a walk read to its end, so that a station never read is never named.
@@ -311,8 +311,7 @@ class ParameterRows:
         dropped (`station-skipped`), or whose values were left out for another window (`other-window-left-out`); an id
         the network has no station for was never in the walk (`unknown-station`).
 
-        The message says nothing of the other stations (`sql_values`, which cuts rows afterwards, may leave none of them
-        with rows in the answer), but what narrowed the request (`periods`, a run, a lead time) as
+        The message says nothing of the other stations, but what narrowed the request (`periods`, a run, a lead time) as
         `parameter-without-rows` does, since the values may be in what it left out. `there` refers to the window or to
         what narrowed the request, so a request with neither says none.
         """

@@ -347,7 +347,10 @@ class ExportMixin(RefusesRenamedMembers):
     def filtered_by_sql(self, sql: str) -> Self:
         """Filter the frame with the WHERE clause of an SQL query and return a new result of it.
 
-        This result is left as it is.
+        This result is left as it is. The clause is run in DuckDB on a connection that is restricted (see
+        `wetterdienst.io.sql_filter.filter_by_sql`); those restrictions are defence in depth, not a sandbox: never pass
+        text from someone you do not trust. The time a condition runs, memory outside DuckDB's limit and the process
+        itself are not protected.
         """
         return replace(self, df=filter_by_sql(self.df, sql))
 

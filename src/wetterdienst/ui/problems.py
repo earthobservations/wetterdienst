@@ -70,7 +70,6 @@ class ProblemKind(StrEnum):
     IMAGE_TOO_LARGE = "image-too-large"
     HOST_NOT_ALLOWED = "host-not-allowed"
     ORIGIN_NOT_ALLOWED = "origin-not-allowed"
-    SQL_DISABLED = "sql-disabled"
     NOT_FOUND = "not-found"
     UNKNOWN_NETWORK = "unknown-network"
     METHOD_NOT_ALLOWED = "method-not-allowed"
@@ -126,9 +125,6 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         400,
         "The `Origin` of a request to the MCP endpoint is not a host the server answers to "
         "(`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
-    ),
-    ProblemKind.SQL_DISABLED: ProblemSpec(
-        403, "The request carries a `sql` or `sql_values` filter and the server does not enable them."
     ),
     ProblemKind.NOT_FOUND: ProblemSpec(
         404, "What the request names does not exist: a station, a forecast run, a resolution or dataset, or a path."

@@ -67,7 +67,7 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollectionBody,
 )
 from wetterdienst.options import Options
-from wetterdienst.settings import check_settings
+from wetterdienst.settings import check_settings, removed_settings
 from wetterdienst.ui import forecast_start
 from wetterdienst.ui.budget import fit_alerts, fit_coverage, fit_station_ids, fit_stations, fit_values
 from wetterdienst.ui.caching import (
@@ -315,6 +315,9 @@ router = APIRouter(generate_unique_id_function=_operation_id)
 class _RefuseInvalidSettings:
     """Refuse to start the server while a `WD_*` setting is malformed, naming the variable (GH-2335).
 
+    A variable that asks for what was removed (`WD_RESTAPI_SQL=true`, see `removed_settings`) is warned about, once,
+    and the server starts: it asks for nothing the server could not do without it.
+
     Checked as the server starts the app's lifespan, so it holds whatever starts it --
     `wetterdienst restapi`, `uvicorn wetterdienst.ui.restapi:app` -- unless the lifespan is turned
     off, and covers `/mcp/v1` and its alias `/mcp`, which are served by this app. A failure in the
@@ -331,6 +334,7 @@ class _RefuseInvalidSettings:
         if scope["type"] == "lifespan":
             try:
                 problems = check_settings()
+                notices = removed_settings()
             except Exception as e:  # noqa: BLE001
                 # a validator failing other than by refusing the value, as the station distances'
                 # did with a `TypeError` until GH-2353, is refused all the same: raised here,
@@ -338,6 +342,9 @@ class _RefuseInvalidSettings:
                 # support, and serve. Told by its type alone, as its message is not pydantic's and
                 # may carry what it was given
                 problems = [f"the settings could not be built: {type(e).__name__}"]
+                notices = []
+            for notice in notices:
+                log.warning(notice)
             if problems:
                 await receive()
                 message = "\n".join(["Refusing to start, the settings are invalid:", *problems])
@@ -513,7 +520,7 @@ def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> H
     instruction for a machine the caller does not administer, about a request that was perfectly
     well formed. Over HTTP the missing half is a property of the deployment, and 501 is what says
     so: this server does not implement what needs the package, such as the networks published as
-    BUFR, a `sql` filter or an image. The install line is not lost, it moves to where someone can
+    BUFR or an image. The install line is not lost, it moves to where someone can
     act on it -- the server log, carried there by the message itself rather than by a traceback,
     since a dependency that was never installed has no incident to show.
     """
@@ -594,33 +601,6 @@ def _credential_rejected_on_the_server(e: CredentialRejectedError, request: Base
         ),
         ProblemKind.CREDENTIAL_REJECTED,
     )
-
-
-def _refuse_sql_unless_enabled(
-    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
-) -> None:
-    """Refuse a `sql` or `sql_values` clause unless whoever runs this server has enabled them.
-
-    The clause runs in DuckDB on this host. Its connection cannot read files, reach the network or
-    load extensions, but its limits are per request: it can still read DuckDB's settings, run for as
-    long as it likes on one core, and allocate outside DuckDB's memory limit. Whether to take that
-    from anyone who can reach the API is the operator's decision, so it is off until they set
-    `WD_RESTAPI_SQL=true`. A 403, as for the BUFR reader's 501: the request is well formed and this
-    deployment declines it, which a 400 would blame on the caller. Checked before anything is
-    fetched, so a refused request costs nothing. The MCP tools are this API's routes, so they are
-    gated with it; the library and the CLI are not.
-    """
-    given = [name for name in ("sql", "sql_values") if getattr(request, name, None)]
-    if given and not Settings().restapi_sql:
-        raise ProblemError(
-            403,
-            (
-                f"SQL filtering is disabled on this server, so {' and '.join(given)} cannot be used. "
-                "Whoever runs this instance can enable it with the setting restapi_sql "
-                "(environment variable WD_RESTAPI_SQL=true); otherwise filter the response yourself."
-            ),
-            ProblemKind.SQL_DISABLED,
-        )
 
 
 #: the longest side, in pixels once `scale` is applied, of an image this server renders. Chromium
@@ -1243,7 +1223,7 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
 #: statuses are the table of `docs/usage/restapi.md`, and `tests/ui/test_openapi_snapshot.py` holds each route to what
 #: its handler answers. A route that reads from a provider can answer all that `_failure` does: a 400 for a request
 #: it refuses (a limit, a window, an image too large), a 404, a 501 for what this server lacks or does not implement
-#: and a 502 for a provider that failed; the 403 is `sql` and `sql_values` where the server does not enable them
+#: and a 502 for a provider that failed
 _DATA_ANSWERS = (400, 404, 501, 502)
 _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "version": (),
@@ -1252,12 +1232,12 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "coverage": (400, 404, 501),
     "providers": (404,),
     "glossary": (),
-    "stations": (403, *_DATA_ANSWERS),
+    "stations": _DATA_ANSWERS,
     "issues": _DATA_ANSWERS,
     "history": _DATA_ANSWERS,
-    "values": (403, *_DATA_ANSWERS),
-    "interpolate": (403, *_DATA_ANSWERS),
-    "summarize": (403, *_DATA_ANSWERS),
+    "values": _DATA_ANSWERS,
+    "interpolate": _DATA_ANSWERS,
+    "summarize": _DATA_ANSWERS,
     "alerts": _DATA_ANSWERS,
     "storm-cells": _DATA_ANSWERS,
     "kostra": _DATA_ANSWERS,
@@ -1275,7 +1255,6 @@ _HOST_CHECKED_ROUTES = ("/", "/robots.txt")
 #: document is the same on every Python. The 422 is not here: FastAPI adds it, `_declare_problem_schema` completes it
 _PROBLEM_COMPONENTS = {
     400: ("BadRequest", "Bad Request"),
-    403: ("Forbidden", "Forbidden"),
     404: ("NotFound", "Not Found"),
     500: ("InternalError", "Internal Server Error"),
     501: ("NotImplemented", "Not Implemented"),
@@ -1925,17 +1904,16 @@ def _geo_reach_check(limits: Limits, distance: str) -> Callable[[int], None]:
 
 
 def _is_streamed(request: ValuesRequest, http_request: Request) -> bool:
-    """Tell whether a values request is answered as a stream: ndjson, and csv unless `sql_values` filters the whole.
+    """Tell whether a values request is answered as a stream: ndjson and csv.
 
-    A `sql_values` clause filters the answer as a frame, which a stream never holds, so csv with one is the answer
-    in one body as it was before; ndjson is refused with it (and with `with_stations`). An MCP tool's request is
-    never streamed: a tool answers one body, held to `rows` in every format (GH-3464).
+    ndjson is refused with `with_stations`. An MCP tool's request is never streamed: a tool answers one body, held to
+    `rows` in every format (GH-3464).
     """
     if request.format == "ndjson":
         if (refusal := ndjson_refusal(request)) is not None:
             raise ProblemError(400, refusal)
         return not is_tool_request(http_request.scope)
-    return request.format == "csv" and not request.sql_values and not is_tool_request(http_request.scope)
+    return request.format == "csv" and not is_tool_request(http_request.scope)
 
 
 def _stream_headers(metadata: ResponseMetadata) -> dict[str, str]:
@@ -2081,7 +2059,7 @@ def stations(
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
     parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
     name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `stations` ids,
-    lat/lon with `rank` or `distance`, a bounding box, `sql` (where the server enables it), or
+    lat/lon with `rank` or `distance`, a bounding box, or
     all=true for the full list. `name` gives the best five matches unless `rank` says otherwise.
     Returns station metadata including `station_id`, which you pass to `values`.
 
@@ -2091,7 +2069,6 @@ def stations(
     named in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.
     """
     begin_response()
-    _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
@@ -2274,7 +2251,6 @@ def values(
     either means the source does not state it.
     """
     begin_response()
-    _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
@@ -2666,7 +2642,6 @@ def interpolate(
     network, parameters and a `timestamp`.
     """
     begin_response()
-    _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
@@ -2719,7 +2694,6 @@ def summarize(
     `timestamp`.
     """
     begin_response()
-    _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)

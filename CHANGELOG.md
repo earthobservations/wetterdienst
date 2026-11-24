@@ -16,8 +16,22 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.198.0] - 2026-11-24
+
 ### Changed
 
+- **Breaking**: the REST API and the MCP tools take no `sql` and `sql_values` any more, and the
+  setting `restapi_sql` is gone. A request that sends one is a 422 (a tool error) that says what
+  to do instead: select the stations with the filters of the route, or filter the rows of the
+  answer yourself; the problem type `sql-disabled` (403) no longer exists.
+  `Settings(restapi_sql=...)` is refused; a server with `WD_RESTAPI_SQL=true` warns once as it
+  starts and runs without SQL, so remove the variable. The command line (`--sql`, `--sql-values`)
+  and the library keep SQL
+- **Breaking**: `filter_by_sql`, `filtered_by_sql` and the command line's SQL options need DuckDB
+  1.5.3 or newer (the `sql` and `duckdb` extras are `>=1.5.3,<2`); an older one raises an
+  `UnsupportedDependencyError` that names the release to install. A condition can no longer use a
+  function of a DuckDB extension that is on the host, nothing is installed or loaded on its
+  behalf, and no secret is stored
 - wetterdienst no longer depends on `python-dateutil`; a small helper does the month arithmetic with
   the same dates, so code that imports `dateutil` through wetterdienst must depend on it itself
   (GH-4349)
@@ -36,6 +50,13 @@ Types of changes:
 
 ### Security
 
+- A server run with `WD_RESTAPI_SQL=true` let any client that could reach `/api`, `/api/v1`
+  (from 0.156.0), `/mcp/v1` or `/mcp` disrupt it through `sql` and `sql_values`, which ran the
+  client's text in DuckDB (GHSA-332g-7w2w-4w59; 0.140.0 to 0.197.0). Both parameters are removed:
+  upgrade. Before 0.140.0 `sql` needed no setting (GHSA-rpwr-qmm5-m9wp): upgrade, there is
+  nothing to unset. The restrictions of `filter_by_sql` are defence in depth, not a sandbox: never
+  pass it text from someone you do not trust; time, memory outside DuckDB's limit and the process
+  are not protected
 - The `pdf` extra needs pypdf 7.1.1 (was 6.21.4): denial-of-service advisories on a crafted PDF
   that the description reader reaches are fixed only in 7.x (GH-4350)
 - The floor of pydantic in the `mcp` extra is 2.14.2 (was 2.7.3), for GHSA-3r8g-cqwr-jr29: before
@@ -8519,7 +8540,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...HEAD
+[0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
 [0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0
 [0.195.0]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...v0.195.0

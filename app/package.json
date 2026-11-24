@@ -55,18 +55,17 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^9.5.1",
+    "@antfu/eslint-config": "^10.0.0",
     "@axe-core/playwright": "^4.13.0",
     "@iconify-json/ph": "^1.2.2",
     "@iconify-json/simple-icons": "^1.2.100",
     "@intlify/eslint-plugin-vue-i18n": "^4.5.1",
     "@nuxt/eslint": "^1.17.0",
-    "@nuxt/test-utils": "^4.3.2",
+    "@nuxt/test-utils": "^4.4.0",
     "@playwright/test": "^1.63.0",
     "@types/leaflet": "^1.9.22",
     "@types/luxon": "^3.7.6",
     "@types/tz-lookup": "^6.1.2",
-    "@vitest/expect": "^4.1.12",
     "@vue/test-utils": "^2.5.1",
     "eslint": "^10.11.0",
     "eslint-plugin-oxlint": "^1.86.0",
@@ -74,7 +73,7 @@
     "openapi-typescript": "^7.13.0",
     "oxlint": "^1.86.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.12",
+    "vitest": "^5.1.1",
     "vue-tsc": "^3.3.12"
   }
 }

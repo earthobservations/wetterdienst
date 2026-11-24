@@ -112,30 +112,13 @@ def test_several_empty_stations_are_one_warning_in_the_order_of_the_walk(monkeyp
 
 
 def test_the_message_does_not_say_what_the_other_stations_have(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The others may have no rows left (another warning explains them, `sql_values` cuts them): it is not claimed."""
+    """The others may have no rows left (another warning explains them): it is not claimed."""
     _serving(monkeypatch, s00002=_nothing)
 
     (warning,) = _told(["00001", "00002"])
 
     assert "other" not in warning["message"]
     assert "while" not in warning["message"]
-
-
-def test_rows_that_sql_values_cuts_afterwards_do_not_change_what_is_told(monkeypatch: pytest.MonkeyPatch) -> None:
-    """00002 had no rows before the clause and is told whatever it leaves: the message is true, and says no more."""
-    _serving(monkeypatch, s00002=_nothing)
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-
-    cut = _rest("/api/values", stations="00001,00002,00003", timestamp="2020-05", sql_values="station_id = '00003'")
-    assert cut.status_code == 200, cut.text
-    (warning,) = cut.json()["metadata"]["warnings"]
-    assert warning["code"] == CODE
-    assert warning["stations"] == ["00002"]
-    assert "other" not in warning["message"]
-    # a clause that leaves no row of any station: the walk's warning is the same
-    none = _rest("/api/values", stations="00001,00002,00003", timestamp="2020-05", sql_values="value > 100")
-    assert none.status_code == 200, none.text
-    assert [w["stations"] for w in none.json()["metadata"]["warnings"] if w["code"] == CODE] == [["00002"]]
 
 
 def test_the_list_is_cut_and_counted(monkeypatch: pytest.MonkeyPatch) -> None:

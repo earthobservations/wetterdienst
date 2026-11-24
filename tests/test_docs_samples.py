@@ -1226,7 +1226,6 @@ def test_rest_samples_are_answered(request_: Request, monkeypatch: pytest.Monkey
 
     for variable in _LIMIT_VARIABLES:
         monkeypatch.delenv(variable, raising=False)
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     # not the 60 s of the default: the interpolation of the first sample reads the whole record of 11 stations from a
     # cold cache, one file after the other, and 504 was DWD's pace on a runner and not the sample (GH-3489)
     monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "600")

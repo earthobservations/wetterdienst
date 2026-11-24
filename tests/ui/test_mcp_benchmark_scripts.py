@@ -893,8 +893,6 @@ class _McpHandler(http.server.BaseHTTPRequestHandler):
     """A tiny streamable-HTTP MCP endpoint: initialize, the initialized notification and tools/list."""
 
     tools: ClassVar[list[dict[str, Any]]] = []
-    #: what the fake server answers to a request with a `sql` clause: 403 is a server that has SQL off
-    sql_status: ClassVar[int] = 403
 
     def do_POST(self) -> None:
         """Answer one JSON-RPC message."""
@@ -917,14 +915,7 @@ class _McpHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_GET(self) -> None:
-        """Answer `/api/version` as the wetterdienst does, and a `sql` request as a server with SQL on or off does."""
-        if self.path.startswith("/api/v1/stations"):
-            payload = b'{"title": "SQL filtering is disabled on this server"}'
-            self.send_response(self.sql_status)
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
-            return
+        """Answer `/api/version` as the wetterdienst does."""
         payload = b'{"version": "9.9.9"}'
         self.send_response(200)
         self.send_header("Content-Length", str(len(payload)))
@@ -5266,49 +5257,7 @@ def test_the_reference_commands_of_the_runbook_use_options_the_command_line_has(
             assert option in helped.output, (line, option)
 
 
-# ------------------------------------------------ the SQL setting of the server, the timing of a forecast figure, zsh
-
-
-@pytest.fixture
-def sql_status() -> Iterator[None]:
-    """Let a test choose what the fake server answers to a `sql` request; the default is restored."""
-    old = _McpHandler.sql_status
-    yield
-    _McpHandler.sql_status = old
-
-
-@pytest.mark.usefixtures("sql_status")
-@pytest.mark.parametrize(("status", "expected"), [(403, "off"), (200, "on"), (500, "unknown"), (404, "unknown")])
-def test_the_sql_setting_of_the_server_is_read_from_how_it_answers_a_sql_request(
-    mcp_url: str, status: int, expected: str
-) -> None:
-    """403 with the SQL refusal is `off`, a 200 is `on`, anything else, or no answer, `unknown`."""
-    _McpHandler.sql_status = status
-
-    assert bench.server_sql(mcp_url) == expected
-    assert bench.server_sql("http://127.0.0.1:1/mcp/v1", timeout=2) == "unknown"
-
-
-@pytest.mark.usefixtures("sql_status")
-def test_init_and_probe_record_the_sql_setting_and_compare_warns_when_it_differs(
-    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """`meta.server_settings.restapi_sql` is what the server did; sides that differ get a warning, no refusal."""
-    off = _init(tmp_path / "off.json", mcp_url, cases=GLOSSARY, tiers="small", repeats=1)
-    _McpHandler.sql_status = 200
-    on = _init(tmp_path / "on.json", mcp_url, cases=GLOSSARY, tiers="small", repeats=1)
-
-    assert off["meta"]["server_settings"] == {"restapi_sql": "off"}
-    assert on["meta"]["server_settings"] == {"restapi_sql": "on"}
-    assert bench.main(["probe", mcp_url]) == 0
-    assert json.loads(capsys.readouterr().out)["restapi_sql"] == "on"
-    text = bench.compare(off, on)
-    assert "WARNING: the two servers were not run with the same settings" in text
-    assert "{'restapi_sql': 'off'} -> {'restapi_sql': 'on'}" in text
-    assert "WARNING" not in bench.compare(off, off, same_server=True)
-    assert "WARNING" in bench.compare(
-        {"meta": {k: v for k, v in off["meta"].items() if k != "server_settings"}, "runs": []}, off
-    )
+# ------------------------------------------------ the timing of a forecast figure, zsh
 
 
 def test_the_span_flags_a_forecast_figure_that_belongs_to_an_hour_before_the_call() -> None:

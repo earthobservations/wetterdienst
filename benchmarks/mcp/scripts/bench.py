@@ -977,14 +977,6 @@ def compare_with_status(  # noqa: C901
     for key in ("models", "server", "server_version", "reference_version", "claude_version", "cases_file"):
         if meta_p.get(key) != meta_c.get(key):
             out.append(f"differs: {key}: {meta_p.get(key)!r} -> {meta_c.get(key)!r}")
-    settings_p, settings_c = meta_p.get("server_settings"), meta_c.get("server_settings")
-    if settings_p != settings_c:
-        out.append(
-            "WARNING: the two servers were not run with the same settings: server_settings "
-            f"{settings_p!r} -> {settings_c!r} (`restapi_sql` decides whether a model may filter with `sql_values`: "
-            "a side that refuses it spends steps on the refusal, so the sides are not alike; a file made before this "
-            "was recorded has none)"
-        )
     reasons = []
     for key, what in (
         ("logic", "the logic version of bench.py"),
@@ -2015,34 +2007,6 @@ def server_version(url: str, timeout: float = 15) -> str | None:
     return str(body.get("version")) if isinstance(body, dict) and body.get("version") else None
 
 
-def server_sql(url: str, timeout: float = 60) -> str:
-    """Say whether the server lets `sql` and `sql_values` through (`WD_RESTAPI_SQL`): `off`, `on` or `unknown`.
-
-    The REST API refuses a `sql` clause with a 403 before it fetches anything, so a server that has it off answers at
-    once; one that has it on runs the station query. The MCP tools are routes of that API: the answer holds for them.
-    """
-    parts = urllib.parse.urlsplit(url)
-    query = urllib.parse.urlencode(
-        {
-            "provider": "dwd",
-            "network": "mosmix",
-            "parameters": "hourly/small/temperature_air_2m",
-            "sql": "station_id = '10382'",
-        }
-    )
-    request = urllib.request.Request(  # noqa: S310
-        f"{parts.scheme}://{parts.netloc}/api/v1/stations?{query}", headers={"User-Agent": "wetterdienst-mcp-benchmark"}
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
-            return "on" if response.status == 200 else "unknown"
-    except urllib.error.HTTPError as error:
-        body = error.read(2000).decode("utf-8", "replace")
-        return "off" if error.code == 403 and "SQL" in body else "unknown"
-    except (OSError, ValueError):
-        return "unknown"
-
-
 def probe(url: str) -> dict[str, Any]:
     """Check that a server answers and offers tools; give its serverInfo, tool count and wetterdienst version."""
     info, tools = list_tools(url)
@@ -2495,7 +2459,6 @@ def init_results(
         "server": server,
         "server_version": probed["wetterdienst_version"],
         "server_info": probed["server_info"],
-        "server_settings": {"restapi_sql": server_sql(server)},
         "label": label,
         "reference": reference,
         "reference_version": reference_version,
@@ -2634,7 +2597,6 @@ def describe_meta(results: dict[str, Any]) -> dict[str, Any]:
         "reference",
         "reference_version",
         "claude_version",
-        "server_settings",
         "judge_model",
         "models",
         "repeats",
@@ -3521,7 +3483,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
         print(json.dumps({"case": case["id"], **run, **verdict, "run_meta": side}, indent=1, ensure_ascii=False))
     elif args.command == "probe":
         try:
-            print(json.dumps({**probe(args.url), "label": args.label, "restapi_sql": server_sql(args.url)}, indent=1))
+            print(json.dumps({**probe(args.url), "label": args.label}, indent=1))
         except (OSError, ValueError, RuntimeError) as error:
             sys.stderr.write(f"probe: {args.url} does not answer: {error}\n")
             return 3
