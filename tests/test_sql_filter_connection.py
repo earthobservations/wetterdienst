@@ -243,7 +243,10 @@ def host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 
 
 def _left_untouched(host: SimpleNamespace, *, also: tuple[str, ...] = ()) -> None:
-    """Nothing was written to the working directory or the home (DuckDB on Windows has another home: see the control)."""
+    """Nothing was written to the working or the home directory.
+
+    DuckDB on Windows has another home: see the control of the secrets.
+    """
     assert sorted(path.name for path in host.work.iterdir()) == sorted(["secret.csv", "secret.txt", *also])
     assert list(host.home.rglob("*")) == []
 
