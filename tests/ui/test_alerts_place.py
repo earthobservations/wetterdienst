@@ -156,8 +156,10 @@ def test_rest_a_name_of_only_whitespace_is_a_422_of_the_name(client: TestClient,
     response = client.get(f"/api/alerts?name={name}")
     assert response.status_code == 422
     body = response.json()
-    assert "name is only whitespace" in body["detail"]
-    assert body["detail"].startswith("name: ")
+    # the message names no field, as the other rules' do: `loc` does
+    assert (
+        body["detail"] == "name: Must not be only whitespace; give the name or warn cell id of an area, or leave it out"
+    )
     (error,) = body["errors"]
     assert error["loc"] == ["query", "name"]
     assert error["type"] == "blank_name"
@@ -181,7 +183,7 @@ def test_the_mcp_tool_refuses_a_name_of_only_whitespace() -> None:
     result = _client_sees("alerts", {"name": "  "})
     assert result.is_error
     text = " ".join(getattr(block, "text", "") for block in result.content)
-    assert "name is only whitespace" in text
+    assert "Must not be only whitespace" in text
 
 
 def test_the_mcp_tool_answers_an_empty_name_as_none(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -245,7 +247,7 @@ def test_cli_a_name_of_only_whitespace_is_a_usage_error_of_the_name(monkeypatch:
     result = CliRunner().invoke(cli, ["alerts", "--name", name])
     assert result.exit_code == 2
     assert "--name" in result.output
-    assert "name is only whitespace" in result.output
+    assert "Invalid value for --name: must not be only whitespace;" in result.output
     assert "--timestamp" not in result.output
     assert served == []
 

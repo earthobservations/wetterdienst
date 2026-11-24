@@ -33,8 +33,8 @@ is the whole snapshot, as it was.
 | `name` | with an area of that name, **DWD's German name** (`München`, not `Munich`), its words in any case and in either Unicode form of an umlaut, in every area that has them (`Kiel` is `Stadt Kiel`, not `Kielstau`; `Hamburg` is also `Gemeinde Wentorf bei Hamburg`, and `München` also `Kirchheim b. München`), or of that warn cell id: `101002000`, or its 8-digit municipality key `01002000`, which is the same for a commune (`801002000`) and its district where one cell carries it (a city that the community product splits into quarters, such as Augsburg, `09761000`, has a cell for each: ask for it by name or by point) |
 
 With both, a warning must be for the point and for the name. A `name` of only whitespace names no area and is refused (a
-`RequestError` in Python, a 422 of `name` in the REST API and the MCP tool, a usage error of `--name`); an empty one is none. The point test needs no more than the standard library, so
-it works without the `interpolation` extra.
+`RequestError` in Python, a 422 of `name` in the REST API, a tool error in MCP, a usage error of `--name`); an empty one
+is none. The point test needs no more than the standard library, so it works without the `interpolation` extra.
 
 Three things to know about what a place finds:
 

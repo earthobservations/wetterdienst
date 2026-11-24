@@ -18,10 +18,10 @@ Types of changes:
 
 ### Fixed
 
-- **Breaking**: an alerts `name` of only whitespace (`name="  "`) is refused, where it was read as no
-  name and answered every warning of Germany: a `RequestError` in Python (`names_match` too, which
-  matched every area), a 422 of `name` in the REST API and the MCP tool, a usage error of `--name`
-  on the command line. An empty `name` is still none; leave `name` out to ask for all (GH-4354)
+- **Breaking**: an alerts `name` of only whitespace (`name="  "`) is refused, where it answered every
+  warning (with a point, the name was ignored): a `RequestError` in Python, a 422 of `name` in the
+  REST API, a tool error in MCP, a usage error of `--name` on the command line. An empty `name` is
+  still none; leave `name` out to ask for all (GH-4354)
 - The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were
   184,612, so a client saved them to a file): each warning loses its `geometry` and area lists (a
   `name` keeps up to 25 matching areas), then the least severe warnings go, with an

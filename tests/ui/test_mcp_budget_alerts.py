@@ -238,53 +238,54 @@ def test_the_worst_warnings_are_kept_and_whole() -> None:
     assert response.headers["x-wetterdienst-warnings"] == "answer-truncated"
 
 
-@pytest.mark.usefixtures("many")
-def test_the_first_guess_of_the_cut_is_seeded_from_the_slimmed_answer(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The first probe is the budget's share of the slimmed answer, which the warnings are cut from (GH-4354).
+def _cut_with_the_seed_of(seed: str, monkeypatch: pytest.MonkeyPatch) -> tuple[dict, int]:
+    """Cut an `alerts` answer and give it with the renders it took: the cut as it is, or with the seed it had.
 
-    Seeded from the answer before slimming, whose polygons and areas are most of it, it began near 1 and took more
-    renders to reach the end; the answer is the same.
+    `seed` is `"slimmed"` (the code as it is) or `"unslimmed"`, the first guess of GH-4338: the share of the budget of
+    the size of the answer before the polygons and areas are left out, which is the first size `fit_alerts` measures.
     """
-    sizes: list[int] = []  # every size measured, in order
-    searches: list[tuple[int, int, int, int]] = []  # low, high, guess, and how many sizes were measured before it
-    rendered: list[int] = []  # the counts of warnings the search rendered, in order
-    size_in, largest = budget._size_in, budget._largest  # noqa: SLF001
+    renders = 0
+    sizes: list[int] = []
+    size_in, largest, render_alerts = budget._size_in, budget._largest, restapi.render_alerts  # noqa: SLF001
 
-    def spy_size(*args: Any, **kwargs: Any) -> int:  # noqa: ANN401
+    def measured(*args: Any, **kwargs: Any) -> int:  # noqa: ANN401
         sizes.append(size_in(*args, **kwargs))
         return sizes[-1]
 
-    def spy_largest(low: int, high: int, fits: Any, guess: int) -> int | None:  # noqa: ANN401
-        searches.append((low, high, guess, len(sizes)))
+    def seeded(low: int, high: int, fits: Any, guess: int) -> int | None:  # noqa: ANN401
+        if seed == "unslimmed":
+            guess = max(1, (high + 1) * budget.ANSWER_BUDGET // sizes[0])
+        return largest(low, high, fits, guess)
 
-        def counted(count: int) -> bool:
-            rendered.append(count)
-            return fits(count)
+    def counted(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        nonlocal renders
+        renders += 1
+        return render_alerts(*args, **kwargs)
 
-        return largest(low, high, counted, guess)
-
-    monkeypatch.setattr(budget, "_size_in", spy_size)
-    monkeypatch.setattr(budget, "_largest", spy_largest)
-
-    response = _tool_client().get("/api/alerts")
-
-    kept = len(response.json()["alerts"])
-    ((low, high, guess, measured),) = searches
-    total = high + 1
-    assert (low, total) == (1, 80)
-    # the size of the whole slimmed answer is the last one measured before the search began
-    slimmed_size = sizes[measured - 1]
-    assert slimmed_size > ANSWER_BUDGET
-    assert guess == max(1, total * ANSWER_BUDGET // slimmed_size)
-    # which is nearer to the end than the share of the unslimmed one is
-    unslimmed_size = _size_of_the_whole_answer()
-    assert abs(guess - kept) < abs(max(1, total * ANSWER_BUDGET // unslimmed_size) - kept)
-    assert rendered[0] == guess
+    monkeypatch.setattr(budget, "_size_in", measured)
+    monkeypatch.setattr(budget, "_largest", seeded)
+    monkeypatch.setattr(restapi, "render_alerts", counted)
+    answer = _tool_client().get("/api/alerts").json()
+    answer["metadata"].pop("retrieved_at")
+    return answer, renders - 1  # the first is the answer whole, which is not a cut
 
 
-def _size_of_the_whole_answer() -> int:
-    """Give the size a client would receive of the answer of every warning, polygons and areas in."""
-    return _compact(_rest_client().get("/api/alerts").text)
+@pytest.mark.usefixtures("many")
+@pytest.mark.parametrize("answer_budget", [ANSWER_BUDGET, 20_000])
+def test_the_first_guess_of_the_cut_takes_fewer_renders_for_the_same_answer(
+    monkeypatch: pytest.MonkeyPatch, answer_budget: int
+) -> None:
+    """Seeded from the slimmed answer, which the warnings are cut from, the search renders less than from the unslimmed.
+
+    The polygons and areas are most of the answer before it is slimmed, so its share of the budget began near 1
+    (GH-4354); the cut is the largest number of warnings that fit, whichever the first probe.
+    """
+    monkeypatch.setattr(budget, "ANSWER_BUDGET", answer_budget)
+    new, renders_now = _cut_with_the_seed_of("slimmed", monkeypatch)
+    old, renders_then = _cut_with_the_seed_of("unslimmed", monkeypatch)
+
+    assert new == old
+    assert renders_now < renders_then
 
 
 @pytest.mark.usefixtures("many")

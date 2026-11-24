@@ -67,8 +67,9 @@ def _words(text: str) -> re.Pattern[str]:
     return re.compile(rf"(?<!\w){words}(?!\w)", re.IGNORECASE)
 
 
-#: what a name of only whitespace is refused with, on every surface that takes a `name`
-_BLANK_NAME = "name is only whitespace: give the name or warn cell id of an area, or leave it out"
+#: what a name of only whitespace is refused with, without its subject: each surface names the `name` its own way (the
+#: `loc` of a 422, the option of a usage error, `name` in a `RequestError`)
+BLANK_NAME = "must not be only whitespace; give the name or warn cell id of an area, or leave it out"
 
 
 def check_name(name: str | None) -> str | None:
@@ -82,7 +83,8 @@ def check_name(name: str | None) -> str | None:
     if stripped := name.strip():
         return stripped
     if name:
-        raise RequestError(_BLANK_NAME)
+        msg = f"name {BLANK_NAME}"
+        raise RequestError(msg)
     return None
 
 
@@ -99,7 +101,8 @@ def names_match(area_names: list[str], warncell_ids: list[str], name: str) -> bo
     name = unicodedata.normalize("NFC", name.strip())
     if not name:
         # no word is a pattern that every area has, so a name of no word is no name to match
-        raise RequestError(_BLANK_NAME)
+        msg = "name must not be empty or only whitespace; give the name or warn cell id of an area"
+        raise RequestError(msg)
     if name.isdigit():
         return any(cell == name or (len(name) == 8 and cell.endswith(name)) for cell in warncell_ids)
     pattern = _words(name)

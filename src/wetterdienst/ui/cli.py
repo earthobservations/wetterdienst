@@ -2884,7 +2884,7 @@ def _check_alerts_place(latitude: float | None, longitude: float | None, name: s
 
     Before the timestamp's refusal below, which is the one `ValueError` the request's own construction is blamed for.
     """
-    from wetterdienst.provider.dwd.alerts.place import check_name, check_point
+    from wetterdienst.provider.dwd.alerts.place import BLANK_NAME, check_name, check_point
 
     if (latitude is None) != (longitude is None):
         msg = "--latitude and --longitude are given together"
@@ -2898,7 +2898,8 @@ def _check_alerts_place(latitude: float | None, longitude: float | None, name: s
     try:
         check_name(name)
     except ValueError as e:
-        raise click.BadParameter(str(e), param_hint="--name") from e
+        # the option is the subject, as `--latitude/--longitude` are above
+        raise click.BadParameter(BLANK_NAME, param_hint="--name") from e
 
 
 @cli.command("alerts", epilog=_examples(ALERTS_EXAMPLES))
