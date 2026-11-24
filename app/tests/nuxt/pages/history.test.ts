@@ -1,6 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useRouter } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import HistoryPage from '~/pages/history.vue'
@@ -60,6 +61,40 @@ describe('history Page', () => {
   afterEach(() => {
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
     endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  // the link follows the choices, and the browser's back button is not a step of each of them: the address is replaced (GH-4405)
+  it('writes the choices into the address with `replace`, and adds no entry to the browser history', async () => {
+    const { wrapper, vm } = await mountWithSelection(() => HISTORY)
+    const router = useRouter()
+    await vi.waitFor(() => expect(router.currentRoute.value.query.stations).toBe('00001'))
+    const replaced: unknown[] = []
+    const pushed: unknown[] = []
+    const { replace, push } = router
+    router.replace = (async (to: unknown) => {
+      replaced.push(to)
+      return replace.call(router, to as never)
+    }) as typeof router.replace
+    router.push = (async (to: unknown) => {
+      pushed.push(to)
+      return push.call(router, to as never)
+    }) as typeof router.push
+    const entries = window.history.length
+    try {
+      vm.selectedSections = ['parameter', 'name']
+      await wrapper.vm.$nextTick()
+      await vi.waitFor(() => expect(router.currentRoute.value.query.sections).toBe('parameter,name'))
+    }
+    finally {
+      router.replace = replace
+      router.push = push
+    }
+
+    const written = { provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', stations: '00001', sections: 'parameter,name' }
+    expect(replaced).toEqual([{ query: written }])
+    expect(pushed).toEqual([])
+    expect(router.currentRoute.value.query).toEqual(written)
+    expect(window.history.length).toBe(entries)
   })
 
   it('renders the page', async () => {

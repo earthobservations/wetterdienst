@@ -25,8 +25,9 @@ describe('the accessibility baseline', () => {
   const ownerNamed = (entry: Entry) => entry.issue !== null || OWNERS.some(owner => entry.reason?.includes(owner))
 
   it('names an owner in every reason that links no issue', () => {
-    for (const entry of baseline.entries)
-      expect(ownerNamed(entry), `${entry.rule}: ${entry.page} / ${entry.state}`).toBe(true)
+    // the entries that name none, so that a baseline with no entry at all (the best one) passes by asserting that none does
+    const unowned = baseline.entries.filter(entry => !ownerNamed(entry)).map(entry => `${entry.rule}: ${entry.page} / ${entry.state}`)
+    expect(unowned, 'entries that link no issue and name no owner in their reason').toEqual([])
   })
 
   it('tells an entry with no issue and no owner from one that has either', () => {

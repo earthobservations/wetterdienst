@@ -444,6 +444,43 @@ describe('stripes Page years', () => {
     expect(Object.keys(useSettings().settings.value.stripes).sort()).toEqual(['showDataAvailability', 'showSource', 'showTitle', 'showYears'])
   })
 
+  // the link follows a choice with one `replace`, and a navigation that fails -- one a guard redirects, or a newer one supersedes -- rejects it:
+  // the page catches that, as the meteogram's link does (GH-4405)
+  it('writes the link once for a choice, with `replace`, and leaves no unhandled rejection where that navigation fails', async () => {
+    const vm = await show('/stripes?kind=temperature')
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.station).toBe('1048'))
+    const router = useRouter()
+    const unhandled: unknown[] = []
+    const record = (reason: unknown) => unhandled.push(reason)
+    const replaced: unknown[] = []
+    const pushed: unknown[] = []
+    const { replace, push } = router
+    // swapped in by hand: a spy keeps a handler on the promise it returns, which would hide an unhandled rejection
+    router.replace = (async (to: unknown) => {
+      replaced.push(to)
+      throw new Error('navigation aborted')
+    }) as typeof router.replace
+    router.push = (async (to: unknown) => {
+      pushed.push(to)
+    }) as typeof router.push
+    process.on('unhandledRejection', record)
+    try {
+      vm.startYear = 2000
+      await nextTick()
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    finally {
+      process.off('unhandledRejection', record)
+      router.replace = replace
+      router.push = push
+    }
+
+    expect(replaced).toHaveLength(1)
+    expect(replaced[0]).toMatchObject({ query: { kind: 'temperature', station: '1048', start_year: '2000' } })
+    expect(pushed).toEqual([])
+    expect(unhandled).toEqual([])
+  })
+
   it('offers no checkbox for either line', async () => {
     await show('/stripes?kind=temperature')
     const settingsButton = [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Settings')!

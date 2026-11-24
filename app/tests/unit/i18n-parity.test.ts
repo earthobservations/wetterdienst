@@ -220,9 +220,8 @@ describe('glossary label parity', () => {
     }
   })
 
-  it.each(glossaryLocales)('is actually translated in %s', (locale) => {
-    if (locale === 'en')
-      return
+  // English is the catalog the others are held to, and cannot be a copy of itself
+  it.each(glossaryLocales.filter(locale => locale !== 'en'))('is actually translated in %s', (locale) => {
     // Not a per-label check: cognates are real (German "Wind", French "Observations"), so one label
     // matching english proves nothing. A whole catalog matching does -- that is a copied stub.
     // Compared key by key, and per record, so reordering a copy cannot slip through.

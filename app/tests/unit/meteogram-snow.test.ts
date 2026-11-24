@@ -396,26 +396,27 @@ describe('the snow panel drawn', () => {
     }
   })
 
-  it('writes the pressure ticks in the decimals of the unit: 101.5 kPa is not "102" (GH-4212)', () => {
-    // the pressure of the forecast, replaced by a flat run from `low` to `high` in `unit` (the axis is that ± 2 hPa)
-    const pressure = (unit: string, low: number, high: number) => {
-      const series = joined({ hours: 24 })
-      const x = series.get('pressure_air_sea_level')!.x
-      series.set('pressure_air_sea_level', { x, y: x.map((_, i) => i === 0 ? low : i === 1 ? high : (low + high) / 2) })
-      const { axes } = model({ series, units: { ...UNITS, pressure_air_sea_level: unit } })
-      return axes.pressure!
-    }
-    // the ticks as the chart draws them: the multiples of the step in the range, as written and as they are
-    const ticksOf = (axis: ReturnType<typeof pressure>) => {
-      const [min, max] = axis.range
-      const step = tickInterval(max - min, axis.splits)
-      const format = tickFormatter(axis)
-      const out: { value: number, label: string }[] = []
-      for (let k = Math.ceil(min / step - 1e-9); k * step < max + step * 1e-9; k++)
-        out.push({ value: k * step, label: format(k * step) })
-      return out
-    }
+  // the pressure of the forecast, replaced by a flat run from `low` to `high` in `unit` (the axis is that ± 2 hPa)
+  const forecastOfPressure = joined({ hours: 24 })
+  const pressure = (unit: string, low: number, high: number) => {
+    const series = new Map(forecastOfPressure)
+    const x = series.get('pressure_air_sea_level')!.x
+    series.set('pressure_air_sea_level', { x, y: x.map((_, i) => i === 0 ? low : i === 1 ? high : (low + high) / 2) })
+    const { axes } = model({ series, units: { ...UNITS, pressure_air_sea_level: unit } })
+    return axes.pressure!
+  }
+  // the ticks as the chart draws them: the multiples of the step in the range, as written and as they are
+  const ticksOf = (axis: ReturnType<typeof pressure>) => {
+    const [min, max] = axis.range
+    const step = tickInterval(max - min, axis.splits)
+    const format = tickFormatter(axis)
+    const out: { value: number, label: string }[] = []
+    for (let k = Math.ceil(min / step - 1e-9); k * step < max + step * 1e-9; k++)
+      out.push({ value: k * step, label: format(k * step) })
+    return out
+  }
 
+  it('writes the pressure ticks in the decimals of the unit: 101.5 kPa is not "102" (GH-4212)', () => {
     // the range of the issue: 100.9 to 101.9 (the data 101.1 to 101.7), whose middle tick is 101.5
     const issue = pressure('kPa', 101.1, 101.7)
     expect(issue.decimals).toBe(1)
@@ -436,21 +437,23 @@ describe('the snow panel drawn', () => {
       // (the library writes 1,011 for 1011)
       expect(ticksOf(axis).map(tick => tick.label.replaceAll(',', ''))).toEqual(ticksOf(axis).map(tick => String(tick.value)))
     }
+  })
 
-    // every range from a flat run to a spread of three kPa (30 hPa, 3000 Pa), at steps that are no round numbers: the ticks (and the
-    // labels the chart draws) are distinct, and each reads back as the value it stands for at the decimals shown
-    for (const [unit, scale] of [['kPa', 1], ['hPa', 10], ['Pa', 1000]] as const) {
-      for (let low = 99.07; low <= 103.01; low += 0.41) {
-        for (let spread = 0; spread <= 3; spread += 0.1875) {
-          const axis = pressure(unit, low * scale, (low + spread) * scale)
-          const ticks = ticksOf(axis)
-          expect(ticks.length).toBeGreaterThanOrEqual(1)
-          expect(new Set(ticks.map(tick => tick.label)).size).toBe(ticks.length)
-          const labels = tickLabelsOf(axis)
-          expect(new Set(labels).size).toBe(labels.length)
-          for (const tick of ticks)
-            expect(Math.abs(Number(tick.label.replaceAll(',', '')) - tick.value)).toBeLessThan(1e-9 * Math.max(1, Math.abs(tick.value)))
-        }
+  // every range from a flat run to a spread of three kPa (30 hPa, 3000 Pa), at steps that are no round numbers: the ticks (and the
+  // labels the chart draws) are distinct, and each reads back as the value it stands for at the decimals shown. A test for each
+  // unit: each is about 170 models of the chart, which is a third of a second, and a loaded machine ran the three of them as one
+  // test out of its 5 s
+  it.each([['kPa', 1], ['hPa', 10], ['Pa', 1000]] as const)('writes the pressure ticks of every range distinct, and as the values they stand for, in %s', (unit, scale) => {
+    for (let low = 99.07; low <= 103.01; low += 0.41) {
+      for (let spread = 0; spread <= 3; spread += 0.1875) {
+        const axis = pressure(unit, low * scale, (low + spread) * scale)
+        const ticks = ticksOf(axis)
+        expect(ticks.length).toBeGreaterThanOrEqual(1)
+        expect(new Set(ticks.map(tick => tick.label)).size).toBe(ticks.length)
+        const labels = tickLabelsOf(axis)
+        expect(new Set(labels).size).toBe(labels.length)
+        for (const tick of ticks)
+          expect(Math.abs(Number(tick.label.replaceAll(',', '')) - tick.value)).toBeLessThan(1e-9 * Math.max(1, Math.abs(tick.value)))
       }
     }
   })

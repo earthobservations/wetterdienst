@@ -34,6 +34,11 @@ describe('the forecast page\'s snow panel', () => {
   let requests: { kind: 'snow' | 'forecast', params: URLSearchParams }[]
   let snowAnswer: (params: URLSearchParams) => Promise<Response>
 
+  // what a test waits for is a state of the page, not a number of milliseconds: it is polled until it holds, and only the test's own
+  // time-out (15 s, `vitest.config.ts`) ends the wait, where `vi.waitFor`'s own second ends it on a loaded machine before the page is there
+  const until = <T>(check: () => T) => vi.waitFor(check, { timeout: 10_000 })
+  /** The snow request is answered, with none or with the snow (`null` is a request under way): the page can be read for what it shows of it */
+  const snowAnswered = () => until(() => expect((wrapper!.vm as any).snowValues).not.toBeNull())
   const toggles = () => wrapper!.findAll('button[data-panel]').map(button => button.attributes('data-panel'))
   const drawnIds = () => echarts.ssr.option().series.map((series: { id: string }) => series.id) as string[]
 
@@ -71,28 +76,29 @@ describe('the forecast page\'s snow panel', () => {
 
   async function pick(station: typeof ZUGSPITZPLATT) {
     wrapper ??= await mountSuspended(MeteogramPage, { attachTo: document.body })
+    const asked = requests.filter(request => request.kind === 'forecast').length
     ;(wrapper.vm as any).selectedStation = station
-    await vi.waitFor(() => expect(requests.some(request => request.kind === 'forecast')).toBe(true))
-    await flushPromises()
+    // the forecast of this station is asked for: one more than before, which a station picked after another needs
+    await until(() => expect(requests.filter(request => request.kind === 'forecast').length).toBeGreaterThan(asked))
   }
 
   it('shows the snow panel for a station that has a snow forecast, from a request of its own for the dataset snow', async () => {
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(toggles()).toContain('snow'))
+    await until(() => expect(toggles()).toContain('snow'))
     const snow = requests.find(request => request.kind === 'snow')!
     expect(snow.params.get('stations')).toBe('Z914')
     expect(snow.params.get('parameters')).toBe('hourly/snow/snow_depth_new_last_3h,hourly/snow/snow_depth,hourly/snow/probability_snow_depth_new_gt_10cm_last_24h')
     // the forecast's request is the one it was, and carries no snow
     expect(requests.find(request => request.kind === 'forecast')!.params.get('parameters')).not.toContain('snow')
-    await vi.waitFor(() => expect(drawnIds()).toEqual(expect.arrayContaining(['snowNew', 'snowDepth', 'snowChance'])))
+    await until(() => expect(drawnIds()).toEqual(expect.arrayContaining(['snowNew', 'snowDepth', 'snowChance'])))
     // the unit of the snow is the answer's
     expect(wrapper!.text()).toContain('Snow forecast from MOSMIX-SNOW, DWD.')
   })
 
   it('shows none for another station, which asks for no snow values', async () => {
     await pick(BERLIN)
-    await vi.waitFor(() => expect(stationRequests.snow).toBe(1))
-    await flushPromises()
+    await until(() => expect(stationRequests.snow).toBe(1))
+    await snowAnswered()
     expect(requests.filter(request => request.kind === 'snow')).toEqual([])
     expect(toggles()).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
     expect(wrapper!.text()).not.toContain('MOSMIX-SNOW')
@@ -102,11 +108,12 @@ describe('the forecast page\'s snow panel', () => {
 
   it('asks which stations have a snow forecast once, for as many stations as are shown', async () => {
     await pick(BERLIN)
-    await vi.waitFor(() => expect(stationRequests.snow).toBe(1))
+    await until(() => expect(stationRequests.snow).toBe(1))
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(toggles()).toContain('snow'))
+    await until(() => expect(toggles()).toContain('snow'))
     await pick(BERLIN)
-    await vi.waitFor(() => expect(toggles()).not.toContain('snow'))
+    await until(() => expect(toggles()).not.toContain('snow'))
+    await snowAnswered()
     expect(stationRequests.snow).toBe(1)
     // and the snow of the one that has it was asked for once
     expect(requests.filter(request => request.kind === 'snow')).toHaveLength(1)
@@ -115,14 +122,14 @@ describe('the forecast page\'s snow panel', () => {
   it('draws no panel and shows no error out of season, where the backend answers a 404 (ProductOutOfSeasonError)', async () => {
     snowAnswer = async () => json({ detail: 'No MOSMIX-SNOW run is listed within https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX-SNOW_S/all_stations/kml/: DWD publishes it from November to April only, so there is no snow forecast to read until the winter.' }, 404)
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(requests.some(request => request.kind === 'snow')).toBe(true))
-    await flushPromises()
+    await until(() => expect(requests.some(request => request.kind === 'snow')).toBe(true))
+    await snowAnswered()
     expect(toggles()).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
     expect((wrapper!.vm as any).error).toBeNull()
     expect(wrapper!.find('[role="alert"]').exists()).toBe(false)
     expect(wrapper!.text()).not.toContain('MOSMIX-SNOW')
     // the forecast is there
-    expect(drawnIds()).toContain('temp')
+    await until(() => expect(drawnIds()).toContain('temp'))
   })
 
   it.each([
@@ -135,12 +142,12 @@ describe('the forecast page\'s snow panel', () => {
   ])('does not break the forecast where the snow request is %s: the panel is absent and the page says nothing of it', async (_name, answer) => {
     snowAnswer = answer
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(requests.some(request => request.kind === 'snow')).toBe(true))
-    await flushPromises()
+    await until(() => expect(requests.some(request => request.kind === 'snow')).toBe(true))
+    await snowAnswered()
     expect(toggles()).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
     expect((wrapper!.vm as any).error).toBeNull()
     expect(wrapper!.find('[role="alert"]').exists()).toBe(false)
-    expect(drawnIds()).toContain('temp')
+    await until(() => expect(drawnIds()).toContain('temp'))
   })
 
   it('does not break the forecast where the list of the stations cannot be had, and asks for it again for the next station', async () => {
@@ -149,15 +156,15 @@ describe('the forecast page\'s snow panel', () => {
       return { detail: 'Upstream failed' }
     }
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(stationRequests.snow).toBe(1))
-    await flushPromises()
+    await until(() => expect(stationRequests.snow).toBe(1))
+    await snowAnswered()
     expect(requests.filter(request => request.kind === 'snow')).toEqual([])
     expect(toggles()).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
     expect((wrapper!.vm as any).error).toBeNull()
     snowStationsAnswer = () => ({ stations: [ZUGSPITZPLATT] })
     await pick(BERLIN)
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(toggles()).toContain('snow'))
+    await until(() => expect(toggles()).toContain('snow'))
     expect(stationRequests.snow).toBe(2)
   })
 
@@ -167,14 +174,14 @@ describe('the forecast page\'s snow panel', () => {
       release = () => resolve(json({ values: snowForecastValues({ hours: 23 }), ...metadata(SNOW_UNITS) }))
     })
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(drawnIds()).toContain('temp'))
+    await until(() => expect(drawnIds()).toContain('temp'))
     expect(toggles()).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
     expect(drawnIds()).not.toContain('snowNew')
     // the request is under way: the page says so (`null`), so a link to the snow panel is kept until it answers
     expect((wrapper!.vm as any).snowValues).toBeNull()
     release()
-    await vi.waitFor(() => expect(toggles()).toContain('snow'))
-    await vi.waitFor(() => expect(drawnIds()).toContain('snowNew'))
+    await until(() => expect(toggles()).toContain('snow'))
+    await until(() => expect(drawnIds()).toContain('snowNew'))
   })
 
   it('does not show the snow of a station that was left while its snow was on the way', async () => {
@@ -183,21 +190,24 @@ describe('the forecast page\'s snow panel', () => {
       release = () => resolve(json({ values: snowForecastValues({ hours: 23 }), ...metadata(SNOW_UNITS) }))
     })
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(requests.some(request => request.kind === 'snow')).toBe(true))
+    await until(() => expect(requests.some(request => request.kind === 'snow')).toBe(true))
     await pick(BERLIN)
     release()
+    // the old station's answer is dropped without being read, in the microtasks that follow its arrival: a macrotask lets them run
     await flushPromises()
+    await snowAnswered()
     expect(toggles()).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
     expect((wrapper!.vm as any).snowValues).toEqual([])
   })
 
   it('asks for the snow of the run that is chosen, as for the forecast\'s', async () => {
     await pick(ZUGSPITZPLATT)
-    await vi.waitFor(() => expect(requests.filter(request => request.kind === 'snow')).toHaveLength(1))
+    await until(() => expect(requests.filter(request => request.kind === 'snow')).toHaveLength(1))
     expect(requests.find(request => request.kind === 'snow')!.params.get('issue')).toBeNull()
     // a run chosen in the list of the runs
     ;(wrapper!.vm as any).selectedIssue = '2026-10-01T09:00:00'
-    await vi.waitFor(() => expect(requests.filter(request => request.kind === 'snow')).toHaveLength(2))
+    await until(() => expect(requests.filter(request => request.kind === 'snow')).toHaveLength(2))
+    await until(() => expect(requests.filter(request => request.kind === 'forecast')).toHaveLength(2))
     expect(requests.filter(request => request.kind === 'snow')[1]!.params.get('issue')).toBe('2026-10-01T09:00:00')
     expect(requests.filter(request => request.kind === 'forecast')[1]!.params.get('issue')).toBe('2026-10-01T09:00:00')
   })
