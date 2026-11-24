@@ -73,9 +73,14 @@ What the endpoints share about which stations a request names:
   is, whole and not fuzzily (case, accents and transliteration do not matter, nor does a hyphen against a space), and
   no table of other languages' names is behind it: `Hesse` is no `Hessen`. A region the network does not have is a 400
   of the kind `request-refused` that names it, the closest regions and the regions there are (twenty at most, and how
-  many more); a network whose stations have no region (the forecast networks of DWD, `noaa/ghcn`, ...) is a 400 that
-  says so. Neither is an empty result. Like the others it is one of the exclusive selections: giving two is a 422, and
-  `rank` and `distance` do not go with it. `interpolate`, `summarize` and `history` take no `region`.
+  many more, with how many stations have no region where some have none); a network whose stations have no region
+  (the forecast networks of DWD, `smhi/observation`, `imgw`, ...; the list is in
+  [the Python API](filter-by-region)) is a 400 that says so. Where the lookup skipped a directory of
+  DWD's server (`file-skipped`), a region that is not found is a 502 that names it, as a station of `interpolate`
+  is, and not the 400. Neither is an empty result. Like the others it is one of the exclusive selections: giving two
+  is a 422, and `rank` and `distance` do not go with it. A `values` request is counted against the limit of stations
+  as any other, and the refusal for a region tells it to name fewer regions or the stations by their ids.
+  `interpolate`, `summarize` and `history` take no `region`.
 - **A WMO number, a WIGOS identifier or an ICAO code** (`wmo_id=10381`, `wigos_id=0-20000-0-10381`,
   `icao_id=EDDH`, each a comma-separated list) selects every station that has one of them, which is more than one
   station where an id is on several, as the library's `filter_by_wmo_id`, `filter_by_wigos_id` and `filter_by_icao_id`
@@ -1188,7 +1193,7 @@ to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
 
 | `limit` | Setting | Default | What it bounds |
 | --- | --- | --- | --- |
-| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads, those with a record in the `timestamp` of the request where the list says when a station's record begins and ends (a station that closed before the window, or began after it, is not counted, whichever way the stations were selected: a box of 114 stations of which 30 have data on the day is 30); a station whose record bounds the list does not publish, and one whose end lags by the usual two days (62 for monthly, 732 for annual), counts. A `rank` counts as that many. For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
+| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many. For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
 | `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations` |
 | `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values` |
 
@@ -1198,13 +1203,7 @@ none. The default of 100 stations is the number `request.stations.ids` of the `m
 `GET /api/version` reports the values of the instance as `limits` (`max_stations`, `max_rows`, `max_stream_rows`,
 the `timeout` in seconds and `max_concurrent`), so a client can size its requests before one is refused.
 
-The stations are counted from the selection, which the server holds already, and only those whose record
-overlaps the `timestamp` of the request (GH-4418): the rule the stations listing and the name search apply to a window.
-A station is left out when the list says its record ends before the window, by more than the lag of an end (the end a
-list publishes is a day or so behind a station that is still reporting: two days, 62 for monthly, 732 for annual, or the
-`station_window_end_buffer` of the request) or begins after it; a bound the list does not publish says nothing, so the
-station counts. The count is an upper bound, never short of the stations with data. Without a `timestamp` every
-station counts. The rows of `values` are an
+The stations are counted from the selection, which the server holds already. The rows of `values` are an
 estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end
 of its record, within the `timestamp` of the request, times the parameters asked for (once for each timestamp in the
 wide `shape`). Where the provider reads per period (DWD does), `periods=recent` narrows it to what that release

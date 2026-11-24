@@ -22,6 +22,7 @@ from a region without stations in the window.
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
@@ -34,11 +35,17 @@ from wetterdienst.util.names import fold_name
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-#: how many of the regions there are a refusal names: a list of 164 municipalities (FMI) is no help in a sentence, and
-#: the closest ones come first in any case
+#: how many regions a refusal names, of those asked for that are unknown and of those there are: a list of 164
+#: municipalities (FMI) is no help in a sentence, and a request may ask for any number of regions. The error keeps
+#: them all
 MAX_REGIONS_NAMED = 20
+#: for how many of the unknown regions asked for the closest regions are looked up and offered
+MAX_HINTED = 5
 #: how long a region is written in a refusal; the source's own names are short, a name beyond this is cut
 _MAX_NAME_LENGTH = 60
+#: the Unicode categories of a character replaced in a message: control, format, surrogate, private-use and unassigned
+#: characters, and the line and paragraph separators
+_BREAKING = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
 #: the least `WRatio` of a region to be offered as the one meant
 _HINT_CUTOFF = 70.0
 #: how many close regions are offered
@@ -92,21 +99,42 @@ def search_regions(regions: str | Sequence[str]) -> list[str]:
 
 
 def _shown(name: str) -> str:
-    return name if len(name) <= _MAX_NAME_LENGTH else f"{name[: _MAX_NAME_LENGTH - 1]}…"
+    """Write a region in a message: control characters (a newline, an escape) replaced, a long text cut.
+
+    A region asked for is the caller's text, and one the list has is the source's: neither may break the line of a log
+    or a terminal, or fill the message.
+    """
+    clean = "".join("\ufffd" if unicodedata.category(char) in _BREAKING else char for char in name)
+    return clean if len(clean) <= _MAX_NAME_LENGTH else f"{clean[: _MAX_NAME_LENGTH - 1]}…"
 
 
-def _list_of(names: Sequence[str]) -> str:
-    shown = ", ".join(_shown(name) for name in names[:MAX_REGIONS_NAMED])
+def _list_of(names: Sequence[str], quote: str = "") -> str:
+    """Name at most `MAX_REGIONS_NAMED` of the regions, and how many more there are."""
+    shown = ", ".join(f"{quote}{_shown(name)}{quote}" for name in names[:MAX_REGIONS_NAMED])
     return shown if len(names) <= MAX_REGIONS_NAMED else f"{shown} and {len(names) - MAX_REGIONS_NAMED} more"
 
 
-def select_regions(known: Iterable[str | None], asked: Sequence[str], *, network: str) -> list[str]:
+def shown_in_log(regions: Sequence[str]) -> str:
+    """Write the regions asked for as a line of a log has them: the first few, each cut and cleaned."""
+    return _list_of(regions, quote="'")
+
+
+def select_regions(
+    known: Iterable[str | None],
+    asked: Sequence[str],
+    *,
+    network: str,
+    stations: int = 0,
+    without_region: int = 0,
+) -> list[str]:
     """Give the regions of the list that the regions asked for are, each as the list writes it.
 
     Args:
         known: the ``region`` of every station of the list, nulls and repeats included.
         asked: the regions asked for, as `search_regions` read them.
         network: the name of the network, for a refusal.
+        stations: how many stations the list has, for a refusal of a network whose stations only partly have a region.
+        without_region: how many of them have none, which no region selects.
 
     Raises:
         NoRegionsError: the list names no region at all.
@@ -134,24 +162,31 @@ def select_regions(known: Iterable[str | None], asked: Sequence[str], *, network
             unknown.append(region)
         matched.update(dict.fromkeys(found))
     if unknown:
-        raise _unknown(unknown, names, keys_of, network)
+        raise _unknown(unknown, names, keys_of, network, stations=stations, without_region=without_region)
     return list(matched)
 
 
 def _unknown(
-    unknown: Sequence[str], names: Sequence[str], keys_of: dict[str, tuple[str, str]], network: str
+    unknown: Sequence[str],
+    names: Sequence[str],
+    keys_of: dict[str, tuple[str, str]],
+    network: str,
+    *,
+    stations: int,
+    without_region: int,
 ) -> UnknownRegionError:
     """Build the refusal of regions the list does not have: which, the closest ones, and the regions there are."""
     plain = [keys_of[name][0] for name in names]
     hints: dict[str, list[str]] = {}
-    for region in unknown:
+    for region in unknown[:MAX_HINTED]:
         close = process.extract(
             region_keys(region)[0], plain, scorer=fuzz.WRatio, score_cutoff=_HINT_CUTOFF, limit=_MAX_HINTS
         )
         if close:
             hints[region] = [names[index] for _, _, index in close]
-    which = ", ".join(f"'{_shown(region)}'" for region in unknown)
-    head = f"{network} has no station in the region{'s' if len(unknown) > 1 else ''} {which}."
+    head = (
+        f"{network} has no station in the region{'s' if len(unknown) > 1 else ''} {_list_of(unknown, quote=chr(39))}."
+    )
     if hints:
         guessed = "; ".join(
             f"'{_shown(region)}': " + " or ".join(f"'{_shown(name)}'" for name in close)
@@ -159,4 +194,6 @@ def _unknown(
         )
         head += f" Closest: {guessed}."
     message = f"{head} The regions there are: {_list_of(names)}."
+    if without_region:
+        message += f" {without_region:,} of the {stations:,} stations have no region, and no region selects them."
     return UnknownRegionError(message, unknown=list(unknown), known=list(names), hints=hints)

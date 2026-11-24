@@ -355,12 +355,15 @@ The command line (`--wmo-id`, `--wigos-id`, `--icao-id`), the REST API and MCP (
 take them for `stations` and `values`, comma-separated, as one of the ways to select stations: not with `stations`,
 `name` or another of the selections.
 
+(filter-by-region)=
+
 #### filter by region
 
 `filter_by_region` selects every station that its provider lists under a region: the `region` column of the stations
 frame, which is what *the source* names (a state, province, county, canton or département), null where it names
 none. It answers a question that a name cannot, such as "the lowest temperature in Hamburg", which needs all of the
-stations of the city and not the five whose names hold "Hamburg".
+stations the source lists under Hamburg, and a name matches the stations whose names hold the word, a few at a time
+(the best five of a `stations` listing).
 
 ```python
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -374,11 +377,24 @@ The region is the source's, and so is the spelling. DWD's `Hamburg` is twelve st
 (`Hamburg-Fuhlsbüttel`, `Hamburg-Bergedorf`, `Hamburg-Neuwiedenthal`, `Hamburg (Deutsche Seewarte)`, ...) and three at
 sea in the North Sea that DWD files under Hamburg as well: `UFS Deutsche Bucht` (54.18 °N, 7.46 °E), `UFS TW Ems`
 (54.17 °N, 6.35 °E) and `Nordseeboje 2` (a buoy at 55.0 °N, 6.33 °E). The answer names every station with its position,
-so a caller that wants the city alone leaves the stations at sea out by their position or their name. What a region is called differs by provider: `dwd/observation`, `dwd/derived` and
-`dwd/phenology` write `Hamburg`, `dwd/road` the two letters `HH`, `eaufrance/hubeau` the département in capitals
-(`FINISTERE`), `eccc/observation` the province (`BC`), `meteoswiss/observation` the canton (`ZH`), `fmi/observation` the
-municipality (`Helsinki`). Many networks have none (the forecast networks of DWD, `noaa/ghcn`, `knmi/observation`,
-`chmi/observation`, ...); their `region` is null.
+so a caller that wants the city alone leaves the stations at sea out by their position or their name.
+
+What a region is called differs by provider, and so does how many stations have one (checked against the live lists):
+
+| What `region` holds | Networks |
+| --- | --- |
+| the German state written out (`Hamburg`, `Baden-Württemberg`) | `dwd/observation`, `dwd/derived`, `dwd/phenology` (16 states; the 1 minute precipitation of `dwd/observation` has two stations without one and four in `Tirol`) |
+| the two letters of the state | `dwd/road` (`HH`, `NW`) |
+| the state or states as DWD writes them | `dwd/pollen` (`Niedersachsen und Bremen`) |
+| the Austrian state, the Swiss canton, the Canadian province | `geosphere/observation` (`Niederösterreich`), `meteoswiss/observation` (`ZH`), `eccc/observation` (`BC`) |
+| the US state or Canadian province code | `noaa/ghcn`: 88,918 of the 132,894 stations of `daily` and 6,250 of the 38,870 of `hourly` have one (75 and 67 codes: `AK`, `TX`, `BC`); the others have none |
+| the département | `eaufrance/hubeau` in capitals without accents (`FINISTERE`, 2 of 1,713 stations without), `meteofrance/observation` as its number (`09`, `972`) |
+| the municipality | `fmi/observation` (`Helsinki`; 4 of 437 stations without) |
+| the county or province | `metno/frost` (`TRØNDELAG`), `metoffice/observation` (`cumbria`), `aemet/observation` (`ILLES BALEARS`): read from stubs of the lists, which need a key |
+| none, the column is null | `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `dwd/swsmos`, `dwd/uvi`, `dmi/observation`, `rmi/observation`, `smhi/observation`, `wsv/pegel`, `nws/observation`, `meteofrance/synop`, `chmi/observation`, `ipma/observation`, `lhmt/observation`, `ea/hydrology`, both `imgw` networks, `knmi/observation` (a stub; it needs a key) |
+
+A station without a region is in none: no region selects it, and the refusal of a region that is not there says how
+many stations of the network are in that case.
 
 A region is compared the way a station name is, whole and not fuzzily: without regard to case, accents or
 transliteration, and with a hyphen, an apostrophe or a space as the one break between words, so that `hamburg`,
@@ -387,7 +403,7 @@ read into it: `Hesse` is no `Hessen`, since no table of the names in other langu
 in the region its provider says, which is not always where it stands.
 
 ```python
-request.filter_by_region(["Hamburg", "Bremen"])  # several regions, the stations of each in the order of the catalogue
+request.filter_by_region(["Hamburg", "Bremen"])  # several regions, all their stations in catalogue order
 # raises UnknownRegionError, see below
 request.filter_by_region("Hesse")
 ```
@@ -395,12 +411,21 @@ request.filter_by_region("Hesse")
 Several regions are a list (a text is one region, a comma in it is no separator; the command line, the REST API and MCP
 read a comma-separated list). Like `filter_by_station_id` the filter selects among the whole list, whatever the window
 of the request. A region the list does not have is refused with an `UnknownRegionError` (a `RequestError`, so a
-`ValueError`, and a 400 over REST), which names it, the closest regions of the list and the regions there are, up to
-twenty and the number of the others: `DwdObservationRequest has no station in the region 'Hesse'. Closest: 'Hesse':
-'Hessen'. The regions there are: Baden-Württemberg, Bayern, ...`. The error keeps them as `unknown`, `known` and
+`ValueError`, and a 400 over REST), which names it, the closest regions of the list and the regions there are, at most
+twenty of each and the number of the others, with control characters replaced and long names cut:
+`DwdObservationRequest has no station in the region 'Hesse'. Closest: 'Hesse': 'Hessen'. The regions there are:
+Baden-Württemberg, Bayern, ...`. Where some stations of the network have no region, it ends with how many (`2 of the
+1,713 stations have no region, and no region selects them.`). The error keeps what it names as `unknown`, `known` and
 `hints`. A network whose stations have no region is refused with a `NoRegionsError` (an `UnknownRegionError`) that says
 so and advises `name`, a point or a bounding box. Neither is an empty result, which a caller could not tell from a
-region that has no station in the window.
+region that has no station in the window. A list of stations that is empty is the exception: it has no region to
+refuse, and the result is empty, as for every other selection.
+
+Where the lookup of the stations went without a listing of the provider (`dwd/observation` and `dwd/derived` skip a
+directory that came back empty or missing, with a `file-skipped` warning), a region that is found is answered, and a
+region that is not found, or a list that came back empty, may be one the skipped directory holds: it is a
+`RegionListingIncompleteError`, an `UpstreamError` (a 502 over REST, as for a station asked for by id) that names the
+directories, and not a refusal of the caller's.
 
 The command line (`--region`), the REST API and MCP (`region`) take it for `stations` and `values`, as one of the ways
 to select stations: not with `stations`, `name` or another of the selections. `interpolate` and `summarize` take a
@@ -457,7 +482,7 @@ station is left out when it started after the window, or ended before it by more
 station whose start or end is not published is kept. A request without a window matches among all of
 them. The window is applied to a `df_all` you pass as well, so that the result does not depend on how
 you got the stations. The other filters (`filter_by_station_id`, `filter_by_rank`, `filter_by_distance`,
-`filter_by_bbox`, `filter_by_sql`) select among the whole list, whatever the window.
+`filter_by_region`, `filter_by_bbox`, `filter_by_sql`) select among the whole list, whatever the window.
 
 The buffer is there because the end a source publishes lags a station that is still reporting (DWD's
 daily index ends yesterday, its annual one the year before last). By default a station is kept until its

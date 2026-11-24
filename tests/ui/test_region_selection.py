@@ -410,3 +410,126 @@ def test_region_is_not_offered_by_the_routes_that_take_no_selection_of_stations(
 
     assert response.status_code == 422, response.text
     assert any(error["loc"][-1] == "region" for error in response.json()["errors"])
+
+
+# what the refusal says of a network whose stations only partly have a region, and of the text it is given
+
+
+def test_the_refusal_of_a_network_with_stations_without_a_region_says_how_many() -> None:
+    """One of the eight stations has no region, which no region selects: 'N of M'."""
+    response = TestClient(app).get("/api/stations", params={**_SELECTION, "region": "Atlantis"})
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"].endswith("1 of the 8 stations have no region, and no region selects them.")
+
+
+def test_a_network_whose_stations_all_have_a_region_says_nothing_of_the_others(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No sentence about stations without a region where there are none."""
+    stations = _stations().filter(pl.col("region").is_not_null())
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: stations.lazy())
+
+    response = TestClient(app).get("/api/stations", params={**_SELECTION, "region": "Atlantis"})
+
+    assert "have no region" not in response.json()["detail"]
+
+
+def test_a_station_counts_as_having_a_region_if_one_of_its_rows_has_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station is a row for each dataset: it is without a region only if no row names one."""
+    rows = _stations()
+    two_datasets = pl.concat(
+        [
+            rows,
+            rows.filter(pl.col("station_id") == "00691").with_columns(
+                pl.lit("water_temperature").alias("dataset"), pl.lit(None, pl.String).alias("region")
+            ),
+        ]
+    )
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: two_datasets.lazy())
+
+    detail = TestClient(app).get("/api/stations", params={**_SELECTION, "region": "Atlantis"}).json()["detail"]
+
+    assert detail.endswith("1 of the 8 stations have no region, and no region selects them.")
+
+
+def test_a_region_the_source_writes_with_padding_is_found_without_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A source's text may carry blanks around a region: the stations are selected, whichever way it is asked."""
+    padded = _stations([" Hamburg ", "Hamburg ", " Hamburg", "Hamburg", "Bremen  ", "Baden-Württemberg", None, None])
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: padded.lazy())
+
+    assert _rest("stations", region="Hamburg") == ["00954", "01975", "01981", "13904"]
+    assert _rest("stations", region=" bremen ") == ["00691"]
+
+
+def test_the_regions_of_a_refusal_are_cleaned_and_capped_over_rest() -> None:
+    """A newline, an escape and thirty unknown regions do not come back as they were sent."""
+    asked = ["Evil\nHeader: x", "\x1b[31mred", *[f"Atlantis {number:02d}" for number in range(28)]]
+
+    response = TestClient(app).get("/api/stations", params={**_SELECTION, "region": ",".join(asked)})
+
+    assert response.status_code == 400, response.text
+    detail = response.json()["detail"]
+    assert "\n" not in detail
+    assert "\x1b" not in detail
+    assert "'Evil�Header: x'" in detail
+    assert "and 10 more." in detail
+    assert len(detail) < 1500
+
+
+def test_an_unknown_region_names_the_cause_in_a_cli_line_without_control_characters() -> None:
+    """The usage error of the command line is one line of text."""
+    result = CliRunner().invoke(
+        cli, ["stations", *(f"--{k}={v}" for k, v in {**_SELECTION, "region": "Evil\x1b[2Jregion"}.items())]
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "\x1b" not in result.output
+    assert "Evil�[2Jregion" in result.output
+
+
+def test_a_list_of_stations_that_is_empty_is_an_empty_answer_and_no_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """As every other selection answers a list without stations: nothing, not a 'lists no region'."""
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: _stations().clear().lazy())
+
+    response = TestClient(app).get("/api/stations", params={**_SELECTION, "region": "Hamburg"})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["stations"] == []
+    request = DwdObservationRequest(parameters=PARAMETER, settings=Settings())
+    assert request.filter_by_region("Hamburg").df.is_empty()
+
+
+def test_the_example_regions_of_the_documents_are_regions_of_the_network_they_are_given_for() -> None:
+    """The example of `region` in the OpenAPI document and the surfaces names regions DWD's list has."""
+    from wetterdienst.ui.core import SELECTION_EXAMPLES  # noqa: PLC0415
+
+    example = SELECTION_EXAMPLES["region"]
+
+    assert example == ["Hamburg", "Bremen"]
+    assert _rest("stations", region=",".join(example)) == ["00954", "01975", "01981", "13904", "00691"]
+
+
+# the limit of stations says what helps for a region
+
+
+def test_the_limit_of_stations_tells_a_region_to_name_fewer_regions_or_the_stations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Not `rank`, `distance` or a box, which no region takes; the other selections keep the text they had."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_STATIONS", "2")
+    window = {"timestamp": WINDOW}
+
+    by_region = TestClient(app).get("/api/values", params={**_SELECTION, "region": "Hamburg", **window})
+    by_all = TestClient(app).get("/api/values", params={**_SELECTION, "all": "true", **window})
+
+    assert by_region.status_code == by_all.status_code == 400
+    assert (by_region.json()["limit"], by_region.json()["requested"]) == ("stations", 4)
+    assert by_region.json()["detail"] == (
+        "This request reads 4 stations, more than the 2 this server allows for one request. A `region` selects every "
+        "station its provider lists under it: name fewer regions, or the stations by their ids (`stations`). "
+        "Request the rest in further calls."
+    )
+    assert by_all.json()["detail"] == (
+        "This request reads 8 stations, more than the 2 this server allows for one request. Name fewer stations, or "
+        "narrow the selection: a smaller `rank`, a smaller `distance` or bounding box. Request the rest in further "
+        "calls."
+    )

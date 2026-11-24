@@ -611,6 +611,7 @@ _STATUS_OF = {
     "StartDateEndDateError": 400,
     "StationLacksParametersError": 400,
     "StationListingIncompleteError": 502,
+    "RegionListingIncompleteError": 502,
     "StationNotFoundError": 404,
     "UnknownFormatError": 400,
     "UnknownRegionError": 400,

@@ -64,9 +64,7 @@ removes:
 - **The parameters.** `daily/kl` is every parameter of the dataset; `daily/climate_summary/temperature_air_mean_2m` is
   one. In the long shape each parameter adds its rows; in the wide shape a timestamp is one row whatever the number of
   its parameters, so the wide shape counts less.
-- **The stations.** A list of ids, a `region`, or a smaller `rank`, `distance` or bounding box, and a `timestamp`: only
-  the stations whose record overlaps the window count, so a box of 114 stations, 30 of them with data on the day, is
-  30. A `rank` counts as that many
+- **The stations.** A list of ids, or a smaller `rank`, `distance` or bounding box. A `rank` counts as that many
   stations, so `rank=250` of a `values` request is refused where the limit is 100, and `all=true` counts every station
   of the network.
 

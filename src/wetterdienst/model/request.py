@@ -27,12 +27,15 @@ from wetterdienst.exceptions import (
     MissingTimeIntervalError,
     NoParametersFoundError,
     NoPeriodsFoundError,
+    NoRegionsError,
     ProviderContractError,
+    RegionListingIncompleteError,
     RequestError,
     ReversedTimeIntervalError,
     StationLacksParametersError,
     StationListingIncompleteError,
     StationNotFoundError,
+    UnknownRegionError,
 )
 from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
@@ -54,7 +57,7 @@ from wetterdienst.model.metadata import (
     parse_parameters,
     requested_by_kind,
 )
-from wetterdienst.model.regions import search_regions, select_regions
+from wetterdienst.model.regions import search_regions, select_regions, shown_in_log
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
     StationsFilter,
@@ -111,18 +114,6 @@ DEFAULT_NAME_RANK_LISTING = 5
 # The `station_window_end_buffer` option replaces them with one number of days for every resolution
 _END_LAG_DEFAULT = dt.timedelta(days=2)
 _END_LAG = {Resolution.MONTHLY.value: dt.timedelta(days=62), Resolution.ANNUAL.value: dt.timedelta(days=732)}
-
-
-def end_lag(resolution: str, end_buffer_days: int | None = None) -> dt.timedelta:
-    """Give how long before a window a station's published end may fall for the station to be kept (`limit_to_window`).
-
-    `end_buffer_days` for every resolution where it is given, else the default of the resolution: two days, 62 for
-    monthly and 732 for annual. The end a catalogue publishes lags a station that is still reporting by about this
-    much, so a count of what a station may hold in a window extends the end by it.
-    """
-    if end_buffer_days is not None:
-        return dt.timedelta(days=end_buffer_days)
-    return _END_LAG.get(resolution, _END_LAG_DEFAULT)
 
 
 def limit_to_window(
@@ -1320,18 +1311,45 @@ class TimeseriesRequest:
                 regions there are.
             NoRegionsError: the network names no region for its stations (the column is null). An
                 `UnknownRegionError` as well.
+            RegionListingIncompleteError: no region was found, or the list is empty, and the lookup of the stations went
+                without a listing that may hold it (`dwd/observation`, `dwd/derived`), so it is not known to be unknown:
+                an `UpstreamError`, as for a station asked for by its id.
             ValueError: no region is named, or one is blank.
             TypeError: a region is not a text.
 
         """
         asked = search_regions(region)
         df = self._stations_to_select_among()
+        # the listings the lookup went without (`dwd/observation`, `dwd/derived`): any of them may hold a region
+        gaps = {directory: gap.reason for directory, gap in self._lookup_gaps().items()}
 
-        log.info(f"Filtering for region={asked}")
+        log.info(f"Filtering for region={shown_in_log(asked)}")
 
-        regions = select_regions(df.get_column("region").to_list(), asked, network=type(self).__name__)
+        if df.is_empty():
+            if gaps:
+                raise RegionListingIncompleteError([], gaps)
+            # as every filter answers a list without stations: no station, and nothing to refuse
+            return StationsResult(request=self, df=df, _df_all=df, _stations_filter=StationsFilter.BY_REGION)
 
-        df_found = df.filter(pl.col("region").str.strip_chars().is_in(regions))
+        stripped = pl.col("region").str.strip_chars()
+        has_region = df.group_by("station_id").agg((stripped.fill_null("") != "").any().alias("has"))
+        try:
+            regions = select_regions(
+                df.get_column("region").drop_nulls().unique().to_list(),
+                asked,
+                network=type(self).__name__,
+                stations=has_region.height,
+                without_region=has_region.height - int(has_region.get_column("has").sum()),
+            )
+        except NoRegionsError:
+            raise
+        except UnknownRegionError as e:
+            if gaps:
+                # not known to be unknown: a listing the lookup went without may have it, as for an id (GH-3834)
+                raise RegionListingIncompleteError(e.unknown, gaps) from e
+            raise
+
+        df_found = df.filter(stripped.is_in(regions))
 
         # the stations of a region are not named by the caller, as those of a bounding box are not: only the ones that
         # survive the window of the answer are told when a position is wrong

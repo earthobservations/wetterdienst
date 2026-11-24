@@ -9,7 +9,14 @@ import pickle
 import pytest
 
 from wetterdienst.exceptions import NoRegionsError, RequestError, UnknownRegionError
-from wetterdienst.model.regions import MAX_REGIONS_NAMED, region_keys, search_regions, select_regions
+from wetterdienst.model.regions import (
+    MAX_HINTED,
+    MAX_REGIONS_NAMED,
+    region_keys,
+    search_regions,
+    select_regions,
+    shown_in_log,
+)
 
 STATES = [
     "Baden-Württemberg",
@@ -232,3 +239,85 @@ def test_the_refusals_pickle_with_what_they_keep() -> None:
     none = pickle.loads(pickle.dumps(NoRegionsError("N lists no region")))  # noqa: S301
     assert type(none) is NoRegionsError
     assert none.known == []
+
+
+def test_at_most_three_close_regions_are_offered_the_closest_first() -> None:
+    """Five regions are close to the one asked for: three are offered, in the order of their closeness."""
+    known = ["Rovaniemi", "Rovaniemi 2", "Rovaniemi 3", "Rovaniemi 4", "Rovaniemi 5", "Helsinki"]
+
+    with pytest.raises(UnknownRegionError) as error:
+        select_regions(known, ["Rovanieme"], network="N")
+
+    hints = error.value.hints["Rovanieme"]
+    assert len(hints) == 3
+    assert hints[0] == "Rovaniemi"
+    assert "Helsinki" not in hints
+
+
+def test_the_unknown_regions_a_refusal_names_are_capped_and_the_error_keeps_them_all() -> None:
+    """A request may ask for any number of regions: 30 unknown ones are 20 and 'and 10 more' in the sentence."""
+    asked = [f"Atlantis {number:02d}" for number in range(30)]
+
+    with pytest.raises(UnknownRegionError) as error:
+        select_regions(STATES, asked, network="N")
+
+    message = str(error.value)
+    assert "regions 'Atlantis 00', 'Atlantis 01'" in message
+    assert f"'Atlantis {MAX_REGIONS_NAMED - 1:02d}' and {30 - MAX_REGIONS_NAMED} more." in message
+    assert f"Atlantis {MAX_REGIONS_NAMED:02d}" not in message.split("The regions there", maxsplit=1)[0]
+    assert error.value.unknown == asked
+    assert len(message) < 1500
+
+
+def test_the_closest_regions_are_looked_up_for_the_first_few_unknown_ones_only() -> None:
+    """Hints cost a search of the list for each region: five at most, so a long request is not a long search."""
+    asked = [f"Hesse {number}" for number in range(40)]
+
+    with pytest.raises(UnknownRegionError) as error:
+        select_regions(STATES, asked, network="N")
+
+    assert len(error.value.hints) <= MAX_HINTED
+    assert set(error.value.hints) <= set(asked[:MAX_HINTED])
+
+
+@pytest.mark.parametrize(
+    ("text", "shown"),
+    [
+        ("Evil\nHeader: x", "Evil\ufffdHeader: x"),
+        ("\x1b[31mred\x1b[0m", "\ufffd[31mred\ufffd[0m"),
+        ("tab\there", "tab\ufffdhere"),
+        ("a\u2028b", "a\ufffdb"),
+        ("x" * 100, "x" * 59 + "…"),
+    ],
+)
+def test_a_region_in_a_message_has_no_control_character_and_is_cut(text: str, shown: str) -> None:
+    """Asked for or listed by the source, a region may not break a line of a log or a terminal."""
+    with pytest.raises(UnknownRegionError) as error:
+        select_regions([text], [text + " atlantis"], network="N")
+
+    assert shown in str(error.value)
+    assert "\n" not in str(error.value)
+    assert "\x1b" not in str(error.value)
+    # the error keeps what was asked, whole, for a program
+    assert error.value.unknown == [text + " atlantis"]
+    assert error.value.known == [text]
+    assert "\n" not in shown_in_log([text])
+
+
+def test_the_regions_of_a_log_line_are_capped() -> None:
+    """The line of a log names the first few regions asked for."""
+    line = shown_in_log([f"R{number}" for number in range(100)])
+
+    assert line.endswith(f"and {100 - MAX_REGIONS_NAMED} more")
+    assert len(line) < 400
+
+
+def test_a_network_with_stations_that_have_no_region_says_how_many() -> None:
+    """The refusal of a region that is not there tells that some stations are in none: N of M."""
+    with pytest.raises(UnknownRegionError, match=r"3 of the 12 stations have no region, and no region selects them\.$"):
+        select_regions(STATES, ["Atlantis"], network="N", stations=12, without_region=3)
+    with pytest.raises(UnknownRegionError) as error:
+        select_regions(STATES, ["Atlantis"], network="N", stations=12, without_region=0)
+    assert "have no region" not in str(error.value)
+    with pytest.raises(UnknownRegionError, match=r"1,000 of the 132,894 stations have no region"):
+        select_regions(STATES, ["Atlantis"], network="N", stations=132_894, without_region=1000)
