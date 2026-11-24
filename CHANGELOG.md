@@ -21,9 +21,9 @@ Types of changes:
 - **Breaking**: the MCP tools no longer take the options that only the REST API needs: `pretty`
   (every tool but `auth`, `glossary` and `issues`) and the `width`, `height` and `scale` of an image
   (`stations`, `values`, `interpolate`, `summarize`), and `format` no longer offers `html`, `png`,
-  `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, `width`, `height` or `scale` is
-  answered as one without; a chart format is a tool error that names the formats the tool answers:
-  charts through the tools are gone.
+  `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, or a `null` size option, is
+  answered as one without; a size with a value and a `format` the tool does not offer are tool
+  errors that say what the tool answers: charts through the tools are gone.
   The input schemas shrink by 3,441 of 51,696 characters. REST, the command line and Python are
   unchanged: ask the REST API for a chart (GH-4318)
 

@@ -121,8 +121,8 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
 
     answers, schema = _every_format(tool, arguments)
 
-    # the point of the test: it holds the tool to everything it offers, not to a list kept here; the formats of a
-    # chart are REST's alone (GH-4318), so what a tool offers is data
+    # every format the tool offers is answered (`answers` is read from its schema), and these four are all it offers:
+    # the formats of a chart are REST's alone (GH-4318), so what a tool offers is data
     assert {"json", "geojson", "csv", "ndjson"} == set(answers)
     for fmt, result in answers.items():
         assert not result.is_error, (fmt, result.content)
@@ -170,17 +170,15 @@ def _argument_for(schema: dict[str, Any]) -> Any:  # noqa: ANN401
     return {"string": "x", "integer": 1, "number": 1.0, "boolean": True, "array": ["x"], "object": {}}[kind]
 
 
-#: the media type each text format is answered in, and whether its body is repeated in the structured content
+#: the media type each text format is answered in
 _TEXT_FORMATS = [
-    ("csv", "text/csv", True),
-    ("ndjson", "application/x-ndjson", True),
+    ("csv", "text/csv"),
+    ("ndjson", "application/x-ndjson"),
 ]
 
 
-@pytest.mark.parametrize(("fmt", "media_type", "repeated"), _TEXT_FORMATS)
-def test_the_body_of_data_reaches_a_client_that_reads_the_structured_content_alone(
-    fmt: str, media_type: str, *, repeated: bool
-) -> None:
+@pytest.mark.parametrize(("fmt", "media_type"), _TEXT_FORMATS)
+def test_the_body_of_data_reaches_a_client_that_reads_the_structured_content_alone(fmt: str, media_type: str) -> None:
     """Every tool that offers csv or ndjson has the body in the structured content, and in the content block (GH-4017).
 
     Claude Code hands the model the structured content of a result that has some, and not the content blocks, so a
@@ -219,10 +217,41 @@ def test_the_body_of_data_reaches_a_client_that_reads_the_structured_content_alo
         jsonschema.validate(result.structured_content, schema)
         told = result.structured_content["result"]
         assert "Licence: CC-BY-4.0." in told, tool
-        assert repeated
         assert told.endswith(f"\n\n{body}"), tool
         assert "and follows below" in told, tool
         assert "sent as" not in told, tool
+
+
+@pytest.mark.parametrize(
+    ("media_type", "body"),
+    [
+        ("text/html", "<html><body>a chart</body></html>"),
+        ("image/svg+xml", "<svg xmlns='http://www.w3.org/2000/svg'/>"),
+    ],
+)
+def test_a_text_that_is_markup_is_not_repeated_in_the_structured_content(media_type: str, body: str) -> None:
+    """A chart that is text (html, svg) has its sentence alone in the structured content, not its 100 KB of markup.
+
+    No tool answers one since GH-4318, so the REST app is stood in for by one that does, through `values`, whose output
+    schema is what the structured content has to fit: data (csv, ndjson) is repeated there, markup is not.
+    """
+    stand_in = FastAPI()
+    stand_in.openapi = restapi.app.openapi  # ty: ignore[invalid-assignment]
+
+    @stand_in.api_route("/{path:path}", methods=["GET"])
+    def answer(path: str) -> Response:  # noqa: ARG001
+        return Response(body, media_type=media_type)
+
+    ((result, schema),) = _calls(stand_in, [("values", {**_VALUES, "format": "csv"})])
+
+    assert not result.is_error, result.content
+    assert result.content[0].text == body
+    assert schema is not None
+    jsonschema.validate(result.structured_content, schema)
+    told = result.structured_content["result"]
+    assert body not in told
+    assert "sent as text content of this result" in told
+    assert "follows below" not in told
 
 
 def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.MonkeyPatch) -> None:

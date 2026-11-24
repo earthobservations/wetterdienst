@@ -4,9 +4,10 @@
 
 The size and scale of a chart image, `pretty` and the formats of a chart (html, png, jpg, webp, svg, pdf) are of no use
 to a model that reads JSON, and were in the schema of every session. The REST API, the command line and Python keep
-them. A call that still sends one is answered or refused as `ui.mcp._refuse_unknown_arguments` says: `pretty`, `width`,
-`height` and `scale` are let go (they change nothing of a data answer), and a chart format is refused where the call
-would otherwise be answered with an image.
+them. A call that still sends one is answered or refused as `ui.mcp._refuse_unknown_arguments` says: `pretty` at any
+value and `width`, `height` and `scale` as `null` (the default they had) are let go, by a tool whose route took them; a
+`width`, `height` or `scale` with a value, and a `format` the tool does not offer, are refused, with every other
+refusal of the call in the same error.
 
 Offline: the REST app is stood in for by one that answers every route with a csv and records the request it got, so
 that what is held is what the tool sends.
@@ -15,6 +16,7 @@ that what is held is what the tool sends.
 from __future__ import annotations
 
 import asyncio
+import functools
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -24,10 +26,17 @@ pytest.importorskip("fastmcp")
 from fastapi import FastAPI, Request, Response
 from fastmcp import Client
 
-from tests.ui.test_mcp_formats import _calls
+from tests.ui.test_mcp_formats import _argument_for, _calls
 from tests.ui.test_operations import _no_ambient_settings  # noqa: F401
 from wetterdienst.ui import restapi
-from wetterdienst.ui.mcp import _CHART_FORMATS, _CHART_TOOLS, _REST_ONLY_ARGUMENTS, _TOOL_NAMES, build_mcp_server
+from wetterdienst.ui.mcp import (
+    _CHART_FORMATS,
+    _CHART_TOOLS,
+    _REST_ONLY_ARGUMENTS,
+    _TOOL_NAMES,
+    _routes_of_tools,
+    build_mcp_server,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -38,6 +47,7 @@ pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
 DATA_FORMATS = {"json", "geojson", "csv", "ndjson"}
 
 
+@functools.cache
 def _tools() -> dict[str, Any]:
     async def listed() -> dict[str, Any]:
         async with Client(build_mcp_server(restapi.app)) as client:
@@ -70,6 +80,12 @@ def _stand_in() -> tuple[FastAPI, list[Mapping[str, str]]]:
     return app, seen
 
 
+def _required(tool: str) -> dict[str, Any]:
+    """Give the arguments a call of the tool needs, from its input schema."""
+    schema = _tools()[tool].input_schema
+    return {name: _argument_for(schema["properties"][name]) for name in schema.get("required", ())}
+
+
 #: the arguments a call of `values` needs, in csv, which the stand-in answers
 _VALUES_CALL = {
     "provider": "dwd",
@@ -95,6 +111,9 @@ def test_no_tool_takes_an_option_that_only_rest_needs() -> None:
             # the description does not offer what the tool no longer answers
             for word in ("chart", "png", "html", "svg", "pdf", "image"):
                 assert word not in properties["format"]["description"].lower(), (name, word)
+    # the two listings offer all four formats of data
+    for name in ("values", "stations"):
+        assert set(tools[name].input_schema["properties"]["format"]["enum"]) == DATA_FORMATS, name
 
 
 def test_the_tools_keep_every_other_option_of_their_route() -> None:
@@ -134,38 +153,209 @@ def test_the_tools_that_the_refusal_points_to_rest_for_are_those_whose_route_dra
     assert draws == _CHART_TOOLS
 
 
-def test_a_dropped_option_is_let_go_and_never_sent_to_the_route() -> None:
-    """A call with `pretty`, `width`, `height` and `scale` is answered as one without, and the route does not get them.
+# --- the options a call may still send -------------------------------------------------------------------------------
 
-    A client that fills in every option with its default sends `pretty=false`; refusing it would break a call that
-    works. For a data format they change nothing of the answer.
+#: the options of `_REST_ONLY_ARGUMENTS` each route has, as the tools were made before GH-4318 and as the REST API has
+#: them still. A route that later gets an option of one of these names does not have it dropped from its tool without
+#: a failing test: `test_the_names_are_dropped_where_the_table_says_and_mean_what_they_did` is it, until someone has
+#: read what the option means
+_OLD_OPTIONS_OF_TOOL: dict[str, set[str]] = {
+    "stations": {"pretty", "width", "height", "scale"},
+    "values": {"pretty", "width", "height", "scale"},
+    "interpolate": {"pretty", "width", "height", "scale"},
+    "summarize": {"pretty", "width", "height", "scale"},
+    "coverage": {"pretty"},
+    "providers": {"pretty"},
+    "station_ids": {"pretty"},
+    "history": {"pretty"},
+    "alerts": {"pretty"},
+    "storm_cells": {"pretty"},
+    "kostra": {"pretty"},
+    "auth": set(),
+    "glossary": set(),
+    "issues": set(),
+}
+
+#: what the REST API says each of them is
+_MEANING = {
+    "pretty": "Pretty-print JSON/GeoJSON output.",
+    "width": "Width of the rendered chart image in pixels.",
+    "height": "Height of the rendered chart image in pixels.",
+    "scale": "Scale factor of the rendered chart image.",
+}
+
+
+def test_the_names_are_dropped_where_the_table_says_and_mean_what_they_did() -> None:
+    """A name is dropped from the tools whose routes have it, and each means what the REST API says of it.
+
+    The set of names is only a list to look for: an option that a later route names `height` (the height of a mast,
+    say) is no image height, and must not be dropped from its tool and let go. It fails here instead.
+    """
+    assert set(_OLD_OPTIONS_OF_TOOL) == set(_TOOL_NAMES.values())
+    for name, expected in _OLD_OPTIONS_OF_TOOL.items():
+        route = _query_parameters(name)
+        assert set(route) & _REST_ONLY_ARGUMENTS == expected, name
+        for option in expected:
+            assert route[option]["description"] == _MEANING[option], (name, option)
+    routes = _routes_of_tools(restapi.app.openapi())
+    assert {name: set(route.rest_only) for name, route in routes.items()} == _OLD_OPTIONS_OF_TOOL
+    assert {name: route.path for name, route in routes.items()} == {
+        name: f"/api/v1/{name.replace('_', '-')}" for name in _TOOL_NAMES.values()
+    }
+
+
+def test_the_old_schemas_had_no_default_for_the_size_options_but_null() -> None:
+    """The three had no default: a client that fills in the old schema's defaults sends nothing, or `null`."""
+    for name in ("stations", "values", "interpolate", "summarize"):
+        route = _query_parameters(name)
+        for option in ("width", "height", "scale"):
+            schema = route[option]["schema"]
+            assert "default" not in schema, (name, option)
+            assert {"type": "null"} in schema["anyOf"], (name, option)
+        assert route["pretty"]["schema"]["default"] is False, name
+
+
+def test_an_option_that_means_nothing_is_let_go_and_never_sent_to_the_route() -> None:
+    """`pretty` at any value and the size options as `null` are answered as a call without, and are not sent.
+
+    A client that fills in every option with its default sends `pretty=false` and, for the three that had none,
+    `null`; refusing them would break a call that works. For a data format they change nothing of the answer.
     """
     app, seen = _stand_in()
-    options = {"pretty": True, "width": 800, "height": 600, "scale": 2.0}
+    nulls = {"width": None, "height": None, "scale": None}
+    calls = [
+        ("values", _VALUES_CALL),
+        ("values", {**_VALUES_CALL, "pretty": True, **nulls}),
+        ("values", {**_VALUES_CALL, "pretty": False}),
+        ("values", {**_VALUES_CALL, "pretty": "maybe"}),
+    ]
 
-    ((plain, _), (with_options, _)) = _calls(app, [("values", _VALUES_CALL), ("values", {**_VALUES_CALL, **options})])
+    answers = _calls(app, calls)
 
-    assert not plain.is_error, plain.content
-    assert not with_options.is_error, with_options.content
-    assert with_options.content[0].text == plain.content[0].text
-    assert len(seen) == 2
-    assert seen[0] == seen[1]
-    assert not _REST_ONLY_ARGUMENTS & set(seen[1])
-    assert seen[1]["format"] == "csv"
+    for result, _ in answers:
+        assert not result.is_error, result.content
+        assert result.content[0].text == answers[0][0].content[0].text
+    assert len(seen) == len(calls)
+    assert all(request == seen[0] for request in seen)
+    assert not _REST_ONLY_ARGUMENTS & set(seen[0])
+    assert seen[0]["format"] == "csv"
+
+
+def _matrix() -> list[tuple[str, str, bool]]:
+    """Give each tool with each of the four names, and whether the route of the tool had it."""
+    return [
+        (tool, option, option in _OLD_OPTIONS_OF_TOOL[tool])
+        for tool in _TOOL_NAMES.values()
+        for option in sorted(_REST_ONLY_ARGUMENTS)
+    ]
+
+
+def test_an_option_is_let_go_only_by_a_tool_whose_route_took_it() -> None:
+    """`pretty` is let go by the tools that took it and refused by `glossary`, `auth` and `issues`, as on main.
+
+    The option is given a value that means nothing (`pretty=true`, `null` for the others). A tool that lets it go
+    reaches the route without it; any other refuses it as an argument it does not take. So a set applied to every tool,
+    or to the tools that draw a chart only, fails here.
+    """
+    app, seen = _stand_in()
+    matrix = _matrix()
+    calls = [{**_required(tool), option: True if option == "pretty" else None} for tool, option, _ in matrix]
+
+    async def call() -> list[tuple[int, str]]:
+        """Give for each call how many requests the route had got by then, and what the tool refused with."""
+        outcomes = []
+        async with Client(build_mcp_server(app)) as client:
+            for (tool, _option, _took), arguments in zip(matrix, calls, strict=True):
+                refusal = ""
+                try:
+                    result = await client.call_tool(tool, arguments, raise_on_error=False)
+                    refusal = result.content[0].text if result.is_error else ""
+                except RuntimeError:
+                    # the stand-in's csv is no answer a tool of another format admits: the route was reached
+                    pass
+                outcomes.append((len(seen), refusal))
+        return outcomes
+
+    outcomes = asyncio.run(call())
+
+    before = 0
+    for (tool, option, took), (count, refusal) in zip(matrix, outcomes, strict=True):
+        if took:
+            assert count == before + 1, (tool, option, refusal)
+            assert option not in seen[before], (tool, option)
+        else:
+            assert count == before, (tool, option)
+            assert refusal.startswith(f"{option} is not an argument of {tool}, which takes "), (tool, option, refusal)
+        before = count
+
+
+_SIZE_MEANING = {"width": "width in pixels", "height": "height in pixels", "scale": "scale factor"}
+
+
+@pytest.mark.parametrize(
+    ("tool", "option", "value"),
+    [
+        ("values", "width", 800),
+        ("values", "scale", 2.0),
+        ("stations", "height", 600),
+        ("interpolate", "width", 1),
+        ("summarize", "scale", 0),
+        ("values", "height", ""),
+    ],
+)
+def test_a_size_option_with_a_value_is_refused_naming_the_route_that_takes_it(
+    tool: str,
+    option: str,
+    value: Any,  # noqa: ANN401
+) -> None:
+    """A value is no default: it may mean something else to the model, so the call fails and nothing is requested."""
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [(tool, {**_required(tool), option: value})])
+
+    assert result.is_error
+    assert result.content[0].text == (
+        f"{option} is not an argument of {tool}: it was the {_SIZE_MEANING[option]} of a chart image, "
+        f"and the tool answers data only. Charts are drawn by the REST API: /api/v1/{tool} takes {option}."
+    )
+    assert seen == []
+
+
+@pytest.mark.parametrize("tool", ["interpolate", "summarize"])
+def test_a_height_is_refused_naming_elevation_where_the_tool_takes_it(tool: str) -> None:
+    """A model that sends `height=800` to a point tool may mean the elevation: it is told so, not let go.
+
+    Let go, it was silently ignored: the answer was that of the elevation of the stations (2.47 °C against 6.15 °C
+    in a live check of `interpolate`).
+    """
+    app, seen = _stand_in()
+
+    ((point, _), (values, _)) = _calls(
+        app, [(tool, {**_required(tool), "height": 800}), ("values", {**_VALUES_CALL, "height": 800})]
+    )
+
+    assert point.is_error
+    assert point.content[0].text.endswith(" The height of the point above sea level is the argument elevation.")
+    assert "elevation" in _tools()[tool].input_schema["properties"]
+    assert values.is_error
+    assert "elevation" not in values.content[0].text
+    assert seen == []
+
+
+# --- the formats a tool does not offer -------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("fmt", _CHART_FORMATS)
 def test_a_chart_format_is_refused_where_it_would_have_been_answered_with_an_image(fmt: str) -> None:
-    """The error names the format, what the tool answers and that the REST API draws charts; nothing is requested."""
+    """The error names the format, what the tool answers and the REST route that draws charts; nothing is requested."""
     app, seen = _stand_in()
 
-    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, "format": fmt, "width": 100})])
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, "format": fmt})])
 
     assert result.is_error
-    text = result.content[0].text
-    assert text == (
+    assert result.content[0].text == (
         f"format={fmt} is not offered by the tool values, which answers json, geojson, csv or ndjson. "
-        f"Charts are drawn by the REST API: its route of values takes format={fmt}."
+        f"Charts are drawn by the REST API: /api/v1/values takes format={fmt}."
     )
     assert seen == []
 
@@ -181,14 +371,87 @@ def test_a_chart_format_of_a_tool_whose_route_never_drew_one_is_refused_without_
     assert seen == []
 
 
-def test_a_format_that_is_no_chart_is_left_to_the_route() -> None:
-    """A value that no route offers is the route's to refuse, as it was: the tool only refuses the charts."""
+@pytest.mark.parametrize(
+    ("tool", "fmt", "chart"),
+    [
+        ("values", "xml", None),
+        ("values", "PNG", "png"),
+        ("values", "jpeg", None),
+        ("values", " png", "png"),
+        ("values", "Svg ", "svg"),
+        ("values", "", None),
+        ("interpolate", "ndjson", None),
+        ("summarize", "ndjson", None),
+        ("stations", "PDF", "pdf"),
+    ],
+)
+def test_a_format_the_tool_does_not_offer_is_refused_by_the_tool_not_left_to_the_route(
+    tool: str, fmt: str, chart: str | None
+) -> None:
+    """Any `format` outside the list of the tool is its refusal, which lists what the tool answers.
+
+    The route's 422 lists html, png, jpg, webp, svg and pdf as valid, which they are not for a tool, and offers ndjson
+    to `interpolate`, which does not answer it. Only a chart format, compared without case and whitespace, is pointed
+    to the REST API.
+    """
+    app, seen = _stand_in()
+    offered = _tools()[tool].input_schema["properties"]["format"]["enum"]
+    answers = f"{', '.join(offered[:-1])} or {offered[-1]}"
+
+    ((result, _),) = _calls(app, [(tool, {**_required(tool), "format": fmt})])
+
+    assert result.is_error
+    expected = f"format={fmt} is not offered by the tool {tool}, which answers {answers}."
+    if chart is not None:
+        expected += f" Charts are drawn by the REST API: /api/v1/{tool} takes format={chart}."
+    assert result.content[0].text == expected
+    assert "422" not in result.content[0].text
+    assert seen == []
+
+
+@pytest.mark.parametrize(
+    ("given", "refused"),
+    [(["png"], ["png"]), (["json", "png"], ["png"]), (["csv", "xml", "svg"], ["xml", "svg"])],
+)
+def test_each_element_of_a_format_given_as_a_list_is_checked(given: list[str], refused: list[str]) -> None:
+    """A list reaches the route as one `format` for each element, so a chart in it would have been answered."""
     app, seen = _stand_in()
 
-    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, "format": "xml"})])
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, "format": given})])
 
-    assert not result.is_error  # the stand-in has no validation of its own
-    assert seen[0]["format"] == "xml"
+    assert result.is_error
+    text = result.content[0].text
+    for fmt in refused:
+        assert f"format={fmt} is not offered by the tool values" in text
+    assert text.count("is not offered") == len(refused)
+    assert seen == []
+
+
+def test_a_list_of_formats_the_tool_offers_is_left_to_the_route() -> None:
+    """Every element offered: the tool refuses nothing (what the route makes of a list is its own)."""
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, "format": ["csv"]})])
+
+    assert not result.is_error, result.content
+    assert seen[0]["format"] == "csv"
+
+
+def test_the_refusals_of_a_call_are_one_error() -> None:
+    """A format, a size, a renamed name and an unknown one are told together, not the first and then the next."""
+    app, seen = _stand_in()
+    arguments = {**_VALUES_CALL, "format": "png", "width": 100, "bogus": 1, "date": "2020"}
+
+    ((result, _),) = _calls(app, [("values", arguments)])
+
+    assert result.is_error
+    parts = result.content[0].text.split("; ")
+    assert parts[0].startswith("format=png is not offered by the tool values")
+    assert parts[1].startswith("width is not an argument of values: it was the width in pixels")
+    assert any(part.startswith("date ") for part in parts)
+    assert any(part.startswith("bogus is not an argument of values, which takes ") for part in parts)
+    assert len(parts) == 4
+    assert seen == []
 
 
 def test_an_argument_that_is_unknown_is_refused_with_the_dropped_ones_let_go() -> None:

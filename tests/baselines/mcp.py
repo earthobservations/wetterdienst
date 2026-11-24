@@ -35,9 +35,10 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
 _REST_ONLY = (
-    "the MCP tools took out the options that only the REST API needs (GH-4318): a call that sends `pretty`, "
-    "`width`, `height` or `scale` is let go as it was given and answered as one without, since they change nothing of "
-    "a data answer, and a chart format is refused with the formats the tool answers; the REST API keeps all of them"
+    "the MCP tools took out the options that only the REST API needs (GH-4318): a call that sends `pretty`, or "
+    "`width`, `height` or `scale` as `null`, is let go and answered as one without, since they change nothing of a "
+    "data answer, a size with a value and a format the tool does not offer are refused with what the tool answers; "
+    "the REST API keeps all of them"
 )
 _CHART_MEMBERS = '"html", "jpg", "pdf", "png", "svg", "webp"'
 _TOOLS_WITH_CHARTS = ("interpolate", "stations", "summarize", "values")

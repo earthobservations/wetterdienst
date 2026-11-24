@@ -39,6 +39,7 @@ import json
 import re
 import secrets
 from collections import deque
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
@@ -365,10 +366,20 @@ _EXCLUDE_PATTERNS = (
 )
 
 #: the query parameters of the REST routes that no tool takes (GH-4318): the size and scale of a chart image, which a
-#: model that reads JSON has no use for, and `pretty`, which is whitespace. A call that sends one is answered as if it
-#: had not: for a data format it changes nothing of the answer, and a chart format, the one thing that gave them a
-#: meaning, is refused (`_CHART_FORMATS`).
+#: model that reads JSON has no use for, and `pretty`, which is whitespace. A call that sends one is let go only
+#: where it means nothing (`pretty` at any value, the others as `null`, the default they had) and only by a tool whose
+#: route took it (`_Route.rest_only`); a `width`, `height` or `scale` with a value is refused, since it may mean
+#: something else to the model (`height` for `elevation`), and a chart format is refused too (`_CHART_FORMATS`). The
+#: set is only a list of names to look for: what a tool drops is what its route has of them, and
+#: `tests/ui/test_mcp_slim_schemas.py` holds the routes that have them, and what they mean, to a table.
 _REST_ONLY_ARGUMENTS = frozenset({"pretty", "width", "height", "scale"})
+
+#: what the three size options of a chart image are, to say what a refused one was
+_IMAGE_OPTIONS = {
+    "width": "the width in pixels",
+    "height": "the height in pixels",
+    "scale": "the scale factor",
+}
 
 #: the formats of a rendered chart, which only the REST API answers (GH-4318): a tool answers data
 _CHART_FORMATS = ("html", "png", "jpg", "webp", "svg", "pdf")
@@ -379,6 +390,34 @@ _CHART_TOOLS = frozenset({"stations", "values", "interpolate", "summarize"})
 
 #: the clause of a `format` description that offers a chart, which the tool no longer does
 _CHART_CLAUSE = re.compile(r" or a rendered chart \([^)]*\)")
+
+
+@dataclass(frozen=True)
+class _Route:
+    """The REST route a tool is made from: its path and the options of `_REST_ONLY_ARGUMENTS` it took (GH-4318)."""
+
+    path: str
+    rest_only: frozenset[str]
+
+
+def _routes_of_tools(spec: dict[str, Any]) -> dict[str, _Route]:
+    """Give the route of each tool, from the OpenAPI document of the REST API as it is, before the tools are slimmed.
+
+    What a tool lets go (`pretty`, a `width` that is `null`) is what its own route took, so that `glossary`, which
+    never took `pretty`, still refuses it, as it did.
+    """
+    routes = {}
+    for path, item in spec.get("paths", {}).items():
+        for operation in item.values():
+            if not isinstance(operation, dict) or (name := _TOOL_NAMES.get(operation.get("operationId"))) is None:
+                continue
+            taken = {
+                parameter["name"]
+                for parameter in operation.get("parameters", [])
+                if parameter.get("in") == "query" and parameter.get("name") in _REST_ONLY_ARGUMENTS
+            }
+            routes[name] = _Route(path, frozenset(taken))
+    return routes
 
 
 def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
@@ -506,7 +545,54 @@ def _annotate_tool(
     )
 
 
-def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
+def _refused_formats(tool: str, arguments: dict[str, Any], taken: dict[str, Any], path: str) -> list[str]:
+    """Name each `format` of a call that the tool does not offer (GH-4318).
+
+    A value that is no format of the tool is refused here, whatever its route would say: REST's 422 lists the formats
+    of the route, charts among them, which are wrong for a tool. A chart format (compared without case and
+    whitespace, as the route does not, which makes `PNG` one too) also says where charts are drawn, where the route of
+    the tool draws one. A list is checked by each of its elements, as the route reads each one.
+    """
+    from wetterdienst.ui.core import join_names  # noqa: PLC0415
+
+    offered = taken.get("format", {}).get("enum", [])
+    given = arguments.get("format")
+    if not offered or given is None:
+        return []
+    refused = []
+    for value in given if isinstance(given, list) else [given]:
+        if value is None or value in offered:
+            continue
+        text = f"format={value} is not offered by the tool {tool}, which answers {join_names(offered, last='or')}."
+        chart = value.strip().lower() if isinstance(value, str) else None
+        if chart in _CHART_FORMATS and tool in _CHART_TOOLS:
+            text += f" Charts are drawn by the REST API: {path} takes format={chart}."
+        refused.append(text)
+    return refused
+
+
+def _refused_image_options(tool: str, arguments: dict[str, Any], taken: dict[str, Any], route: _Route) -> list[str]:
+    """Name each size option of a chart image that a call gives a value (GH-4318).
+
+    They are let go as `null` (the default they had), since that means nothing. With a value they are refused: the
+    tool draws no image, and `height` is what a model may have meant for `elevation`, which the tool names where it
+    takes it.
+    """
+    refused = []
+    for name in sorted(route.rest_only & _IMAGE_OPTIONS.keys()):
+        if arguments.get(name) is None:
+            continue
+        text = (
+            f"{name} is not an argument of {tool}: it was {_IMAGE_OPTIONS[name]} of a chart image, "
+            f"and the tool answers data only. Charts are drawn by the REST API: {route.path} takes {name}."
+        )
+        if name == "height" and "elevation" in taken:
+            text += " The height of the point above sea level is the argument elevation."
+        refused.append(text)
+    return refused
+
+
+def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Route]) -> Middleware:
     """Build the middleware that refuses a tool argument the tool does not take.
 
     A tool's arguments are its REST endpoint's query parameters, and FastMCP sends the endpoint
@@ -518,11 +604,13 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     The input schemas are left without `additionalProperties: false`: a client checking a call
     against that would refuse a renamed argument itself, without the name it was renamed to.
 
-    The exception is of GH-4318, which took the options that only the REST API needs out of the schemas.
-    `pretty`, `width`, `height` and `scale` are no longer arguments of a tool, and a call that sends one (a client
-    that fills in every option with its default does) is not refused: it changes nothing of a data answer, and the
-    call that gave them a meaning is refused, a chart format (`html`, `png`, ...) with the formats the tool answers
-    and where the charts are, instead of the REST answer the call would otherwise get.
+    The exception is of GH-4318, which took the options that only the REST API needs out of the schemas. `pretty`,
+    `width`, `height` and `scale` are no longer arguments of a tool, and a tool whose route took them lets a call go
+    that sends them at a value that means nothing: `pretty` at any value, the others as `null` (a client that fills in
+    every option with its default does). A `width`, `height` or `scale` with a value is refused, since a model may
+    mean something else by it (`height` for `elevation`), and so is a `format` the tool does not offer (a chart,
+    `html`, `png`, ..., with where the charts are, instead of the REST answer the call would otherwise get). Every
+    refusal of a call is in one error.
     """
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
@@ -546,23 +634,15 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
             tool = await provider.get_tool(context.message.name) if arguments else None
             if tool is not None:
                 taken = tool.parameters.get("properties", {})
-                # a chart is REST's: say so, where the call would otherwise be answered with an image (GH-4318)
-                chart = arguments.get("format")
-                offered = taken.get("format", {}).get("enum", [])
-                if isinstance(chart, str) and chart in _CHART_FORMATS and offered and chart not in offered:
-                    refused = (
-                        f"format={chart} is not offered by the tool {tool.name}, which answers "
-                        f"{join_names(offered, last='or')}."
-                    )
-                    if tool.name in _CHART_TOOLS:
-                        refused += f" Charts are drawn by the REST API: its route of {tool.name} takes format={chart}."
-                    raise ToolError(refused)
-                # `pretty` and the image size are no arguments of a tool since GH-4318, and are let go as given
-                unknown = [name for name in arguments if name not in taken and name not in _REST_ONLY_ARGUMENTS]
+                route = routes.get(tool.name, _Route(f"/api/v1/{tool.name.replace('_', '-')}", frozenset()))
+                refused = _refused_formats(tool.name, arguments, taken, route.path)
+                # the options of GH-4318 are let go as given where the tool's route took them and they mean nothing
+                refused += _refused_image_options(tool.name, arguments, taken, route)
+                unknown = [name for name in arguments if name not in taken and name not in route.rest_only]
                 # a name the tool's route never had is no old name of one it has (`stations` never took `date`)
                 had = old_names_of_route(tool.name)
                 renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken and name in had]
-                refused = [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
+                refused += [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
                 # a removed name is told only by a tool whose route took it (`glossary` never took `sql`)
                 removed = [name for name in unknown if name in removed_parameter_names(tool.name)]
                 refused += [removed_parameter_message(name, tool.name) for name in removed]
@@ -911,8 +991,9 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         ),
         base_url=_ASGI_BASE_URL,
     )
+    spec = rest_app.openapi()
     provider = OpenAPIProvider(
-        openapi_spec=_slim_for_tools(rest_app.openapi()),
+        openapi_spec=_slim_for_tools(spec),
         client=client,
         route_maps=route_maps,
         mcp_names=_TOOL_NAMES,
@@ -937,7 +1018,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         providers=[provider],
         lifespan=lifespan,
         middleware=[
-            _refuse_unknown_arguments(provider),
+            _refuse_unknown_arguments(provider, _routes_of_tools(spec)),
             _require_a_network_for_coverage(),
             _send_objects_as_json(provider),
             _return_bodies_as_content(provider),
