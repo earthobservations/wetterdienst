@@ -46,7 +46,7 @@ function snowAnswers(answer: (url: URL) => unknown) {
 
 /** The texts of the SVG that are an axis title: turned to read upwards, in the colour they are drawn in */
 async function titles(page: Page) {
-  return svg(page).locator('text').evaluateAll(texts => texts.map((text) => {
+  return svg(page).locator('text').evaluateAll(texts => (texts as SVGTextElement[]).map((text) => {
     const matrix = text.getScreenCTM()
     const turned = !!matrix && Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) > 0.9
     const box = text.getBoundingClientRect()
@@ -337,7 +337,7 @@ test.describe('on a phone', () => {
       // the grids of the plots, where the layout puts them
       const grids = chartLayout(['wind', 'precip', 'snow', 'snowDepth', 'snowChance', 'cloud', 'temp', 'pressure'], true).rows
       // the tick labels of the plots: the numbers that are not turned
-      const numbers = await svg(page).locator('text').evaluateAll(texts => texts.map((text) => {
+      const numbers = await svg(page).locator('text').evaluateAll(texts => (texts as SVGTextElement[]).map((text) => {
         const matrix = text.getScreenCTM()
         const turned = !!matrix && Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) > 0.9
         const box = text.getBoundingClientRect()

@@ -1,0 +1,21 @@
+{
+  // The tests of the app (GH-4360), which none of Nuxt's four projects holds: the app's own project (strict, no
+  // unchecked index access, the auto-imports and aliases the code under test is written with), over the unit and
+  // e2e tests, their helpers and setup, and the Playwright config. Vitest, Playwright and Node bring their types
+  // by import; the code under test reaches the rest through the Nuxt files below. `tests/nuxt` is not here: the
+  // app project holds it, and vue-tsc checks it.
+  "extends": "../.nuxt/tsconfig.app.json",
+  "include": [
+    "../.nuxt/nuxt.d.ts",
+    // the unit tests import `nuxt.config.ts`, which calls the `defineNuxtConfig` that only the node project declares
+    "../.nuxt/nuxt.node.d.ts",
+    // the app's declaration files (`virtual:search-index/loaders`): the app project reaches them with `app/**/*`
+    "../app/**/*.d.ts",
+    "./vue-shim.d.ts",
+    "../tests/unit/**/*",
+    "../tests/e2e/**/*",
+    "../tests/helpers/**/*",
+    "../tests/setup/**/*",
+    "../playwright.config.ts"
+  ]
+}

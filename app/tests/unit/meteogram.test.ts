@@ -68,7 +68,7 @@ describe('interpSeries', () => {
   })
 
   it('handles null or undefined values gracefully', () => {
-    const datesWithNull = [dates[0], dates[1], dates[2]]
+    const datesWithNull = dates.slice(0, 3)
     const valuesWithNull = [10, undefined as any, 30]
     // When the middle value is undefined, we still interpolate using the surrounding values
     const target = new Date('2024-01-01T03:00:00Z').getTime()
