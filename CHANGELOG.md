@@ -35,6 +35,11 @@ Types of changes:
   in hand and nothing more is downloaded for it. A stream whose client has gone stops too. A request
   that ends in time is unchanged; Python and the command line have no timeout and are not affected
   (GH-4429)
+- The `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock). The SQL
+  filter's limits (no files, network or extensions, one condition) hold on 1.5.3, 1.5.6 and 2.0. On
+  2.0 a condition reads as DuckDB 2 does: `~` matches a part of the text, `1 // 0` is an error and
+  `x -> x + 1` is written `lambda x: x + 1`. A `duckdb://` file that DuckDB 2 creates cannot be
+  opened by DuckDB 1.5; write it with `duckdb<2` where such a reader remains (GH-4348)
 
 ## [0.198.0] - 2026-11-24
 

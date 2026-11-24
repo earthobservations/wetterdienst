@@ -1058,7 +1058,10 @@ so sort or slice the returned frame instead. The condition runs on a DuckDB conn
 own, which cannot read files, reach the network or load extensions, and holds nothing but the
 frame.
 
-The filter needs DuckDB 1.5.3 or newer and refuses an older one with `UnsupportedDependencyError`. It is for the
+The filter needs DuckDB 1.5.3 or newer and refuses an older one with `UnsupportedDependencyError`. A condition is
+read by the DuckDB that is installed, 1.5 or 2.0, which differ in a few places a condition meets: `~` and `!~` match
+a part of the text on 2.0 (`'abc' ~ 'b'` is true, on 1.5 false), `//` and `%` by zero are an error on 2.0
+(`TRY(ts // 0)` is null on both) and `x -> x + 1` must be written `lambda x: x + 1`, which 1.5 reads too. It is for the
 library and the command line (`--sql`, `--sql-values`): the REST API and the MCP tools take no SQL. These restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust to the filter. The time a condition runs, memory outside DuckDB's limit and the process itself are not protected.
 
 ```{code-cell}

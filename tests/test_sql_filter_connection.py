@@ -624,7 +624,11 @@ def test_the_connection_makes_no_connection(
 _PERMISSION = (duckdb.PermissionException,)
 
 
-_KNOWN_FROM_2_0 = (duckdb.ParserException, duckdb.PermissionException)
+#: `CREATE EXTENSION REPOSITORY`: a `ParserException` on 1.5, which has no such statement; on 2.0.0 the statement is
+#: refused by the locked configuration (`InvalidInputException`, `allow_extension_repositories`), and on 2.0.1 by the
+#: file system check (`PermissionException`). Refused on every release, and what the connection holds afterwards is
+#: asserted below
+_KNOWN_FROM_2_0 = (duckdb.ParserException, duckdb.PermissionException, duckdb.InvalidInputException)
 
 
 REFUSED_STATEMENTS = [

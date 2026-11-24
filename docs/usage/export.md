@@ -121,6 +121,11 @@ wetterdienst values --provider=dwd --network=observation \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
+A database file that DuckDB 2.0 creates, which is what `duckdb://` writes when the file is new and DuckDB 2 is
+installed, cannot be opened by DuckDB 1.5 or older (`IOException`: the file has a newer version number). A file that
+DuckDB 1.x wrote stays readable by it when a later run appends with DuckDB 2.0. Where a reader still runs DuckDB
+1.5, install `duckdb<2` for the writer too, or write Parquet.
+
 ## Licence, credit and date in a file
 
 An answer of the REST API says in its `metadata` block where the data comes from, under which licence it may be used,

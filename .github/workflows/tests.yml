@@ -101,7 +101,7 @@ jobs:
     timeout-minutes: ${{ startsWith(matrix.os, 'macos-') && 120 || 60 }}
 
     strategy:
-      # h5py, duckdb, numcodecs and pyyaml have no 3.15 wheel and are built from source.
+      # h5py, numcodecs and pyyaml have no 3.15 wheel and are built from source (duckdb 2 has one, an abi3 wheel).
       # The windows-latest leg stays on 3.14: h5py is in the dev group that `uv sync` installs, has no cp315
       # wheel, and windows-latest has no HDF5 to build it against. Move it to 3.15 when h5py ships a cp315
       # Windows wheel (the macOS legs install HDF5 with brew).
