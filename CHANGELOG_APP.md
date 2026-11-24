@@ -29,10 +29,10 @@ Types of changes:
   a body in one route only, `/mcp`, which caps what it reads; the `/api` proxy takes no body. A GET
   query is no longer filtered either: one with `<` (`sql_values=value < 5`) was refused with a 400
   and now reaches the backend. The page escapes what it shows and the CSP stays (GH-4364).
-- `[Dependencies]` Packages with advisories are at their fixed releases: `@nuxt/ui` 4.12.2,
+- `[Dependencies]` Packages with advisories are updated to fixed releases: `@nuxt/ui` 4.12.2,
   `vue-i18n` 11.4.23, `xss` 1.0.17, and `swagger-ui-dist` 5.35.1, so `/docs` runs DOMPurify 3.4.17
   instead of 3.4.16, besides the build and test tooling (`undici`, `ws`, `brace-expansion`,
-  `my-bad`, `cac`, `powershell-utils`). No page changes (GH-4382).
+  `my-bad`, `cac`, `powershell-utils`). `node-forge` 1.4.4 follows. No page changes (GH-4382).
 
 ## [0.59.0] - 2026-11-23
 
