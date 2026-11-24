@@ -16,6 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `region` selects the stations their provider lists under a region (`stations` and `values`; the
+  command line's `--region`, the REST API's and MCP's `region`; Python's `filter_by_region`): one
+  region or several, comma-separated, compared as names are (case, accents, `ue` for `ü`, a hyphen
+  or a space), whole and not fuzzily. The region is the source's, so DWD's `Hamburg` also holds
+  three stations at sea, not only the nine on land. An unknown region is refused with the closest
+  ones and the regions there are (`UnknownRegionError`, a 400), a network whose stations have none
+  with that reason (`NoRegionsError`); it is one of the exclusive selections, and the `metadata`
+  block reports `by_region` (GH-4418)
+
+### Changed
+
+- The `stations` limit of the REST API and the MCP tools counts only the stations whose record
+  overlaps the window of the request, whichever way they are selected (a box, a region, ids, all),
+  as the stations listing already holds them: a box of 114 stations, 30 of them with data in a day,
+  is 30, not refused. A station whose start or end the list does not publish, or whose end lags
+  by the usual two days (62 monthly, 732 annual), is counted; the estimate of the rows allows for
+  the same lag (GH-4418)
+
 ## [0.198.0] - 2026-11-24
 
 ### Changed

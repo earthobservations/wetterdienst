@@ -829,8 +829,8 @@ def test_values_dwd_no_station(client: TestClient) -> None:
             "type": "missing_one_of",
             "loc": ["query"],
             "msg": (
-                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) "
-                "or (left, bottom, right and top) is required"
+                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, "
+                "(latitude and longitude) or (left, bottom, right and top) is required"
             ),
             "input": None,
             "ctx": {
@@ -841,6 +841,7 @@ def test_values_dwd_no_station(client: TestClient) -> None:
                     ["wigos_id"],
                     ["icao_id"],
                     ["name"],
+                    ["region"],
                     ["latitude", "longitude"],
                     ["left", "bottom", "right", "top"],
                 ]
@@ -2745,7 +2746,7 @@ def _selection(**attributes: object) -> SimpleNamespace:
         _stations_filter=StationsFilter.BY_STATION_ID,
         _rank=None,
         parameters=[],
-        options=SimpleNamespace(tidy=True),
+        options=SimpleNamespace(tidy=True, station_window_end_buffer=None),
         start=None,
         end=None,
         **attributes,
@@ -3049,12 +3050,13 @@ _STATION_SELECTIONS = [
     ["wigos_id"],
     ["icao_id"],
     ["name"],
+    ["region"],
     ["latitude", "longitude"],
     ["left", "bottom", "right", "top"],
 ]
 _GIVE_ONE_STATION_SELECTION = (
-    "give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) "
-    "or (left, bottom, right and top)"
+    "give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, "
+    "(latitude and longitude) or (left, bottom, right and top)"
 )
 
 
@@ -3741,6 +3743,8 @@ class _HistoryFails:
         self.step, self.fail = step, fail
         # what the limits of the API read of the stations selected
         self.df, self._stations_filter, self._rank = pl.DataFrame({"station_id": ["01048"]}), None, None
+        self.start = self.end = None
+        self.options = SimpleNamespace(station_window_end_buffer=None)
 
     def history(self) -> SimpleNamespace:
         if self.step == "history":

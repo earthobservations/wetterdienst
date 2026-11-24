@@ -93,6 +93,7 @@ _ONE_OF_SELECTIONS = {
         ["wigos_id"],
         ["icao_id"],
         ["name"],
+        ["region"],
         ["latitude", "longitude"],
         ["left", "bottom", "right", "top"],
     ]
@@ -163,15 +164,15 @@ def test_station_selection_refused(
         (
             {},
             (
-                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) "
-                "or (left, bottom, right and top) is required"
+                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, "
+                "(latitude and longitude) or (left, bottom, right and top) is required"
             ),
         ),
         (
             {"stations": "01048", "name": "Hamburg"},
             (
                 "Cannot be combined with name, give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, "
-                "(latitude and longitude) or (left, bottom, right and top)"
+                "region, (latitude and longitude) or (left, bottom, right and top)"
             ),
         ),
         ({"latitude": 51.0, "rank": 5}, "Field required with latitude"),
@@ -612,6 +613,8 @@ _STATUS_OF = {
     "StationListingIncompleteError": 502,
     "StationNotFoundError": 404,
     "UnknownFormatError": 400,
+    "UnknownRegionError": 400,
+    "NoRegionsError": 400,
     "UpstreamError": 502,
     "WetterdienstError": 500,
 }

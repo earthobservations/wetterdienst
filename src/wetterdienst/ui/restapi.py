@@ -2058,7 +2058,8 @@ def stations(
 
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
     parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
-    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `stations` ids,
+    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `region` for every station
+    the source lists under a state or province (region="Hamburg", offshore stations included), `stations` ids,
     lat/lon with `rank` or `distance`, a bounding box, or
     all=true for the full list. `name` gives the best five matches unless `rank` says otherwise.
     Returns station metadata including `station_id`, which you pass to `values`.

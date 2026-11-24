@@ -54,6 +54,7 @@ from wetterdienst.model.metadata import (
     parse_parameters,
     requested_by_kind,
 )
+from wetterdienst.model.regions import search_regions, select_regions
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
     StationsFilter,
@@ -110,6 +111,18 @@ DEFAULT_NAME_RANK_LISTING = 5
 # The `station_window_end_buffer` option replaces them with one number of days for every resolution
 _END_LAG_DEFAULT = dt.timedelta(days=2)
 _END_LAG = {Resolution.MONTHLY.value: dt.timedelta(days=62), Resolution.ANNUAL.value: dt.timedelta(days=732)}
+
+
+def end_lag(resolution: str, end_buffer_days: int | None = None) -> dt.timedelta:
+    """Give how long before a window a station's published end may fall for the station to be kept (`limit_to_window`).
+
+    `end_buffer_days` for every resolution where it is given, else the default of the resolution: two days, 62 for
+    monthly and 732 for annual. The end a catalogue publishes lags a station that is still reporting by about this
+    much, so a count of what a station may hold in a window extends the end by it.
+    """
+    if end_buffer_days is not None:
+        return dt.timedelta(days=end_buffer_days)
+    return _END_LAG.get(resolution, _END_LAG_DEFAULT)
 
 
 def limit_to_window(
@@ -1277,6 +1290,58 @@ class TimeseriesRequest:
             df=df_found,
             _df_all=df,
             _stations_filter=selection,
+        )
+
+    def filter_by_region(self, region: str | Sequence[str]) -> StationsResult:
+        """Filter stations by the ``region`` their provider lists them under (GH-4418).
+
+        The region is the source's, not a place: DWD's ``Hamburg`` is the nine stations of the city and also a
+        lightship, a platform and a buoy in the North Sea, each with the position the answer holds. Every station of
+        the region comes back, with a row for each requested dataset, in the order of the catalogue. The list says
+        what a region is called (the ``region`` column of `all`): ``Hamburg`` on ``dwd/observation``, ``HH`` on
+        ``dwd/road``.
+
+        A region is compared as a name is, whole: without regard to case, accents or transliteration, and with a
+        hyphen or a space counting as one (``hamburg``, ``baden wuerttemberg`` and ``COTES D'ARMOR`` are regions). Not
+        fuzzily, and no table of other languages' names is behind it: ``Hesse`` is no ``Hessen``.
+
+        As `filter_by_station_id` it selects among the whole list, whatever the window of the request, so that a
+        region with no station in the window is an empty result, not an unknown region.
+
+        Args:
+            region: One region or several, as the list writes them (a text is one region, a comma in it is no
+                separator).
+
+        Returns:
+            StationsResult: The stations of the regions, in catalogue order.
+
+        Raises:
+            UnknownRegionError: a region is none of the list's. It names them, the closest regions of the list and the
+                regions there are.
+            NoRegionsError: the network names no region for its stations (the column is null). An
+                `UnknownRegionError` as well.
+            ValueError: no region is named, or one is blank.
+            TypeError: a region is not a text.
+
+        """
+        asked = search_regions(region)
+        df = self._stations_to_select_among()
+
+        log.info(f"Filtering for region={asked}")
+
+        regions = select_regions(df.get_column("region").to_list(), asked, network=type(self).__name__)
+
+        df_found = df.filter(pl.col("region").str.strip_chars().is_in(regions))
+
+        # the stations of a region are not named by the caller, as those of a bounding box are not: only the ones that
+        # survive the window of the answer are told when a position is wrong
+        self._warn_unplaced(df_found, named=False)
+
+        return StationsResult(
+            request=self,
+            df=df_found,
+            _df_all=df,
+            _stations_filter=StationsFilter.BY_REGION,
         )
 
     def filter_by_name(

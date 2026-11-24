@@ -96,6 +96,10 @@ The usual reasons:
   with no description), so a station that only it lists is not found: the station may well exist. Try again later. A
   404 for the same station means every directory was listed and none has it, or the directory that was skipped lists
   files and names the stations of its files, and this is not one.
+- **A region is unknown.** `region` is the source's own, spelling included, and is compared whole, not fuzzily:
+  `Hesse` is no `Hessen`, and `dwd/road` writes `HH`, not `Hamburg`. The 400 names the closest regions and the ones the
+  network has; a network whose stations have no region says so, and is selected by `name`, a point or a box. A region
+  holds what the source files under it, which for DWD's `Hamburg` includes three stations at sea.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source

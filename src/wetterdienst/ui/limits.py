@@ -8,19 +8,21 @@ names the limit and says how to narrow the request. The limits are the `WD_RESTA
 one off. They hold for the REST API and the MCP tools, which are its routes; the library and the CLI have none.
 
 - **stations**: how many stations one `values` or `history` request may read. Counted from the selection, which
-  is a lookup in the station list the server already holds: a `rank` counts as that many. For `interpolate` and
+  is a lookup in the station list the server already holds, and only the stations with a record in the window of the
+  request (`stations_with_a_record_in_the_window`, the rule of `limit_to_window`; a bound the list does not publish
+  keeps a station, GH-4418): a `rank` counts as that many. For `interpolate` and
   `summarize`, how many stations with a record in the window lie within the widest radius of the request, which
   is the same lookup.
 - **rows**: how many rows an answer sent as one body (JSON, GeoJSON, a chart) may have, and, for a streamed answer
   (NDJSON, CSV), a higher number. There is no row to count before the download, so the rows are *estimated*, as an
-  upper bound: for each station, the readings its resolution can hold between the start of its record and the end
-  of it, within the window of the request, times the parameters asked for. The periods the request reads narrow it
-  as well: `periods=recent` of a provider that reads per period holds what that release reaches back
-  (`_assumed_start`, with the span the request gives for the dataset), not the whole record of the station
-  (GH-3249), and `periods=now` alone the days that release holds, as measured on the real files (`_now_span_of`,
-  GH-3271). A station whose record is not published is counted from that assumed start too, so that a request
-  without a `timestamp` is held to the limit as well; `drop_nulls` or a station with less data than its record
-  makes the answer smaller.
+  upper bound: for each station, the readings its resolution can hold between the start of its record and the end of
+  it (allowing the lag of an end within a window), within the window of the request, times the parameters asked for.
+  The periods the request reads narrow it as well: `periods=recent` of a provider that reads per period holds what
+  that release reaches back (`_assumed_start`, with the span the request gives for the dataset), not the whole
+  record of the station (GH-3249), and `periods=now` alone the days that release holds, as measured on the real
+  files (`_now_span_of`, GH-3271). A station whose record is not published is counted from that assumed start too,
+  so that a request without a `timestamp` is held to the limit as well; `drop_nulls` or a station with less data
+  than its record makes the answer smaller.
 
 The time span of a request is bounded through the rows: a window of a year of 1-minute readings is half a million
 rows for one parameter, a century of daily ones is 36,500.
@@ -29,7 +31,7 @@ rows for one parameter, a century of daily ones is 36,500.
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,6 +41,8 @@ from wetterdienst.ui.problems import ProblemError, ProblemKind
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+
+    import polars as pl
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.model.request import TimeseriesRequest
@@ -94,11 +98,29 @@ def _refuse(limit: str, maximum: int, requested: int, message: str, *, tool_mess
     )
 
 
+def stations_with_a_record_in_the_window(stations: StationsResult) -> pl.DataFrame:
+    """Give the rows of the selected stations whose record overlaps the window of the request.
+
+    The rule is the core's, `limit_to_window`: a row whose `start_timestamp` is after the window or whose
+    `end_timestamp` is before it by more than the lag a catalogue's end has (two days, 62 for monthly, 732 for annual,
+    or the `station_window_end_buffer` option) is left out, and a bound the list does not publish keeps the row, so a
+    station whose end is unknown or recent is counted. Without a window every row is kept (GH-4418).
+    """
+    from wetterdienst.model.request import limit_to_window  # noqa: PLC0415
+
+    return limit_to_window(stations.df, stations.start, stations.end, stations.options.station_window_end_buffer)
+
+
 def selected_station_count(stations: StationsResult) -> int:
-    """Count the stations a selection reads: a ranked one stops at its `rank`, whatever the list holds."""
+    """Count the stations a selection reads: those with a record in the window, a ranked one stopping at its `rank`.
+
+    A station the list says has no data in the window (it closed before it, or began after it) is no station the
+    request reads, whichever way it was selected (a box, a region, all, ids), so it is not counted: a box of 114
+    stations of which 30 have data in a day is 30. A station whose record bounds are not published counts.
+    """
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
 
-    count = stations.df.get_column("station_id").n_unique()
+    count = stations_with_a_record_in_the_window(stations).get_column("station_id").n_unique()
     if stations._stations_filter is StationsFilter.BY_RANK and stations._rank:  # noqa: SLF001
         return min(count, stations._rank)  # noqa: SLF001
     return count
@@ -232,9 +254,25 @@ def _utc(value: dt.datetime) -> dt.datetime:
     return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
+def _end_of_record(row: dict[str, Any], window_end: dt.datetime | None, buffer_days: int | None) -> dt.datetime | None:
+    """Give where the record of a station is counted to end: its published end, the lag of the end allowed for.
+
+    The end a catalogue publishes lags a station that is still reporting, so where the request has a window its end is
+    extended by that lag: a station that `limit_to_window` keeps for the window is never counted short of what it may
+    hold. Without the end of a window there is nothing to cut, and the end is the station's own. None where the list
+    publishes none.
+    """
+    from wetterdienst.model.request import end_lag  # noqa: PLC0415
+
+    if not row.get("end_timestamp"):
+        return None
+    end = _utc(row["end_timestamp"])
+    return end + end_lag(row["resolution"], buffer_days) if window_end is not None else end
+
+
 def estimate_rows(stations: StationsResult) -> int:
     """Estimate, as an upper bound, the rows `values` returns for the stations selected, see this module's docstring."""
-    df = stations.df
+    df = stations_with_a_record_in_the_window(stations)
     if df.is_empty() or not stations.parameters:
         return 0
     ids = df.get_column("station_id").unique(maintain_order=True)
@@ -249,6 +287,7 @@ def estimate_rows(stations: StationsResult) -> int:
     window_start = _utc(stations.start) if stations.start else None
     window_end = _utc(stations.end) if stations.end else None
     request = stations.request
+    buffer_days = stations.options.station_window_end_buffer
     # resolved to the set of periods the request reads, by its __post_init__
     requested_periods = set(cast("set[Period]", request.periods)) if request._selects_by_period else set()  # noqa: SLF001
     has_bounds = {"start_timestamp", "end_timestamp"} <= set(df.columns)
@@ -260,7 +299,7 @@ def estimate_rows(stations: StationsResult) -> int:
         if not parameters:
             continue
         starts = [t for t in (window_start, _utc(row["start_timestamp"]) if row.get("start_timestamp") else None) if t]
-        ends = [t for t in (window_end, _utc(row["end_timestamp"]) if row.get("end_timestamp") else None) if t]
+        ends = [t for t in (window_end, _end_of_record(row, window_end, buffer_days)) if t]
         end = min(ends or [dt.datetime.now(dt.UTC)])
         dataset = parameters[0].dataset
         dataset_periods = set(dataset.periods)

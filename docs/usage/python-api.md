@@ -355,6 +355,57 @@ The command line (`--wmo-id`, `--wigos-id`, `--icao-id`), the REST API and MCP (
 take them for `stations` and `values`, comma-separated, as one of the ways to select stations: not with `stations`,
 `name` or another of the selections.
 
+#### filter by region
+
+`filter_by_region` selects every station that its provider lists under a region: the `region` column of the stations
+frame, which is what *the source* names (a state, province, county, canton or département), null where it names
+none. It answers a question that a name cannot, such as "the lowest temperature in Hamburg", which needs all of the
+stations of the city and not the five whose names hold "Hamburg".
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(parameters=("daily", "kl"), periods=("historical", "recent"))
+stations = request.filter_by_region("Hamburg")
+stations.df.select("station_id", "name", "latitude", "longitude", "start_timestamp", "end_timestamp")
+```
+
+The region is the source's, and so is the spelling. DWD's `Hamburg` is twelve stations of `daily/kl`: nine on land
+(`Hamburg-Fuhlsbüttel`, `Hamburg-Bergedorf`, `Hamburg-Neuwiedenthal`, `Hamburg (Deutsche Seewarte)`, ...) and three at
+sea in the North Sea that DWD files under Hamburg as well: `UFS Deutsche Bucht` (54.18 °N, 7.46 °E), `UFS TW Ems`
+(54.17 °N, 6.35 °E) and `Nordseeboje 2` (a buoy at 55.0 °N, 6.33 °E). The answer names every station with its position,
+so a caller that wants the city alone leaves the stations at sea out by their position or their name. What a region is called differs by provider: `dwd/observation`, `dwd/derived` and
+`dwd/phenology` write `Hamburg`, `dwd/road` the two letters `HH`, `eaufrance/hubeau` the département in capitals
+(`FINISTERE`), `eccc/observation` the province (`BC`), `meteoswiss/observation` the canton (`ZH`), `fmi/observation` the
+municipality (`Helsinki`). Many networks have none (the forecast networks of DWD, `noaa/ghcn`, `knmi/observation`,
+`chmi/observation`, ...); their `region` is null.
+
+A region is compared the way a station name is, whole and not fuzzily: without regard to case, accents or
+transliteration, and with a hyphen, an apostrophe or a space as the one break between words, so that `hamburg`,
+`Baden Wuerttemberg` and `Cotes d'Armor` find `Hamburg`, `Baden-Württemberg` and `COTES-D'ARMOR`. Nothing else is
+read into it: `Hesse` is no `Hessen`, since no table of the names in other languages stands behind it, and a station is
+in the region its provider says, which is not always where it stands.
+
+```python
+request.filter_by_region(["Hamburg", "Bremen"])  # several regions, the stations of each in the order of the catalogue
+# raises UnknownRegionError, see below
+request.filter_by_region("Hesse")
+```
+
+Several regions are a list (a text is one region, a comma in it is no separator; the command line, the REST API and MCP
+read a comma-separated list). Like `filter_by_station_id` the filter selects among the whole list, whatever the window
+of the request. A region the list does not have is refused with an `UnknownRegionError` (a `RequestError`, so a
+`ValueError`, and a 400 over REST), which names it, the closest regions of the list and the regions there are, up to
+twenty and the number of the others: `DwdObservationRequest has no station in the region 'Hesse'. Closest: 'Hesse':
+'Hessen'. The regions there are: Baden-Württemberg, Bayern, ...`. The error keeps them as `unknown`, `known` and
+`hints`. A network whose stations have no region is refused with a `NoRegionsError` (an `UnknownRegionError`) that says
+so and advises `name`, a point or a bounding box. Neither is an empty result, which a caller could not tell from a
+region that has no station in the window.
+
+The command line (`--region`), the REST API and MCP (`region`) take it for `stations` and `values`, as one of the ways
+to select stations: not with `stations`, `name` or another of the selections. `interpolate` and `summarize` take a
+point or one station, and `history` ids: they take no `region`.
+
 #### filter by name
 
 Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
@@ -559,7 +610,7 @@ df
 
 The columns of `STATIONS_SCHEMA` are the same on every provider, but not always filled: `region` is the
 sub-national unit the source names (a state, province, county, canton or département), whatever it is called
-there, and null where the source names none. The last three are the identifiers a station may have besides its
+there, and null where the source names none; `filter_by_region` selects by it (see [filter by region](#filter-by-region)). The last three are the identifiers a station may have besides its
 `station_id`, each in one notation whichever provider lists it, and null where the provider publishes none:
 
 | Column | Notation | Filled by |
@@ -1029,7 +1080,7 @@ below it say what kind of failure it is:
 
 | Class | Raised when | Also a |
 | --- | --- | --- |
-| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, an output format nothing renders (`UnknownFormatError`, also a `KeyError`), or a station asked for by id that exists and has none of the requested parameters (`StationLacksParametersError`, `noaa/ghcn` daily) | `ValueError` |
+| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, a region the station list does not have (`UnknownRegionError`; `NoRegionsError` for a network that has none), an output format nothing renders (`UnknownFormatError`, also a `KeyError`), or a station asked for by id that exists and has none of the requested parameters (`StationLacksParametersError`, `noaa/ghcn` daily) | `ValueError` |
 | `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
 | `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError` (`ProviderRateLimitError`: the provider answered 429 or the quota of the key is used up, retry later after `retry_after` seconds), `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |

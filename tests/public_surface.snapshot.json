@@ -128,6 +128,7 @@
     "filter_by_icao_id": "(self, icao_id)",
     "filter_by_name": "(self, name, rank=1, threshold=0.8, *, df_all=None)",
     "filter_by_rank": "(self, latlon, rank, *, df_all=None)",
+    "filter_by_region": "(self, region)",
     "filter_by_sql": "(self, sql)",
     "filter_by_station_id": "(self, station_id)",
     "filter_by_wigos_id": "(self, wigos_id)",

@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from typing import Self
 
 
@@ -199,6 +199,54 @@ class StationLacksParametersError(RequestError):
     def __reduce__(self) -> tuple:
         """Rebuild from the id and the parameters, not from the message in `args`, so the error pickles."""
         return type(self), (self.station_id, self.parameters), self.__dict__
+
+
+class UnknownRegionError(RequestError):
+    """Raised when a region a request selects stations by is none of the regions the station list has (GH-4418).
+
+    A `RequestError` (400, `request-refused`): the caller rephrases it with a region of the list. It is not an empty
+    answer, which a caller could not tell from a region that has no station in the window of the request.
+
+    `unknown` are the regions asked for that the list does not have, `known` the regions it has, as it writes them,
+    and `hints` the closest of those to each region asked for, where any is close.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        unknown: Sequence[str] = (),
+        known: Sequence[str] = (),
+        hints: Mapping[str, Sequence[str]] | None = None,
+    ) -> None:
+        """Keep the regions asked for, the ones there are and the closest to each, and say it in the message."""
+        self.unknown = list(unknown)
+        self.known = list(known)
+        self.hints = {region: list(names) for region, names in (hints or {}).items()}
+        super().__init__(message)
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the message and what it keeps, not from the message alone in `args`, so the error pickles."""
+        return _rebuild_unknown_region, (type(self), self.args[0], self.unknown, self.known, self.hints), self.__dict__
+
+
+class NoRegionsError(UnknownRegionError):
+    """Raised when stations are selected by region from a network whose stations have none (GH-4418).
+
+    A provider that names no sub-national unit for its stations has no region to select by: `known` is empty.
+    Told apart from `UnknownRegionError` for the reason it gives, which is not a misspelled region.
+    """
+
+
+def _rebuild_unknown_region(
+    cls: type[UnknownRegionError],
+    message: str,
+    unknown: Sequence[str],
+    known: Sequence[str],
+    hints: Mapping[str, Sequence[str]],
+) -> UnknownRegionError:
+    """Rebuild a pickled `UnknownRegionError` (keyword-only arguments cannot go through `args`)."""
+    return cls(message, unknown=unknown, known=known, hints=hints)
 
 
 class ApiNotFoundError(NotFoundError):
