@@ -2773,8 +2773,8 @@ def test_filter_by_sql_cannot_read_files(
 ) -> None:
     """The caller's clause cannot read or list files on the host the filter runs on.
 
-    The REST API and MCP server pass `sql` and `sql_values` on from whoever can reach them, so a
-    clause that reached the file system read the server's files with the permissions of its process.
+    The filter runs with the permissions of the host's own process, so a clause that reached the file
+    system would read the host's files with them.
     """
     import duckdb  # noqa: PLC0415
 
@@ -2791,7 +2791,7 @@ def test_filter_by_sql_cannot_reach_the_network(df_stations: pl.DataFrame) -> No
 
     with pytest.raises(duckdb.PermissionException, match="disabled"):
         ExportMixin(df=df_stations).filtered_by_sql(
-            "elevation IN (SELECT elevation FROM read_csv('https://example.com/secret.csv'))"
+            "elevation IN (SELECT elevation FROM read_csv('http://127.0.0.1:9/secret.csv'))"
         )
 
 

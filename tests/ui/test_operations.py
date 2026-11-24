@@ -820,20 +820,12 @@ def test_csv_of_no_values_is_the_header(client: TestClient, monkeypatch: pytest.
     assert _lines(ndjson)[-1] == {"end": {"counts": {"stations": 0, "rows": 0}, "warnings": []}}
 
 
-def test_csv_with_sql_values_is_still_one_body(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A `sql_values` clause filters the answer as a frame, so csv with one is not streamed, and ndjson refuses it."""
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    taken = _stub_result(monkeypatch, "/api/values")
-    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: pytest.fail("the csv was streamed"))
+def test_ndjson_with_stations_is_refused(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`with_stations` lists the stations of the whole answer, which NDJSON does not know before its end: a 400."""
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: pytest.fail("the ndjson was streamed"))
 
-    csv = client.get("/api/v1/values", params={**_VALUES, "format": "csv", "sql_values": "value > 0"})
-    ndjson = client.get("/api/v1/values", params={**_VALUES, "format": "ndjson", "sql_values": "value > 0"})
     stations = client.get("/api/v1/values", params={**_VALUES, "format": "ndjson", "with_stations": "true"})
 
-    assert taken
-    assert csv.status_code == 200
-    assert ndjson.status_code == 400
-    assert "sql_values" in ndjson.json()["detail"]
     assert stations.status_code == 400
     assert "with_stations" in stations.json()["detail"]
 

@@ -271,7 +271,6 @@ def test_an_id_that_is_none_of_its_column_is_refused_on_every_surface(query: dic
         pytest.param({"wmo_id": "10381", "stations": "00001"}, id="wmo-and-stations"),
         pytest.param({"icao_id": "EDDH", "name": "Hamburg"}, id="icao-and-name"),
         pytest.param({"wigos_id": "0-20000-0-10147", "all": "true"}, id="wigos-and-all"),
-        pytest.param({"wmo_id": "10381", "sql": "name='x'"}, id="wmo-and-sql"),
         pytest.param({"icao_id": "EDDH", "latitude": "52", "longitude": "13", "rank": "2"}, id="icao-and-a-point"),
     ],
 )

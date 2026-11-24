@@ -12,8 +12,17 @@ from pydantic import ValidationError
 from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.ui import core
 from wetterdienst.ui.core import (
+    AlertsRequest,
+    CliInterpolationRequest,
+    CliStationsRequest,
+    CliSummaryRequest,
+    CliValuesRequest,
+    GlossaryRequest,
     HistoryRequest,
     InterpolationRequest,
+    IssuesRequest,
+    RestInterpolationRequest,
+    RestSummaryRequest,
     StationsRequest,
     SummaryRequest,
     ValuesRequest,
@@ -41,7 +50,6 @@ _BBOX = {"left": 13.0, "bottom": 51.0, "right": 14.0, "top": 52.0}
         # a point on the equator and the prime meridian is a point, not a missing one
         {"latitude": 0.0, "longitude": 0.0, "rank": 5},
         _BBOX,
-        {"sql": "region='Sachsen'"},
     ],
 )
 def test_station_selection_accepted(model: type[StationsRequest | ValuesRequest], selection: dict[str, Any]) -> None:
@@ -87,9 +95,9 @@ _ONE_OF_SELECTIONS = {
         ["name"],
         ["latitude", "longitude"],
         ["left", "bottom", "right", "top"],
-        ["sql"],
     ]
 }
+_ONE_OF_CLI_SELECTIONS = {"one_of": [*_ONE_OF_SELECTIONS["one_of"], ["sql"]]}
 
 
 @pytest.mark.parametrize("model", [StationsRequest, ValuesRequest])
@@ -107,11 +115,10 @@ _ONE_OF_SELECTIONS = {
         ),
         # a bounding box conflicts by the first side it gives
         (
-            {"all": True, **_BBOX, "sql": "region='Sachsen'"},
+            {"all": True, **_BBOX},
             [
-                ("mutually_exclusive", ("all",), {"conflicts_with": ["left", "sql"], **_ONE_OF_SELECTIONS}),
-                ("mutually_exclusive", ("left",), {"conflicts_with": ["all", "sql"], **_ONE_OF_SELECTIONS}),
-                ("mutually_exclusive", ("sql",), {"conflicts_with": ["all", "left"], **_ONE_OF_SELECTIONS}),
+                ("mutually_exclusive", ("all",), {"conflicts_with": ["left"], **_ONE_OF_SELECTIONS}),
+                ("mutually_exclusive", ("left",), {"conflicts_with": ["all"], **_ONE_OF_SELECTIONS}),
             ],
         ),
         ({"latitude": 51.0, "rank": 5}, [("missing_with", ("longitude",), {"required_with": ["latitude"]})]),
@@ -156,15 +163,15 @@ def test_station_selection_refused(
         (
             {},
             (
-                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), "
-                "(left, bottom, right and top) or sql is required"
+                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) "
+                "or (left, bottom, right and top) is required"
             ),
         ),
         (
             {"stations": "01048", "name": "Hamburg"},
             (
                 "Cannot be combined with name, give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, "
-                "(latitude and longitude), (left, bottom, right and top) or sql"
+                "(latitude and longitude) or (left, bottom, right and top)"
             ),
         ),
         ({"latitude": 51.0, "rank": 5}, "Field required with latitude"),
@@ -180,6 +187,114 @@ def test_station_selection_message(selection: dict[str, Any], message: str) -> N
     with pytest.raises(ValidationError) as info:
         StationsRequest.model_validate({**_BASE, **selection})
     assert info.value.errors()[0]["msg"] == message
+
+
+@pytest.mark.parametrize("model", [CliStationsRequest, CliValuesRequest])
+def test_the_command_line_selects_stations_by_sql_too(model: type[CliStationsRequest | CliValuesRequest]) -> None:
+    """The command line's models have `--sql` as one more way to select the stations, with the rules of the others."""
+    model.model_validate({**_BASE, "sql": "region='Sachsen'"})
+    assert _errors(model, _BASE) == [("missing_one_of", (), _ONE_OF_CLI_SELECTIONS)]
+    assert _errors(model, {**_BASE, "all": True, "sql": "region='Sachsen'"}) == [
+        ("mutually_exclusive", ("all",), {"conflicts_with": ["sql"], **_ONE_OF_CLI_SELECTIONS}),
+        ("mutually_exclusive", ("sql",), {"conflicts_with": ["all"], **_ONE_OF_CLI_SELECTIONS}),
+    ]
+    with pytest.raises(ValidationError) as info:
+        model.model_validate(_BASE)
+    assert info.value.errors()[0]["msg"].endswith("(left, bottom, right and top) or sql is required")
+
+
+@pytest.mark.parametrize("model", [CliValuesRequest, CliInterpolationRequest, CliSummaryRequest])
+def test_the_command_line_filters_the_values_by_sql(model: type) -> None:
+    """The command line's models of the values take `--sql-values`, which the server's refuse."""
+    extra = {"stations": "01048"} if model is CliValuesRequest else {"station": "01048"}
+    assert model.model_validate({**_BASE, **extra, "timestamp": "2020-01-01", "sql_values": "value > 1"}).sql_values
+
+
+_SELECTING_BY_NAME = {"stations": "01048"}
+_SELECTING_BY_STATION = {"station": "01048"}
+
+_TOOK_SQL = [
+    pytest.param(
+        StationsRequest,
+        "sql",
+        _SELECTING_BY_NAME,
+        "select the stations with the filters of the route",
+        id="stations-sql",
+    ),
+    pytest.param(
+        ValuesRequest, "sql", _SELECTING_BY_NAME, "select the stations with the filters of the route", id="values-sql"
+    ),
+    pytest.param(
+        ValuesRequest,
+        "sql_values",
+        _SELECTING_BY_NAME,
+        "(the rows of `format=json`, `csv` or `ndjson`)",
+        id="values-sql_values",
+    ),
+    pytest.param(
+        InterpolationRequest,
+        "sql_values",
+        _SELECTING_BY_STATION,
+        "(the rows of `format=json` or `csv`)",
+        id="interpolate-sql_values",
+    ),
+    pytest.param(
+        RestInterpolationRequest,
+        "sql_values",
+        _SELECTING_BY_STATION,
+        "(the rows of `format=json` or `csv`)",
+        id="rest-interpolate-sql_values",
+    ),
+    pytest.param(
+        SummaryRequest,
+        "sql_values",
+        _SELECTING_BY_STATION,
+        "(the rows of `format=json` or `csv`)",
+        id="summarize-sql_values",
+    ),
+    pytest.param(
+        RestSummaryRequest,
+        "sql_values",
+        _SELECTING_BY_STATION,
+        "(the rows of `format=json` or `csv`)",
+        id="rest-summarize-sql_values",
+    ),
+]
+
+
+@pytest.mark.parametrize(("model", "name", "extra", "way_out"), _TOOK_SQL)
+def test_the_server_models_refuse_sql_as_removed(model: type, name: str, extra: dict[str, str], way_out: str) -> None:
+    """A request of a route that took `sql` or `sql_values` is told it was removed, with what that route offers."""
+    values = {**_BASE, **extra, "timestamp": "2020-01-01", name: "value > 1"}
+    with pytest.raises(ValidationError) as info:
+        model.model_validate(values)
+    errors = [(e["type"], e["loc"], e["msg"]) for e in info.value.errors()]
+    assert [(kind, loc) for kind, loc, _ in errors] == [("removed", (name,))]
+    message = errors[0][2]
+    assert message.startswith(f"{name} was removed: the REST API and the MCP tools no longer filter with SQL")
+    assert way_out in message
+    assert message.endswith("keep it")
+    assert ("`--sql-values`" if name == "sql_values" else "`--sql`") in message
+
+
+@pytest.mark.parametrize("model", [InterpolationRequest, SummaryRequest, RestInterpolationRequest, RestSummaryRequest])
+def test_a_route_that_never_took_sql_answers_it_as_a_parameter_it_does_not_know(model: type) -> None:
+    """`interpolate` and `summarize` never had `sql`: it is no removed parameter there, but one like any other."""
+    values = {**_BASE, **_SELECTING_BY_STATION, "timestamp": "2020-01-01", "sql": "value > 1"}
+    with pytest.raises(ValidationError) as info:
+        model.model_validate(values)
+    assert [(e["type"], e["loc"]) for e in info.value.errors()] == [("extra_forbidden", ("sql",))]
+    assert "removed" not in str(info.value)
+
+
+@pytest.mark.parametrize("model", [HistoryRequest, IssuesRequest, GlossaryRequest, AlertsRequest])
+@pytest.mark.parametrize("name", ["sql", "sql_values"])
+def test_a_route_that_took_no_sql_at_all_does_not_call_it_removed(model: type, name: str) -> None:
+    """A route that was never given `sql` or `sql_values` answers as for any parameter it does not know."""
+    with pytest.raises(ValidationError) as info:
+        model.model_validate({name: "value > 1"})
+    assert ("extra_forbidden", (name,)) in [(e["type"], e["loc"]) for e in info.value.errors()]
+    assert "removed" not in str(info.value)
 
 
 @pytest.mark.parametrize(
@@ -476,6 +591,7 @@ _STATUS_OF = {
     "MetaFileFormatError": 502,
     "MetaFileNotFoundError": 502,
     "MissingDependencyError": 501,
+    "UnsupportedDependencyError": 501,
     "MissingTimeIntervalError": 400,
     "NoInternetError": 503,
     "NoParametersFoundError": 400,
@@ -596,6 +712,69 @@ def test_a_refusal_is_told_by_its_class_and_not_by_the_class_it_also_is() -> Non
     assert not core._is_caller_refusal(CredentialMissingError("x"), request)  # noqa: SLF001
     # and so is a rejected one, though it is a `PermissionError`
     assert not core._is_caller_refusal(CredentialRejectedError("x"), request)  # noqa: SLF001
+
+
+def _duckdb_refusals() -> list[Any]:
+    """Give the refusals of the connection of the SQL filter, by what they are about, as DuckDB raises them."""
+    duckdb = pytest.importorskip("duckdb")
+    return [
+        pytest.param(duckdb.PermissionException("file system operations are disabled"), id="file"),
+        pytest.param(duckdb.OutOfMemoryException("could not allocate block"), id="memory"),
+        # an extension DuckDB would install on the fly is refused with the bare class, every other derives from it
+        pytest.param(duckdb.Error("Extension is not installed, and cannot be installed on the fly"), id="extension"),
+        pytest.param(duckdb.NotSupportedError("not implemented"), id="not-implemented"),
+    ]
+
+
+@pytest.mark.parametrize("error", _duckdb_refusals())
+@pytest.mark.parametrize("clause", [{"sql": "value > 1"}, {"sql_values": "value > 1"}])
+def test_a_refusal_of_the_sql_connection_is_the_callers_where_the_request_carries_a_clause(
+    error: Exception, clause: dict[str, str]
+) -> None:
+    """The command line's own clause is what the connection refused: a 400, which the command line tells as usage."""
+    request = SimpleNamespace(**clause)
+
+    assert core._caller_refusal_status(error, request) == 400  # noqa: SLF001
+    assert core._is_caller_refusal(error, request)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("error", _duckdb_refusals())
+@pytest.mark.parametrize(
+    "request_", [SimpleNamespace(), SimpleNamespace(sql=None, sql_values=None), SimpleNamespace(sql="")]
+)
+def test_a_refusal_of_the_sql_connection_is_no_refusal_without_a_clause(error: Exception, request_: object) -> None:
+    """DuckDB failing for a request that has no clause is not the caller's doing, so it stays what it is."""
+    assert core._caller_refusal_status(error, request_) is None  # noqa: SLF001
+
+
+@pytest.mark.parametrize("name", ["InternalException", "IOException", "SerializationException", "IntegrityError"])
+def test_a_duckdb_failure_inside_duckdb_stays_a_failure_even_with_a_clause(name: str) -> None:
+    """Only the exact classes of the connection's refusals count: a failure inside DuckDB is a defect, not a 400."""
+    duckdb = pytest.importorskip("duckdb")
+    error = getattr(duckdb, name)("inside")
+    # not derived from a class that is counted, so that the test holds the classes and not the hierarchy of a release
+    assert not isinstance(error, (duckdb.PermissionException, duckdb.OutOfMemoryException, duckdb.NotSupportedError))
+    assert type(error) is not duckdb.Error
+
+    assert core._caller_refusal_status(error, SimpleNamespace(sql_values="value > 1")) is None  # noqa: SLF001
+
+
+def test_the_refusals_of_the_sql_connection_are_what_the_filter_raises() -> None:
+    """The classes counted are those the filter raises for a file and for a URL, not names of a release."""
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.io.sql_filter import filter_by_sql  # noqa: PLC0415
+
+    duckdb = pytest.importorskip("duckdb")
+    frame = pl.DataFrame({"elevation": [1.0, 2.0]})
+    for clause in (
+        "elevation IN (SELECT elevation FROM read_csv('secret.csv'))",
+        "elevation IN (SELECT elevation FROM read_csv('http://127.0.0.1:9/x.csv'))",
+    ):
+        with pytest.raises(duckdb.PermissionException) as caught:
+            filter_by_sql(frame, clause)
+        assert core._caller_refusal_status(caught.value, SimpleNamespace(sql="x")) == 400  # noqa: SLF001
+        assert core._caller_refusal_status(caught.value, SimpleNamespace()) is None  # noqa: SLF001
 
 
 @pytest.mark.parametrize(

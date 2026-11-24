@@ -748,7 +748,15 @@ _CLI_ONLY = {
     "start": "with --end, the window as two options, read as the one `timestamp`",
     "end": "with --start, the window as two options, read as the one `timestamp`",
 }
+_NO_SQL_ON_A_SERVER = (
+    "the command's caller is the host's own user, who could run the SQL on their own DuckDB; the REST API and the MCP "
+    "tools take none, as it ran a caller's text in DuckDB on the server"
+)
 _CLI_ONLY_OF = {
+    ("stations",): {"sql": _NO_SQL_ON_A_SERVER},
+    ("values",): {"sql": _NO_SQL_ON_A_SERVER, "sql_values": _NO_SQL_ON_A_SERVER},
+    ("interpolate",): {"sql_values": _NO_SQL_ON_A_SERVER},
+    ("summarize",): {"sql_values": _NO_SQL_ON_A_SERVER},
     ("history",): {"format": "history writes JSON only, as REST does without a `format`"},
     ("alerts",): {
         "with_metadata": "writes <file>.metadata.json beside the --target file; a REST answer carries the block always"
@@ -1088,7 +1096,6 @@ def test_a_bare_boolean_is_on_and_a_boolean_with_a_value_is_that_value(command: 
     [
         pytest.param({}, "missing_one_of", id="none"),
         pytest.param({"stations": "00001", "name": "Dresden"}, "mutually_exclusive", id="stations-and-name"),
-        pytest.param({"all": "true", "sql": "region='Sachsen'"}, "mutually_exclusive", id="all-and-sql"),
         pytest.param(
             {"latitude": "51", "longitude": "13", "rank": "2", "distance": "9"},
             "mutually_exclusive",
@@ -1272,19 +1279,15 @@ def test_each_example_of_a_selection_is_a_value_its_parameter_takes(path: str) -
 
 
 @pytest.mark.parametrize("path", ["/api/v1/stations", "/api/v1/values"])
-def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(
-    path: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(path: str) -> None:
     """The examples of each alternative pass the validation and the lookup of a network of 8 stations (not refused).
 
     That is all it shows. A real network is larger, and a server refuses a request that reads more stations than it
-    allows (`all=true` on `values` over DWD reads 573 and is a 400 at the default limit). `sql` is a 403 where the
-    server does not enable it, which this test does. `history` reads the network's metadata from upstream, which the
-    stand-in does not serve; it, `interpolate` and `summarize` are not run here, only
+    allows (`all=true` on `values` over DWD reads 573 and is a 400 at the default limit). `history` reads the network's
+    metadata from upstream, which the stand-in does not serve; it, `interpolate` and `summarize` are not run here, only
     held to the model and to the schemas of their parameters.
     """
     _, base = _SELECTION_ROUTES[path]
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     client = TestClient(restapi.app, raise_server_exceptions=False)
 
     for alternative in _alternatives(path):
@@ -1304,7 +1307,6 @@ _STATION_GROUPS = [
     ["name"],
     ["latitude", "longitude"],
     ["left", "bottom", "right", "top"],
-    ["sql"],
 ]
 _EXPECTED_GROUPS = {
     "/api/v1/stations": _STATION_GROUPS,
@@ -1325,7 +1327,6 @@ _ATOMS = {
     "latitude": {"latitude": "51.05"},
     "box": {"left": "13", "bottom": "50", "right": "14", "top": "52"},
     "box without top": {"left": "13", "bottom": "50", "right": "14"},
-    "sql": {"sql": "region='Sachsen'"},
     "station": {"station": "01048"},
     "rank": {"rank": "3"},
     "distance": {"distance": "25"},

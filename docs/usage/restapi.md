@@ -28,7 +28,7 @@ in the answer, one entry for each resolution and dataset that has rows (a row of
 station read with `drop_nulls=false` is listed): the stations that `metadata.request.stations.ids` and
 `counts.stations` name, and those of the GeoJSON. Where the wide shape merged several datasets of a resolution
 into one row, which names no dataset, the block has an entry for each of the datasets, and the GeoJSON one
-feature for the station. A station of the request with no rows, or whose rows `sql_values` cut away, is not in
+feature for the station. A station of the request with no rows is not in
 the block, and the block is an empty list where there are no rows. A station named in `stations` that has no
 rows while other named stations do is told by a `station-without-rows` warning ([below](#response-metadata)). To find a
 requested station that has no rows otherwise, compare the ids the answer names (`metadata.request.stations.ids`, up to 100 stations, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`
@@ -321,7 +321,7 @@ what the answer is missing:
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `position-unplaced` (a station whose position the source writes where no swap of latitude and
   longitude puts it in the network's country, listed with a null position: `eaufrance/hubeau`; the
-  answer has it when the station is in it, selected by `stations`, `name`, `sql` or `all`, or when a
+  answer has it when the station is in it, selected by `stations`, `name` or `all`, or when a
   search by place, a `rank`, a `distance` or a bounding box, or an estimate by `interpolate` or
   `summarize`, had to leave it out, which is every search by place of a resolution that lists it;
   for a `timestamp`, the whole list and a search by place tell it, in a listing, in the values and in
@@ -491,7 +491,7 @@ what the answer is missing:
   the same on the command line, in REST and in the MCP tool) returned no rows while other named stations returned
   rows, which `values` alone does not say. It carries `stations` (the ids, in the order of the answer, which is the
   catalogue's and not the order they were asked in, the first ten if there are more; the message then gives their
-  number). It is told for that selection alone: a point (`rank`, `distance`), a box, a name, `sql` and `all` have
+  number). It is told for that selection alone: a point (`rank`, `distance`), a box, a name and `all` have
   empty stations as the ordinary case, a ranked walk stops at the first stations with data, and `interpolate`
   and `summarize` read stations as candidates or one station and do not tell it.
 
@@ -505,8 +505,7 @@ what the answer is missing:
   `parameter-without-rows` does, what narrowed the request (`periods`, a run, a lead time, for any of its datasets,
   the periods of the datasets in one phrase) with what to ask instead, since the values may be in what was left out.
   Without a window it says "there" only when something narrowed the request. It does not say what the other stations
-  have: at least one returned rows, but a clause of `sql_values` that cuts rows afterwards may leave none of them
-  with rows in the answer, and the stations named had none before it either.
+  have: at least one returned rows, and the stations named had none.
   A station with a row of any requested parameter has rows, even if another parameter has none (that is
   `parameter-without-rows`). It is not told when no named station has rows (`parameter-without-rows` is, where it
   can be), for an id the network has no station for (`unknown-station` names it), for a station `file-skipped`
@@ -673,25 +672,23 @@ release commit, with `uv run poe contracts:baseline`.
   routes (the response models above), and a media type of their own for the index (`text/html`) and `robots.txt`
   (`text/plain`).
 - **Exclusive parameters** are stated on the operations that have them: `stations` and `values` (`all`, `stations`,
-  `name`, a point, a box or `sql`), `history` (`all` or `stations`), `interpolate` and `summarize` (a `station` or a
+  `name`, a point or a box), `history` (`all` or `stations`), `interpolate` and `summarize` (a `station` or a
   point). The document does not write it as a
   `oneOf`. That is a keyword of one schema, and these are separate query parameters; the only place for it would be one
   object parameter (`style: form`, `explode: true`) in place of them. Then the operation would no longer list `all`,
-  `sql` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
+  `name` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
   argument `selection` instead of them. So the parameters stay as they are, and each operation says it in three ways:
     - the extension `x-wetterdienst-selection` of the operation lists the groups: `exactly_one_of` (for `stations`
       and `values`: `["all"]`, `["stations"]`, `["wmo_id"]`, `["wigos_id"]`, `["icao_id"]`, `["name"]`,
-      `["latitude", "longitude"]`, `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
+      `["latitude", "longitude"]`, `["left", "bottom", "right", "top"]`), `then` (with a point, exactly one of `rank` and
       `distance`) and `requires` (a `distance` needs a point, a `rank` a point or a `name`);
     - the `description` of each parameter it names ends with the sentences of the refusal that are about it, such as
-      `Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom,
-      right and top) or sql is required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
+      `Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
     - its `examples` hold one value the parameter takes, such as `stations=01048,04411` and
       `name=Hamburg Fuhlsbüttel`, or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list
       there, which a client writes comma-separated (`explode: false`). The limits of the server still apply to a
       request made of them: `all=true` on `values` or `history` over a network with more stations than the server
-      allows for one request is a 400 (see [Limits](#limits)), and `sql` is a 403 unless the server enables it
-      (see [SQL filters](#sql-filters)).
+      allows for one request is a 400 (see [Limits](#limits)).
 
   The model that refuses a request, the extension, the sentences and the examples are written from one definition
   (`Selection` in `ui/core.py`), which the model enforces whole, the `then` and `requires` as well as the groups.
@@ -709,8 +706,7 @@ release commit, with `uv run poe contracts:baseline`.
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
   requests as it allows, and a 504 when the request times out; a route with a query also the 422. Beyond those: the
   routes that read from a provider (`stations`, `issues`, `history`, `values`, `interpolate`, `summarize`,
-  `alerts`, `storm-cells`, `kostra`, `station-ids`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
-  `interpolate` and `summarize` the 403 of `sql` where the server does not enable it; `coverage` a 400, 404 and 501,
+  `alerts`, `storm-cells`, `kostra`, `station-ids`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502; `coverage` a 400, 404 and 501,
   `auth` a 404 and 501, `providers` a 404 and `settings` a 400. A test makes each
   of these routes fail with each exception of the table of [Errors](#errors) and holds the status it answers to
   what the document declares.
@@ -755,10 +751,9 @@ learnt on one holds on the others:
   `summarize`. `/api/stations` answers either with a 422 like any parameter it does not know, as
   `wetterdienst stations` and the `stations` tool do.
 - **The stations are named by exactly one of** `all`, `stations`, `wmo_id`, `wigos_id`, `icao_id`, `name`, a point
-  (`latitude` and `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`) or
-  `sql`. None, or two, is refused the same way everywhere, a `missing_one_of` or a `mutually_exclusive`
+  (`latitude` and `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`). None, or two, is refused the same way everywhere, a `missing_one_of` or a `mutually_exclusive`
   error that names the alternatives: `Cannot be combined with name, give exactly one of all,
-  stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
+  stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top)` as the answer of a
   422, as the message of a tool error and, in the options' names, as the usage error of the
   command. The OpenAPI document states the alternatives and gives an example of each parameter, see
   [The OpenAPI document](#the-openapi-document).
@@ -943,9 +938,6 @@ http localhost:7890/api/stations provider==dwd network==observation parameters==
 # Filter by name with custom threshold (0–1, default 0.8).
 http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent name==Darmstatt name_threshold==0.85
 
-# Query list of stations with SQL, on a server running with WD_RESTAPI_SQL=true.
-http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent sql=="lower(name) LIKE lower('%dresden%');"
-
 # Acquire list of DWD DMO stations.
 http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m all==true
 ```
@@ -1089,9 +1081,6 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 # Observations for date range.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==1048,4411 timestamp==2020-08-01/2020-08-05
 
-# Observations with SQL, on a server running with WD_RESTAPI_SQL=true.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent stations==1048,4411 shape=="wide" sql_values=="temperature_air_max_2m < 2.0;"
-
 # Acquire ICON data (the latest forecast run; a past timestamp has none).
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
 
@@ -1132,18 +1121,24 @@ A request that asks for more than the [limits](#limits) allow is refused;
 
 ## SQL filters
 
-`sql` (stations and values: which stations) and `sql_values` (values, interpolate and summarize:
-which rows of the result) take a SQL WHERE clause, run by DuckDB on the server. A server refuses
-both with a 403 unless it runs with the setting `restapi_sql` enabled (`WD_RESTAPI_SQL=true`); the
-MCP tools follow the same setting, and the library and the CLI are not gated.
+`sql` and `sql_values` were removed from the REST API and the MCP tools (GHSA-332g-7w2w-4w59): they ran a
+caller's text in DuckDB on the server. A request that sends one is a 422 that says so and what to do. On `stations`
+and `values` select the stations with the filters of the route (`stations`, `name`, `wmo_id`, `wigos_id`,
+`icao_id`, a point with `rank` or `distance`, a bounding box), or filter the answer yourself; on `values` the rows
+of `format=json`, `csv` or `ndjson` are yours to filter, on `interpolate` and `summarize` those of `json` or `csv`.
+A route that never took `sql` or `sql_values` (`history`, `glossary`, ...) answers them as it does any parameter
+it does not know. The same holds in each MCP tool.
 
-The clause is a single condition on the frame, called `df`: anything after it, a second statement,
-`ORDER BY` or `LIMIT`, is refused. It cannot read or list files, reach the network or load DuckDB
-extensions, and runs on one thread with DuckDB's memory limit at 1 GiB plus the size of the frame.
-What it can still do once enabled: read DuckDB's own settings, which name paths on the server; run
-for as long as it likes on that thread; and allocate memory DuckDB's limit does not count, such as
-one very long string. The limits hold per request, not for the server as a whole. Enable it only
-for clients you trust with that.
+The setting `restapi_sql` (`WD_RESTAPI_SQL`) is removed with them, and `Settings(restapi_sql=...)` in code is
+refused. A server that finds `WD_RESTAPI_SQL` set to a true value, in its environment or in `.env`, warns once as
+it starts, naming the variable, and runs without SQL: the readiness probe is not affected and nothing is enabled.
+Set to `false` or to nothing it is left alone, so a deployment that spelled the default out starts as before. Remove
+the variable.
+
+The command line (`--sql`, `--sql-values`) and the library (`filter_by_sql`, `filtered_by_sql`) keep their SQL
+filters: there the caller is the host's own user, who could run the SQL on their own DuckDB. See
+[Python API](python-api.md#sql). They need DuckDB 1.5.3 or newer (`pip install --upgrade "duckdb>=1.5.3"`); an
+older one is refused with an error that says so. These restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust to the filter. The time a condition runs, memory outside DuckDB's limit and the process itself are not protected.
 
 ## Image size
 
@@ -1251,9 +1246,7 @@ it is in the headers: `X-Wetterdienst-API-Version`, `-Schema-Version`, `-Retriev
 first row, so `X-Wetterdienst-Rows` is left out, and `X-Wetterdienst-Warnings` has only what was raised by then. A
 failure after the response began cuts the connection, as CSV cannot say it; the server logs it.
 
-`ndjson` refuses `sql_values` and `with_stations` (a 400): the first filters the answer as a whole frame and the
-second lists the stations of the whole answer, which a stream never holds. `format=csv` with `sql_values` is
-sent as one body, as it was, and is held to `rows`.
+`ndjson` refuses `with_stations` (a 400): it lists the stations of the whole answer, which a stream never holds.
 
 ## Caching
 
@@ -1382,7 +1375,8 @@ and what follows is for an instance that others can reach (the
   the `svg` answers only, which need no script or request: not with data answers, the `html` chart (a script by
   design), `pdf`, or `/docs` and `/redoc`, which load their own from a CDN. Other headers (HSTS, a
   `Referrer-Policy`, a policy for those answers) are for the reverse proxy to add.
-- **SQL.** [`sql` and `sql_values`](#sql-filters) stay off until you set `WD_RESTAPI_SQL=true`.
+- **SQL.** The REST API and the MCP tools take no SQL any more, see [SQL filters](#sql-filters); a server started with
+  `WD_RESTAPI_SQL=true` warns once and runs without it.
 - **Limits.** The [limits](#limits) are the ones you set. How to set them, and what raising one costs, is on
   [Getting more than the limit](large-requests.md#run-your-own-server), which is also where a client that meets one is
   sent.
@@ -1458,7 +1452,6 @@ entry for each invalid parameter, where `loc` names it:
 | --- | --- |
 | 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have (the whole request is refused, and `detail` names each unknown one), a point out of range, a `Host` or an MCP `Origin` the server does not answer to ([Allowed hosts](#allowed-hosts)) |
 | 404 | what the request names does not exist: a provider, network, a resolution or dataset of `/api/coverage`, station, forecast run, or a path |
-| 403 | the server declines it: `sql` filters it has not enabled |
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several; or a map of stations (`format` `html`, `png`, `jpg`, `webp`, `svg` or `pdf`) none of which has a position (`dwd/derived`'s `monthly/climate_correction_factor`, `dwd/pollen`), where `detail` says to ask for `json`, `csv` or `geojson` and `errors` has the entry for `format` |
 | 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
@@ -1482,7 +1475,6 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
 | `urn:wetterdienst:problem:host-not-allowed` | 400 | The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists. |
 | `urn:wetterdienst:problem:origin-not-allowed` | 400 | The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint. |
-| `urn:wetterdienst:problem:sql-disabled` | 403 | The request carries a `sql` or `sql_values` filter and the server does not enable them. |
 | `urn:wetterdienst:problem:not-found` | 404 | What the request names does not exist: a station, a forecast run, a resolution or dataset, or a path. |
 | `urn:wetterdienst:problem:unknown-network` | 404 | The provider and network are not served, or have no stations or values to request. |
 | `urn:wetterdienst:problem:method-not-allowed` | 405 | The method is not allowed for the path. |

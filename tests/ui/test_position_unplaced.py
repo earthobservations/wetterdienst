@@ -51,8 +51,6 @@ SELECTIONS: dict[str, dict[str, str]] = {
     # closer name first, GH-4207) would let the Blavet in
     "name of Paris": {"name": "La Seine à Paris", "name_threshold": "0.9"},
     "name of the Blavet": {"name": "Le Blavet à Neulliac"},
-    "sql of Paris": {"sql": f"station_id = '{PARIS}'"},
-    "sql of the Blavet": {"sql": f"station_id = '{BLAVET}'"},
     "all": {"all": "true"},
     "rank near the Blavet": {**{k: str(v) for k, v in NEAR_THE_BLAVET.items()}, "rank": "2"},
     "rank near Paris": {**{k: str(v) for k, v in NEAR_PARIS.items()}, "rank": "2"},
@@ -60,6 +58,11 @@ SELECTIONS: dict[str, dict[str, str]] = {
     "distance near Paris": {**{k: str(v) for k, v in NEAR_PARIS.items()}, "distance": "50"},
     "bbox around the Blavet": {k: str(v) for k, v in BOX_AROUND_THE_BLAVET.items()},
     "bbox around Paris": {k: str(v) for k, v in BOX_AROUND_PARIS.items()},
+}
+#: the selections only the library and the command line have: the REST API and the MCP tools take no `sql`
+COMMAND_LINE_ONLY: dict[str, dict[str, str]] = {
+    "sql of Paris": {"sql": f"station_id = '{PARIS}'"},
+    "sql of the Blavet": {"sql": f"station_id = '{BLAVET}'"},
 }
 #: the selections whose answer holds the Blavet, or that had to leave it out: every place search, as it is never
 #: found by one
@@ -75,7 +78,7 @@ TOLD = {
     "bbox around the Blavet",
     "bbox around Paris",
 }
-NOT_TOLD = set(SELECTIONS) - TOLD
+NOT_TOLD = {*SELECTIONS, *COMMAND_LINE_ONLY} - TOLD
 
 
 @pytest.fixture(autouse=True)
@@ -83,7 +86,6 @@ def hubeau(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> HubeauRequest:  # 
     """Serve the referential, and let every test be the process's first to tell a station without a position."""
     monkeypatch.setattr(api, "_reported_unplaced", set())
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     begin_response()
     return hubeau_request(monkeypatch)
 
@@ -137,14 +139,14 @@ def _cli(**query: str) -> list[dict[str, str]]:
     return json.loads(result.stdout)["metadata"]["warnings"]
 
 
-@pytest.mark.parametrize("selection", SELECTIONS)
+@pytest.mark.parametrize("selection", [*SELECTIONS, *COMMAND_LINE_ONLY])
 def test_the_library_tells_the_station_where_it_concerns_the_answer(selection: str, hubeau: HubeauRequest) -> None:
     """Test that `all()` and the filters record the warning for the answers that hold the Blavet or leave it out.
 
     A filter builds the list it selects among without telling it (`_stations_to_select_among`), so a request for
     other stations carries nothing, where `all()` holds the whole list and tells it.
     """
-    _library(hubeau, SELECTIONS[selection])
+    _library(hubeau, {**SELECTIONS, **COMMAND_LINE_ONLY}[selection])
 
     codes = [warning["code"] for warning in recorded_warnings()]
     assert codes == ([] if selection in NOT_TOLD else [CODE])
@@ -164,6 +166,14 @@ def test_rest_tells_the_station_where_it_concerns_the_answer(selection: str) -> 
 def test_the_command_line_tells_the_station_as_rest_does(selection: str) -> None:
     """Test that `stations --with-metadata` carries the same warnings as REST for each selection."""
     assert _cli(**SELECTIONS[selection]) == _rest(**SELECTIONS[selection])
+
+
+@pytest.mark.parametrize("selection", COMMAND_LINE_ONLY)
+def test_the_command_line_tells_the_station_of_a_sql_selection_as_the_library_does(selection: str) -> None:
+    """Test that `stations --sql` carries the warning for the selection that concerns the Blavet, and none else."""
+    codes = [warning["code"] for warning in _cli(**COMMAND_LINE_ONLY[selection])]
+
+    assert codes == ([CODE] if selection in TOLD else [])
 
 
 def test_a_resolution_that_does_not_hold_the_station_is_not_told() -> None:
@@ -221,12 +231,10 @@ BEFORE_IT_OPENED = {"timestamp": "2026-01-01"}
 AFTER_IT_OPENED = {"timestamp": "2026-10-15"}
 #: the selections by place or of the whole list, which a window can leave the station out of
 WHOLE_LIST_OR_PLACE = [
-    name
-    for name in SELECTIONS
-    if name in TOLD and name not in {"id of the Blavet", "name of the Blavet", "sql of the Blavet"}
+    name for name in SELECTIONS if name in TOLD and name not in {"id of the Blavet", "name of the Blavet"}
 ]
 #: and those that name the station, which are told whatever the window does to it
-NAMING = ["id of the Blavet", "sql of the Blavet"]
+NAMING = [(_rest, "id of the Blavet"), (_cli, "id of the Blavet"), (_cli, "sql of the Blavet")]
 
 
 @pytest.mark.parametrize("surface", [_rest, _cli])
@@ -252,13 +260,12 @@ def test_a_name_is_matched_among_the_stations_with_a_record_in_the_window(
     assert [w["code"] for w in surface(**SELECTIONS["name of the Blavet"], **AFTER_IT_OPENED)] == [CODE]
 
 
-@pytest.mark.parametrize("surface", [_rest, _cli])
-@pytest.mark.parametrize("selection", NAMING)
+@pytest.mark.parametrize(("surface", "selection"), NAMING)
 def test_a_station_named_in_a_listing_is_told_whatever_the_window_does_to_it(
     selection: str, surface: Callable[..., list[dict[str, str]]]
 ) -> None:
     """Test that asking for the Blavet by id or SQL is told, though the window leaves it out of the answer."""
-    warnings = surface(**SELECTIONS[selection], **BEFORE_IT_OPENED)
+    warnings = surface(**{**SELECTIONS, **COMMAND_LINE_ONLY}[selection], **BEFORE_IT_OPENED)
 
     assert [warning["code"] for warning in warnings] == [CODE]
 
