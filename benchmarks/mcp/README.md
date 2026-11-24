@@ -157,7 +157,7 @@ Start it **in the background** (the Bash tool's `run_in_background`, or `nohup .
 
 ```bash
 . "$BENCH/env.sh"
-cd "$SERVER_DIR" && exec env -u WD_RESTAPI_SQL .venv/bin/wetterdienst restapi --listen 127.0.0.1:7891
+cd "$SERVER_DIR" && exec .venv/bin/wetterdienst restapi --listen 127.0.0.1:7891
 ```
 
 Wait for it (about 10 s), then check and record what you need:
@@ -172,13 +172,6 @@ printf 'export LABEL="%s"\nexport SERVER_VERSION="%s"\n' "$(git -C "$SERVER_DIR"
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" probe "$URL" --label "$LABEL"
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" tools-size --server "$URL"
 ```
-
-**The server's SQL setting.** `env -u WD_RESTAPI_SQL` starts it with the default, **SQL filtering off**: `sql` and `sql_values`
-are refused with a 403, and a small model that tries them after a result too large to read spends steps on the refusal. The
-baseline and every comparison with it must be run with the **same** setting, and the baselines of this file were run with it unset;
-leave it so unless the maintainer tells you otherwise (then set `WD_RESTAPI_SQL=true` on **both** sides and say so in the comments).
-`init` asks the server and writes the answer into `meta.server_settings.restapi_sql` (`off`, `on` or `unknown`); `probe` prints it;
-`compare` **warns** (it does not refuse) when the two files differ.
 
 `/health` answers `{"status":"OK"}`, `/api/version` the version of the checkout (for example `0.186.0` for `main`), `probe` says
 `"tools": 14`, and `server.pid` holds the one PID that listens: **that PID, and no other, is what you stop at the end**.
@@ -472,9 +465,9 @@ python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" hashes
 `meta` prints what the baseline was made with: **`label`, the commit its server ran** (for example `d18a37368`, the reference's
 build), its `server_version`, `reference` and `reference_version`, `models`, `repeats`, the case list, `prompt`, `logic`,
 `claude_version`, the date. `hashes` prints the `logic`, `prompt` and `defaults` of your `$REPO`: if they differ from the
-baseline's, `compare` will refuse (exit 4), so **stop and ask before you pay for the runs**; a different `server_settings` (SQL on in one and off in the other) is not a refusal
-but a warning, and it makes the sides unlike: start your server with the baseline's setting (`env -u WD_RESTAPI_SQL` for the default); a different `cases_file` only means
-that some cases changed (`compare` leaves those out and lists them). A different `claude_version` is allowed: say it in the report.
+baseline's, `compare` will refuse (exit 4), so **stop and ask before you pay for the runs**; a different `cases_file` only means
+that some cases changed (`compare` leaves those out and lists them). A different `claude_version` is allowed: say it in the report. A file made while the tools still took `sql` and `sql_values` and recorded `meta.server_settings.restapi_sql: on` was made
+with SQL open to the model, which the tools no longer offer, so its runs are not a baseline for a new file: make a new baseline.
 
 **8.2 The server is the branch.** Do 2.1, and set the three names of 2.2 for the change (`SERVER_REF` is `origin/<X>` for a
 branch, or the SHA alone for a commit):

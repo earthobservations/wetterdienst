@@ -42,7 +42,7 @@ pnpm install
 pnpm dev            # dev server, port 4000
 pnpm build
 pnpm lint           # oxlint + eslint
-pnpm typecheck      # generates the answers' types from tests/ui/openapi.snapshot.json (pnpm gen:api-types, git-ignored app/.generated/), then `scripts/typecheck.mjs`: vue-tsc (TypeScript 6.0.3, for the .vue files) and tsc 7 (the .ts code); both run and either fails the command
+pnpm typecheck      # generates the answers' types from tests/ui/openapi.snapshot.json (pnpm gen:api-types, git-ignored app/.generated/), then `scripts/typecheck.mjs`: vue-tsc (TypeScript 6.0.3, for the .vue files) and tsc 7 (the .ts code, the unit and e2e tests and `playwright.config.ts` included: `app/typecheck/tests.json`); both run and either fails the command
 pnpm test:ci        # vitest run
 pnpm test:e2e       # playwright
 pnpm test:a11y      # the axe accessibility spec, on request only (not in test:e2e); see app/ACCESSIBILITY.md
@@ -76,7 +76,7 @@ Layered flow: `Request → StationsResult → ValuesResult`.
 - **`TimeseriesRequest`** (`model/request.py`): abstract base dataclass all provider request classes extend — parameter parsing, date validation, station filtering.
 - **`TimeseriesValues`** (`model/values.py`): abstract base for fetching observation data, bound to a `StationsResult`.
 - **`StationsResult` / `ValuesResult`** (`model/result.py`): wrap polars DataFrames; provide `to_dict/to_json/to_ogc_feature_collection/to_file/to_target`, DuckDB SQL filtering, and plotting.
-- **`Settings`** (`settings.py`): the host's pydantic settings, process-wide and read by providers; env vars prefixed `WD_` (cache, network client, certifi, BUFR, REST SQL, provider auth via `WD_AUTH__*`). Per-request behaviour is not here.
+- **`Settings`** (`settings.py`): the host's pydantic settings, process-wide and read by providers; env vars prefixed `WD_` (cache, network client, certifi, BUFR, provider auth via `WD_AUTH__*`). Per-request behaviour is not here.
 - **`Options`** (`options.py`): frozen pydantic settings per request, passed as `options=` (an `Options` or a dict); how values come back (shape, units, skipping) and the interpolation distances. Env vars prefixed `WD_TS_`. The old `Settings` `ts_*` paths are gone: `Settings` refuses them with an error that names the option to pass instead (`refuse_removed_ts_settings` in `settings.py`).
 
 ### Metadata system

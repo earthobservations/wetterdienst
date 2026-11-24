@@ -1568,6 +1568,10 @@ class TimeseriesRequest:
     def filter_by_sql(self, sql: str) -> StationsResult:
         """Filter stations by SQL query.
 
+        The condition runs in DuckDB on a restricted connection (see `wetterdienst.io.sql_filter.filter_by_sql`);
+        the restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust. The time
+        a condition runs, memory outside DuckDB's limit and the process itself are not protected.
+
         Args:
             sql: SQL query to filter stations by.
 

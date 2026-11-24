@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.197.0"
+version = "0.198.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -121,7 +121,6 @@ dependencies = [
     "pydantic-core>=2.18.4,<3",
     "pydantic-extra-types>=2.10.1,<3",
     "pydantic-settings>=2.14.0,<3",
-    "python-dateutil>=2.8.2,<3",
     "rapidfuzz>=3.1,<4",
     "stamina>=25.1.0,<27",
     "tabulate>=0.9,<1",
@@ -153,7 +152,8 @@ cratedb = [
     "sqlalchemy-cratedb>=0.40,<1",
 ]
 duckdb = [
-    "duckdb>=1.1.0,<2",
+    # >=1.5.3: the same release as the `sql` extra, so that one install holds both
+    "duckdb>=1.5.3,<2",
     "pandas>=2.2.2,<4",
 ]
 # kept for the installs that name it; `bufr` carries this and the reader both. The floor is the
@@ -204,7 +204,9 @@ mysql = [
     "sqlalchemy>=2,<3",
 ]
 pdf = [
-    "pypdf>=6.21.4,<7",  # seven DoS advisories on a crafted PDF, fixed in 6.21.3 and 6.21.4 (GH-4130)
+    # 7.1.1 fixes denial-of-service advisories that `PdfReader` -> `extract_text()` reaches and 6.x never got
+    # (GHSA-5chg-c4f3-fw2p, -p3v2-r3fx-qpm6, -59jv-x5x2-gg4c, -7f8r-xhw3-553h, -cqpq-3wwr-f5p2); GH-4130, GH-4350
+    "pypdf>=7.1.1,<8",
 ]
 plotting = [
     "kaleido>=1.3.0",
@@ -237,13 +239,17 @@ restapi = [
     "uvicorn[standard]>=0.30,<1",
 ]
 sql = [
-    "duckdb>=1.1.0,<2",
+    # >=1.5.3: the filter refuses an older DuckDB (`wetterdienst.io.sql_filter.MINIMUM_DUCKDB`)
+    "duckdb>=1.5.3,<2",
 ]
 mcp = [
     "wetterdienst[restapi]",
     # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one;
     # >=4.1.2 for GHSA-vqqp-x5qm-5qp4 and GHSA-7xgj-8392-5q4r
     "fastmcp>=4.1.2,<5",
+    # >=2.14.2 for GHSA-3r8g-cqwr-jr29: mcp_types validates the `_meta` of a request as an aliased TypedDict with extra
+    # items, where before 2.14.2 a key under the field's python name replaced the validated one (GH-4378)
+    "pydantic>=2.14.2,<3",
     # ui/mcp.py builds the OpenAPIProvider's ASGI client with it; >=2.12 for CVE-2026-84379/80/82
     "httpx2>=2.12,<3",
 ]

@@ -543,7 +543,7 @@ def fit_stations(
 
     The answer is unchanged where it fits. A name asks for a few stations, and so does one station: their rows are
     left as they are (only a `with_metadata` block that is over the budget on its own is left out, with a note).
-    Otherwise (all stations, a bounding box, a distance, a rank, `sql`, ids) the stations that fit
+    Otherwise (all stations, a bounding box, a distance, a rank, ids) the stations that fit
     are kept, in list order (for a distance or a rank the nearest first, which is its order), and the note says how
     many match (or were asked for) and what narrows them. The block is kept and the stations are cut to make room for
     it: only where even one station is over the budget with the block, and fits without it, is the block left out,
@@ -1034,7 +1034,9 @@ def fit_alerts(
     if best is not None:
         cap = next(each for each in caps if tried[each, total][2] <= ANSWER_BUDGET)
     elif total > 1:
-        guess = max(1, total * ANSWER_BUDGET // _size_in(content, fmt, metadata))
+        # from the size of the slimmed answer, which the warnings are cut from, and not of the unslimmed one, whose
+        # polygons and areas would put the first probe near 1
+        guess = max(1, total * ANSWER_BUDGET // tried[cap, total][2])
         best = _largest(1, total - 1, lambda count: attempt(count, cap), guess)
     if best is None:
         # not even the worst warning fits, slimmed as it is: it is kept, and the note says the answer is still over

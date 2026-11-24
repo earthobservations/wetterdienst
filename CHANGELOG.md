@@ -22,17 +22,59 @@ Types of changes:
   (every tool but `auth`, `glossary` and `issues`) and the `width`, `height` and `scale` of an image
   (`stations`, `values`, `interpolate`, `summarize`), and `format` no longer offers `html`, `png`,
   `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, `width`, `height` or `scale` is
-  answered as one without; a chart format is a tool error that names the formats the tool answers.
-  The input schemas shrink by 3,441 of 52,994 characters. REST, the command line and Python are
+  answered as one without; a chart format is a tool error that names the formats the tool answers:
+  charts through the tools are gone.
+  The input schemas shrink by 3,441 of 51,696 characters. REST, the command line and Python are
   unchanged: ask the REST API for a chart (GH-4318)
+
+## [0.198.0] - 2026-11-24
+
+### Changed
+
+- **Breaking**: the REST API and the MCP tools take no `sql` and `sql_values` any more, and the
+  setting `restapi_sql` is gone. A request that sends one is a 422 (a tool error) that says what
+  to do instead: select the stations with the filters of the route, or filter the rows of the
+  answer yourself; the problem type `sql-disabled` (403) no longer exists.
+  `Settings(restapi_sql=...)` is refused; a server with `WD_RESTAPI_SQL=true` warns once as it
+  starts and runs without SQL, so remove the variable. The command line (`--sql`, `--sql-values`)
+  and the library keep SQL
+- **Breaking**: `filter_by_sql`, `filtered_by_sql` and the command line's SQL options need DuckDB
+  1.5.3 or newer (the `sql` and `duckdb` extras are `>=1.5.3,<2`); an older one raises an
+  `UnsupportedDependencyError` that names the release to install. A condition can no longer use a
+  function of a DuckDB extension that is on the host, nothing is installed or loaded on its
+  behalf, and no secret is stored
+- wetterdienst no longer depends on `python-dateutil`; a small helper does the month arithmetic with
+  the same dates, so code that imports `dateutil` through wetterdienst must depend on it itself
+  (GH-4349)
 
 ### Fixed
 
+- **Breaking**: an alerts `name` of only whitespace (`name="  "`) is refused, where it answered every
+  warning (with a point, the name was ignored): a `RequestError` in Python, a 422 of `name` in the
+  REST API, a tool error in MCP, a usage error of `--name` on the command line. An empty `name` is
+  still none; leave `name` out to ask for all (GH-4354)
 - The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were
   184,612, so a client saved them to a file): each warning loses its `geometry` and area lists (a
   `name` keeps up to 25 matching areas), then the least severe warnings go, with an
   `answer-truncated` warning. A `name` matching no area adds `no-area-matched`. Other answers, REST,
   the command line and Python are unchanged (GH-4338)
+
+### Security
+
+- A server run with `WD_RESTAPI_SQL=true` let any client that could reach `/api`, `/api/v1`
+  (from 0.156.0), `/mcp/v1` or `/mcp` disrupt it through `sql` and `sql_values`, which ran the
+  client's text in DuckDB (GHSA-332g-7w2w-4w59; 0.140.0 to 0.197.0). Both parameters are removed:
+  upgrade. Before 0.140.0 `sql` needed no setting (GHSA-rpwr-qmm5-m9wp): upgrade, there is
+  nothing to unset. The restrictions of `filter_by_sql` are defence in depth, not a sandbox: never
+  pass it text from someone you do not trust; time, memory outside DuckDB's limit and the process
+  are not protected
+- The `pdf` extra needs pypdf 7.1.1 (was 6.21.4): denial-of-service advisories on a crafted PDF
+  that the description reader reaches are fixed only in 7.x (GH-4350)
+- The floor of pydantic in the `mcp` extra is 2.14.2 (was 2.7.3), for GHSA-3r8g-cqwr-jr29: before
+  it, a client of `/mcp` could send the `progress_token` of a request's `_meta` under its python
+  name beside its alias and have it replace the validated one, an unvalidated value. Nothing
+  read it, so this was a validation bypass and nothing more. An existing installation must
+  upgrade pydantic itself (`pip install -U "pydantic>=2.14.2"`) (GH-4378)
 
 ## [0.197.0] - 2026-11-24
 
@@ -8509,7 +8551,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...HEAD
+[0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
 [0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0
 [0.195.0]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...v0.195.0

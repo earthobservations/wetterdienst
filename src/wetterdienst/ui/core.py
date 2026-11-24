@@ -231,17 +231,11 @@ _TopField = Annotated[
 ]
 _SqlField = Annotated[
     str | None,
-    Field(
-        description="SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API "
-        "and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
-    ),
+    Field(description="SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\"."),
 ]
 _SqlValuesField = Annotated[
     str | None,
-    Field(
-        description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0". The REST API '
-        "and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
-    ),
+    Field(description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0".'),
 ]
 _WithMetadataField = Annotated[
     bool,
@@ -769,10 +763,52 @@ REMOVED_REQUEST_PARAMETERS: dict[str, str] = {
     ),
 }
 
+_NO_SQL_ON_A_SERVER = (
+    "the REST API and the MCP tools no longer filter with SQL, which ran a caller's text in DuckDB on the server: "
+)
+_KEPT_ON_THE_COMMAND_LINE = "; the command line (`{option}`) and the library (`{function}`) keep it"
 
-def removed_parameter_message(name: str) -> str:
-    """Tell a caller that a parameter of `REMOVED_REQUEST_PARAMETERS` is gone, and what to do instead."""
-    return f"{name} was removed: {REMOVED_REQUEST_PARAMETERS[name]}"
+#: `sql` and `sql_values`, removed from the routes of a server, by the route that took them (as `OLD_NAMES_OF_ROUTE`
+#: names it), each with what that route offers instead. A route that never took one answers as for any parameter it
+#: does not know. The command line keeps both: its request models (`CliStationsRequest` and the others) have the
+#: fields
+REMOVED_ON_ROUTES: dict[str, dict[str, str]] = {
+    "sql": {
+        route: _NO_SQL_ON_A_SERVER
+        + "select the stations with the filters of the route (`stations`, `name`, `wmo_id`, `wigos_id`, `icao_id`, "
+        "a point with `rank` or `distance`, a bounding box), or filter the answer yourself"
+        + _KEPT_ON_THE_COMMAND_LINE.format(option="--sql", function="filter_by_sql")
+        for route in ("stations", "values")
+    },
+    "sql_values": {
+        "values": _NO_SQL_ON_A_SERVER
+        + "filter the answer yourself (the rows of `format=json`, `csv` or `ndjson`)"
+        + _KEPT_ON_THE_COMMAND_LINE.format(option="--sql-values", function="filtered_by_sql"),
+        **{
+            route: _NO_SQL_ON_A_SERVER
+            + "filter the answer yourself (the rows of `format=json` or `csv`)"
+            + _KEPT_ON_THE_COMMAND_LINE.format(option="--sql-values", function="filtered_by_sql")
+            for route in ("interpolate", "summarize")
+        },
+    },
+}
+
+
+def removed_parameter_text(name: str, route: str = "") -> str | None:
+    """Give what a caller of `route` is to do instead of a removed parameter, None if the route never took it."""
+    if name in REMOVED_ON_ROUTES:
+        return REMOVED_ON_ROUTES[name].get(route)
+    return REMOVED_REQUEST_PARAMETERS.get(name)
+
+
+def removed_parameter_message(name: str, route: str = "") -> str:
+    """Tell a caller of `route` that a removed parameter is gone, and what to do instead."""
+    return f"{name} was removed: {removed_parameter_text(name, route)}"
+
+
+def removed_parameter_names(route: str = "") -> list[str]:
+    """Give the removed parameters that `route` answers with their message, the ones it took."""
+    return [name for name in (*REMOVED_REQUEST_PARAMETERS, *REMOVED_ON_ROUTES) if removed_parameter_text(name, route)]
 
 
 class _RefusesRenamedParameters(BaseModel):
@@ -794,8 +830,8 @@ class _RefusesRenamedParameters(BaseModel):
                 if old in old_names_of_route(cls.route)
             ]
             errors += [
-                _rule_error("removed", removed_parameter_message(name), (name,), data[name])
-                for name in REMOVED_REQUEST_PARAMETERS
+                _rule_error("removed", removed_parameter_message(name, cls.route), (name,), data[name])
+                for name in removed_parameter_names(cls.route)
                 if name in data and name not in cls.model_fields
             ]
             if errors:
@@ -909,7 +945,7 @@ class Selection:
 
 
 #: the stations of `stations` and `values`: all, ids, the WMO, WIGOS or ICAO ids, a name, a point (with a rank or a
-#: distance), a box or SQL
+#: distance) or a box
 STATION_SELECTION = Selection(
     exactly_one_of=(
         ("all",),
@@ -920,11 +956,16 @@ STATION_SELECTION = Selection(
         ("name",),
         _POINT,
         ("left", "bottom", "right", "top"),
-        ("sql",),
     ),
     then=((_POINT, _POINT_MEASURES),),
     # a `rank` goes with a name as well as with a point: there it caps the fuzzy matches
     requires=(("distance", (_POINT,)), ("rank", (_POINT, ("name",)))),
+)
+#: the stations of the command line, which has `--sql` as well
+CLI_STATION_SELECTION = Selection(
+    exactly_one_of=(*STATION_SELECTION.exactly_one_of, ("sql",)),
+    then=STATION_SELECTION.then,
+    requires=STATION_SELECTION.requires,
 )
 #: the stations of `history`
 HISTORY_SELECTION = Selection(exactly_one_of=(("all",), ("stations",)))
@@ -934,8 +975,7 @@ REFERENCE_SELECTION = Selection(exactly_one_of=(("station",), _POINT))
 #: one value for each parameter of a selection, as the schema of the parameter has it, a list as a list, which the
 #: document spells comma-separated (`explode: false`). A request gives a whole group of them, with a `rank` for the
 #: point, and the model accepts it (`tests/ui/test_surface_parity.py` makes each); the limits of the server still
-#: apply, such as the stations one request may read, and `sql` is refused with a 403 where the server does not
-#: enable it
+#: apply, such as the stations one request may read
 SELECTION_EXAMPLES: dict[str, Any] = {
     "all": True,
     "stations": ["01048", "04411"],
@@ -951,7 +991,6 @@ SELECTION_EXAMPLES: dict[str, Any] = {
     "bottom": 53.4,
     "right": 10.5,
     "top": 53.9,
-    "sql": "region='Sachsen'",
     "station": "01048",
 }
 
@@ -1081,8 +1120,6 @@ class StationsRequest(_RefusesRenamedParameters):
     bottom: _BottomField = None
     right: _RightField = None
     top: _TopField = None
-    # sql
-    sql: _SqlField = None
 
     # the window the stations listed are to have a record in, as for `values` (GH-2635)
     timestamp: _StationsTimestampField = None
@@ -1273,8 +1310,6 @@ class ValuesRequest(_RefusesRenamedParameters):
     bottom: _BottomField = None
     right: _RightField = None
     top: _TopField = None
-    # sql
-    sql: _SqlField = None
 
     with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithValueStationsField = False
@@ -1289,7 +1324,6 @@ class ValuesRequest(_RefusesRenamedParameters):
 
     # values
     timestamp: _TimestampOptField = None
-    sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
     shape: _ShapeField = "long"
     convert_units: _ConvertUnitsField = True
@@ -1384,8 +1418,6 @@ class InterpolationRequest(_RefusesRenamedParameters):
     latitude: _LatitudeField = None
     longitude: _LongitudeField = None
     elevation: _ElevationField = None
-    # sql
-    sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
     convert_units: _ConvertUnitsField = True
     unit_targets: _UnitTargetsField = None
@@ -1492,8 +1524,6 @@ class SummaryRequest(_RefusesRenamedParameters):
     latitude: _LatitudeField = None
     longitude: _LongitudeField = None
     elevation: _ElevationField = None
-    # sql
-    sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
     convert_units: _ConvertUnitsField = True
     unit_targets: _UnitTargetsField = None
@@ -1564,6 +1594,39 @@ class RestSummaryRequest(SummaryRequest):
     summary_station_distance_heterogeneous: _RestStationDistanceHeterogeneousField = None
     min_gain_of_value_pairs: _RestMinGainOfValuePairsField = 0.10
     num_additional_stations: _RestNumAdditionalStationsField = 3
+
+
+class CliStationsRequest(StationsRequest):
+    """The stations request of the command line: the one of the server, with `--sql` to select the stations by.
+
+    The REST API and the MCP tools do not take `sql`: it runs a caller's text in DuckDB on the server, and a caller
+    of a server is not the host's own user, which the command line's is.
+    """
+
+    selection: ClassVar[Selection] = CLI_STATION_SELECTION
+
+    sql: _SqlField = None
+
+
+class CliValuesRequest(ValuesRequest):
+    """The values request of the command line: the one of the server, with `--sql` and `--sql-values`."""
+
+    selection: ClassVar[Selection] = CLI_STATION_SELECTION
+
+    sql: _SqlField = None
+    sql_values: _SqlValuesField = None
+
+
+class CliInterpolationRequest(InterpolationRequest):
+    """The interpolation request of the command line: the library's, with `--sql-values`."""
+
+    sql_values: _SqlValuesField = None
+
+
+class CliSummaryRequest(SummaryRequest):
+    """The summary request of the command line: the library's, with `--sql-values`."""
+
+    sql_values: _SqlValuesField = None
 
 
 class SettingsRequest(BaseModel):
@@ -1820,6 +1883,21 @@ class AlertsRequest(_RefusesRenamedParameters):
         Field(description="Output format: json, geojson (a feature collection) or csv."),
     ] = "json"
     pretty: _PrettyField = False
+
+    @field_validator("name")
+    @classmethod
+    def refuse_blank_name(cls, value: str | None) -> str | None:
+        """Refuse a name of only whitespace as a 422 of the `name` parameter; an empty one is none, as it always was."""
+        from wetterdienst.provider.dwd.alerts.place import BLANK_NAME, check_name  # noqa: PLC0415
+
+        try:
+            check_name(value)
+        except RequestError as e:
+            kind = "blank_name"
+            # the message names no field, as the rules over fields do (`Field required with latitude`): `loc` does
+            message = f"{BLANK_NAME[0].upper()}{BLANK_NAME[1:]}"
+            raise PydanticCustomError(kind, message) from e
+        return value
 
     @model_validator(mode="after")
     def check_point(self) -> AlertsRequest:
@@ -2222,9 +2300,10 @@ def timed_out(e: BaseException) -> bool:
 def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
     """Tell the status of a failure that is the request's own, which the caller can rephrase, else None.
 
-    Beyond the hierarchy (`failure_status`): the caller's own `sql` or `sql_values` is the only SQL
-    run on the way, so a DuckDB error about the statement -- its syntax, a column or function it
-    names, a value it compares -- is theirs, a 400. So, where the request carries a clause, are the
+    Beyond the hierarchy (`failure_status`): the caller's own `--sql` or `--sql-values` of the command line (the
+    REST API and the MCP tools take none) is the only SQL run on the way, so a DuckDB error about the statement --
+    its syntax, a column or function it names, a value it compares -- is theirs, a 400. So, where the request
+    carries a clause, are the
     refusals of the connection the clause runs on (`wetterdienst.io.sql_filter.filter_by_sql`): a file, URL or
     extension it may not touch (`PermissionException`), more memory than the limit sized to the
     frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as an
@@ -2815,9 +2894,9 @@ def get_values(
         # CLI print the same sentence twice
         return values_
 
-    if request.sql_values:
-        log.info(f"Filtering with SQL: {request.sql_values}")
-        values_ = values_.filtered_by_sql(request.sql_values)
+    if sql_values := getattr(request, "sql_values", None):
+        log.info(f"Filtering with SQL: {sql_values}")
+        values_ = values_.filtered_by_sql(sql_values)
 
     return values_
 
@@ -2849,9 +2928,9 @@ def get_interpolate(
         msg = f"{type(request).__name__} gives neither a point nor a station"
         raise AssertionError(msg)
 
-    if request.sql_values:
-        log.info(f"Filtering with SQL: {request.sql_values}")
-        values_ = values_.filtered_by_sql(request.sql_values)
+    if sql_values := getattr(request, "sql_values", None):
+        log.info(f"Filtering with SQL: {sql_values}")
+        values_ = values_.filtered_by_sql(sql_values)
 
     return values_
 
@@ -2879,9 +2958,9 @@ def get_summarize(
         msg = f"{type(request).__name__} gives neither a point nor a station"
         raise AssertionError(msg)
 
-    if request.sql_values:
-        log.info(f"Filtering with SQL: {request.sql_values}")
-        values_ = values_.filtered_by_sql(request.sql_values)
+    if sql_values := getattr(request, "sql_values", None):
+        log.info(f"Filtering with SQL: {sql_values}")
+        values_ = values_.filtered_by_sql(sql_values)
 
     return values_
 

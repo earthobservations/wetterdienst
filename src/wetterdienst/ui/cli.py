@@ -1995,12 +1995,12 @@ def stations(
     and exits 0. A station id of --stations the network has no station for is named in a warning and left out.
     """
     from wetterdienst import Settings
-    from wetterdienst.ui.core import StationsRequest, limit_stations_to_rank, limit_stations_to_window
+    from wetterdienst.ui.core import CliStationsRequest, limit_stations_to_rank, limit_stations_to_window
     from wetterdienst.ui.render import render_stations
 
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     request = _validate_request(
-        StationsRequest,
+        CliStationsRequest,
         {
             "provider": provider,
             "network": network,
@@ -2405,12 +2405,12 @@ def values(
     --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
     from wetterdienst import Settings
-    from wetterdienst.ui.core import PLAUSIBILITY_OPTIONS, ValuesRequest
+    from wetterdienst.ui.core import PLAUSIBILITY_OPTIONS, CliValuesRequest
     from wetterdienst.ui.render import ValuesSettings, ndjson_refusal
 
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     request = _validate_request(
-        ValuesRequest,
+        CliValuesRequest,
         {
             "provider": provider,
             "network": network,
@@ -2575,7 +2575,7 @@ def interpolate(
     Give the point as exactly one of --station or --latitude/--longitude.
     """
     from wetterdienst import Settings
-    from wetterdienst.ui.core import InterpolationRequest
+    from wetterdienst.ui.core import CliInterpolationRequest
     from wetterdienst.ui.render import InterpolationSettings
 
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
@@ -2583,7 +2583,7 @@ def interpolate(
         msg = "Provide either --timestamp or --start / --end."
         raise click.UsageError(msg)
     request = _validate_request(
-        InterpolationRequest,
+        CliInterpolationRequest,
         {
             "provider": provider,
             "network": network,
@@ -2726,7 +2726,7 @@ def summarize(
     Give the point as exactly one of --station or --latitude/--longitude.
     """
     from wetterdienst import Settings
-    from wetterdienst.ui.core import SummaryRequest
+    from wetterdienst.ui.core import CliSummaryRequest
     from wetterdienst.ui.render import SummarySettings
 
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
@@ -2734,7 +2734,7 @@ def summarize(
         msg = "Provide either --timestamp or --start / --end."
         raise click.UsageError(msg)
     request = _validate_request(
-        SummaryRequest,
+        CliSummaryRequest,
         {
             "provider": provider,
             "network": network,
@@ -2879,6 +2879,29 @@ def radar(
     click.echo(OPERA_CREDIT_LINE, err=True)
 
 
+def _check_alerts_place(latitude: float | None, longitude: float | None, name: str | None) -> None:
+    """Refuse a point that is half or off the Earth, and a name of only whitespace, as usage errors naming the option.
+
+    Before the timestamp's refusal below, which is the one `ValueError` the request's own construction is blamed for.
+    """
+    from wetterdienst.provider.dwd.alerts.place import BLANK_NAME, check_name, check_point
+
+    if (latitude is None) != (longitude is None):
+        msg = "--latitude and --longitude are given together"
+        raise click.UsageError(msg)
+    # click bounds the point, and lets NaN through, which is no place on Earth and not the timestamp's to blame
+    try:
+        check_point(latitude, longitude)
+    except ValueError as e:
+        raise click.BadParameter(str(e), param_hint="--latitude/--longitude") from e
+    # a name of only whitespace names no area, and is not the timestamp's to blame either
+    try:
+        check_name(name)
+    except ValueError as e:
+        # the option is the subject, as `--latitude/--longitude` are above
+        raise click.BadParameter(BLANK_NAME, param_hint="--name") from e
+
+
 @cli.command("alerts", epilog=_examples(ALERTS_EXAMPLES))
 @click.option(
     "--granularity",
@@ -2984,7 +3007,6 @@ def alerts(
     """
     from wetterdienst import Settings
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
-    from wetterdienst.provider.dwd.alerts.place import check_point
     from wetterdienst.ui.render import render_alerts
 
     _apply_log_level(debug=debug)
@@ -2996,14 +3018,7 @@ def alerts(
     # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
     # variable is a `ValueError`, and not the command line's to fix
     settings = Settings()
-    if (latitude is None) != (longitude is None):
-        msg = "--latitude and --longitude are given together"
-        raise click.UsageError(msg)
-    # click bounds the point, and lets NaN through, which is no place on Earth and not the timestamp's to blame
-    try:
-        check_point(latitude, longitude)
-    except ValueError as e:
-        raise click.BadParameter(str(e), param_hint="--latitude/--longitude") from e
+    _check_alerts_place(latitude, longitude, name)
     # granularity, language and format are click's, so only the timestamp reaches this refusal:
     # one that does not parse, or one an offset carries out of what a datetime holds
     try:

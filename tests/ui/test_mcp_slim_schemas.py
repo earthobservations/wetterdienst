@@ -106,9 +106,9 @@ def test_the_tools_keep_every_other_option_of_their_route() -> None:
             assert set(tool.input_schema["properties"]["format"]["enum"]) == set(
                 route["format"]["schema"]["enum"]
             ) - set(_CHART_FORMATS), name
-    # `sql` and `sql_values` are kept as they were, and the box of the stations is no image margin
+    # the box of the stations is no image margin
     values = _tools()["values"].input_schema["properties"]
-    assert {"sql", "sql_values", "left", "right", "top", "bottom"} <= set(values)
+    assert {"left", "right", "top", "bottom"} <= set(values)
 
 
 def test_rest_keeps_the_options_and_the_charts_and_building_a_server_does_not_change_its_document() -> None:

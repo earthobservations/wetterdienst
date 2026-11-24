@@ -475,17 +475,22 @@ def _post_in_chunks(
     Answers the status, the headers and the body of the response, and how many times the app called `receive`: a
     wrapper that reads a body it was not to read shows in that count. `declare` is the `Content-Length` to send, none
     for a chunked body.
+
+    The client stays connected until the answer is complete (GH-4398): the SDK streams its answer as SSE and listens
+    for `http.disconnect` meanwhile, and a disconnect that comes on a timer cuts an answer that a loaded machine has
+    not written yet (a 200 with no body). So the disconnect is the answer of `receive` once the last message of the
+    response was sent, which a client that has read it all does, and not before.
     """
     calls = 0
     pending = list(chunks)
+    answered = asyncio.Event()
 
     async def receive() -> dict[str, Any]:
         nonlocal calls
         calls += 1
         if pending:
             return {"type": "http.request", "body": pending.pop(0), "more_body": bool(pending)}
-        # a client stays connected while it waits for the answer, which the SDK streams as it comes
-        await asyncio.sleep(0.3)
+        await answered.wait()
         return {"type": "http.disconnect"}
 
     started: dict[str, Any] = {}
@@ -496,6 +501,8 @@ def _post_in_chunks(
             started.update(message)
         else:
             body.extend(message.get("body", b""))
+            if not message.get("more_body", False):
+                answered.set()
 
     headers = [
         (b"host", b"testserver"),
@@ -521,9 +528,11 @@ def _post_in_chunks(
 
     async def run() -> None:
         async with app.router.lifespan_context(app):
-            await app(scope, receive, send)
+            # a bound that fails the test where it would hang: the answer is never given up on for want of time
+            await asyncio.wait_for(app(scope, receive, send), timeout=60)
 
     asyncio.run(run())
+    assert answered.is_set(), "the app returned before the last message of its response was sent"
     response_headers = {name.decode().lower(): value.decode() for name, value in started["headers"]}
     return started["status"], response_headers, bytes(body), calls
 
@@ -582,6 +591,33 @@ def test_an_initialize_padded_past_the_cap_is_served_as_before_with_no_id(app: F
     assert status == 200
     assert "mcp-session-id" not in headers
     assert b"protocolVersion" in body
+
+
+@pytest.mark.parametrize("size", [0, 128 * 1024])
+def test_a_slow_answer_reaches_the_client_whole(app: FastAPI, monkeypatch: pytest.MonkeyPatch, size: int) -> None:
+    """An answer the machine is slow to write is still read whole, below the cap and past it (GH-4398).
+
+    The test driver once disconnected on a timer, which cut the SSE answer of a loaded runner into a 200 with no body;
+    the server was not at fault, and a client that stays connected got the answer every time.
+    """
+    from mcp.server.streamable_http import StreamableHTTPServerTransport  # noqa: PLC0415
+
+    write = StreamableHTTPServerTransport._run_sse_writer  # noqa: SLF001
+
+    async def slowly(self: StreamableHTTPServerTransport, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        await asyncio.sleep(1)
+        await write(self, *args, **kwargs)
+
+    monkeypatch.setattr(StreamableHTTPServerTransport, "_run_sse_writer", slowly)
+    padded = json.dumps({**_INITIALIZE, "padding": "x" * size}).encode()
+    chunks = [padded[i : i + 20 * 1024] for i in range(0, len(padded), 20 * 1024)]
+
+    status, headers, body, _ = _post_in_chunks(app, MCP_PREFIX, chunks)
+
+    assert status == 200
+    assert ("mcp-session-id" in headers) is (size == 0)
+    assert b"protocolVersion" in body
+    assert b'"id":1' in body
 
 
 async def _feed(messages: list[dict[str, Any]], *, then: dict[str, Any] | None = None) -> Any:  # noqa: ANN401

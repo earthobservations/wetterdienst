@@ -275,7 +275,8 @@ releases are gone: `Settings` refuses them with an error that names the option t
 may be combined, which options a request takes), `get_stations`, `get_values`, `get_interpolate`, `get_summarize`, the
 resolution of provider and network through the registry, and `failure_status()`, the table that turns an exception
 into the HTTP status a REST call answers (the command line reads it to tell a refusal, a usage error, from an outage).
-`_caller_refusal_status` adds to it the DuckDB errors of a caller's own `sql` clause, which are a 400:
+`_caller_refusal_status` adds to it the DuckDB errors of a caller's own `--sql` or `--sql-values` clause of the
+command line (the REST API and the MCP tools take none), which are a 400:
 
 ```text
 RequestError, OverflowError   400      NotFoundError            404      ConfigurationError, NotImplementedError  501

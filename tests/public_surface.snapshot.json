@@ -46,7 +46,6 @@
     "restapi_max_rows",
     "restapi_max_stations",
     "restapi_max_stream_rows",
-    "restapi_sql",
     "restapi_timeout",
     "use_certifi"
   ],

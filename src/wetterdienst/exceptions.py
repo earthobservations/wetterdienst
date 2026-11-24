@@ -320,6 +320,14 @@ class MissingDependencyError(ConfigurationError, ImportError):
     """
 
 
+class UnsupportedDependencyError(MissingDependencyError):
+    """Raised when an optional dependency is installed but is older than the release the feature needs.
+
+    A `MissingDependencyError`, so that it is answered as that is: one line on the command line, with the message that
+    names the release found and the oldest that is accepted.
+    """
+
+
 class BufrReaderMissingError(MissingDependencyError):
     """Raised when data published as BUFR is asked for and the reader to decode it is unavailable.
 

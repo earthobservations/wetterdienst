@@ -979,6 +979,9 @@ so sort or slice the returned frame instead. The condition runs on a DuckDB conn
 own, which cannot read files, reach the network or load extensions, and holds nothing but the
 frame.
 
+The filter needs DuckDB 1.5.3 or newer and refuses an older one with `UnsupportedDependencyError`. It is for the
+library and the command line (`--sql`, `--sql-values`): the REST API and the MCP tools take no SQL. These restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust to the filter. The time a condition runs, memory outside DuckDB's limit and the process itself are not protected.
+
 ```{code-cell}
 ---
 mystnb:

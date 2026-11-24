@@ -10,11 +10,16 @@ from typing import TYPE_CHECKING
 import polars as pl
 import polars.selectors as cs
 
+from wetterdienst.exceptions import UnsupportedDependencyError
 from wetterdienst.metadata.aliases import use_alias
 from wetterdienst.metadata.renamed import aliased_column, renamed_column
 from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
+    from duckdb import DuckDBPyConnection
+
     from wetterdienst.metadata.aliases import ParameterAlias
 
 #: DuckDB's own message for a column the clause names and the frame lacks, anchored at its start: a clause can make
@@ -45,6 +50,10 @@ def filter_by_sql(df: pl.DataFrame, sql: str) -> pl.DataFrame:
     A column that the frame lacks and that is the old name of a renamed parameter (`wetterdienst.metadata.aliases`)
     is read from the column it was renamed to, with the warning of every alias; the answer holds the frame's own
     columns only.
+
+    The condition runs in DuckDB on a restricted connection (`_filter_by_sql_clause`). The restrictions are defence in
+    depth, not a sandbox: never pass text from someone you do not trust to this function. The time a condition runs,
+    memory outside DuckDB's limit and the process itself are not protected.
     """
     frame = df
     aliased: list[str] = []
@@ -62,42 +71,72 @@ def filter_by_sql(df: pl.DataFrame, sql: str) -> pl.DataFrame:
         return filtered.drop(aliased)
 
 
-def _filter_by_sql_clause(df: pl.DataFrame, sql: str) -> pl.DataFrame:
-    """Filter df using an SQL query WHERE clause.
+#: the oldest DuckDB the filter runs on: the settings of its connection below are those of this release and later
+MINIMUM_DUCKDB = (1, 5, 3)
 
-    This implementation is based on DuckDB, so please
-    have a look at its SQL documentation.
+_VERSION = re.compile(r"\s*v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?P<rest>.*)", re.DOTALL)
+_PRERELEASE = re.compile(r"[.\-_]?(dev|a|b|c|rc|alpha|beta|pre|preview)", re.IGNORECASE)
 
-    - https://duckdb.org/docs/sql/introduction
 
-    The clause runs on a DuckDB connection of its own, which holds the frame as `df` and nothing
-    else: it cannot read or list files, reach the network or install or load extensions, and
-    raises a `duckdb.Error` when it tries (`PermissionException` for a file or a URL). It is
-    parsed as a single condition in parentheses, so anything after it -- a second statement,
-    `ORDER BY`, `LIMIT`, `WHERE`, `FROM` -- raises `duckdb.ParserException`, unless it closes
-    those parentheses itself, when DuckDB ignores a trailing `FROM`; trailing semicolons and
-    whitespace are dropped. It runs on one thread with DuckDB's memory limit at 1 GiB plus the
-    frame's size and nowhere to spill to, and raises `duckdb.OutOfMemoryException` when DuckDB's
-    buffers would grow past that.
+def _require_supported_duckdb(duckdb: ModuleType) -> None:
+    """Refuse a DuckDB older than `MINIMUM_DUCKDB`, before anything is run on it.
 
-    Args:
-        df: DataFrame to filter
-        sql: SQL WHERE clause
+    The version is read tolerantly: the first three numbers, whatever follows them (`1.5.3.post1`, `1.5.4-12-gabc`,
+    `v1.5.3`). A pre-release of a release is older than the release, as in PEP 440, so `1.5.3rc1` and `1.5.3.dev2`
+    are refused where `1.5.3` is not. A version that has no number to read is refused.
 
-    Returns:
-        Filtered DataFrame
+    Raises:
+        UnsupportedDependencyError: the release is older than `MINIMUM_DUCKDB`, or cannot be read.
 
     """
-    duckdb = import_optional("duckdb", "Filtering with SQL", extra="sql")
+    version = str(getattr(duckdb, "__version__", ""))
+    wanted = ".".join(str(part) for part in MINIMUM_DUCKDB)
+    found = _VERSION.match(version)
+    if found is None:
+        msg = f"Filtering with SQL needs DuckDB {wanted} or newer, and the version {version!r} cannot be read."
+        raise UnsupportedDependencyError(msg)
+    release = tuple(int(part or 0) for part in found.group(1, 2, 3))
+    pre = _PRERELEASE.match(found.group("rest")) is not None
+    if (release, 0 if pre else 1) < (MINIMUM_DUCKDB, 1):
+        msg = (
+            f"Filtering with SQL needs DuckDB {wanted} or newer, found {version}. "
+            f"Upgrade it, for instance with `pip install --upgrade 'duckdb>={wanted}'`."
+        )
+        raise UnsupportedDependencyError(msg)
 
-    # every timestamp the frame carries, not the values column alone (then `date`): a stations
-    # frame has `start_timestamp` and `end_timestamp` and no `timestamp` at all, so the CLI's own
-    # `--sql "state=\'Sachsen\'"` (as it then was) -- documented as a filter on station metadata
-    # -- died on a missing column
-    zones = {name: dtype.time_zone for name, dtype in df.schema.items() if isinstance(dtype, pl.Datetime)}
-    df = df.with_columns(cs.datetime().dt.replace_time_zone(None))
-    # the clause is the caller's, and the REST API and MCP server pass it on from anyone who can
-    # reach them: DuckDB's default connection would let it read and list files on this host
+
+#: settings of DuckDB that the connection of the filter sets, each where the installed release has it: no extension is
+#: fetched or loaded on the fly, no community extension is allowed, no secret is stored, and, on releases that have
+#: them, no extra threads for reading files and no repository of extensions
+_HARDENING: tuple[tuple[str, bool | int | str], ...] = (
+    ("autoinstall_known_extensions", False),
+    ("autoload_known_extensions", False),
+    ("allow_community_extensions", False),
+    ("allow_persistent_secrets", False),
+    ("secret_directory", ""),
+    ("async_threads", 0),
+    ("allow_extension_repositories", "forbidden"),
+)
+
+
+def _literal(value: bool | int | str) -> str:  # noqa: FBT001
+    """Write a value of `_HARDENING` as SQL."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _open_connection(duckdb: ModuleType, df: pl.DataFrame) -> DuckDBPyConnection:
+    """Open the connection a clause runs on, holding `df` as the table `df` and nothing else.
+
+    A separate function so that the tests of the restrictions run on this very connection, the statements the
+    parser keeps out of a clause included: what a clause cannot do has layers, and a later DuckDB that opens a
+    way past one is met by the next.
+    """
+    # the clause is the caller's own (the library and the command line only; the REST API and the MCP
+    # tools take no SQL): DuckDB's default connection would let it read and list files on this host
     # (`read_csv`, `read_text`, `glob`) or load an extension, so it runs on a connection of its
     # own that refuses every file system access and extension, and cannot be told otherwise.
     # No temp directory either: DuckDB lets its own (`.tmp` under the working directory) through
@@ -120,11 +159,67 @@ def _filter_by_sql_clause(df: pl.DataFrame, sql: str) -> pl.DataFrame:
         },
     )
     try:
+        have = {name for (name,) in con.execute("SELECT name FROM duckdb_settings()").fetchall()}
+        for name, value in _HARDENING:
+            if name in have:
+                con.execute(f"SET {name} = {_literal(value)}")
         # in this order, after the rest: DuckDB applies a config dict in an order of its own, and
         # refuses an empty `temp_directory` set after external access is off
         con.execute("SET enable_external_access = false")
         con.execute("SET lock_configuration = true")
         con.register("df", df)
+    except BaseException:
+        con.close()
+        raise
+    return con
+
+
+def _filter_by_sql_clause(df: pl.DataFrame, sql: str) -> pl.DataFrame:
+    """Filter df using an SQL query WHERE clause.
+
+    This implementation is based on DuckDB, so please
+    have a look at its SQL documentation.
+
+    - https://duckdb.org/docs/sql/introduction
+
+    The clause runs on a DuckDB connection of its own, which holds the frame as `df` and nothing
+    else: it cannot read or list files, reach the network or install or load extensions, and
+    raises a `duckdb.Error` when it tries (`PermissionException` for a file or a URL). It is
+    parsed as a single condition in parentheses, so anything after it -- a second statement,
+    `ORDER BY`, `LIMIT`, `WHERE`, `FROM` -- raises `duckdb.ParserException`, unless it closes
+    those parentheses itself, when DuckDB ignores a trailing `FROM`; trailing semicolons and
+    whitespace are dropped. It runs on one thread with DuckDB's memory limit at 1 GiB plus the
+    frame's size and nowhere to spill to, and raises `duckdb.OutOfMemoryException` when DuckDB's
+    buffers would grow past that. DuckDB older than 1.5.3 is refused, before anything is run.
+
+    The condition is the caller's own: the library and the command line are run by the host's own user, who could
+    run SQL on their own DuckDB, and no check of it is kept. The REST API and the MCP tools take no SQL.
+
+    These restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust to this
+    function. The time a condition runs, memory outside DuckDB's limit and the process itself are not protected.
+
+    Raises:
+        UnsupportedDependencyError: DuckDB is older than 1.5.3.
+
+    Args:
+        df: DataFrame to filter
+        sql: SQL WHERE clause
+
+    Returns:
+        Filtered DataFrame
+
+    """
+    duckdb = import_optional("duckdb", "Filtering with SQL", extra="sql")
+    _require_supported_duckdb(duckdb)
+
+    # every timestamp the frame carries, not the values column alone (then `date`): a stations
+    # frame has `start_timestamp` and `end_timestamp` and no `timestamp` at all, so the CLI's own
+    # `--sql "state=\'Sachsen\'"` (as it then was) -- documented as a filter on station metadata
+    # -- died on a missing column
+    zones = {name: dtype.time_zone for name, dtype in df.schema.items() if isinstance(dtype, pl.Datetime)}
+    df = df.with_columns(cs.datetime().dt.replace_time_zone(None))
+    con = _open_connection(duckdb, df)
+    try:
         # parsed as one expression, not pasted into a statement: `true; SELECT ...` would run
         # the statements after it and return their result in place of the filtered frame. In
         # parentheses, as DuckDB drops a trailing `FROM` or `AS` from a filter expression without

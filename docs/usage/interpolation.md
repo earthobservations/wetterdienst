@@ -132,7 +132,7 @@ for each dataset of the request, as the stations of a request always are (see be
 of the request, so it says where each one stands, not which of them gave which value: the ids in the rows decide
 that. A summary of `temperature_air` and `wind_speed_mean` can list a station under both datasets though only the rows
 of the wind name it. The stations listed are those some row of the answer was made from, and a result cut down afterwards
-(`sql_values` of the request, `filtered_by_date` or `filtered_by_sql`) lists those some row that is left was made from:
+(`--sql-values` of the command line, `filtered_by_date` or `filtered_by_sql`) lists those some row that is left was made from:
 two rows from 00001 list 00001, and a cut to no row lists no station. A station is still listed under every dataset
 of the request, as above. Ask for them with `with_stations=true` (REST API and
 MCP), `--with-stations` (command line) or read `result.stations.df` (Python), and look the stations of a row up by

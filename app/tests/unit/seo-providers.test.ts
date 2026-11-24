@@ -371,7 +371,7 @@ describe('the plugin that writes the shell, on the page of a provider', () => {
     vi.stubGlobal('useRuntimeConfig', () => ({ public: { siteUrl: DEFAULT_SITE_URL }, apiBase: 'http://backend.test/api' }))
     vi.stubGlobal('appendResponseHeader', () => {})
     vi.stubGlobal('setResponseHeader', () => {})
-    const fetch = vi.fn(backend)
+    const fetch = vi.fn((..._args: unknown[]) => backend())
     vi.stubGlobal('fetch', fetch)
     await import('../../server/plugins/seo-head')
     const html = { head: ['<title>Wetterdienst</title>'], bodyPrepend: [] as string[], htmlAttrs: [] as string[] }

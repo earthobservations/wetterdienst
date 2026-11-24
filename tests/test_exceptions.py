@@ -52,6 +52,7 @@ from wetterdienst.exceptions import (
     StationListingIncompleteError,
     StationNotFoundError,
     UnknownFormatError,
+    UnsupportedDependencyError,
     UpstreamError,
     WetterdienstError,
 )
@@ -87,6 +88,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     ProviderRateLimitError: (DownloadError, (UpstreamError,)),
     MissingDependencyError: (ConfigurationError, (ImportError,)),
     BufrReaderMissingError: (ConfigurationError, (MissingDependencyError, ImportError)),
+    UnsupportedDependencyError: (ConfigurationError, (MissingDependencyError, ImportError)),
     CredentialMissingError: (ConfigurationError, (ValueError,)),
     CredentialRejectedError: (ConfigurationError, (PermissionError, OSError)),
     NoStationsWithElevationError: (RequestError, (ValueError,)),
