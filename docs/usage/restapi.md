@@ -1167,9 +1167,9 @@ A chart is drawn by a Chrome that Kaleido starts for the image, and the start of
 drawing have 120 seconds, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets
 through, a PDF of 8192 x 8192 px with 100000 points, took 24 to 31). A browser that does not finish is closed, and
 killed with its processes if closing it does not end it, and the request is a 504 problem of the kind
-`image-timeout` with `Retry-After`. Unlike the
-[request timeout](#timeout), which answers the client and leaves the work running, this one ends the work, so a
-stuck Chrome keeps its thread and its place in the [limit on requests served at once](#concurrency) for at most
+`image-timeout` with `Retry-After`. The drawing is not a station or a file, so the [request timeout](#timeout)
+does not cut it: a stuck Chrome keeps its thread and its place in the
+[limit on requests served at once](#concurrency) until the drawing's own limit ends it, at most
 about 130 seconds (the limit and up to 10 seconds to close the browser), not for ever. Under the default request
 timeout of 60 seconds the client is answered `request-timeout` first, and the work ends on its own after that.
 
@@ -1330,11 +1330,22 @@ default, `0` for none. It holds for the routes under `/api` until the response b
 between two of its chunks, and a chunk that takes longer ends the stream with an `error` line of that kind (CSV: the
 connection is cut).
 
-The work already begun is not cancelled, so what the request had downloaded is cached, and the same request
-made again after the `Retry-After` is likely to succeed. The request keeps its place in the
-[limit on requests served at once](#concurrency) until that work is done; an image that does not get drawn has its
-own end, [the time it is given](#image-size). A reverse proxy in front of the server has a timeout of its
-own, usually 60 seconds too; set this one below it for the answer to be this problem.
+The work of the request stops with its answer. The thread of a handler cannot be cancelled, so the walk over the
+stations is told to stop and ends at the next station it comes to, or at the next file or listing it would begin
+(`values`, `stations`, `interpolate`, `summarize`, the tools of the MCP endpoint, the files that are fetched ahead of
+the station in hand): the station in hand is finished, a download that was begun arrives and is cached whole, and
+nothing more is read for an answer nobody waits for. What the request had downloaded is cached, and the same
+request made again after the `Retry-After` is likely to succeed. The request keeps its place in the
+[limit on requests served at once](#concurrency) until the station in hand is done, which is soon, where it used to be
+until the last station was. A single download (up to the time and the size the library holds a file to), the
+parse of one file and the readings of one station are not cut: a station that takes long takes that long. An image
+that does not get drawn has its own end, [the time it is given](#image-size). A reverse proxy in front of the server
+has a timeout of its own, usually 60 seconds too; set this one below it for the answer to be this problem.
+
+A stream whose client has gone stops in the same way, and so does one that a chunk of ran into the timeout. A server
+with `WD_RESTAPI_TIMEOUT=0` holds a stream to no time: it ends when it is read to the end or when its client leaves.
+Nothing of this is seen by Python or the command line, which have no timeout, and a request that ends in time is the
+answer it was.
 
 ### Concurrency
 
@@ -1343,9 +1354,10 @@ default, `0` for no limit. A request under `/api` past it is not started but ans
 kind `server-busy` and `Retry-After`, and a client retries it after that time. `/health`, `/ready` and the index page
 are not counted. A tool of the MCP endpoint makes its request to the API in process and is counted as one request there.
 
-A request keeps its place until the work of its handler is done, not until its answer is sent: the work of a
-request that timed out goes on in its thread (see [Timeout](#timeout)), so the limit bounds the threads of the
-server, which the timeout alone does not. The default leaves the rest of the 40 threads of the pool to the routes
+A request keeps its place until the work of its handler is done, not until its answer is sent: a request that timed
+out is told to stop and ends at the station in hand (see [Timeout](#timeout)), so the limit bounds the threads of the
+server, which the timeout alone does not. Only a tool call that its MCP client cancels gives its place back at once,
+and its thread ends with the station in hand. The default leaves the rest of the 40 threads of the pool to the routes
 that are not counted. Set it to what the host can take, and put a rate limit in front of the server; a cap is no
 protection against a client that sends requests faster than they are answered, it only keeps them from piling up.
 

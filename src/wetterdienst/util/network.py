@@ -62,6 +62,8 @@ from fsspec.utils import atomic_write, isfilelike
 
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.util.cancellation import check as check_cancelled
+from wetterdienst.util.cancellation import current as current_cancellation
 from wetterdienst.util.datetime import parse_http_date
 from wetterdienst.util.listing_cache import (
     STORE_FILENAME,
@@ -2827,6 +2829,8 @@ def _list_with_retries(list_once: Callable[[], _T], url: str) -> _T:
     no ``__context__`` of it: it holds the connection key, which renders the password of a proxy named
     in ``HTTPS_PROXY``.
     """
+    # a listing is not begun for a request whose answer is gone (`util.cancellation`), see `download_file`
+    check_cancelled()
     offline: ClientConnectorError | None = None
     failed: Exception | None = None
     try:
@@ -3238,6 +3242,9 @@ def download_file(
         A BytesIO object containing the downloaded file.
 
     """
+    # the answer of the request this is for may be gone (`util.cancellation`): a file is not begun for it. Asked here,
+    # before anything is opened, locked or written, and never inside the download, so a file that is begun is finished
+    check_cancelled()
     filesystem = NetworkFilesystemManager.get(
         cache_dir=cache_dir,
         cache_expiry=ttl,
@@ -3881,8 +3888,13 @@ def download_files(
     # one has been asked, and the line below says it once they all have
     log.info(f"Fetching {len(urls)} {noun}.")
     limited: list[File] = []
+    # the pool's threads run in no copy of this context: the cancellation is taken here, and a file that has not begun
+    # when the answer of the request is gone is not begun
+    cancellation = current_cancellation()
 
     def fetch(url: str) -> File:
+        if cancellation is not None:
+            cancellation.check()
         if limited:
             return File(url=url, content=limited[0].content, status=limited[0].status, refusal=limited[0].refusal)
         file = download_file(

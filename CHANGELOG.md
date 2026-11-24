@@ -27,6 +27,15 @@ Types of changes:
   may hold it), a network whose stations have none with that reason (`NoRegionsError`). It is one
   of the exclusive selections, and the `metadata` block reports `by_region` (GH-4418)
 
+### Changed
+
+- The work of a REST or MCP request now stops when its answer has timed out: the 504 is the same,
+  but the walk over the stations ends at the next station (or file) instead of reading on in its
+  thread to the last one, so the request's place of the 32 is free within the time of the station
+  in hand and nothing more is downloaded for it. A stream whose client has gone stops too. A request
+  that ends in time is unchanged; Python and the command line have no timeout and are not affected
+  (GH-4429)
+
 ## [0.198.0] - 2026-11-24
 
 ### Changed
