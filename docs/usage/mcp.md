@@ -54,7 +54,7 @@ http://localhost:7890/mcp/v1
 The server holds the provider credentials (`WD_AUTH__AEMET`, `WD_AUTH__KNMI_EDR`, `WD_AUTH__METNO_FROST`,
 `WD_AUTH__CEDA`, see [Settings](settings.md)), not the client: a tool for a network that needs one answers a
 [problem](troubleshooting.md#credentials) when the server has none, and the tool `auth` says whether the provider
-accepts them. The `sql` and `sql_values` arguments are refused unless the server runs with `WD_RESTAPI_SQL=true`.
+accepts them. The tools take no `sql` or `sql_values`: they were removed, and a call that gives one is told so, with what to do instead.
 
 ## The tools
 
@@ -177,7 +177,7 @@ An answer over the budget is cut, not refused, and says so:
   required, so it is always the start of the window that is kept and the next window continues it. They have no
   `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
 - **`stations`** with `name` is never cut: it asks for a few stations. Otherwise (`all`, a bounding
-  box, `sql`, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
+  box, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
   `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it. A `distance` is cut too, as a wide one lists
   hundreds of stations (983 within 500 km of Berlin): the nearest stations are kept, nearest first, and the note says
   how many lie within the distance and how far the farthest returned is, and suggests a smaller `distance`, or `rank`.

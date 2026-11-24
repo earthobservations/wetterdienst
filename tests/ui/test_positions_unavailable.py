@@ -40,7 +40,7 @@ BY_PLACE: dict[str, dict[str, str]] = {
 BY_NAME_OR_ID: dict[str, dict[str, str]] = {
     "id": {"stations": "124"},
     "name": {"name": "Mainfranken"},
-    "sql": {"sql": "region = 'Hessen'"},
+    "sql": {"sql": "region = 'Hessen'"},  # the library's and the command line's only
     "all": {"all": "true"},
 }
 
@@ -48,7 +48,6 @@ BY_NAME_OR_ID: dict[str, dict[str, str]] = {
 @pytest.fixture(autouse=True)
 def _response(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:  # noqa: ANN401
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     begin_response()
 
 
@@ -119,7 +118,7 @@ def test_rest_tells_a_search_by_place_that_the_stations_have_no_position(search:
     assert [w["code"] for w in answer["metadata"]["warnings"]] == [CODE]
 
 
-@pytest.mark.parametrize("search", BY_NAME_OR_ID)
+@pytest.mark.parametrize("search", [name for name in BY_NAME_OR_ID if name != "sql"])
 def test_rest_tells_nothing_to_a_search_by_name_or_id(search: str) -> None:
     """The stations come back, with none of the warning."""
     answer = _rest(**BY_NAME_OR_ID[search])

@@ -114,19 +114,6 @@ def test_rest_lists_the_stations_the_geojson_and_the_metadata_name(
     assert block["metadata"]["counts"]["stations"] == 2
 
 
-def test_rest_lists_the_stations_of_the_rows_the_sql_filter_left(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`sql_values` cuts the rows, and so the stations: 00002 is no longer in the answer, nor in the block."""
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    _serve(monkeypatch, {"00001": [DAY_ONE], "00002": [DAY_TWO]})
-
-    answer = client.get("/api/values", params={**_VALUES, "sql_values": "timestamp < '2021-01-02'"}).json()
-
-    assert {row["station_id"] for row in answer["values"]} == {"00001"}
-    assert _station_ids(answer["stations"]) == pairs("00001")
-
-
 def test_rest_lists_the_stations_a_walk_by_rank_took(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """A request by rank selects every station with a position; the walk stopped at the two that had data."""
     stations = stations_of(

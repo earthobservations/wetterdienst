@@ -165,8 +165,7 @@ pl.scan_ndjson("rows.ndjson").group_by("station_id").agg(pl.col("value").mean())
 ```
 
 `requests` and `httpx` do the same with `iter_lines()` on a streamed response (`requests.get(url, stream=True)`,
-`httpx.stream("GET", url)`). `ndjson` refuses `sql_values` and `with_stations` (a 400), and `csv` with `sql_values` is
-one body, held to `rows`. A stream may run longer than the timeout, which holds between two chunks. The first station is
+`httpx.stream("GET", url)`). `ndjson` refuses `with_stations` (a 400). A stream may run longer than the timeout, which holds between two chunks. The first station is
 read before the response begins, so a station that takes longer than the timeout to download is a 504 (ask again: what
 was downloaded is cached); a later one is the last line of an NDJSON stream, `error`, and a cut connection of a CSV.
 

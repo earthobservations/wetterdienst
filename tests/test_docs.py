@@ -1758,6 +1758,8 @@ def _environment_variables() -> set[str]:
 
 # written on purpose by a page that shows a variable `Settings` ignores
 _MISSPELT_ON_PURPOSE = {"WD_CACHE_DIABLE"}
+# a setting that was removed, which a page names to say so (`removed_settings` in `settings.py`)
+_REMOVED = {"WD_RESTAPI_SQL"}
 
 
 def test_docs_name_only_environment_variables_that_exist() -> None:
@@ -1772,7 +1774,7 @@ def test_docs_name_only_environment_variables_that_exist() -> None:
     for path in _prose_files():
         for token in set(re.findall(r"(?<![A-Za-z0-9_])WD_[A-Z0-9_]+", path.read_text(encoding="utf8"))):
             name = token if token.startswith("WD_AUTH__") else token.split("__")[0]
-            if token.endswith("_") or name in variables or token in _MISSPELT_ON_PURPOSE:
+            if token.endswith("_") or name in variables or token in _MISSPELT_ON_PURPOSE or token in _REMOVED:
                 continue
             errors.append(f"{path.relative_to(ROOT)}: {token} is not a setting or an option")
     assert not errors, "\n".join(errors)

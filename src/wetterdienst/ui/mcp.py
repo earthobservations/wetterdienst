@@ -470,11 +470,11 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
 
     from wetterdienst.ui.core import (  # noqa: PLC0415
-        REMOVED_REQUEST_PARAMETERS,
         RENAMED_REQUEST_PARAMETERS,
         join_names,
         old_names_of_route,
         removed_parameter_message,
+        removed_parameter_names,
     )
 
     class RefuseUnknownArguments(Middleware):
@@ -493,8 +493,9 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
                 had = old_names_of_route(tool.name)
                 renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken and name in had]
                 refused = [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
-                removed = [name for name in unknown if name in REMOVED_REQUEST_PARAMETERS]
-                refused += [removed_parameter_message(name) for name in removed]
+                # a removed name is told only by a tool whose route took it (`glossary` never took `sql`)
+                removed = [name for name in unknown if name in removed_parameter_names(tool.name)]
+                refused += [removed_parameter_message(name, tool.name) for name in removed]
                 if others := [name for name in unknown if name not in renamed and name not in removed]:
                     verb = "is not an argument" if len(others) == 1 else "are not arguments"
                     refused.append(

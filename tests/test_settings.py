@@ -35,6 +35,7 @@ from wetterdienst.settings import (
     _temporary_cache_dir,
     check_settings,
     default_cache_dir,
+    removed_settings,
     reveal,
 )
 
@@ -45,7 +46,6 @@ WD_CACHE_ENABLED_PATTERN = re.compile(r"Wetterdienst cache is enabled [CACHE_DIR
 def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test default settings."""
     monkeypatch.delenv("WD_CACHE_DIR", raising=False)
-    monkeypatch.delenv("WD_RESTAPI_SQL", raising=False)
     caplog.set_level(logging.INFO)
     default_settings = Settings()
     assert not default_settings.cache_disable
@@ -54,8 +54,6 @@ def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.
     assert "User-Agent" in default_settings.fsspec_client_kwargs["headers"]
     assert default_settings.fsspec_client_kwargs["headers"]["User-Agent"].startswith("wetterdienst/")
     assert not default_settings.use_certifi
-    # SQL from REST API and MCP clients stays off until the operator turns it on
-    assert not default_settings.restapi_sql
     assert re.match(WD_CACHE_ENABLED_PATTERN, caplog.messages[0])
 
 
@@ -1941,3 +1939,71 @@ def test_settings_takes_the_edr_key_from_the_environment(monkeypatch: pytest.Mon
     settings = Settings()
     assert reveal(settings.auth.knmi_edr) == "NEW-EDR-KEY"
     assert "NEW-EDR-KEY" not in repr(settings)
+
+
+def test_the_removed_restapi_sql_setting_is_refused_as_a_keyword_with_the_reason() -> None:
+    """`restapi_sql` is no setting: a keyword of it says why, and what the command line and the library keep."""
+    for value in (True, False):
+        with pytest.raises(ValueError, match="restapi_sql is no setting any more") as caught:
+            Settings(restapi_sql=value)  # ty: ignore[unknown-argument]
+        assert "command line and the library keep their SQL filters" in str(caught.value)
+
+
+@pytest.mark.parametrize("value", ["true", "false", ""])
+def test_the_removed_sql_variable_does_not_break_the_settings(value: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`WD_RESTAPI_SQL` is ignored by `Settings`, as every variable no setting reads is: only a server warns of it."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", value)
+
+    assert not hasattr(Settings(), "restapi_sql")
+
+
+@pytest.fixture
+def env_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Leave no `WD_RESTAPI_SQL` in the environment and no `.env` in the working directory; give the `.env` to write."""
+    monkeypatch.delenv("WD_RESTAPI_SQL", raising=False)
+    monkeypatch.chdir(tmp_path)
+    return tmp_path / ".env"
+
+
+@pytest.mark.parametrize("value", ["true", "TRUE", "True", "1", "yes", "on", "t", "y"])
+def test_removed_settings_tells_a_variable_that_asks_for_what_is_gone(
+    value: str, monkeypatch: pytest.MonkeyPatch, env_file: Path
+) -> None:
+    """A true value of `WD_RESTAPI_SQL`, in any spelling the settings read as true, is told by its name."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", value)
+
+    (line,) = removed_settings(env_file)
+
+    assert line.startswith("WD_RESTAPI_SQL is set to true, and the setting was removed")
+    assert "Unset the variable" in line
+    assert f"={value}" not in line
+
+
+@pytest.mark.parametrize("value", ["false", "FALSE", "0", "no", "off", "", "  ", "nonsense"])
+def test_removed_settings_leaves_a_false_or_empty_variable_alone(
+    value: str, monkeypatch: pytest.MonkeyPatch, env_file: Path
+) -> None:
+    """False, empty or not a boolean asks for nothing that is gone: a deployment that spelled the default out starts."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", value)
+
+    assert removed_settings(env_file) == []
+
+
+def test_removed_settings_tells_nothing_where_the_variable_is_not_set(env_file: Path) -> None:
+    """With no variable and no `.env`, there is nothing to tell."""
+    assert removed_settings(env_file) == []
+
+
+def test_removed_settings_reads_the_variable_in_any_case_and_from_the_env_file(
+    monkeypatch: pytest.MonkeyPatch, env_file: Path
+) -> None:
+    """The settings read a variable in any case, and `.env`; so does this, the environment over the file."""
+    env_file.write_text("wd_restapi_sql=true\nWD_SOMETHING_ELSE=1\n")
+
+    assert len(removed_settings(env_file)) == 1
+    monkeypatch.setenv("WD_RESTAPI_SQL", "false")
+    assert removed_settings(env_file) == []
+    monkeypatch.delenv("WD_RESTAPI_SQL")
+    monkeypatch.setenv("wd_restapi_sql", "true")
+    env_file.write_text("")
+    assert len(removed_settings(env_file)) == 1
