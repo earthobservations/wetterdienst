@@ -13,11 +13,11 @@ overrides:
   # Security overrides: floors at the patched versions of transitive deps whose parents'
   # ranges admit vulnerable versions, each with its advisory in the comment above it. The
   # scoped ranges leave other major lines untouched. brace-expansion 4.x-5.x
-  # (denial-of-service advisories up to GHSA-q2hr-2g5m-vwhr, all fixed by 5.0.12; minimatch 10
-  # asks for ^5.0.8) and esbuild (dev-server file read, GHSA-g7r4-m6w7-qqqr, which affects
+  # (denial-of-service advisories up to GHSA-6jwq-xf8q-xcwh, all fixed by 5.0.13; minimatch 11
+  # asks for ^5.0.12) and esbuild (dev-server file read, GHSA-g7r4-m6w7-qqqr, which affects
   # >= 0.27.3 only, so the 0.25.x copy is outside it) are the first two; brace-expansion's 1.x
-  # and 2.x copies are locked at their patched backports (1.1.21, 2.1.7), with no floor.
-  brace-expansion@>=4.0.0 <5.0.12: ^5.0.12
+  # and 2.x copies are locked at their patched backports (1.1.22, 2.1.8), with no floor.
+  brace-expansion@>=4.0.0 <5.0.13: ^5.0.13
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
   # glob (build and lint tooling only: nitropack's @vercel/nft, js-beautify,
   # @intlify/eslint-plugin-vue-i18n), GHSA-3g3m-2fjr-6pw4: an aborted walk keeps reading

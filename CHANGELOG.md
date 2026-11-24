@@ -22,6 +22,24 @@ Types of changes:
   the same dates, so code that imports `dateutil` through wetterdienst must depend on it itself
   (GH-4349)
 
+### Fixed
+
+- The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were
+  184,612, so a client saved them to a file): each warning loses its `geometry` and area lists (a
+  `name` keeps up to 25 matching areas), then the least severe warnings go, with an
+  `answer-truncated` warning. A `name` matching no area adds `no-area-matched`. Other answers, REST,
+  the command line and Python are unchanged (GH-4338)
+
+### Security
+
+- The `pdf` extra needs pypdf 7.1.1 (was 6.21.4): denial-of-service advisories on a crafted PDF
+  that the description reader reaches are fixed only in 7.x (GH-4350)
+- The floor of pydantic in the `mcp` extra is 2.14.2 (was 2.7.3), for GHSA-3r8g-cqwr-jr29: before
+  it, a client of `/mcp` could send the `progress_token` of a request's `_meta` under its python
+  name beside its alias and have it replace the validated one, an unvalidated value. Nothing
+  read it, so this was a validation bypass and nothing more. An existing installation must
+  upgrade pydantic itself (`pip install -U "pydantic>=2.14.2"`) (GH-4378)
+
 ## [0.197.0] - 2026-11-24
 
 ### Added

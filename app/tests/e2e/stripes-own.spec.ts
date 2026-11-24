@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
+import { checkRunningYear, stationWasReadFromMirror } from '../helpers/ghcn-source'
 
 // The climate stripes without the backend's stripes routes (GH-4258): the app makes them itself, from the generic API
 // (`/api/stations`, `/api/values`) and, for NOAA's GHCN daily, from its own server (`/_ghcn/annual`, `/_ghcn/stations`), which
@@ -141,7 +142,7 @@ test.describe('the stripes of NOAA\'s GHCN daily, calculated from the days by th
     expect(hits).toEqual([])
   })
 
-  test('are given by the server of the app as small answers, which it keeps', async ({ request }) => {
+  test('are given by the server of the app as small answers, which it keeps', async ({ request }, testInfo) => {
     const first = await request.get('/_ghcn/annual?kind=temperature&station=USW00094728&unit_targets=%7B%22temperature%22%3A%22degree_celsius%22%7D', { timeout: 200_000 })
     expect(first.status()).toBe(200)
     const body = await first.json()
@@ -150,9 +151,14 @@ test.describe('the stripes of NOAA\'s GHCN daily, calculated from the days by th
     expect(body.values.length).toBeGreaterThan(100)
     // a few kilobytes where the days are megabytes
     expect((await first.body()).length).toBeLessThan(60_000)
-    // the year that is running is no year with a value until it is complete
-    expect(body.values.at(-1).timestamp.slice(0, 4)).toBe(String(new Date().getUTCFullYear()))
-    expect(body.values.at(-1).value).toBeNull()
+    // the year that is running is no year with a value until it is complete. While NCEI is down the backend reads the AWS mirror,
+    // whose file may end in an earlier year; the app's answer does not say so (it carries the provider and the years), the generic
+    // API's does, so that is asked, and the running year is then not asked for (GH-4387). Where NCEI answered it still is.
+    const mirror = await stationWasReadFromMirror(request, 'USW00094728')
+    const { checked, problem } = checkRunningYear(body.values, new Date().getUTCFullYear(), mirror)
+    expect(problem).toBeNull()
+    if (!checked)
+      testInfo.annotations.push({ type: 'running-year-not-checked', description: 'NCEI did not answer (source-fallback): the file is the AWS mirror\'s, which may end before the running year (GH-4387)' })
     expect(first.headers()['cache-control']).toBe('public, max-age=3600')
 
     const started = Date.now()
