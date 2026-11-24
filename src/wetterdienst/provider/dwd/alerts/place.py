@@ -67,6 +67,25 @@ def _words(text: str) -> re.Pattern[str]:
     return re.compile(rf"(?<!\w){words}(?!\w)", re.IGNORECASE)
 
 
+#: what a name of only whitespace is refused with, on every surface that takes a `name`
+_BLANK_NAME = "name is only whitespace: give the name or warn cell id of an area, or leave it out"
+
+
+def check_name(name: str | None) -> str | None:
+    """Give the name a request asks for, stripped: `None` for none, and for one that is present and empty (`?name=`).
+
+    A name of only whitespace is refused as a `RequestError`, as half a point is: it names no area, so it is neither
+    every warning (an empty pattern matches every area) nor no name, which a caller who wrote one did not ask for.
+    """
+    if not isinstance(name, str):
+        return name
+    if stripped := name.strip():
+        return stripped
+    if name:
+        raise RequestError(_BLANK_NAME)
+    return None
+
+
 def names_match(area_names: list[str], warncell_ids: list[str], name: str) -> bool:
     """Tell whether a warning has an area of this name, or of this warn cell id.
 
@@ -74,9 +93,13 @@ def names_match(area_names: list[str], warncell_ids: list[str], name: str) -> bo
     its key (`01002000`), which is the same for a commune and its district where one cell carries it: a city that the
     community product splits into quarters (Augsburg, `09761000`) has a cell for each, none ending in its key, so ask
     for it by name or by point. Any other name is the words of an area's name, `Kiel` for `Stadt Kiel`, whatever the
-    case and the Unicode form of an umlaut (the names are DWD's German ones, and match every area with the word).
+    case and the Unicode form of an umlaut (the names are DWD's German ones, and match every area with the word). A name
+    of no word (empty, or only whitespace) is a `RequestError`: its pattern would match every area.
     """
     name = unicodedata.normalize("NFC", name.strip())
+    if not name:
+        # no word is a pattern that every area has, so a name of no word is no name to match
+        raise RequestError(_BLANK_NAME)
     if name.isdigit():
         return any(cell == name or (len(name) == 8 and cell.endswith(name)) for cell in warncell_ids)
     pattern = _words(name)

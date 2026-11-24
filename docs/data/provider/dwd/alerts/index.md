@@ -32,7 +32,8 @@ is the whole snapshot, as it was.
 | `latitude` and `longitude` | whose polygons contain the point. They are given together; a point on the edge of a polygon is inside it, and one in a hole (the island in a warning for the sea around it) is outside |
 | `name` | with an area of that name, **DWD's German name** (`München`, not `Munich`), its words in any case and in either Unicode form of an umlaut, in every area that has them (`Kiel` is `Stadt Kiel`, not `Kielstau`; `Hamburg` is also `Gemeinde Wentorf bei Hamburg`, and `München` also `Kirchheim b. München`), or of that warn cell id: `101002000`, or its 8-digit municipality key `01002000`, which is the same for a commune (`801002000`) and its district where one cell carries it (a city that the community product splits into quarters, such as Augsburg, `09761000`, has a cell for each: ask for it by name or by point) |
 
-With both, a warning must be for the point and for the name. The point test needs no more than the standard library, so
+With both, a warning must be for the point and for the name. A `name` of only whitespace names no area and is refused (a
+`RequestError` in Python, a 422 of `name` in the REST API and the MCP tool, a usage error of `--name`); an empty one is none. The point test needs no more than the standard library, so
 it works without the `interpolation` extra.
 
 Three things to know about what a place finds:
@@ -257,7 +258,9 @@ wetterdienst alerts --granularity=district --language=de --format=geojson
 # warnings active 6 hours ago (UTC, within the rolling ~48h window; GNU date)
 wetterdienst alerts --granularity=district --timestamp="$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%S)"
 
-# the warnings for a place: a point, or a name or warn cell id (a few KB, not the whole of Germany)
+# the warnings for a place: a point, or a name or warn cell id (a few warnings, not the whole of Germany; but
+# a warning is mostly its polygon and areas, so a place with a warning over a large area is large: on 2026-11-23
+# the REST answer for Kiel was 184,612 characters for three warnings)
 wetterdienst alerts --latitude=54.32 --longitude=10.14
 wetterdienst alerts --granularity=district --name=Kiel
 

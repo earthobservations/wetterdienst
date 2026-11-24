@@ -19,7 +19,7 @@ from wetterdienst.exceptions import RequestError
 from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
 from wetterdienst.provider.dwd.alerts.api import NO_ALERTS_FOR_PLACE
 from wetterdienst.provider.dwd.alerts.parser import parse_cap_alert
-from wetterdienst.provider.dwd.alerts.place import geometry_contains, is_for_place, names_match
+from wetterdienst.provider.dwd.alerts.place import check_name, geometry_contains, is_for_place, names_match
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 from .stubs import (
@@ -471,9 +471,36 @@ def test_half_a_point_or_one_off_the_earth_is_refused(kwargs: dict[str, float], 
 
 def test_an_empty_name_is_no_filter() -> None:
     """A name that is present and empty (`?name=`) is the whole snapshot, as an empty `timestamp` is the latest."""
-    assert DwdWeatherAlertRequest(name="  ").name is None
     assert DwdWeatherAlertRequest(name="").name is None
+    assert DwdWeatherAlertRequest(name=None).name is None
     assert DwdWeatherAlertRequest(name=" Kiel ").name == "Kiel"
+    assert check_name("") is None
+    assert check_name(None) is None
+
+
+# a space, tabs and newlines, a no-break space, an ideographic space: whatever `str.strip` takes off
+_BLANK_NAMES = ["  ", " ", "\t", "\n \r\n", "\u00a0", "\u3000 \u2003"]
+
+
+@pytest.mark.parametrize("name", _BLANK_NAMES)
+def test_a_name_of_only_whitespace_is_refused(name: str) -> None:
+    """It names no area: not every warning (an empty pattern matches every area), not no name either."""
+    with pytest.raises(RequestError, match="name is only whitespace"):
+        DwdWeatherAlertRequest(name=name)
+    with pytest.raises(RequestError, match="name is only whitespace"):
+        check_name(name)
+
+
+@pytest.mark.parametrize("name", ["", *_BLANK_NAMES])
+def test_a_name_of_no_word_is_refused_by_names_match_and_is_for_place(name: str) -> None:
+    """`names_match` and `is_for_place`, called directly, refuse it as the request does, and never say True."""
+    alert = parse_cap_alert(CAP_COMMUNITY_KIEL)
+    with pytest.raises(RequestError, match="name is only whitespace"):
+        names_match(alert["area_names"], alert["warncell_ids"], name)
+    with pytest.raises(RequestError, match="name is only whitespace"):
+        is_for_place(alert, name=name)
+    # and no name is no filter
+    assert is_for_place(alert, name=None)
 
 
 def test_a_coordinate_of_zero_is_a_point() -> None:

@@ -239,6 +239,55 @@ def test_the_worst_warnings_are_kept_and_whole() -> None:
 
 
 @pytest.mark.usefixtures("many")
+def test_the_first_guess_of_the_cut_is_seeded_from_the_slimmed_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first probe is the budget's share of the slimmed answer, which the warnings are cut from (GH-4354).
+
+    Seeded from the answer before slimming, whose polygons and areas are most of it, it began near 1 and took more
+    renders to reach the end; the answer is the same.
+    """
+    sizes: list[int] = []  # every size measured, in order
+    searches: list[tuple[int, int, int, int]] = []  # low, high, guess, and how many sizes were measured before it
+    rendered: list[int] = []  # the counts of warnings the search rendered, in order
+    size_in, largest = budget._size_in, budget._largest  # noqa: SLF001
+
+    def spy_size(*args: Any, **kwargs: Any) -> int:  # noqa: ANN401
+        sizes.append(size_in(*args, **kwargs))
+        return sizes[-1]
+
+    def spy_largest(low: int, high: int, fits: Any, guess: int) -> int | None:  # noqa: ANN401
+        searches.append((low, high, guess, len(sizes)))
+
+        def counted(count: int) -> bool:
+            rendered.append(count)
+            return fits(count)
+
+        return largest(low, high, counted, guess)
+
+    monkeypatch.setattr(budget, "_size_in", spy_size)
+    monkeypatch.setattr(budget, "_largest", spy_largest)
+
+    response = _tool_client().get("/api/alerts")
+
+    kept = len(response.json()["alerts"])
+    ((low, high, guess, measured),) = searches
+    total = high + 1
+    assert (low, total) == (1, 80)
+    # the size of the whole slimmed answer is the last one measured before the search began
+    slimmed_size = sizes[measured - 1]
+    assert slimmed_size > ANSWER_BUDGET
+    assert guess == max(1, total * ANSWER_BUDGET // slimmed_size)
+    # which is nearer to the end than the share of the unslimmed one is
+    unslimmed_size = _size_of_the_whole_answer()
+    assert abs(guess - kept) < abs(max(1, total * ANSWER_BUDGET // unslimmed_size) - kept)
+    assert rendered[0] == guess
+
+
+def _size_of_the_whole_answer() -> int:
+    """Give the size a client would receive of the answer of every warning, polygons and areas in."""
+    return _compact(_rest_client().get("/api/alerts").text)
+
+
+@pytest.mark.usefixtures("many")
 def test_the_note_names_the_warnings_left_out_and_how_many_more() -> None:
     """Eight are named as `event (severity)`; the others are counted."""
     answer = _tool_client().get("/api/alerts").json()

@@ -1821,6 +1821,20 @@ class AlertsRequest(_RefusesRenamedParameters):
     ] = "json"
     pretty: _PrettyField = False
 
+    @field_validator("name")
+    @classmethod
+    def check_name(cls, value: str | None) -> str | None:
+        """Refuse a name of only whitespace as a 422 of the `name` parameter; an empty one is none, as it always was."""
+        from wetterdienst.provider.dwd.alerts.place import check_name  # noqa: PLC0415
+
+        try:
+            check_name(value)
+        except RequestError as e:
+            kind = "blank_name"
+            # the message holds no {placeholder}, as in `_rule_error`
+            raise PydanticCustomError(kind, cast("LiteralString", str(e))) from e
+        return value
+
     @model_validator(mode="after")
     def check_point(self) -> AlertsRequest:
         """Check that latitude and longitude come together, as a point."""

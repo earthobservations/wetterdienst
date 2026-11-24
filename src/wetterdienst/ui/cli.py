@@ -2879,6 +2879,28 @@ def radar(
     click.echo(OPERA_CREDIT_LINE, err=True)
 
 
+def _check_alerts_place(latitude: float | None, longitude: float | None, name: str | None) -> None:
+    """Refuse a point that is half or off the Earth, and a name of only whitespace, as usage errors naming the option.
+
+    Before the timestamp's refusal below, which is the one `ValueError` the request's own construction is blamed for.
+    """
+    from wetterdienst.provider.dwd.alerts.place import check_name, check_point
+
+    if (latitude is None) != (longitude is None):
+        msg = "--latitude and --longitude are given together"
+        raise click.UsageError(msg)
+    # click bounds the point, and lets NaN through, which is no place on Earth and not the timestamp's to blame
+    try:
+        check_point(latitude, longitude)
+    except ValueError as e:
+        raise click.BadParameter(str(e), param_hint="--latitude/--longitude") from e
+    # a name of only whitespace names no area, and is not the timestamp's to blame either
+    try:
+        check_name(name)
+    except ValueError as e:
+        raise click.BadParameter(str(e), param_hint="--name") from e
+
+
 @cli.command("alerts", epilog=_examples(ALERTS_EXAMPLES))
 @click.option(
     "--granularity",
@@ -2984,7 +3006,6 @@ def alerts(
     """
     from wetterdienst import Settings
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
-    from wetterdienst.provider.dwd.alerts.place import check_point
     from wetterdienst.ui.render import render_alerts
 
     _apply_log_level(debug=debug)
@@ -2996,14 +3017,7 @@ def alerts(
     # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
     # variable is a `ValueError`, and not the command line's to fix
     settings = Settings()
-    if (latitude is None) != (longitude is None):
-        msg = "--latitude and --longitude are given together"
-        raise click.UsageError(msg)
-    # click bounds the point, and lets NaN through, which is no place on Earth and not the timestamp's to blame
-    try:
-        check_point(latitude, longitude)
-    except ValueError as e:
-        raise click.BadParameter(str(e), param_hint="--latitude/--longitude") from e
+    _check_alerts_place(latitude, longitude, name)
     # granularity, language and format are click's, so only the timestamp reaches this refusal:
     # one that does not parse, or one an offset carries out of what a datetime holds
     try:
