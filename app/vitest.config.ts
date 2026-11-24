@@ -19,6 +19,8 @@ export default defineConfig({
           include: ['tests/unit/*.{test,spec}.ts'],
           environment: 'node',
           setupFiles: ['tests/setup/storage.ts'],
+          // a test that asserts nothing fails, in both projects (GH-4425)
+          expect: { requireAssertions: true },
           // nuxt-security's middleware, run as it is by `tests/unit/mcp-proxy-security.test.ts`, imports its own
           // files without an extension, which Node does not resolve and Vite does
           server: { deps: { inline: [/nuxt-security\/dist/] } },
@@ -32,6 +34,7 @@ export default defineConfig({
           // a fresh, empty localStorage and sessionStorage for every test, which CI's Node and a
           // developer's do not give alike (GH-3990)
           setupFiles: ['tests/setup/storage.ts'],
+          expect: { requireAssertions: true },
           // Vitest's 5 s per test and 10 s per hook. The Nuxt environment boots the app in a
           // `beforeAll` of its own, and the first `mountSuspended` of a file loads the locale and
           // the component's lazy parts: about a second on a quiet machine and several times that
