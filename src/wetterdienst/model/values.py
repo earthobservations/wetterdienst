@@ -50,6 +50,7 @@ from wetterdienst.model.schema import (
     WIDE_FLAGS_DTYPE,
     WIDE_FLAGS_SUFFIX,
     WIDE_VALUE_DTYPE,
+    wide_schema,
 )
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.cancellation import check as check_cancelled
@@ -317,6 +318,22 @@ def _value_as_number(df: pl.DataFrame, provider: str) -> pl.Expr:
     if unreadable:
         log.debug("%s: %d of %d value cells are no number and are null", provider, unreadable, df.height)
     return value
+
+
+def _requested_wide_columns(parameters: Iterable[ParameterModel], *, humanize: bool) -> list[str]:
+    """Give the value columns of the requested parameters of a wide frame, in request order, once each.
+
+    Named after humanising if that is on, else as the source names them, with the dataset as a prefix when the
+    parameters span several datasets: what `TimeseriesValues._widen_df` names them, and the header of a streamed CSV.
+    """
+    parameters = list(parameters)
+    datasets = {parameter.dataset.name.lower() for parameter in parameters}
+    requested = []
+    for parameter in parameters:
+        name = parameter.name if humanize else parameter.name_original
+        requested.append(f"{parameter.dataset.name.lower()}_{name}" if len(datasets) > 1 else name)
+    # once: the same parameter of a dataset of one name at two resolutions is one column
+    return list(dict.fromkeys(requested))
 
 
 @dataclass
@@ -1290,6 +1307,16 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         """
 
+    def _wide_schema(self) -> pl.Schema:
+        """Give the columns a wide frame of this request can have, in the order it writes them, with their dtypes.
+
+        The columns of `WIDE_SCHEMA`, then the value column of every requested parameter, each followed by its flags
+        column, named as `_widen_df` names them: after humanising if that is on, with the dataset as a prefix when
+        the request spans several. A station's frame has the columns of the parameters it delivers only, so a stream
+        that writes its header with the first station asks this for the header of all (GH-4432).
+        """
+        return wide_schema(_requested_wide_columns(self.sr.parameters, humanize=self.sr.options.humanize))
+
     def _widen_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Widen a dataframe with each row having one timestamp, parameter, value and quality flags.
 
@@ -1366,12 +1393,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         # the columns of the parameters in the order the request names them, as the empty frame has them,
         # and not in the order the source happened to deliver its rows in
-        requested = []
-        for parameter in self.sr.parameters:
-            name = parameter.name_original if not self.sr.options.humanize else parameter.name
-            requested.append(f"{parameter.dataset.name.lower()}_{name}" if len(datasets) > 1 else name)
-        # once: the same parameter of a dataset of one name at two resolutions is one column
-        requested = list(dict.fromkeys(requested))
+        requested = _requested_wide_columns(self.sr.parameters, humanize=self.sr.options.humanize)
 
         if not df.is_empty():
             delivered = {

@@ -2146,6 +2146,8 @@ def _stream_chosen_values(
         lambda df, header: ValuesResult(stations=values_.stations, df=df).to_csv(include_header=header),
         lambda: values_.df,
         failure,
+        # the header is written with the first station, which lacks the parameters only a later one has
+        schema=None if options.tidy else reader._wide_schema(),  # noqa: SLF001
     )
     return _stream_response(chunks, "text/csv", metadata, ndjson=False)
 
