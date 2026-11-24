@@ -49,7 +49,7 @@ is old costs a station that closed since a place in the searches of a window (it
 since keeps the dates of its source. The first request with an empty cache takes about 35 s (36.7 s on 2026-11-07, 30 of
 them for the series), the later ones are served from the cache, which the series fill once a week: a REST API or MCP server
 with the default `WD_RESTAPI_TIMEOUT` of 60 s answers the first with a 504 `request-timeout` only when Frost is slower than
-that, and the work goes on, so the next request finds the cache full. An answer of Frost that is no list (a page of a proxy,
+that, and the work stops at the next file it would download (the files it had fetched are cached), so the next request goes on from there. An answer of Frost that is no list (a page of a proxy,
 no `data`, no series) is raised as a `DownloadError` and is not kept.
 
 If Frost does not answer that request, `stations` raises the `DownloadError` or `NoInternetError` of the failure and does

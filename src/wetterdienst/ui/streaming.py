@@ -24,6 +24,12 @@ A wide CSV has the columns of the request, in its order, as its header is writte
 
 The first station is read before the response begins, so that a request that fails on it has the status of the
 failure and not a 200. The timeout of the server holds between two chunks (`ui.middleware`).
+
+The work of a stream ends when its answer does (GH-4429): a chunk that ran into the timeout, a client that has
+gone, and a response that ends for any other reason set the `Cancellation` of the request (`util.cancellation`), and
+the walk that produces the chunks stops at the next station or file instead of reading on for a client that is no
+longer there. A server without a timeout (`WD_RESTAPI_TIMEOUT=0`) still holds no stream to one; its streams end when
+they are read to the end or their client leaves.
 """
 
 from __future__ import annotations
@@ -36,11 +42,16 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import StreamingResponse
 
 from wetterdienst.ui.render import ndjson_line
+from wetterdienst.util.cancellation import current
 from wetterdienst.util.logging import get_one_line_logger
 
 if TYPE_CHECKING:
     import contextvars
     from collections.abc import AsyncIterator, Callable, Iterator, Mapping
+
+    from starlette.types import Message, Receive, Scope, Send
+
+    from wetterdienst.util.cancellation import Cancellation
 
 log = get_one_line_logger(__name__)
 
@@ -150,7 +161,8 @@ async def _drive(
     """Hand the chunks to the server, each produced in a thread of the pool in the context of the request.
 
     The timeout holds for every chunk. When one takes longer, `on_timeout` gives the bytes that end the answer, or
-    None where there is nothing to say; the thread that was producing the chunk is left to finish.
+    None where there is nothing to say; the thread that was producing the chunk is left to finish, and is told to
+    end its work when the response ends (`_EndsItsWork`, GH-4429).
     """
     while True:
         step = run_in_threadpool(context.run, next, chunks, _DONE)
@@ -177,4 +189,43 @@ def stream_response(
     on_timeout: Callable[[], bytes | None],
 ) -> StreamingResponse:
     """Answer with chunks as they are made. `context` is the request's, copied where its handler ran."""
-    return StreamingResponse(_drive(chunks, context, timeout, on_timeout), media_type=media_type, headers=dict(headers))
+    cancellation = context.run(current)
+    return _EndsItsWork(
+        _drive(chunks, context, timeout, on_timeout),
+        cancellation=cancellation,
+        media_type=media_type,
+        headers=dict(headers),
+    )
+
+
+class _EndsItsWork(StreamingResponse):
+    """A streamed response that ends the work of its request when its client leaves or it ends (GH-4429).
+
+    A server that speaks ASGI before 2.4 (uvicorn does) reports the client's leaving through `receive`, and the
+    response then waits for the chunk in the thread to be done before it is over: the work is told to stop where the
+    client's leaving is heard, not after it, or the walk would read on while the response waits for it. A server that
+    speaks 2.4 learns of it by an error on the next write, and no thread is working then (the next chunk is not
+    asked for until this one is written). Whatever ends the response sets it again, for a response that ended for
+    another reason; after one that ended because the chunks did, there is no work left to end and it changes nothing.
+    """
+
+    def __init__(self, *args: Any, cancellation: Cancellation | None, **kwargs: Any) -> None:  # noqa: ANN401
+        """Make the response, remembering the cancellation to set."""
+        super().__init__(*args, **kwargs)
+        self._cancellation = cancellation
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Send the response; when the client leaves or it is over, end the work that made it."""
+        cancellation = self._cancellation
+
+        async def hear() -> Message:
+            message = await receive()
+            if cancellation is not None and message["type"] == "http.disconnect":
+                cancellation.set("client-left")
+            return message
+
+        try:
+            await super().__call__(scope, hear, send)
+        finally:
+            if cancellation is not None:
+                cancellation.set("response-ended")
