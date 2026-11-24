@@ -9,6 +9,7 @@ import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
 from tests.provider.dwd.radar.odim import assert_rw_file
+from tests.provider.dwd.radar.sweep import PRECIPITATION_SCAN_RANGES, assert_sweep_geometry
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -456,7 +457,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600), (357, 600))
+    assert_sweep_geometry(hdf, b"VRADH", PRECIPITATION_SCAN_RANGES)
 
     timestamp = round_minutes(request.start, 5)
     assert hdf["/what"].attrs.get("date") == bytes(timestamp.strftime("%Y%m%d"), encoding="ascii")

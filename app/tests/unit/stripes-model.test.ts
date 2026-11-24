@@ -1,6 +1,6 @@
 import type { StripesInput } from '../../app/utils/stripes-model'
 import { describe, expect, it } from 'vitest'
-import { anomalyAxis, availabilityRuns, buildStripesModel, clampWindow, fullWindow, isStripesDrawing, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VIEW_QUERY, STRIPES_VIEWS, stripesViewFromQuery, visibleYears, yearTicks, zoomWindow } from '../../app/utils/stripes-model'
+import { anomalyAxis, availabilityRuns, buildStripesModel, clampWindow, fullWindow, isStripesDrawing, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VIEW_QUERY, STRIPES_VIEWS, stripesViewFromQuery, stripesYearFromQuery, visibleYears, yearTicks, zoomWindow } from '../../app/utils/stripes-model'
 import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
 const input = (timestamp: string | null, value: number | null, anomaly: number | null = null, stripe_class: number | null = null): StripesInput => ({ timestamp, value, anomaly, stripe_class })
@@ -236,5 +236,20 @@ describe('the views of the stripes page (GH-4233)', () => {
 
   it('names the views that are a drawing, which have a chart, a toolbar and an image to save: all but the table', () => {
     expect(STRIPES_VIEWS.filter(isStripesDrawing)).toEqual(['stripes', 'bars', 'barsScale'])
+  })
+})
+
+describe('stripesYearFromQuery', () => {
+  it.each([
+    ['2000', 2000],
+    [' 1950 ', 1950],
+    ['0', 0],
+    [['1990', '2005'], 1990],
+  ])('reads %j of the link as the year %s', (value, year) => {
+    expect(stripesYearFromQuery(value)).toBe(year)
+  })
+
+  it.each([undefined, null, '', ' ', 'abc', '2000.5', '1e3', '0x10', '2000a', 'NaN', 'Infinity', '99999999999999999999', [], ['abc', '2000'], [null, '2000'], 2000])('reads %j of the link as none', (value) => {
+    expect(stripesYearFromQuery(value)).toBeNull()
   })
 })

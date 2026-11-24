@@ -444,6 +444,61 @@ describe('stripes Page years', () => {
     expect(Object.keys(useSettings().settings.value.stripes).sort()).toEqual(['showDataAvailability', 'showSource', 'showTitle', 'showYears'])
   })
 
+  // the link follows a choice with one `replace`, and a navigation that fails -- one a guard redirects, or a newer one supersedes -- rejects it:
+  // the page catches that, as the meteogram's link does (GH-4405)
+  it('writes the link once for a choice, with `replace`, and leaves no unhandled rejection where that navigation fails', async () => {
+    const vm = await show('/stripes?kind=temperature')
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.station).toBe('1048'))
+    const router = useRouter()
+    const unhandled: unknown[] = []
+    const record = (reason: unknown) => unhandled.push(reason)
+    const replaced: unknown[] = []
+    const pushed: unknown[] = []
+    const { replace, push } = router
+    // swapped in by hand: a spy keeps a handler on the promise it returns, which would hide an unhandled rejection
+    router.replace = (async (to: unknown) => {
+      replaced.push(to)
+      throw new Error('navigation aborted')
+    }) as typeof router.replace
+    router.push = (async (to: unknown) => {
+      pushed.push(to)
+    }) as typeof router.push
+    process.on('unhandledRejection', record)
+    try {
+      vm.startYear = 2000
+      await nextTick()
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    finally {
+      process.off('unhandledRejection', record)
+      router.replace = replace
+      router.push = push
+    }
+
+    expect(replaced).toHaveLength(1)
+    expect(replaced[0]).toMatchObject({ query: { kind: 'temperature', station: '1048', start_year: '2000' } })
+    expect(pushed).toEqual([])
+    expect(unhandled).toEqual([])
+  })
+
+  // a year of the link that is no whole number reads as none, a repeated one as its first value: never NaN in the model or the link (GH-4388)
+  it.each([
+    ['start_year=abc&end_year=2.5', null, null],
+    ['start_year=&end_year=1e3', null, null],
+    ['start_year=2005&start_year=abc&end_year=2015&end_year=2018', 2005, 2015],
+    ['start_year=abc&start_year=2005&end_year=xyz&end_year=2015', null, null],
+  ])('reads the link ?%s as the years %s and %s, with no NaN in the model or the link', async (query, startYear, endYear) => {
+    const vm = await show(`/stripes?kind=temperature&${query}`)
+    expect(vm.startYear).toBe(startYear)
+    expect(vm.endYear).toBe(endYear)
+    // choosing the station has written the link from the page's own options
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.station).toBe('1048'))
+    const written = useRouter().currentRoute.value.query
+    expect(written.start_year).toBe(startYear === null ? undefined : String(startYear))
+    expect(written.end_year).toBe(endYear === null ? undefined : String(endYear))
+    expect(JSON.stringify(written)).not.toContain('NaN')
+  })
+
   it('offers no checkbox for either line', async () => {
     await show('/stripes?kind=temperature')
     const settingsButton = [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Settings')!

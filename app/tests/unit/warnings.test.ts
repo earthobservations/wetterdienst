@@ -320,6 +320,17 @@ describe('where DWD warns', () => {
     expect(inWarningBox({ latitude: 40.78, longitude: -73.97 })).toBe(false)
     expect(inWarningBox({ latitude: 70.93, longitude: -8.67 })).toBe(false)
   })
+
+  // each edge of the box (3, 47, 16 and 56 degrees) is in it, and the least step beyond it is not: so that dropping or moving one edge shows
+  it.each([
+    ['west', { latitude: 51, longitude: 3 }, { latitude: 51, longitude: 3 - 0.01 }],
+    ['east', { latitude: 51, longitude: 16 }, { latitude: 51, longitude: 16 + 0.01 }],
+    ['south', { latitude: 47, longitude: 10 }, { latitude: 47 - 0.01, longitude: 10 }],
+    ['north', { latitude: 56, longitude: 10 }, { latitude: 56 + 0.01, longitude: 10 }],
+  ])('has the %s edge of the box in it, and nothing beyond', (_edge, on, beyond) => {
+    expect(inWarningBox(on)).toBe(true)
+    expect(inWarningBox(beyond)).toBe(false)
+  })
 })
 
 describe('the language of the texts', () => {
