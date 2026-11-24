@@ -66,6 +66,23 @@ What the endpoints share about which stations a request names:
   warning of the response's `metadata`, and in the server's log. The one reference station
   of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404 (a 502 for `dwd/observation` and
   `dwd/derived` where a directory of the lookup was skipped, below).
+- **A region** (`region=Hamburg`, a comma-separated list for several) selects every station the provider lists under
+  it: the `region` column of the stations, which is the source's own (a state, province, canton or département, the
+  spelling too: DWD's `Hamburg`, `HH` on `dwd/road`, Hub'Eau's `FINISTERE`), so DWD's `Hamburg` is twelve stations
+  of `daily/kl`, nine on land and three at sea, each named with its position in the answer. It is compared as a name
+  is, whole and not fuzzily (case, accents and transliteration do not matter, nor does a hyphen against a space), and
+  no table of other languages' names is behind it: `Hesse` is no `Hessen`. A region the network does not have is a 400
+  of the kind `request-refused` that names it, the closest regions and the regions there are (twenty at most, and how
+  many more, with how many stations have no region where some have none); where the stations of the requested
+  parameters have no region (the forecast networks of DWD, `smhi/observation`, `imgw`, ...; the list is in
+  [the Python API](filter-by-region)) it is a 400 that says so. Neither is an empty result. The exception is a list
+  of stations that is empty: it has no region to refuse, and the result is empty. Where the lookup skipped a
+  directory of DWD's server (`file-skipped`) that may hold the region, a region that is not found, a list without
+  stations and a list without regions are a 502 that names the directory, as a station of `interpolate` is, and not
+  the 400 or the empty result. Like the others it is one of the exclusive selections: giving two
+  is a 422, and `rank` and `distance` do not go with it. A `values` request is counted against the limit of stations
+  as any other, and the refusal for a region tells it to name fewer regions or the stations by their ids.
+  `interpolate`, `summarize` and `history` take no `region`.
 - **A WMO number, a WIGOS identifier or an ICAO code** (`wmo_id=10381`, `wigos_id=0-20000-0-10381`,
   `icao_id=EDDH`, each a comma-separated list) selects every station that has one of them, which is more than one
   station where an id is on several, as the library's `filter_by_wmo_id`, `filter_by_wigos_id` and `filter_by_icao_id`
@@ -681,11 +698,11 @@ release commit, with `uv run poe contracts:baseline`.
   `name` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
   argument `selection` instead of them. So the parameters stay as they are, and each operation says it in three ways:
     - the extension `x-wetterdienst-selection` of the operation lists the groups: `exactly_one_of` (for `stations`
-      and `values`: `["all"]`, `["stations"]`, `["wmo_id"]`, `["wigos_id"]`, `["icao_id"]`, `["name"]`,
+      and `values`: `["all"]`, `["stations"]`, `["wmo_id"]`, `["wigos_id"]`, `["icao_id"]`, `["name"]`, `["region"]`,
       `["latitude", "longitude"]`, `["left", "bottom", "right", "top"]`), `then` (with a point, exactly one of `rank` and
       `distance`) and `requires` (a `distance` needs a point, a `rank` a point or a `name`);
     - the `description` of each parameter it names ends with the sentences of the refusal that are about it, such as
-      `Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
+      `Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
     - its `examples` hold one value the parameter takes, such as `stations=01048,04411` and
       `name=Hamburg Fuhlsbüttel`, or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list
       there, which a client writes comma-separated (`explode: false`). The limits of the server still apply to a
@@ -752,10 +769,10 @@ learnt on one holds on the others:
   stations of a forecast network are the same for every run, which is chosen for `values`, `interpolate` and
   `summarize`. `/api/stations` answers either with a 422 like any parameter it does not know, as
   `wetterdienst stations` and the `stations` tool do.
-- **The stations are named by exactly one of** `all`, `stations`, `wmo_id`, `wigos_id`, `icao_id`, `name`, a point
+- **The stations are named by exactly one of** `all`, `stations`, `wmo_id`, `wigos_id`, `icao_id`, `name`, `region`, a point
   (`latitude` and `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`). None, or two, is refused the same way everywhere, a `missing_one_of` or a `mutually_exclusive`
   error that names the alternatives: `Cannot be combined with name, give exactly one of all,
-  stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top)` as the answer of a
+  stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top)` as the answer of a
   422, as the message of a tool error and, in the options' names, as the usage error of the
   command. The OpenAPI document states the alternatives and gives an example of each parameter, see
   [The OpenAPI document](#the-openapi-document).

@@ -1336,7 +1336,7 @@
           "Stations"
         ],
         "summary": "Stations",
-        "description": "Find weather stations and their `station_id` (step 1 of the station -> values workflow).\n\nRequires provider, network and parameters (e.g. provider=\"dwd\", network=\"observation\",\nparameters=\"daily/kl\"), and exactly one way of selecting stations: `name` for a place (e.g.\nname=\"Hamburg Fuhlsbüttel\", optionally with `rank` for how many matches), `stations` ids,\nlat/lon with `rank` or `distance`, a bounding box, or\nall=true for the full list. `name` gives the best five matches unless `rank` says otherwise.\nReturns station metadata including `station_id`, which you pass to `values`.\n\nA `timestamp`, a date or an interval as for `values`, lists only the stations whose record\noverlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`\nthe network has no station for is left out of the list, which is then empty or shorter, and\nnamed in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.",
+        "description": "Find weather stations and their `station_id` (step 1 of the station -> values workflow).\n\nRequires provider, network and parameters (e.g. provider=\"dwd\", network=\"observation\",\nparameters=\"daily/kl\"), and exactly one way of selecting stations: `name` for a place (e.g.\nname=\"Hamburg Fuhlsbüttel\", optionally with `rank` for how many matches), `region` for every station\nthe source lists under a state or province (region=\"Hamburg\", offshore stations included), `stations` ids,\nlat/lon with `rank` or `distance`, a bounding box, or\nall=true for the full list. `name` gives the best five matches unless `rank` says otherwise.\nReturns station metadata including `station_id`, which you pass to `values`.\n\nA `timestamp`, a date or an interval as for `values`, lists only the stations whose record\noverlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`\nthe network has no station for is left out of the list, which is then empty or shorter, and\nnamed in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.",
         "operationId": "stations_api_stations_get",
         "parameters": [
           {
@@ -1417,7 +1417,7 @@
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": true
@@ -1443,7 +1443,7 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "style": "form",
             "explode": false,
             "examples": {
@@ -1474,7 +1474,7 @@
               "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. Answers every station with one of them.",
               "title": "Wmo Id"
             },
-            "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "style": "form",
             "explode": false,
             "examples": {
@@ -1505,7 +1505,7 @@
               "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. Answers every station with one of them.",
               "title": "Wigos Id"
             },
-            "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "style": "form",
             "explode": false,
             "examples": {
@@ -1535,7 +1535,7 @@
               "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them.",
               "title": "Icao Id"
             },
-            "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "style": "form",
             "explode": false,
             "examples": {
@@ -1543,6 +1543,37 @@
                 "value": [
                   "EDDB",
                   "EDDH"
+                ]
+              }
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Region as the source lists it (state, province, département), comma-separated, e.g. 'Hamburg'; any case. Includes the stations the source files there that lie offshore.",
+              "title": "Region"
+            },
+            "description": "Region as the source lists it (state, province, département), comma-separated, e.g. 'Hamburg'; any case. Includes the stations the source files there that lie offshore. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "style": "form",
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "Hamburg",
+                  "Bremen"
                 ]
               }
             }
@@ -1563,7 +1594,7 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": "Hamburg Fuhlsbüttel"
@@ -1602,7 +1633,7 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required. Exactly one of rank or distance is required with latitude and longitude.",
             "examples": {
               "example": {
                 "value": 53.63
@@ -1627,7 +1658,7 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required. Exactly one of rank or distance is required with latitude and longitude.",
             "examples": {
               "example": {
                 "value": 10.0
@@ -1701,7 +1732,7 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": 9.5
@@ -1726,7 +1757,7 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": 53.4
@@ -1751,7 +1782,7 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": 10.5
@@ -1776,7 +1807,7 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": 53.9
@@ -2011,6 +2042,9 @@
             ],
             [
               "name"
+            ],
+            [
+              "region"
             ],
             [
               "latitude",
@@ -2481,7 +2515,7 @@
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": true
@@ -2507,7 +2541,7 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "style": "form",
             "explode": false,
             "examples": {
@@ -2538,7 +2572,7 @@
               "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. Answers every station with one of them.",
               "title": "Wmo Id"
             },
-            "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "style": "form",
             "explode": false,
             "examples": {
@@ -2569,7 +2603,7 @@
               "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. Answers every station with one of them.",
               "title": "Wigos Id"
             },
-            "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "style": "form",
             "explode": false,
             "examples": {
@@ -2599,7 +2633,7 @@
               "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them.",
               "title": "Icao Id"
             },
-            "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "style": "form",
             "explode": false,
             "examples": {
@@ -2607,6 +2641,37 @@
                 "value": [
                   "EDDB",
                   "EDDH"
+                ]
+              }
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Region as the source lists it (state, province, département), comma-separated, e.g. 'Hamburg'; any case. Includes the stations the source files there that lie offshore.",
+              "title": "Region"
+            },
+            "description": "Region as the source lists it (state, province, département), comma-separated, e.g. 'Hamburg'; any case. Includes the stations the source files there that lie offshore. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "style": "form",
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "Hamburg",
+                  "Bremen"
                 ]
               }
             }
@@ -2627,7 +2692,7 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": "Hamburg Fuhlsbüttel"
@@ -2666,7 +2731,7 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required. Exactly one of rank or distance is required with latitude and longitude.",
             "examples": {
               "example": {
                 "value": 53.63
@@ -2691,7 +2756,7 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required. Exactly one of rank or distance is required with latitude and longitude.",
             "examples": {
               "example": {
                 "value": 10.0
@@ -2765,7 +2830,7 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": 9.5
@@ -2790,7 +2855,7 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": 53.4
@@ -2815,7 +2880,7 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": 10.5
@@ -2840,7 +2905,7 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude) or (left, bottom, right and top) is required.",
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, (latitude and longitude) or (left, bottom, right and top) is required.",
             "examples": {
               "example": {
                 "value": 53.9
@@ -3508,6 +3573,9 @@
             ],
             [
               "name"
+            ],
+            [
+              "region"
             ],
             [
               "latitude",
@@ -8265,6 +8333,7 @@
           "all",
           "by_station_id",
           "by_name",
+          "by_region",
           "by_wmo_id",
           "by_wigos_id",
           "by_icao_id",

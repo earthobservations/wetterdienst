@@ -36,6 +36,7 @@ from wetterdienst.exceptions import (
     NoInternetError,
     NoParametersFoundError,
     NoPeriodsFoundError,
+    NoRegionsError,
     NoStationPositionsError,
     NoStationsWithElevationError,
     NotFoundError,
@@ -45,6 +46,7 @@ from wetterdienst.exceptions import (
     ProviderContractError,
     ProviderNotFoundError,
     ProviderRateLimitError,
+    RegionListingIncompleteError,
     RequestError,
     ReversedTimeIntervalError,
     StartDateEndDateError,
@@ -52,6 +54,7 @@ from wetterdienst.exceptions import (
     StationListingIncompleteError,
     StationNotFoundError,
     UnknownFormatError,
+    UnknownRegionError,
     UnsupportedDependencyError,
     UpstreamError,
     WetterdienstError,
@@ -80,6 +83,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     ProviderNotFoundError: (NotFoundError, (Exception,)),
     StationLacksParametersError: (RequestError, (ValueError,)),
     StationListingIncompleteError: (UpstreamError, (Exception,)),
+    RegionListingIncompleteError: (UpstreamError, (StationListingIncompleteError, Exception)),
     StationNotFoundError: (NotFoundError, (Exception,)),
     ApiNotFoundError: (NotFoundError, (Exception,)),
     MetadataNotFoundError: (NotFoundError, (LookupError,)),
@@ -97,6 +101,8 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     ImageTooLargeError: (RequestError, (Exception,)),
     ImageTimeoutError: (WetterdienstError, (TimeoutError,)),
     UnknownFormatError: (RequestError, (KeyError, ValueError)),
+    UnknownRegionError: (RequestError, (ValueError,)),
+    NoRegionsError: (RequestError, (UnknownRegionError, ValueError)),
     ExportRefusedError: (WetterdienstError, (Exception,)),
     ProviderContractError: (WetterdienstError, (Exception,)),
 }
@@ -187,6 +193,7 @@ _CONSTRUCTOR_ARGS: dict[type[BaseException], tuple] = {
     ImageTooLargeError: (1, 2, 3),
     StationLacksParametersError: ("00044", ["daily/data/precipitation_amount"]),
     StationListingIncompleteError: ("00044", {"`a/`": "its listing came back empty or missing"}),
+    RegionListingIncompleteError: (["Bayern"], {"`a/`": "its listing came back empty or missing"}),
     UnknownFormatError: ("xml", ("csv", "json")),
 }
 

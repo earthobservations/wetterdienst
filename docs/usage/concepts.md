@@ -32,11 +32,11 @@ request  ->  stations result  ->  values result
 1. A **request** says what you want: the `parameters` and, optionally, `periods`, `start` and `end`. Nothing is
    downloaded yet. Python: `DwdObservationRequest(parameters=..., start=..., end=...)`.
 2. You **select the stations**: by id, by WMO number, WIGOS identifier or ICAO code (the ids a station has besides
-   its own), by name (a fuzzy match), by distance from a point, by rank (the nearest ones), by a bounding box, with an
+   its own), by name (a fuzzy match), by region (the state or province the provider lists a station under), by distance from a point, by rank (the nearest ones), by a bounding box, with an
    SQL condition, or all. The answer is a **stations result** whose frame lists the stations with the span of their
    record. Python: `request.filter_by_station_id(...)`, `request.filter_by_wmo_id(...)`,
    `request.filter_by_wigos_id(...)`, `request.filter_by_icao_id(...)`, `request.filter_by_name(...)`,
-   `request.filter_by_distance(...)`, `request.filter_by_rank(...)`, `request.filter_by_bbox(...)`, `request.all()`.
+   `request.filter_by_region(...)`, `request.filter_by_distance(...)`, `request.filter_by_rank(...)`, `request.filter_by_bbox(...)`, `request.all()`.
 3. You read the **values** of the selected stations, one frame in the long shape (a row per station, parameter and
    timestamp) or the wide one. Python: `stations.values().all()` for all at once or `stations.values().query()`
    station by station. Each row has a `quality_flags` column with what the source says about the reading.

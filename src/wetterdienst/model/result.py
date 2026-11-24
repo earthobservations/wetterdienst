@@ -74,6 +74,7 @@ class StationsFilter(Enum):
     ALL = "all"
     BY_STATION_ID = "by_station_id"
     BY_NAME = "by_name"
+    BY_REGION = "by_region"
     BY_WMO_ID = "by_wmo_id"
     BY_WIGOS_ID = "by_wigos_id"
     BY_ICAO_ID = "by_icao_id"

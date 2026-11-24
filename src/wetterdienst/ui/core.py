@@ -164,6 +164,13 @@ _IcaoIdField = Annotated[
         description="ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them."
     ),
 ]
+_RegionField = Annotated[
+    list[str] | None,
+    Field(
+        description="Region as the source lists it (state, province, département), comma-separated, e.g. "
+        "'Hamburg'; any case. Includes the stations the source files there that lie offshore."
+    ),
+]
 _StationIdField = Annotated[str, Field(description="Station id used as the reference location, e.g. '01048'.")]
 _StationIdOptField = Annotated[
     str | None,
@@ -829,8 +836,8 @@ _KEPT_ON_THE_COMMAND_LINE = "; the command line (`{option}`) and the library (`{
 REMOVED_ON_ROUTES: dict[str, dict[str, str]] = {
     "sql": {
         route: _NO_SQL_ON_A_SERVER
-        + "select the stations with the filters of the route (`stations`, `name`, `wmo_id`, `wigos_id`, `icao_id`, "
-        "a point with `rank` or `distance`, a bounding box), or filter the answer yourself"
+        + "select the stations with the filters of the route (`stations`, `name`, `region`, `wmo_id`, `wigos_id`, "
+        "`icao_id`, a point with `rank` or `distance`, a bounding box), or filter the answer yourself"
         + _KEPT_ON_THE_COMMAND_LINE.format(option="--sql", function="filter_by_sql")
         for route in ("stations", "values")
     },
@@ -1035,6 +1042,7 @@ STATION_SELECTION = Selection(
         ("wigos_id",),
         ("icao_id",),
         ("name",),
+        ("region",),
         _POINT,
         ("left", "bottom", "right", "top"),
     ),
@@ -1064,6 +1072,7 @@ SELECTION_EXAMPLES: dict[str, Any] = {
     "wigos_id": ["0-20000-0-10381"],
     "icao_id": ["EDDB", "EDDH"],
     "name": "Hamburg Fuhlsbüttel",
+    "region": ["Hamburg", "Bremen"],
     "latitude": 53.63,
     "longitude": 10.0,
     "rank": 3,
@@ -1187,6 +1196,15 @@ class StationsRequest(_RefusesRenamedParameters):
     def validate_icao_id(cls, v: str | list | None) -> list[str] | None:
         """Read the ICAO codes, in upper case."""
         return _read_station_codes(v, search_icao_id)
+
+    # the region the source lists a station under
+    region: _RegionField = None
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def validate_region(cls, v: str | list | None) -> list[str] | None:
+        """Read the regions as station ids are read: comma-separated or a list, a blank one selecting nothing."""
+        return _read_items(v)
 
     # station name
     name: _NameField = None
@@ -1377,6 +1395,15 @@ class ValuesRequest(_RefusesRenamedParameters):
     def validate_icao_id(cls, v: str | list | None) -> list[str] | None:
         """Read the ICAO codes, in upper case."""
         return _read_station_codes(v, search_icao_id)
+
+    # the region the source lists a station under
+    region: _RegionField = None
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def validate_region(cls, v: str | list | None) -> list[str] | None:
+        """Read the regions as station ids are read: comma-separated or a list, a blank one selecting nothing."""
+        return _read_items(v)
 
     # station name
     name: _NameField = None
@@ -2891,6 +2918,9 @@ def get_stations(
 
         if (by_id := _filter_by_station_code(r, request)) is not None:
             return by_id
+
+        if region := getattr(request, "region", None):
+            return r.filter_by_region(region)
 
         name: str | None = getattr(request, "name", None)
         if name:

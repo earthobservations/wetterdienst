@@ -26,6 +26,14 @@ Types of changes:
   parameter from when to when the series was searched, how many values, of how many the request
   covers, and how many rows matched and were returned. A request with `first` may read up to the
   stream limit (GH-4411)
+- `region` selects the stations their provider lists under a region (`stations` and `values`; the
+  command line's `--region`, the REST API's and MCP's `region`; Python's `filter_by_region`): one
+  region or several, comma-separated, compared as names are (case, accents, `ue` for `ü`, a hyphen
+  or a space), whole and not fuzzily. The region is the source's, so DWD's `Hamburg` also holds
+  three stations at sea, not only the nine on land. An unknown region is refused with the closest
+  ones and the regions there are (`UnknownRegionError`, a 400; a 502 where a skipped DWD directory
+  may hold it), a network whose stations have none with that reason (`NoRegionsError`). It is one
+  of the exclusive selections, and the `metadata` block reports `by_region` (GH-4418)
 
 ## [0.198.0] - 2026-11-24
 

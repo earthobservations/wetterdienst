@@ -614,9 +614,9 @@ Usage: wetterdienst stations [OPTIONS]
   Acquire stations.
 
   Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
-  --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql. Given a
-  window, with --timestamp or --start / --end, only the stations whose record overlaps it are
-  listed.
+  --region, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or
+  --sql. Given a window, with --timestamp or --start / --end, only the stations whose record
+  overlaps it are listed.
 
   A selection that finds no station is no failure: the list is empty, the command says so on stderr
   and exits 0. A station id of --stations the network has no station for is named in a warning and
@@ -656,6 +656,10 @@ Options:
   --icao-id TEXT                  Select stations by ICAO location indicator (four letters, any
                                   case), comma-separated: every station that has one of them.
                                   Example: EDDH,EDDB
+  --region TEXT                   Select stations by the region their source lists them under (a
+                                  state, province, département), comma-separated, any case: every
+                                  station of it, those not on land included. An unknown region is
+                                  refused and the regions there are named. Example: Hamburg
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
                                   says, among the stations with a record in --timestamp if given.
@@ -734,8 +738,10 @@ Options:
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
       --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-05
 
-  # stations by region, or by a pattern in their name
-  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --sql="region='Sachsen'"
+  # the stations their source lists under a region, those not on land included
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --region=Hamburg
+
+  # stations by a pattern in their name
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
       --sql="lower(name) LIKE lower('%dresden%')"
 
@@ -941,7 +947,8 @@ Usage: wetterdienst values [OPTIONS]
   Acquire data.
 
   Select the stations with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id,
-  --name, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
+  --name, --region, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top,
+  or --sql.
 
 Options:
   --provider TEXT                 Data provider/organisation. List the provider/network combinations
@@ -976,6 +983,10 @@ Options:
   --icao-id TEXT                  Select stations by ICAO location indicator (four letters, any
                                   case), comma-separated: every station that has one of them.
                                   Example: EDDH,EDDB
+  --region TEXT                   Select stations by the region their source lists them under (a
+                                  state, province, département), comma-separated, any case: every
+                                  station of it, those not on land included. An unknown region is
+                                  refused and the regions there are named. Example: Hamburg
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
                                   says, among the stations with a record in --timestamp if given.

@@ -55,6 +55,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
+    StationsFilter,
     ValuesResult,
     _HistoryEntry,
     _InterpolatedValuesDictBody,
@@ -1886,7 +1887,11 @@ def _check_values_limits(
     (`check_chosen_rows`). A request that `holds` every row it reads (a `sort`) is told that a stream does not help it.
     What a request with `first` reads is estimated in cells in the wide shape too, as that is what it holds.
     """
-    check_station_count(selected_station_count(stations), limits)
+    check_station_count(
+        selected_station_count(stations),
+        limits,
+        by_region=stations._stations_filter is StationsFilter.BY_REGION,  # noqa: SLF001
+    )
     reads_streamed = streamed or chooses
     if limits.max_stream_rows if reads_streamed else limits.max_rows:
         check_rows(estimate_rows(stations, cells=chooses), limits, streamed=reads_streamed, holds=holds)
@@ -2155,7 +2160,8 @@ def stations(
 
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
     parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
-    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `stations` ids,
+    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `region` for every station
+    the source lists under a state or province (region="Hamburg", offshore stations included), `stations` ids,
     lat/lon with `rank` or `distance`, a bounding box, or
     all=true for the full list. `name` gives the best five matches unless `rank` says otherwise.
     Returns station metadata including `station_id`, which you pass to `values`.
