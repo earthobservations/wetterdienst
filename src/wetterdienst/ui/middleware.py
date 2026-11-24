@@ -14,7 +14,8 @@ The request id, the host check, the cap on requests served at once, the request 
   the loopback interface.
 - **The cap** (`WD_RESTAPI_MAX_CONCURRENT`, 32 by default, 0 for none) counts the requests under `/api` being
   served. One past the cap is a 503 problem of the kind `server-busy`, with `Retry-After`, before anything starts.
-  A request keeps its slot until its handler is done, not until its answer is sent: see the timeout.
+  A request keeps its slot until its handler is done, not until its answer is sent: see the timeout. A request that
+  is cancelled (an MCP client that gave up) gives it back at once, while its thread ends with the station in hand.
 - **The timeout** (`WD_RESTAPI_TIMEOUT`, 60 seconds by default, 0 for none) holds for the routes under `/api`
   until the response begins: a request that has not been answered by then is a 504 problem of the kind
   `request-timeout`, with `Retry-After`. The thread of a handler cannot be cancelled, so the request is not

@@ -1356,7 +1356,8 @@ are not counted. A tool of the MCP endpoint makes its request to the API in proc
 
 A request keeps its place until the work of its handler is done, not until its answer is sent: a request that timed
 out is told to stop and ends at the station in hand (see [Timeout](#timeout)), so the limit bounds the threads of the
-server, which the timeout alone does not. The default leaves the rest of the 40 threads of the pool to the routes
+server, which the timeout alone does not. Only a tool call that its MCP client cancels gives its place back at once,
+and its thread ends with the station in hand. The default leaves the rest of the 40 threads of the pool to the routes
 that are not counted. Set it to what the host can take, and put a rate limit in front of the server; a cap is no
 protection against a client that sends requests faster than they are answered, it only keeps them from piling up.
 
