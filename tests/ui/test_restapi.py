@@ -2184,6 +2184,20 @@ def test_issues_of_mosmix_takes_the_product(client: TestClient, monkeypatch: pyt
     assert asked == [dataset]
 
 
+def test_a_422_for_a_missing_parameter_has_the_input_the_request_gave_and_no_defaults(client: TestClient) -> None:
+    """The `input` of a missing parameter's error is the query as sent, not the defaults filled in (FastAPI 0.148)."""
+    response = client.get("/api/values", params={"provider": "dwd", "network": "observation"})
+
+    assert response.status_code == 422
+    (error,) = response.json()["errors"]
+    assert error == {
+        "type": "missing",
+        "loc": ["query", "parameters"],
+        "msg": "Field required",
+        "input": {"provider": "dwd", "network": "observation"},
+    }
+
+
 @pytest.mark.parametrize(
     ("path", "params"),
     [
@@ -6623,8 +6637,8 @@ def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
 ) -> None:
     """A tool call over `/mcp` records the `/mcp` requests, not the tool's REST request (GH-2432).
 
-    The tool's request runs in the context of the `/mcp` request, so fastapi's operation spans for it
-    sit beneath the tool call's span.
+    The tool's request runs in the context of the `/mcp` request, and fastapi records no operation span
+    for it: it is excluded (`is_tool_request`), and fastapi isolates the telemetry of an excluded request.
     """
     pytest.importorskip("fastmcp")
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
@@ -6665,10 +6679,9 @@ def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
     assert '"isError":false' in response.text
     assert _span_names(spans, "fastapi", server=True) == ["POST /mcp"] * 3
     assert _request_durations(metrics) == {"/mcp": 3}
-    (tool_call,) = [span for span in spans.get_finished_spans() if span.name == "tools/call glossary"]
+    assert [span.name for span in spans.get_finished_spans()].count("tools/call glossary") == 1
     operations = [span for span in spans.get_finished_spans() if span.name.startswith("fastapi.")]
-    assert {span.name for span in operations} == {"fastapi.dependencies", "fastapi.endpoint", "fastapi.serialization"}
-    assert {span.parent.span_id for span in operations if span.parent} == {tool_call.context.span_id}
+    assert operations == []
 
 
 def test_values_a_failed_dwd_download_is_a_502_not_an_empty_result(
