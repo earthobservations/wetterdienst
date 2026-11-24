@@ -21,6 +21,12 @@ Types of changes:
 - `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
   it) instead of Node 24. Run it from source with Node 26 (GH-4342).
 
+### Fixed
+
+- `[Stripes]` Emptying the start or the end year no longer leaves an empty `start_year=` or
+  `end_year=` in the link of the page: the year is taken as none and the parameter is left out
+  (GH-4381).
+
 ### Security
 
 - `[Server]` No request body is read whole before a route runs. nuxt-security's XSS validator is off
