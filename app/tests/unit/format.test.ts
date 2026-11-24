@@ -40,8 +40,8 @@ describe('number formatting utilities', () => {
   })
 
   it('handles null values', () => {
-    const value: number | null = null
-    expect(value?.toFixed(2) ?? '-').toBe('-')
+    const none = (): number | null => null
+    expect(none()?.toFixed(2) ?? '-').toBe('-')
   })
 })
 

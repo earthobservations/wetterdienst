@@ -190,8 +190,9 @@ Runs on changes to `app/**`, the two backend files the vitest suite reads, and t
 **Jobs:**
 1. **typecheck** - `pnpm typecheck`: `openapi-typescript` writes the types of the document to the
    git-ignored `app/.generated/`, then `scripts/typecheck.mjs`: `nuxt typecheck` (vue-tsc, on its own
-   TypeScript 6.0.3, for the `.vue` files) and `tsc` 7 on the `.ts` code; either failing fails the job
-   (GH-3908, GH-4342)
+   TypeScript 6.0.3, for the `.vue` files) and `tsc` 7 on the `.ts` code, the unit and e2e tests and
+   `playwright.config.ts` included (the `tests` project, which Nuxt has none for); either failing
+   fails the job (GH-3908, GH-4342, GH-4360)
 2. **lint** - ESLint and Oxlint checks
 3. **unit-tests** - Vitest unit and component tests
 

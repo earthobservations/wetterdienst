@@ -435,7 +435,8 @@ describe('the question "Are there warnings here?"', () => {
       },
     } as never
     // by the app's own locale: Low German is formatted as German and is asked for as German, and told so
-    for (const [locale, formatLanguage] of [['pl', 'pl-PL'], ['cs', 'cs-CZ'], ['es', 'es-ES'], ['de-hh', 'de-DE'], ['lb', 'lb-LU']])
+    const locales: Array<[string, string]> = [['pl', 'pl-PL'], ['cs', 'cs-CZ'], ['es', 'es-ES'], ['de-hh', 'de-DE'], ['lb', 'lb-LU']]
+    for (const [locale, formatLanguage] of locales)
       await chip.load({ ...context(), locale, formatLanguage }, api)
     expect(asked).toEqual(['mul', 'de', 'es', 'de', 'de'])
   })

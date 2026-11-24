@@ -41,7 +41,35 @@ export function ringAround(latitude: number, longitude: number, size: number): n
   return corners.map(([dx, dy]) => [Number((longitude + dx!).toFixed(5)), Number((latitude + dy!).toFixed(5))])
 }
 
-export function stormCell(options: CellOptions) {
+/**
+ * One cell of the answer. The backend's columns (`_SCHEMA` of `dwd/storm_cells/api.py`) are all nullable and the document
+ * types a cell as an open object, so a fixture states what it writes: a test takes the outline and the centre away from a
+ * cell (DWD gave it neither), which the nullable `geometry` and centroid say.
+ */
+export interface StormCellRow {
+  reference_time: string
+  cell_id: string
+  code: string
+  predecessor_code: string | null
+  split_event: boolean
+  merge_event: boolean
+  first_detection: string
+  number_detections: number
+  severity: number | null
+  severity_label: string | null
+  severity_decimal: number | null
+  hail_flag: number
+  heavy_rain_flag: number
+  gust_flag: number
+  centroid_latitude: number | null
+  centroid_longitude: number | null
+  cell_speed_kmh: number | null
+  direction_degrees: number | null
+  covered_area_km2: number
+  geometry: unknown
+}
+
+export function stormCell(options: CellOptions): StormCellRow {
   const { cell_id, latitude, longitude, size = 0.12 } = options
   const severity = options.severity === undefined ? 1 : options.severity
   return {
@@ -54,7 +82,7 @@ export function stormCell(options: CellOptions) {
     first_detection: '2026-11-17T22:05:00.000000+00:00',
     number_detections: 3,
     severity,
-    severity_label: severity === null ? null : LABELS[severity],
+    severity_label: severity === null ? null : LABELS[severity]!,
     severity_decimal: severity,
     hail_flag: 0,
     heavy_rain_flag: 0,
@@ -75,7 +103,7 @@ export interface ScanOptions {
   warnings?: Array<{ code: string, message: string }>
 }
 
-export function stormCellsAnswer(cells: Array<ReturnType<typeof stormCell>> = [], options: ScanOptions = {}) {
+export function stormCellsAnswer(cells: StormCellRow[] = [], options: ScanOptions = {}) {
   return {
     metadata: {
       api_version: '1',

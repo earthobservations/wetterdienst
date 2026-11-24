@@ -3,16 +3,18 @@
 //   1. `nuxt typecheck` (vue-tsc, on TypeScript 6.0.3: .pnpmfile.cjs) checks the `.vue` files, templates
 //      included, and the `.ts` code they use. It also writes Nuxt's tsconfigs into .nuxt/, which the
 //      second check extends.
-//   2. `tsc` 7 (the app's TypeScript) checks the `.ts` code, through typecheck/<project>.json, one
-//      per tsconfig Nuxt generates. TypeScript 7 cannot read a `.vue` file: typecheck/vue-shim.d.ts
-//      gives the imports of one a loose type, and the first check is the one that holds them to theirs.
+//   2. `tsc` 7 (the app's TypeScript) checks the `.ts` code, through typecheck/<project>.json: one
+//      per tsconfig Nuxt generates, and `tests`, which Nuxt has no project for (the unit and e2e tests,
+//      their helpers and setup, and playwright.config.ts; GH-4360). TypeScript 7 cannot read a `.vue`
+//      file: typecheck/vue-shim.d.ts gives the imports of one a loose type, and the first check is the
+//      one that holds them to theirs.
 //
 // Both always run, so one failure does not hide the other's errors. Drop the first check, and the
 // shim, once a Vue type checker runs on TypeScript 7 (#4343).
 import { spawn } from 'node:child_process'
 import process from 'node:process'
 
-const PROJECTS = ['app', 'server', 'shared', 'node']
+const PROJECTS = ['app', 'server', 'shared', 'node', 'tests']
 
 function run(command, args) {
   return new Promise((resolve) => {

@@ -23,7 +23,7 @@ export function alternatingRainValues(now: Date = new Date()): Handler {
     if (url.searchParams.get('network') !== 'mosmix' || !Array.isArray(answer?.values) || url.searchParams.get('parameters') === 'hourly/snow')
       return answer
     const copies = Math.ceil((FORECAST_DAYS * 24) / 72)
-    const values = Array.from({ length: copies }, (_, copy) => answer.values.map(value => ({
+    const values = Array.from({ length: copies }, (_, copy) => answer.values.map((value): Record<string, unknown> => ({
       ...value,
       timestamp: new Date(Date.parse(value.timestamp as string) + copy * 72 * 3_600_000).toISOString().replace('.000Z', '+00:00'),
     }))).flat()
