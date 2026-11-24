@@ -407,8 +407,8 @@ def _rows_note(*, result: _SeriesResult, kept: int, total: int, lead: str, hones
     if options.get("first") is not None and int(options["first"]) > 1:
         ways.append("a smaller `first`")
     if options.get("max_rows") is None or int(options["max_rows"]) > 1:
-        ways.append("`max_rows`" if options.get("max_rows") is None else "a smaller `max_rows`")
-    ways += ["add or narrow a `filter`", "ask for fewer parameters and stations"]
+        ways.append("a `max_rows`" if options.get("max_rows") is None else "a smaller `max_rows`")
+    ways += ["a narrower `filter`" if options.get("filter") else "a `filter`", "fewer parameters and stations"]
     advice = ", ".join(ways[:-1]) + f", or {ways[-1]}"
     return f"{head}{returned} returned{order}; the rest are left out.{searched} For fewer rows ask for {advice}."
 

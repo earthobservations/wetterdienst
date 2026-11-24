@@ -1885,7 +1885,6 @@ def _check_values_limits(
     bound (`ui.limits`). A request that `chooses` rows with `first` is held to what it reads, not to what it sends:
     it may read up to the stream limit, whatever its format, and what is sent is held to the limit of its format after
     (`check_chosen_rows`). A request that `holds` every row it reads (a `sort`) is told that a stream does not help it.
-    What a request with `first` reads is estimated in cells in the wide shape too, as that is what it holds.
     """
     check_station_count(
         selected_station_count(stations),
@@ -1894,7 +1893,7 @@ def _check_values_limits(
     )
     reads_streamed = streamed or chooses
     if limits.max_stream_rows if reads_streamed else limits.max_rows:
-        check_rows(estimate_rows(stations, cells=chooses), limits, streamed=reads_streamed, holds=holds)
+        check_rows(estimate_rows(stations), limits, streamed=reads_streamed, holds=holds)
 
 
 def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
@@ -2056,18 +2055,19 @@ def _stream_values(
     searched: list[pl.DataFrame] = []
 
     cap = request.max_rows
-    sent = 0
+    # the rows the options chose and the rows sent, as frames count them: a wide row counts once, whatever its columns
+    counted = {"sent": 0, "matched": 0}
 
     def frames_of(read: Iterator[ValuesResult]) -> Iterator[pl.DataFrame]:
         # `max_rows` cuts the answer over all stations: what is sent stops at it, the walk goes on to count the rest
-        nonlocal sent
         for result in read:
             frame, search = result.df, result.search
             if cap is not None:
-                frame = frame.head(max(cap - sent, 0))
-                sent += frame.height
+                frame = frame.head(max(cap - counted["sent"], 0))
                 search = search.with_returned(frame) if search is not None else None
+            counted["sent"] += frame.height
             if search is not None:
+                counted["matched"] += search.matched_rows or 0
                 searched.append(search.series)
             yield frame
 
@@ -2078,10 +2078,18 @@ def _stream_values(
         selection = parse_row_selection(**rows)
         assert selection is not None  # noqa: S101 -- search_report is asked for only where row options are given
         window = (stations.start, stations.end)
+        read = reader._stations_read  # noqa: SLF001
         report = (
-            Searched(series=pl.concat(searched), selection=selection, window=window)
+            Searched(
+                series=pl.concat(searched),
+                selection=selection,
+                window=window,
+                matched_rows=counted["matched"],
+                returned_rows=counted["sent"],
+                stations_read=read,
+            )
             if searched
-            else Searched.nothing(selection, window)
+            else Searched.nothing(selection, window, read)
         )
         report.warn_if_capped()
         return Search.model_validate(report.to_dict()).model_dump(mode="json")
@@ -2419,6 +2427,8 @@ def _refuse_repeated_row_options(http_request: Request) -> None:
                 + (
                     "join the conditions of `filter` with a comma, as in filter=value<=-20,month=12"
                     if name == "filter"
+                    else f"give one number to `{name}`"
+                    if name in {"first", "max_rows"}
                     else f"give one value of `{name}`, columns joined by commas where it takes several"
                 )
             ),

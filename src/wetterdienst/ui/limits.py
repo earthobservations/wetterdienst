@@ -167,7 +167,10 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool, holds: bool = False
             # a `sort` holds every row it reads, in a stream too: the way out is to choose fewer rows from the record
             advice = f"{narrow}, add `first` to choose rows from the whole record, or drop `sort`."
     head = f"This request would return about {rows:,} rows, more than the {maximum:,} {what}."
-    error = _refuse(name, maximum, rows, f"{head} {advice}", tool_message=f"{head} {narrow}.")
+    tool_advice = (
+        f"{narrow}, add `first` to choose rows from the whole record, or drop `sort`." if holds else f"{narrow}."
+    )
+    error = _refuse(name, maximum, rows, f"{head} {advice}", tool_message=f"{head} {tool_advice}")
     raise error
 
 
@@ -266,12 +269,8 @@ def _utc(value: dt.datetime) -> dt.datetime:
     return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
-def estimate_rows(stations: StationsResult, *, cells: bool = False) -> int:
-    """Estimate, as an upper bound, the rows `values` returns for the stations selected, see this module's docstring.
-
-    `cells` counts a reading of every parameter, as the long shape has them, in the wide shape too: the memory of a wide
-    frame is its cells, which a request that chooses rows from the whole record holds.
-    """
+def estimate_rows(stations: StationsResult) -> int:
+    """Estimate, as an upper bound, the rows `values` returns for the stations selected, see this module's docstring."""
     df = stations.df
     if df.is_empty() or not stations.parameters:
         return 0
@@ -283,7 +282,7 @@ def estimate_rows(stations: StationsResult, *, cells: bool = False) -> int:
     for parameter in stations.parameters:
         key = (parameter.dataset.resolution.name, parameter.dataset.name.lower())
         parameters_of.setdefault(key, []).append(parameter)
-    tidy = stations.options.tidy or cells
+    tidy = stations.options.tidy
     window_start = _utc(stations.start) if stations.start else None
     window_end = _utc(stations.end) if stations.end else None
     request = stations.request

@@ -529,15 +529,16 @@ limits_opt = click.option(
 )
 
 
-def _given_once(ctx: click.Context, param: click.Parameter, value: tuple[str, ...]) -> str | None:
+def _given_once(ctx: click.Context, param: click.Parameter, value: tuple[Any, ...]) -> Any:  # noqa: ANN401
     """Read an option of the row options that is given once: twice is refused, where click would keep the last."""
     if len(value) > 1:
         name = param.opts[0]
-        hint = (
-            "join the conditions with a comma: --filter='value<=-20,month=12'"
-            if name == "--filter"
-            else f"give one value of {name}, columns joined by commas"
-        )
+        if name == "--filter":
+            hint = "join the conditions with a comma: --filter='value<=-20,month=12'"
+        elif name in {"--first", "--max-rows"}:
+            hint = f"give one number to {name}"
+        else:
+            hint = f"give one value of {name}, columns joined by commas"
         msg = f"{name} is given {len(value)} times and a command takes it once: {hint}."
         raise click.UsageError(msg, ctx)
     return value[0] if value else None
@@ -572,6 +573,8 @@ def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
         click.option(
             "--first",
             type=click.INT,
+            multiple=True,
+            callback=_given_once,
             help=(
                 "Return only the first N rows of each group in the --sort order, the ties of the last one included "
                 "(needs --sort). --sort=value --first=1 is the lowest value of each station in the --timestamp "
@@ -592,6 +595,8 @@ def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
             "--max-rows",
             "max_rows",
             type=click.INT,
+            multiple=True,
+            callback=_given_once,
             help=(
                 "Return at most this many rows of the whole answer, the first of its order (after --filter, --sort "
                 "and --first), over all stations and parameters: for a short answer where many rows tie. What "

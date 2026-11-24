@@ -375,7 +375,7 @@ class SearchTotals(BaseModel):
         description="How many stations the walk read, those with no value in the window included; null for a result "
         "that did not walk (`selected_rows`). `stations_with_values` of them have a series.",
     )
-    stations_with_values: int = Field(description="How many stations have at least one series (one value).")
+    stations_with_values: int = Field(description="How many stations have at least one value searched.")
     series: int = Field(description="How many stations and parameters were searched (also those that are not listed).")
     searched: int = Field(description="The values searched in all.")
     expected: int | None = Field(
@@ -420,12 +420,12 @@ class SearchedSeries(BaseModel):
         "whichever is earlier, so that a window that begins before `first`, a series that ended before the window "
         "does and a year that is not over are incomplete; without one from `first` to `last`. `expected` minus "
         "`searched` is what is missing. Null where the resolution has no fixed step, for a forecast, and where the "
-        "usual step of the series is coarser than its resolution's (a value every 12 hours in an hourly dataset).",
+        "series is coarser than its resolution (a value every 12 hours in an hourly dataset: almost none of its steps "
+        "is as short as the resolution's).",
     )
     gaps: int | None = Field(
         description="The values the series lacks between `first` and `last`, whatever the window says: null where the "
-        "resolution has no fixed step, for a forecast, and where the usual step of the series is coarser than its "
-        "resolution's.",
+        "resolution has no fixed step, for a forecast, and where the series is coarser than its resolution.",
     )
     matched: int = Field(
         description="The rows the options chose from this station and parameter (in the wide shape the rows of its "

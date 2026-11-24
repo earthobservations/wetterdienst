@@ -10,13 +10,15 @@ a function of the station and the day (`tests/ui/row_options_stub.py`), so the a
 from __future__ import annotations
 
 import datetime as dt
-import operator
 from dataclasses import replace
 from typing import Any
 
 import polars as pl
 import pytest
 
+from tests.ui.row_options_oracle import expected as _expected
+from tests.ui.row_options_oracle import got as _got
+from tests.ui.row_options_oracle import same as _same
 from tests.ui.row_options_stub import DAYS, STATIONS, TMAX, TMIN, oracle, serve
 from wetterdienst.exceptions import RequestError
 from wetterdienst.metadata.resolution import Resolution
@@ -31,99 +33,6 @@ from wetterdienst.model.row_selection import (
 )
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-_COMPARE = {
-    "=": operator.eq,
-    "!=": operator.ne,
-    "<": operator.lt,
-    "<=": operator.le,
-    ">": operator.gt,
-    ">=": operator.ge,
-}
-_PARTS = {
-    "year": lambda ts: ts.year,
-    "month": lambda ts: ts.month,
-    "day": lambda ts: ts.day,
-    "hour": lambda ts: ts.hour,
-}
-
-
-def _rows(parameters: list[str]) -> list[dict[str, Any]]:
-    rows = []
-    for station in STATIONS:
-        # the answer's own order: by station, by parameter name, by time
-        for name in sorted(parameter.rsplit("/", 1)[1] for parameter in parameters):
-            rows.extend(
-                {"station_id": station, "parameter": name, "timestamp": ts, "value": value}
-                for ts, value in oracle(station, name)
-            )
-    return rows
-
-
-def _expected(  # noqa: C901
-    parameters: list[str],
-    *,
-    filter_: list[tuple[str, str, tuple[float, ...]]] = (),
-    sort: list[tuple[str, bool]] = (),
-    first: int | None = None,
-    by: list[str] | None = None,
-) -> list[tuple[str, str, dt.datetime, float]]:
-    """Work out the rows of the answer the slow way: a loop for each rule of the words."""
-
-    def column(row: dict[str, Any], name: str) -> Any:  # noqa: ANN401
-        return row[name] if name in ("value", "timestamp", "station_id") else _PARTS[name](row["timestamp"])
-
-    def meets(row: dict[str, Any]) -> bool:
-        for name, op, numbers in filter_:
-            value = column(row, name)
-            if op == "=":
-                ok = any(value == n for n in numbers)
-            elif op == "!=":
-                ok = all(value != n for n in numbers)
-            else:
-                ok = _COMPARE[op](value, numbers[0])
-            if not ok:
-                return False
-        return True
-
-    rows = [row for row in _rows(parameters) if meets(row)]
-    group_by = ["station_id"] if by is None else by
-    if first is not None:
-        groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
-        for row in rows:
-            if all(column(row, name) is not None for name, _ in sort):
-                groups.setdefault((row["parameter"], *(column(row, name) for name in group_by)), []).append(row)
-        kept = []
-        for members in groups.values():
-            ordered = members
-            for name, descending in reversed(sort):
-                ordered = sorted(ordered, key=lambda r, n=name: column(r, n), reverse=descending)
-            # a row is kept when fewer than `first` rows of its group sort strictly before it: the position of the
-            # first row of its run of equal keys
-            run_start = 0
-            for index, row in enumerate(ordered):
-                if index and any(column(row, name) != column(ordered[index - 1], name) for name, _ in sort):
-                    run_start = index
-                if run_start < first:
-                    kept.append(row)
-        rows = kept
-    if sort:
-        for name, descending in reversed([*sort, ("station_id", False), ("timestamp", False)]):
-            rows = sorted(rows, key=lambda r, n=name: column(r, n), reverse=descending)
-        rows = sorted(rows, key=lambda r: r["parameter"])
-    return [(r["station_id"], r["parameter"], r["timestamp"], r["value"]) for r in rows]
-
-
-def _same(got: list[Any], expected: list[Any]) -> None:
-    """Assert two lists of rows are equal, naming the first row that differs (a diff of thousands of rows is slow)."""
-    assert len(got) == len(expected), (len(got), len(expected))
-    for index, (left, right) in enumerate(zip(got, expected, strict=True)):
-        assert left == right, (index, left, right)
-
-
-def _got(frame: pl.DataFrame) -> list[tuple[str, str, dt.datetime, float]]:
-    return [(r["station_id"], r["parameter"], r["timestamp"], r["value"]) for r in frame.iter_rows(named=True)]
-
 
 CASES = [
     pytest.param({"filter": "value<=-9"}, id="filter only keeps the order of the read"),
@@ -809,3 +718,83 @@ def test_many_stations_cut_to_max_rows_never_hold_more_than_a_few_times_it(monke
         request.all().values().all().selected_rows(sort="-value", first=1000, by="station_id,month", max_rows=100)
     )
     assert _got(got.df) == _got(expected.df)
+
+
+@pytest.mark.parametrize(
+    ("resolution", "step"),
+    [
+        ("hourly", dt.timedelta(hours=1)),
+        ("daily", dt.timedelta(days=1)),
+        ("10_minutes", dt.timedelta(minutes=10)),
+        ("1_minute", dt.timedelta(minutes=1)),
+    ],
+)
+@pytest.mark.parametrize("missing", [0.5, 0.55])
+def test_a_series_that_misses_half_its_readings_is_not_coarser_and_its_gaps_count(
+    resolution: str, step: dt.timedelta, missing: float
+) -> None:
+    """Random missing readings leave many steps as short as the resolution's: the gaps are told, not nulled."""
+    import random  # noqa: PLC0415
+
+    rng = random.Random(f"{resolution}-{missing}")  # noqa: S311
+    stamps = [_utc(2020, 1, 1) + step * n for n in range(2000) if rng.random() >= missing]
+    row = _report(_series_frame(resolution, stamps), (None, None))
+    span = (stamps[-1] - stamps[0]) // step + 1
+    assert (row["searched"], row["expected"], row["gaps"]) == (len(stamps), span, span - len(stamps))
+
+
+def test_a_series_read_every_seven_hours_for_years_and_then_every_hour_has_its_gaps_counted() -> None:
+    """Most of its steps are 7 hours but a tenth are 1: it is not coarser than its resolution, whatever the median."""
+    sparse = [_utc(2000, 1, 1) + dt.timedelta(hours=7 * n) for n in range(400)]
+    dense = [sparse[-1] + dt.timedelta(hours=n) for n in range(1, 60)]
+    row = _report(_series_frame("hourly", [*sparse, *dense]), (None, None))
+    assert row["gaps"] is not None
+    assert row["gaps"] > 2000
+    assert row["expected"] == row["searched"] + row["gaps"]
+
+
+def test_a_series_all_of_whose_steps_are_coarser_than_its_resolution_has_none_counted() -> None:
+    """Every step 6 h, or 12 h, in an hourly dataset: none of the hours between are a gap."""
+    for hours in (6, 12, 24):
+        stamps = [_utc(2020, 1, 1) + dt.timedelta(hours=hours * n) for n in range(40)]
+        row = _report(_series_frame("hourly", stamps), (None, None))
+        assert (row["expected"], row["gaps"]) == (None, None), hours
+    # a few steps as short as the resolution's are enough for it not to be called coarser (the 5 % quantile)
+    stamps = [_utc(2020, 1, 1) + dt.timedelta(hours=12 * n) for n in range(40)]
+    stamps += [stamps[-1] + dt.timedelta(hours=n) for n in range(1, 4)]
+    assert _report(_series_frame("hourly", stamps), (None, None))["gaps"] is not None
+
+
+def test_the_reader_tells_the_report_when_its_network_is_a_forecast(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`forecast` comes from the kind of the network the reader reads, and a forecast has no gaps counted."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    request = DwdObservationRequest(parameters=[TMIN], start="2018-01-01", end="2020-12-31")
+    reader = request.all().values()
+    frame = _series_frame("daily", [s for s in _days(dt.date(2020, 1, 1), dt.date(2020, 1, 20)) if s.day != 5])
+    frame = frame.with_columns(station_id=pl.lit("00001"))
+    assert reader._searched_of(frame).row(0, named=True)["gaps"] == 1  # noqa: SLF001
+    monkeypatch.setattr(type(reader.sr.request), "metadata", SimpleNamespace(kind="forecast"))
+    row = reader._searched_of(frame).row(0, named=True)  # noqa: SLF001
+    assert (row["expected"], row["gaps"]) == (None, None)
+
+
+def test_a_wide_frame_counts_cells_when_the_walk_chooses_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wide row is a cell for each parameter: its held rows are chosen again as early as the long shape's."""
+    serve(monkeypatch, 3)
+    seen: list[int] = []
+    finish = RowSelection.finish
+
+    def watching(self: RowSelection, frames: Any, schema: Any = None) -> pl.DataFrame:  # noqa: ANN401
+        seen.append(sum(frame.height for frame in frames))
+        return finish(self, frames, schema)
+
+    monkeypatch.setattr(RowSelection, "finish", watching)
+    monkeypatch.setattr(TimeseriesValues, "_COMPACT_CELLS", 100)
+    wide = DwdObservationRequest(
+        parameters=[TMIN, TMAX], start="2018-01-01", end="2020-12-31", options={"shape": "wide"}
+    )
+    wide.all().values().all(sort="-day", first=5, by="year")
+    # three stations of 21 rows of 2 cells are 126 cells, over 100: chosen again once on the way and once at the end;
+    # counted in rows (63) they would not reach 100 and there would be the one at the end
+    assert seen == [63, 63], seen

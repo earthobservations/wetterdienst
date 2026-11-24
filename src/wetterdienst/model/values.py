@@ -383,6 +383,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     _stations_read: int = field(default=0, init=False, repr=False, compare=False)
     #: the cells `all` held when it last made the choice again over groups that span stations (`_hold`)
     _compacted_cells: int = field(default=0, init=False, repr=False, compare=False)
+    #: the names of the stations of the walk in hand by id, read once for the report (`_searched_of`)
+    _names: dict[str, str | None] | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -547,6 +549,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def _walk(self, selection: RowSelection | None) -> Iterator[ValuesResult]:
         """Walk the stations of the request, each reduced by `selection` where there is one."""
         self._stations_read = 0
+        self._names = None
         groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
         ahead = self._fetch_ahead(groups)
         try:
@@ -656,10 +659,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
     def _searched_of(self, df: pl.DataFrame) -> pl.DataFrame:
         """Count what the rows of a station hold for the report, with the window, the station's name and the kind."""
+        if self._names is None:
+            self._names = station_names(self.sr.df)
         return searched_of(
             df,
             (self.sr.start, self.sr.end),
-            names=station_names(self.sr.df),
+            names=self._names,
             forecast=self.sr.request.metadata.kind == "forecast",
         )
 
@@ -1422,15 +1427,16 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         self._finishing_rows = selection is not None
         self._compacted_cells = 0
-        held = 0
+        held_rows = held_cells = 0
         try:
             walk = self.query(**rows) if selection is not None else self.query()
             for result in tqdm(walk, total=len(self.sr.station_id), file=tqdm_out):
-                frame = result.df if keep is None else result.df.head(max(keep - held, 0))
+                frame = result.df if keep is None else result.df.head(max(keep - held_rows, 0))
                 data.append(frame)
-                held += _cells(frame)
+                held_rows += frame.height
+                held_cells += _cells(frame)
                 if selection is not None:
-                    held, data = self._hold(selection, held, data)
+                    held_rows, held_cells, data = self._hold(selection, held_rows, held_cells, data)
                 if result.data_updated_at is not None:
                     updated.append(result.data_updated_at)
                 if result.search is not None:
@@ -1477,42 +1483,47 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: stations of them, or fewer where the limit it was given is lower
     _COMPACT_CELLS = 1_000_000
 
-    def _hold(self, selection: RowSelection, held: int, data: list[pl.DataFrame]) -> tuple[int, list[pl.DataFrame]]:
+    def _hold(
+        self, selection: RowSelection, rows: int, cells: int, data: list[pl.DataFrame]
+    ) -> tuple[int, int, list[pl.DataFrame]]:
         """Keep what `all` holds of the rows chosen bounded, and stop a walk that has chosen more than it may hold.
 
-        What is held is counted in cells (a long row is one, a wide row one for each parameter it holds), which is what
-        the memory is. Three cases, by where the rows that will be in the answer can come from:
+        The rows are what the limit and `max_rows` count, one unit throughout: a row of the frame. The cells (a long row
+        is one, a wide row one for each parameter it holds) are what the memory is, and set when the rows chosen are
+        chosen again. Three cases, by where the rows that will be in the answer can come from:
 
-        - a choice that stays in a station (`by` has `station_id`) is the answer as it is read: more cells than the
+        - a choice that stays in a station (`by` has `station_id`) is the answer as it is read: more rows than the
           limit are an answer that is refused, now and not after the last station (`RowsOverLimitError`);
         - the same with `max_rows` and a `sort`: every station holds up to `max_rows` rows and a hundred stations
           hold a hundred times that, of which only the first `max_rows` in the answer's order can matter, so what is
-          held is cut to them once it is twice as much;
+          held is cut to them once it is twice as many rows;
         - groups that span stations: the first rows of a group are among those of its parts, so the choice is made
           again over what was chosen, which gives the same rows. It is done when the held cells double what the last
           time left (never before a million, or the limit where that is lower), so that the work is of the order of
           the rows read and not of their square. Rows that remain above the limit after it are refused, as a group that
           ties over many stations (every dry day at 0.0 mm) has no bound but its rows: add a column to `sort`.
+
+        Gives the rows and cells held and the frames, which are the same ones unless the choice was made again.
         """
         limit = self._held_rows_limit
         if selection.per_station:
             if selection.max_rows is not None:
-                if selection.sort and held > 2 * selection.max_rows:
+                if selection.sort and rows > 2 * selection.max_rows:
                     compact = selection.cap(selection.finish(data))
-                    return _cells(compact), [compact]
-                return held, data
-            if selection.first is not None and limit and held > limit:
-                raise RowsOverLimitError(held, limit)
-            return held, data
+                    return compact.height, _cells(compact), [compact]
+                return rows, cells, data
+            if selection.first is not None and limit and rows > limit:
+                raise RowsOverLimitError(rows, limit)
+            return rows, cells, data
         base = min(self._COMPACT_CELLS, limit) if limit else self._COMPACT_CELLS
-        if held >= max(base, 2 * self._compacted_cells):
+        if cells >= max(base, 2 * self._compacted_cells):
             compact = selection.finish(data)
-            cells = _cells(compact)
-            self._compacted_cells = cells
-            if limit and cells > limit:
-                raise RowsOverLimitError(cells, limit)
-            return cells, [compact]
-        return held, data
+            held = _cells(compact)
+            self._compacted_cells = held
+            if limit and compact.height > limit:
+                raise RowsOverLimitError(compact.height, limit)
+            return compact.height, held, [compact]
+        return rows, cells, data
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
         """Wrap to_target of all queried results.

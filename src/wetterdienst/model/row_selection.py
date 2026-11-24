@@ -1017,6 +1017,8 @@ class Searched:
         The series come before the totals, and in each the span of the values (`first`, `last`) before the counts, so
         that a reader sees from when to when a series was searched before it reads how many values that is.
         """
+        import polars as pl  # noqa: PLC0415
+
         from wetterdienst.util.datetime import format_timestamp  # noqa: PLC0415
 
         series = self.series
@@ -1053,7 +1055,7 @@ class Searched:
             "series_omitted": max(0, series.height - self.listed),
             "totals": {
                 "stations_read": self.stations_read,
-                "stations_with_values": series.get_column("station_id").n_unique(),
+                "stations_with_values": series.filter(pl.col("searched") > 0).get_column("station_id").n_unique(),
                 "series": series.height,
                 "searched": int(series.get_column("searched").sum()),
                 "expected": total("expected"),
@@ -1137,9 +1139,10 @@ def searched_of(
 
     `gaps` is what the series lacks inside its own span, from its first value to its last, whatever the window says.
 
-    Both are null for a `forecast` and where the series' usual step is coarser than its resolution's (a maximum of the
-    last 12 hours in an hourly dataset has a value every 12 hours, so 11 of 12 hours are no gap): they would count
-    readings the source never meant to have.
+    Both are null for a `forecast` and where the series is coarser than its resolution: almost none of its steps is as
+    short as the resolution's (the 5 % quantile of the steps is above one and a half times it). A maximum of the last
+    12 hours in an hourly dataset has a value every 12 hours, so 11 of 12 hours are no gap; a series that misses half
+    its hours, or that was read every 7 hours for twenty years and then every hour, is not coarser, and its gaps count.
     """
     import polars as pl  # noqa: PLC0415
 
@@ -1153,7 +1156,7 @@ def searched_of(
             valued.sum().alias("searched"),
             pl.col("timestamp").filter(valued).min().alias("first"),
             pl.col("timestamp").filter(valued).max().alias("last"),
-            pl.col("timestamp").filter(valued).sort().diff().median().alias("usual"),
+            pl.col("timestamp").filter(valued).sort().diff().quantile(0.05, interpolation="lower").alias("usual"),
         )
     else:
         parts = [
@@ -1162,7 +1165,12 @@ def searched_of(
                 pl.col(column).is_not_null().sum().alias("searched"),
                 pl.col("timestamp").filter(pl.col(column).is_not_null()).min().alias("first"),
                 pl.col("timestamp").filter(pl.col(column).is_not_null()).max().alias("last"),
-                pl.col("timestamp").filter(pl.col(column).is_not_null()).sort().diff().median().alias("usual"),
+                pl.col("timestamp")
+                .filter(pl.col(column).is_not_null())
+                .sort()
+                .diff()
+                .quantile(0.05, interpolation="lower")
+                .alias("usual"),
             )
             .with_columns(pl.lit(column).alias("parameter"))
             for column in wide_value_columns(frame)

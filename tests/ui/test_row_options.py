@@ -510,7 +510,9 @@ def test_a_station_whose_values_are_all_missing_is_read_and_told(monkeypatch: py
     entry = next(e for e in kept["series"] if e["station_id"] == "00002")
     assert (entry["searched"], entry["first"], entry["last"], entry["matched"]) == (0, None, None, 0)
     assert entry["expected"] == DAYS  # the window of the request, all of it missing
-    assert kept["totals"]["stations_with_values"] == 3
+    # with the nulls kept the station has a series, with nothing searched: it has no value, so it is not counted
+    assert kept["totals"]["stations_with_values"] == 2
+    assert kept["totals"]["stations_read"] == 3
 
 
 def test_each_series_names_its_station_and_a_tool_lists_only_a_few(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -572,7 +574,7 @@ def test_a_note_never_advises_what_cannot_make_fewer_rows(monkeypatch: pytest.Mo
         matched_total=30,
     )
     note = _rows_note(result=SimpleNamespace(search=taken), kept=4, total=9, lead="", honest=False)
-    assert "a smaller `first`, a smaller `max_rows`, add or narrow a `filter`" in note
+    assert "a smaller `first`, a smaller `max_rows`, a `filter`, or fewer parameters and stations" in note
 
 
 def test_a_sort_without_first_is_told_that_a_stream_does_not_help(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -646,13 +648,84 @@ def test_a_choice_with_max_rows_over_many_stations_is_no_refusal(monkeypatch: py
     assert answer["metadata"]["search"]["totals"]["matched"] > 1500
 
 
-def test_a_wide_request_that_chooses_rows_is_estimated_in_cells(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A wide frame is its cells in memory: the read of a request with `first` is counted as the long shape is."""
+def test_a_wide_request_that_chooses_rows_is_answered_where_the_plain_one_is(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The read of a wide request with `first` is estimated as the plain wide request is, in rows: not refused more."""
     monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "5000")
     monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "7000")
     both = f"{TMIN},daily/climate_summary/temperature_air_max_2m"
-    # 3 stations x 1,096 days x 2 parameters is 6,576 cells: under the stream limit as the long shape has it, and a
-    # wide request counted in rows alone (3,288) would have been under it with room
+    # 3 stations x 1,096 days: 3,288 wide rows, 6,576 cells. The plain request is answered, and so is one with `first`
+    assert _rest(parameters=both, shape="wide").status_code == 200
     assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 200
-    monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "5000")
+    # the stream limit holds the read of one with `first`, in rows as for the plain request
+    monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "3000")
     assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 400
+
+
+def test_the_final_check_is_the_net_for_rows_that_piled_up_between_two_choices(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Held 13 rows with a limit of 10, though no choice again found more than 9: only the whole answer is checked.
+
+    Station A has 8 days, B has 4 of which 3 are A's and lower, so choosing again after B leaves 9 (under the limit) and
+    the next choice is at 18; C has 4 new days, so the walk ends with 13 and the check of the answer refuses it.
+    """
+    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
+
+    serve(monkeypatch, 3)
+    days = {"00001": [1, 2, 3, 4, 5, 6, 7, 8], "00002": [6, 7, 8, 20], "00003": [21, 22, 23, 24]}
+    level = {"00001": 10.0, "00002": 5.0, "00003": 7.0}
+
+    def collect(self: object, station_id: str, parameter_or_dataset: Any) -> Any:  # noqa: ANN401, ARG001
+        import datetime as dt  # noqa: PLC0415
+
+        import polars as pl  # noqa: PLC0415
+
+        dataset = getattr(parameter_or_dataset, "dataset", parameter_or_dataset)
+        name = next(p.name_original for p in dataset if p.name == "temperature_air_min_2m")
+        stamps = [dt.datetime(2018, 1, day, tzinfo=dt.UTC) for day in days[station_id]]
+        return pl.DataFrame(
+            {
+                "timestamp": stamps,
+                "parameter": [name] * len(stamps),
+                "value": [level[station_id]] * len(stamps),
+                "quality_flags": ["1"] * len(stamps),
+                "resolution": ["daily"] * len(stamps),
+                "dataset": [dataset.name] * len(stamps),
+            },
+            schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "10")
+    response = _rest(sort="value", first=1, by="year,month,day", timestamp="2018")
+    assert response.status_code == 400, response.text
+    body = response.json()
+    assert body["requested"] == 13
+    assert "so far" not in body["detail"]  # the walk never held more than the limit at a choice: the answer did
+    # with a limit of 13 the same request is answered with those 13 rows
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "13")
+    assert len(_rest(sort="value", first=1, by="year,month,day", timestamp="2018").json()["values"]) == 13
+
+
+def test_a_tool_that_sorts_too_much_is_told_to_add_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A tool is refused in its own words: a shorter window, fewer parameters, add `first`, or drop `sort`."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "1000")
+    result = _tool({"sort": "value"})
+    assert result.is_error
+    message = str(result.content)
+    assert "add `first`" in message
+    assert "drop `sort`" in message
+    assert "ndjson" not in message
+
+
+def test_a_repeated_number_is_refused_with_a_hint_to_give_one() -> None:
+    """`first` and `max_rows` twice are a 422 or a usage error that says one number, not columns joined by commas."""
+    query = "&".join(f"{k}={v}" for k, v in {**_BASE, "sort": "value", "first": 1, "max_rows": 2}.items())
+    for name in ("first", "max_rows"):
+        response = TestClient(app).get(f"/api/values?{query}&{name}=9")
+        assert response.status_code == 422, response.text
+        message = response.json()["errors"][0]["msg"]
+        assert f"give one number to `{name}`" in message
+        assert "columns" not in message
+    for args in (["--sort=value", "--first=1", "--first=5"], ["--max-rows=1", "--max-rows=2"]):
+        result = _cli(*args)
+        assert result.exit_code == 2, result.output
+        assert "give one number" in result.output

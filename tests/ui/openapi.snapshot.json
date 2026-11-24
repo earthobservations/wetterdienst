@@ -7726,7 +7726,7 @@
           "stations_with_values": {
             "type": "integer",
             "title": "Stations With Values",
-            "description": "How many stations have at least one series (one value)."
+            "description": "How many stations have at least one value searched."
           },
           "series": {
             "type": "integer",
@@ -7894,7 +7894,7 @@
               }
             ],
             "title": "Expected",
-            "description": "The values the request covers, in the steps of the resolution (calendar months and years for the monthly and annual): with a `timestamp` window from its start to its end or to the last complete reading, whichever is earlier, so that a window that begins before `first`, a series that ended before the window does and a year that is not over are incomplete; without one from `first` to `last`. `expected` minus `searched` is what is missing. Null where the resolution has no fixed step, for a forecast, and where the usual step of the series is coarser than its resolution's (a value every 12 hours in an hourly dataset)."
+            "description": "The values the request covers, in the steps of the resolution (calendar months and years for the monthly and annual): with a `timestamp` window from its start to its end or to the last complete reading, whichever is earlier, so that a window that begins before `first`, a series that ended before the window does and a year that is not over are incomplete; without one from `first` to `last`. `expected` minus `searched` is what is missing. Null where the resolution has no fixed step, for a forecast, and where the series is coarser than its resolution (a value every 12 hours in an hourly dataset: almost none of its steps is as short as the resolution's)."
           },
           "gaps": {
             "anyOf": [
@@ -7906,7 +7906,7 @@
               }
             ],
             "title": "Gaps",
-            "description": "The values the series lacks between `first` and `last`, whatever the window says: null where the resolution has no fixed step, for a forecast, and where the usual step of the series is coarser than its resolution's."
+            "description": "The values the series lacks between `first` and `last`, whatever the window says: null where the resolution has no fixed step, for a forecast, and where the series is coarser than its resolution."
           },
           "matched": {
             "type": "integer",
