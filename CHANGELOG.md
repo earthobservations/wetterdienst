@@ -26,6 +26,8 @@ Types of changes:
 
 ### Security
 
+- The `pdf` extra needs pypdf 7.1.1 (was 6.21.4): denial-of-service advisories on a crafted PDF
+  that the description reader reaches are fixed only in 7.x (GH-4350)
 - The floor of pydantic in the `mcp` extra is 2.14.2 (was 2.7.3), for GHSA-3r8g-cqwr-jr29: before
   it, a client of `/mcp` could send the `progress_token` of a request's `_meta` under its python
   name beside its alias and have it replace the validated one, an unvalidated value. Nothing
