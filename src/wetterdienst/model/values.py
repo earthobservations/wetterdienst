@@ -301,7 +301,7 @@ def _value_as_number(df: pl.DataFrame, provider: str) -> pl.Expr:
     return value
 
 
-def requested_wide_columns(parameters: Iterable[ParameterModel], *, humanize: bool) -> list[str]:
+def _requested_wide_columns(parameters: Iterable[ParameterModel], *, humanize: bool) -> list[str]:
     """Give the value columns of the requested parameters of a wide frame, in request order, once each.
 
     Named after humanising if that is on, else as the source names them, with the dataset as a prefix when the
@@ -1191,7 +1191,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         """
 
-    def wide_schema(self) -> pl.Schema:
+    def _wide_schema(self) -> pl.Schema:
         """Give the columns a wide frame of this request can have, in the order it writes them, with their dtypes.
 
         The columns of `WIDE_SCHEMA`, then the value column of every requested parameter, each followed by its flags
@@ -1199,7 +1199,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         the request spans several. A station's frame has the columns of the parameters it delivers only, so a stream
         that writes its header with the first station asks this for the header of all (GH-4432).
         """
-        return wide_schema(requested_wide_columns(self.sr.parameters, humanize=self.sr.options.humanize))
+        return wide_schema(_requested_wide_columns(self.sr.parameters, humanize=self.sr.options.humanize))
 
     def _widen_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Widen a dataframe with each row having one timestamp, parameter, value and quality flags.
@@ -1277,7 +1277,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         # the columns of the parameters in the order the request names them, as the empty frame has them,
         # and not in the order the source happened to deliver its rows in
-        requested = requested_wide_columns(self.sr.parameters, humanize=self.sr.options.humanize)
+        requested = _requested_wide_columns(self.sr.parameters, humanize=self.sr.options.humanize)
 
         if not df.is_empty():
             delivered = {

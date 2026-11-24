@@ -94,7 +94,7 @@ def csv_stream(
     The header is written before the other frames are read, so every frame is written with the columns of the
     header, in its order. They are `schema`'s where it is given, the columns of the first frame where not. A frame
     that lacks one has it empty: the wide frame of a station has the columns of the parameters it delivers only, so
-    the stream of a wide answer is given the columns of the request (`TimeseriesValues.wide_schema`), and the CSV of
+    the stream of a wide answer is given the columns of the request (`TimeseriesValues._wide_schema`), and the CSV of
     a station that has no maximum still has the column of the maximum that a later station fills (GH-4432).
 
     A column that the header lacks cannot be added. It is not dropped without a word: it is logged, once for each

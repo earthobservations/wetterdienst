@@ -1267,7 +1267,7 @@ A streamed wide CSV (`shape=wide`) has every column of the request: the header i
 it is the columns of the requested parameters, in the order of the request, and a station that lacks a parameter has
 it empty. A parameter that only a later station has is not lost. The CSV of the same request that is not streamed
 (the command line, an MCP tool, `to_csv` of the result) has the columns of what the stations delivered, so the two
-differ by the columns with no value at all, and by their order where the first station lacks a parameter. A request
+differ by the columns of parameters no station delivered, and by their order where the first station lacks a parameter. A request
 for a dataset has the columns of all its parameters, so a dataset that each station has few of (NOAA GHCN's
 `daily/data` has 210 parameters, 420 columns) has many empty columns: name the parameters you want. The NDJSON lines
 are as before.

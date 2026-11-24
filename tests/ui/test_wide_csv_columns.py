@@ -7,7 +7,7 @@ station has a column for each parameter that station delivers, so a column that 
 from the CSV without a word. The header is now the columns of the request, in its order, known before the first
 station is read. Every other answer (the JSON, the NDJSON lines, the MCP tool, the command line, the frames of Python)
 is as it was: a wide frame has the columns of what was delivered, so a plain CSV and the streamed one differ by the
-columns with no value at all in the answer, and by nothing else.
+columns of parameters no station delivered, and by nothing else.
 
 Served as `test_surface_parity.py` serves it: a small DWD network whose index and files are stubs. Of the three
 stations, `00001` lacks the maximum and `00003` lacks the minimum of the air temperature.
@@ -216,6 +216,35 @@ def test_a_dataset_is_every_parameter_of_it_in_the_stream() -> None:
     assert set(_without_empty_columns(streamed).columns) == set(plain.columns)
 
 
+def test_a_wide_request_without_rows_sends_the_header_the_command_line_writes() -> None:
+    """The stream that has no station to send writes the header of the request, a file of the header alone."""
+    window = {"timestamp": "1930-06-01"}
+    streamed = _rest("csv", **WIDE, **window)
+    plain = _cli_csv(**WIDE, **window)
+
+    assert streamed.strip() == plain.strip()
+    assert _header(streamed) == [*IDENTITY, MIN, f"{MIN}{FLAGS}", MAX, f"{MAX}{FLAGS}"]
+    assert len(streamed.strip().splitlines()) == 1
+
+
+def test_the_columns_of_several_datasets_carry_the_name_of_their_dataset_in_the_header_as_in_the_rows() -> None:
+    """The header names the columns as the rows do, `climate_summary_` and `precipitation_more_` in front."""
+    parameters = f"daily/climate_summary/{MIN},daily/precipitation_more/precipitation_amount"
+    streamed, plain = _rest("csv", parameters=parameters, **WIDE), _cli_csv(parameters=parameters, **WIDE)
+
+    assert _header(streamed) == [
+        *IDENTITY,
+        f"climate_summary_{MIN}",
+        f"climate_summary_{MIN}{FLAGS}",
+        "precipitation_more_precipitation_amount",
+        f"precipitation_more_precipitation_amount{FLAGS}",
+    ]
+    # station 00003 has no minimum, the one parameter of this dataset requested, so it has no row
+    assert set(_table(streamed)["station_id"]) == {"00001", "00002"}
+    assert _without_empty_columns(streamed).equals(_without_empty_columns(plain))
+    assert f"climate_summary_{MIN}" in _header(plain)
+
+
 @pytest.mark.parametrize("_stations_that_lack_parameters", [("00001",)], indirect=True)
 def test_an_empty_first_station_leaves_the_header_to_the_next(_stations_that_lack_parameters: None) -> None:
     """A station without rows is not sent; the header is the same."""
@@ -265,11 +294,11 @@ def test_a_wide_csv_written_to_a_target_is_the_plain_csv(tmp_path: Path) -> None
 
 @pytest.mark.parametrize("humanize", [True, False])
 def test_the_columns_of_the_header_are_the_ones_a_station_that_has_every_parameter_has(*, humanize: bool) -> None:
-    """`wide_schema` names the columns as `_widen_df` does, the humanised ones or the source's."""
+    """`_wide_schema` names the columns as `_widen_df` does, the humanised ones or the source's."""
     request = DwdObservationRequest(parameters=BOTH.split(","), options={"shape": "wide", "humanize": humanize})
     reader = request.filter_by_station_id(["00002"]).values()
 
-    assert list(reader.wide_schema()) == reader.all().df.columns
+    assert list(reader._wide_schema()) == reader.all().df.columns  # noqa: SLF001
 
 
 def _frames(*frames: pl.DataFrame) -> Iterator[pl.DataFrame]:
@@ -309,12 +338,12 @@ def test_a_column_a_provider_adds_is_never_dropped_in_silence(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A station that delivers a column the request does not account for: the answer is whole, the log names it."""
-    full = TimeseriesValues.wide_schema
+    full = TimeseriesValues._wide_schema  # noqa: SLF001
 
     def without_the_maximum(self: TimeseriesValues) -> pl.Schema:
         return pl.Schema({name: dtype for name, dtype in full(self).items() if not name.startswith(MAX)})
 
-    monkeypatch.setattr(TimeseriesValues, "wide_schema", without_the_maximum)
+    monkeypatch.setattr(TimeseriesValues, "_wide_schema", without_the_maximum)
 
     with caplog.at_level(logging.WARNING, logger=STREAM_LOG):
         csv = _rest("csv", **WIDE)
