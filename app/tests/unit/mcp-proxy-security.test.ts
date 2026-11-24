@@ -1,55 +1,24 @@
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import type { SecurityStack } from '../helpers/nuxt-security-stack'
 import { Buffer } from 'node:buffer'
 import { createServer } from 'node:http'
-import { createRequire } from 'node:module'
-import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { h3, loadSecurityStack } from '../helpers/nuxt-security-stack'
 
 // The `/mcp` proxy behind nuxt-security's own middleware (GH-4362). The proxy's tests run it on a bare h3 app,
 // where nothing reads the body before it: in the built app nuxt-security's `xssValidator` does (it calls h3's
 // `readBody` on every POST, which reads the whole stream and caches it), so a proxy that read the stream itself
-// forwarded an empty body. Here the real `xssValidator` middleware runs in front of the proxy, with the rules that
-// nuxt-security resolves for a path from the `routeRules` of `nuxt.config.ts`.
+// forwarded an empty body. The app has no `xssValidator` since GH-4364; here the real one runs in front of the proxy
+// as it is installed (`module-defaults`) to show the proxy never forwards an empty body, and with the app's rules
+// (`security` and `routeRules` of `nuxt.config.ts`) to show the proxy gets its body through.
 vi.mock('@tailwindcss/vite', () => ({ default: () => ({ name: 'tailwindcss-stub' }) }))
-
-const APP = join(__dirname, '..', '..')
-const SECURITY = join(APP, 'node_modules', 'nuxt-security', 'dist', 'runtime')
-const nuxtRequire = createRequire(createRequire(import.meta.url).resolve('nuxt/package.json'))
-const h3 = nuxtRequire('h3') as typeof import('h3')
-
-interface Context {
-  getAppSecurityOptions: () => Record<string, unknown>
-  resolveSecurityRules: (event: unknown) => Record<string, unknown>
-}
 
 const servers: Server[] = []
 const asked: { url: string, body: string }[] = []
 const config = { apiBase: '' }
-let context: Context
-let routeRules: Record<string, { security?: Record<string, unknown> }>
+let stack: SecurityStack
 let app: string
-
-// What nuxt-security's defaults give every route (`defaultConfig.js`), before a rule of a route changes it
-const GLOBAL_RULES = {
-  enabled: true,
-  xssValidator: { whiteList: {}, stripIgnoreTag: true, stripIgnoreTagBody: ['script'], methods: ['GET', 'POST'], throwError: true },
-  requestSizeLimiter: { maxRequestSizeInBytes: 2e6, maxUploadFileRequestInBytes: 8e6, throwError: true },
-}
-
-// The plugin `00-routeRules` of nuxt-security: the rules of each route of the config beside the global ones
-function setRules(withRouteRules: boolean): void {
-  const rules = context.getAppSecurityOptions()
-  for (const key of Object.keys(rules))
-    delete rules[key]
-  rules['/**'] = structuredClone(GLOBAL_RULES)
-  if (withRouteRules) {
-    for (const [route, rule] of Object.entries(routeRules)) {
-      if (rule.security)
-        rules[route] = structuredClone(rule.security)
-    }
-  }
-}
 
 function backend(request: IncomingMessage, response: ServerResponse): void {
   const chunks: Buffer[] = []
@@ -66,10 +35,7 @@ function listen(server: Server): Promise<string> {
 }
 
 beforeAll(async () => {
-  vi.stubGlobal('defineNuxtConfig', (value: unknown) => value)
-  routeRules = ((await import('../../nuxt.config')).default as unknown as { routeRules: typeof routeRules }).routeRules
-  context = await import(/* @vite-ignore */ join(SECURITY, 'nitro', 'context', 'index.js')) as Context
-  const { default: xssValidator } = await import(/* @vite-ignore */ join(SECURITY, 'server', 'middleware', 'xssValidator.js'))
+  stack = await loadSecurityStack()
   for (const [name, value] of Object.entries({
     defineEventHandler: h3.defineEventHandler,
     getRequestHeader: h3.getRequestHeader,
@@ -81,7 +47,7 @@ beforeAll(async () => {
     vi.stubGlobal(name, value)
   const { mcpProxyHandler } = await import('../../server/utils/mcpProxy')
   const router = h3.createApp()
-  router.use(xssValidator)
+  router.use(stack.xssValidator)
   router.use(mcpProxyHandler())
   const proxy = createServer(h3.toNodeListener(router))
   const stub = createServer(backend)
@@ -94,7 +60,7 @@ beforeEach(() => {
   asked.length = 0
 })
 
-afterEach(() => setRules(true))
+afterEach(() => stack.setRules('app'))
 
 afterAll(async () => {
   vi.unstubAllGlobals()
@@ -108,27 +74,23 @@ async function post(body: string, path = '/mcp/v1'): Promise<Response> {
 }
 
 describe('the security rules of /mcp (routeRules of nuxt.config.ts)', () => {
-  it.each(['/mcp', '/mcp/', '/mcp/v1', '/mcp/v1/', '/mcp/v1?x=1', '/mcp/v2/anything'])('switch off, for %s, the xssValidator and the requestSizeLimiter', (path) => {
-    setRules(true)
-    const rules = context.resolveSecurityRules({ path, context: {} })
+  it.each(['/mcp', '/mcp/', '/mcp/v1', '/mcp/v1/', '/mcp/v1?x=1', '/mcp/v2/anything'])('switch off, for %s, the requestSizeLimiter', (path) => {
+    stack.setRules('app')
+    const rules = stack.context.resolveSecurityRules({ path, context: {} })
 
-    expect(rules.xssValidator, 'xssValidator').toBe(false)
     expect(rules.requestSizeLimiter, 'requestSizeLimiter').toBe(false)
   })
 
-  it('leave both on for the rest of the app', () => {
-    setRules(true)
-    for (const path of ['/api/values', '/mcpx', '/', '/openapi.json']) {
-      const rules = context.resolveSecurityRules({ path, context: {} })
-      expect(rules.xssValidator, path).toBeTruthy()
-      expect(rules.requestSizeLimiter, path).toBeTruthy()
-    }
+  it('leave the requestSizeLimiter on for the rest of the app', () => {
+    stack.setRules('app')
+    for (const path of ['/api/values', '/mcpx', '/', '/openapi.json'])
+      expect(stack.context.resolveSecurityRules({ path, context: {} }).requestSizeLimiter, path).toBeTruthy()
   })
 })
 
 describe('the /mcp proxy behind the xssValidator of nuxt-security', () => {
   it('forwards an initialize with its body intact', async () => {
-    setRules(true)
+    stack.setRules('app')
     const response = await post(INITIALIZE)
 
     expect(response.status).toBe(200)
@@ -136,8 +98,8 @@ describe('the /mcp proxy behind the xssValidator of nuxt-security', () => {
     expect(asked).toEqual([{ url: '/mcp/v1', body: INITIALIZE }])
   })
 
-  it('refuses with a 500 problem, and asks no backend, where a middleware has read the body (the rules do not switch it off)', async () => {
-    setRules(false)
+  it('refuses with a 500 problem, and asks no backend, where a middleware has read the body (the xssValidator of nuxt-security, as it is installed)', async () => {
+    stack.setRules('module-defaults')
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const response = await post(INITIALIZE)
 
