@@ -3,8 +3,9 @@
 """The size budget of an MCP tool's answer of rows (GH-4022, GH-4024).
 
 The answers it holds are those of `values`, `stations`, `interpolate`, `summarize`,
-`station_ids` (`fit_station_ids`: the stations that fit, with a note) and `coverage` (which is no rows but nested:
-`fit_coverage`).
+`station_ids` (`fit_station_ids`: the stations that fit, with a note), `coverage` (which is no rows but nested:
+`fit_coverage`) and `alerts` (`fit_alerts`, GH-4338: a warning is mostly polygon and areas, which go first, then the
+least severe warnings).
 
 An assistant reads a tool's answer in its context, and a client saves one of more than 50,000 characters to a file
 instead of handing it over (Claude Code does, whatever its tokens). Two calls spilled in the transcripts: a forecast
@@ -52,6 +53,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.core.station_search import StationIdSearchResult
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
+    from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
     from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
     from wetterdienst.ui.response_metadata import ResponseMetadata, StationIdsMetadata
 
@@ -98,10 +100,15 @@ def _text(content: str | bytes) -> str:
 
 def answer_size(content: str | bytes, request: _ListRequest | _SeriesRequest, metadata: ResponseMetadata) -> int:
     """Count the characters a client receives of an answer in `request.format`, the sentence of a CSV included."""
+    return _size_in(content, request.format, metadata)
+
+
+def _size_in(content: str | bytes, fmt: str, metadata: ResponseMetadata) -> int:
+    """Count the characters a client receives of an answer in `fmt`, the sentence of a CSV included."""
     text = _text(content)
-    if request.format in _MEDIA_TYPES:
+    if fmt in _MEDIA_TYPES:
         headers = {name.lower(): value for name, value in response_headers(metadata).items()}
-        return structured_size(_MEDIA_TYPES[request.format], text, headers)
+        return structured_size(_MEDIA_TYPES[fmt], text, headers)
     # the structured content is the JSON FastMCP parsed and hands on compact, as the `result` of an object (the schema
     # of the tool is a union): the body may be indented (`pretty`), have a space after each of its separators (the
     # REST API writes `, ` and `: `) or have written each character that is not ASCII as an escape (`json`)
@@ -811,3 +818,228 @@ def fit_coverage(coverage: Mapping[str, Any]) -> tuple[Mapping[str, Any], str | 
         kept = 1
         fits_parameters(kept, honest=True)
     return partial[kept]
+
+
+# --- alerts -------------------------------------------------------------------------------------------------------
+
+#: how bad a warning is, as CAP words it (`severity`), the worst first; a value that is none of them goes last
+_SEVERITIES = ("extreme", "severe", "moderate", "minor")
+#: how soon a warning acts (`urgency`), the soonest first
+_URGENCIES = ("immediate", "expected", "future", "past")
+#: how many of the warnings left out a note names
+_NAMED_LEFT_OUT = 8
+#: the most areas that match a `name` that are kept for a warning where all of them are too many. A kept area is an
+#: area name and its warn cell id, about 40 characters, so 25 are about 1,000 characters: the 1.1 to 1.6 KB of a slimmed
+#: warning plus that is 2.5 KB, so 15 warnings of a storm day still fit the budget, where a name that matches 1,500
+#: areas of each is 60 KB
+AREA_CAP = 25
+
+
+def _worst_first(df: pl.DataFrame) -> pl.DataFrame:
+    """Sort the warnings: the most severe first, then the most urgent, then the earliest onset; ties keep their order.
+
+    Those for the place asked for need no sorting first, since a request for a place holds only them.
+    """
+
+    def rank(column: str, order: tuple[str, ...]) -> pl.Expr:
+        return (
+            pl.col(column)
+            .str.to_lowercase()
+            .replace_strict({word: index for index, word in enumerate(order)}, default=len(order), return_dtype=pl.Int8)
+        )
+
+    return df.sort(
+        [rank("severity", _SEVERITIES), rank("urgency", _URGENCIES), pl.col("onset")],
+        nulls_last=True,
+        maintain_order=True,
+    )
+
+
+def _matching_areas(df: pl.DataFrame, name: str | None) -> tuple[list[list[str]], list[list[str]]]:
+    """Give, for each warning, the area names and the warn cell ids that match the `name`; empty lists without one.
+
+    A name that is no id matches the words of an area's name, one of digits the warn cell id.
+    """
+    from wetterdienst.provider.dwd.alerts.place import names_match  # noqa: PLC0415
+
+    def keep(column: str, *, by_name: bool) -> list[list[str]]:
+        return [
+            [
+                item
+                for item in items or []
+                if name is not None and (names_match([item], [], name) if by_name else names_match([], [item], name))
+            ]
+            for items in df.get_column(column).to_list()
+        ]
+
+    return keep("area_names", by_name=True), keep("warncell_ids", by_name=False)
+
+
+def _slimmed(df: pl.DataFrame, areas: tuple[list[list[str]], list[list[str]]], cap: int | None) -> pl.DataFrame:
+    """Give the warnings without their polygon and areas: `geometry` null, the lists those of `areas` or empty.
+
+    A warning is mostly those three columns (a warning for a coast lists 1,700 areas). `areas` are those that match the
+    name, of which `cap` are kept for each warning where it is given.
+    """
+    names, cells = ([match[:cap] for match in matches] for matches in areas)
+    return df.with_columns(
+        pl.lit(None, dtype=pl.String).alias("geometry"),
+        pl.Series("area_names", names, dtype=pl.List(pl.String)),
+        pl.Series("warncell_ids", cells, dtype=pl.List(pl.String)),
+    )
+
+
+def _cut_result(result: DwdWeatherAlertResult, df: pl.DataFrame) -> DwdWeatherAlertResult:
+    """Give the result of the same snapshot with the warnings of `df`: the date of its data is still that of all."""
+    return type(result)(
+        df=df,
+        granularity=result.granularity,
+        language=result.language,
+        snapshot=result.snapshot,
+        snapshot_updated_at=result.data_updated_at,
+        name_matched=result.name_matched,
+    )
+
+
+def _left_out_warnings(df: pl.DataFrame) -> str:
+    """Name the warnings left out, `event (severity)`, as many as the note names, and how many more there are."""
+    named = [f"{row['event']} ({row['severity']})" for row in df.head(_NAMED_LEFT_OUT).iter_rows(named=True)]
+    more = df.height - len(named)
+    return ", ".join(named) + (f" and {more:,} more" if more else "")
+
+
+def _capped_warnings(df: pl.DataFrame, areas: tuple[list[list[str]], list[list[str]]], cap: int) -> str:
+    """Name the warnings that have more matching areas than `cap`, `event (n match)`, as many as a note names."""
+    counts = [
+        (event, max(len(names), len(cells)))
+        for event, names, cells in zip(df.get_column("event").to_list(), *areas, strict=True)
+    ]
+    over = [f"{event} ({count:,} match)" for event, count in counts if count > cap]
+    shown = ", ".join(over[:_NAMED_LEFT_OUT])
+    return shown + (f" and {len(over) - _NAMED_LEFT_OUT:,} more" if len(over) > _NAMED_LEFT_OUT else "")
+
+
+def _alerts_note(
+    *,
+    shown: int,
+    left_out: pl.DataFrame,
+    name: str | None,
+    point: bool,
+    capped: str = "",
+    cap: int | None = None,
+    honest: bool = False,
+) -> str:
+    """Write the note of an `alerts` answer cut to the budget: what is left of a warning, which are, how to ask.
+
+    `shown` is the number of warnings returned and `left_out` the rows of the others, `name` the name of the request
+    and `point` whether it has a point. `cap` is the number of matching areas kept for each warning where they were
+    capped, and `capped` the warnings that have more.
+    """
+    if cap is not None:
+        areas = f"the first {cap:,} of the areas that match the name are kept for each warning, and {capped} have more"
+    elif name is not None:
+        areas = "the areas that match the name are kept"
+    elif point:
+        areas = "no area is listed"
+    else:
+        areas = (
+            "no area is listed: these are the warnings in force somewhere in Germany, and the answer does not say where"
+        )
+    text = (
+        f"{_head(honest=honest)}the polygon (`geometry`) and the lists of areas (`area_names`, `warncell_ids`) of each "
+        f"warning are left out ({areas}); they are not available through this tool, the REST API, the command line and "
+        "Python give them. "
+    )
+    placed = point or name is not None
+    if left_out.is_empty():
+        text += "The warning is returned." if shown == 1 else f"All {shown:,} warnings are returned."
+        return (
+            text if placed else f"{text} Pass a place (`latitude` and `longitude`, or `name`) for the warnings for it."
+        )
+    count = left_out.height
+    words = "the first warning is" if shown == 1 else f"the first {shown:,} warnings are"
+    text += (
+        f"Of {shown + count:,} warnings {words} returned, the most severe first (then the most urgent, then the "
+        f"earliest onset). The {count:,} left out {'is' if count == 1 else 'are'}: {_left_out_warnings(left_out)}. "
+    )
+    if name is not None:
+        advice = "Ask for a smaller place: a more specific `name`, one area or its warn cell id."
+    elif point:
+        advice = "Ask for a smaller place: add a `name` of one area to the point (both must hold)."
+    else:
+        advice = "Pass a place, a point (`latitude` and `longitude`) or a `name`, for the warnings for it alone."
+    return text + advice
+
+
+def fit_alerts(
+    result: DwdWeatherAlertResult,
+    fmt: str,
+    content: str | bytes,
+    metadata: ResponseMetadata,
+    render: Callable[[DwdWeatherAlertResult, ResponseMetadata], str],
+    *,
+    name: str | None = None,
+    point: bool = False,
+) -> tuple[str | bytes, ResponseMetadata]:
+    """Cut an `alerts` tool answer to the budget in steps, each only where the one before is still over it (GH-4338).
+
+    A warning is mostly its polygon and the areas it is issued for: one for a coast is 80,000 characters, and the
+    answer for Kiel on 2026-11-23 was 184,612 for three warnings, so no warning can be kept with them and the answer
+    fit. 1. The answer as it is, where it fits. 2. Every warning without its `geometry` and its lists of areas (for a
+    `name`, the areas that match it are kept), everything else of it as it is: a few thousand characters each. 3. For a
+    `name` that matches many areas (1,500 in a coast's warning), only the first `AREA_CAP` of them for each warning, the
+    note naming the warnings that have more. 4. Where that is still over the budget, as many of those warnings as fit,
+    whole, the most severe first (then the most urgent, then the earliest onset). A request for a place holds the
+    warnings for it only, so none needs to go first for it. The `answer-truncated` warning of the block says what was
+    left out of each warning, names the warnings left out and says how to ask for a narrower answer. Where not even one
+    warning fits the worst is kept and the note says that the answer is still over the budget. `render` writes the
+    answer of a cut result with the block it is given; `name` is the name of the request and `point` whether it has a
+    point.
+    """
+    if _size_in(content, fmt, metadata) <= ANSWER_BUDGET or result.df.is_empty():
+        return content, metadata
+    ordered = _worst_first(result.df)
+    areas = _matching_areas(ordered, name)
+    total = ordered.height
+    # the caps to try: none, then `AREA_CAP` where a warning has more matching areas than that
+    caps: list[int | None] = [None]
+    if any(len(match) > AREA_CAP for matches in areas for match in matches):
+        caps.append(AREA_CAP)
+    tried: dict[tuple[int | None, int], tuple[str, ResponseMetadata, int]] = {}
+
+    def attempt(count: int, cap: int | None, *, honest: bool = False) -> bool:
+        slim = _slimmed(ordered, areas, cap)
+        note = _alerts_note(
+            shown=count,
+            left_out=slim.slice(count),
+            name=name,
+            point=point,
+            capped=_capped_warnings(ordered, areas, cap) if cap is not None else "",
+            cap=cap,
+            honest=honest,
+        )
+        block = metadata.model_copy(
+            update={
+                "counts": metadata.counts.model_copy(update={"rows": count}),
+                "warnings": [*metadata.warnings, ResponseWarning(code=ANSWER_TRUNCATED, message=note)],
+            }
+        )
+        body = render(_cut_result(result, slim.head(count)), block)
+        tried[cap, count] = (body, block, _size_in(body, fmt, block))
+        return tried[cap, count][2] <= ANSWER_BUDGET
+
+    # all the warnings first, with the caps in turn; the last cap is the one that drops warnings if it must
+    cap = caps[-1]
+    best = total if any(attempt(total, each) for each in caps) else None
+    if best is not None:
+        cap = next(each for each in caps if tried[each, total][2] <= ANSWER_BUDGET)
+    elif total > 1:
+        guess = max(1, total * ANSWER_BUDGET // _size_in(content, fmt, metadata))
+        best = _largest(1, total - 1, lambda count: attempt(count, cap), guess)
+    if best is None:
+        # not even the worst warning fits, slimmed as it is: it is kept, and the note says the answer is still over
+        attempt(1, cap, honest=True)
+        best = 1
+    body, block, _ = tried[cap, best]
+    log.info(f"Cut an alerts answer of {total} warnings to {best} to stay within the budget.")
+    return body, block

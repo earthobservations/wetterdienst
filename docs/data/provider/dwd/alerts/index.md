@@ -59,6 +59,13 @@ of the snapshot are for other places, in the words of what was asked:
 - for both, how many warnings contain the point and how many list the name, none being both;
 - for a snapshot without any warning, that no warning is in force anywhere: the one true all-clear.
 
+An MCP tool's answer for a `name` that matches no area of any warning in force has a second warning, `no-area-matched`
+(GH-4338): the name found nothing to filter by, which is no all-clear for the place, so ask by point. It is told when
+the snapshot holds warnings and none lists the name; the REST API, the command line and Python tell
+`no-alerts-for-place` alone. A tool's answer is also cut to 40,000 characters (see
+[The size of an answer](../../../../usage/mcp.md#the-size-of-an-answer)): a warning is mostly its polygon and the list
+of its areas, which are left out of each warning where the answer is over, and then the least severe warnings.
+
 Its code is in the `X-Wetterdienst-Warnings` header of a CSV answer, which has no block, and the text in the `metadata`
 of the command line's JSON. Nothing is told for a request without a place, nor for a place with a warning. Its
 `data_updated_at` is that of the whole snapshot ([Update date](#update-date)).
