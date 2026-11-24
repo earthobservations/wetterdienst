@@ -130,9 +130,13 @@ the sheets say). Where the sheet says nothing, the file's attribute is given as 
 | `MESOCYCLONE_DETECTION` | "xml-Dateien mit sämtlichen Mesozyklonenerkennungen eines Referenzzeitpunktes" ([Dokumentation Mesozyklonenerkennung](https://www.dwd.de/DE/leistungen/radarprodukte/dokumentation_mcd.pdf?__blob=publicationFile), 07.2022), the volume scans of the 17 sites, a run every 5 minutes | an XML document, root `nowcast-data`, with the `radar-stations` and an `event` for each detected mesocyclone (its time, a `location` ellipse and `nowcast-parameters` such as `mesocyclone_shear_max` and `mesocyclone_diameter`, each with its `units`); a run without a mesocyclone is the station list alone (173 bytes) |
 
 The sweeps are the polar data of one site (`site=DwdRadarSite.BOO`): 360 rays of 250 m bins, as many bins as the
-elevation has. The volume scan has ten elevations, which are ten files a run (`elevation=0` to `9` picks one of them,
-for the polarimetric moments as for the velocity and the reflectivity), the precipitation scan one file. The unfiltered
-reflectivity has two files for each sweep, TH and TV, and `elevation` picks the pair. The unfiltered
+elevation has (`nbins`, `rscale` and `how/range` of the file say how many and how long). The volume scan has ten
+elevations, which are ten files a run (`elevation=0` to `9` picks one of them, for the polarimetric moments as for the
+velocity and the reflectivity), the precipitation scan one file. DWD extended the range of the precipitation scan
+(`SWEEP_PCP_*`) from 150 km (600 bins) to 180 km (720 bins) on 24 November 2026 (the first file with 720 bins is the
+scan of 09:20 UTC; [announcement of 3 November 2026](https://www.dwd.de/DE/leistungen/opendata/neuigkeiten/opendata_november2026_1.html)):
+a file of an earlier time has 600 bins, so a request across that time returns both. The volume scan did not change.
+The unfiltered reflectivity has two files for each sweep, TH and TV, and `elevation` picks the pair. The unfiltered
 polarimetric moments have no folder of a filter, as the velocity and the reflectivity sweeps do (`hdf5/filter_simple`
 and `hdf5/filter_polarimetric`).
 
