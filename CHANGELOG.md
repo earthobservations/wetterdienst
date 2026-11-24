@@ -36,6 +36,14 @@ Types of changes:
   that ends in time is unchanged; Python and the command line have no timeout and are not affected
   (GH-4429)
 
+### Fixed
+
+- A streamed wide CSV (`shape=wide`) no longer drops, without a word, the columns that only a later
+  station has: its header came from the first station, so a parameter it lacked lost its values for
+  every other. The header is now the columns of the request, in its order, a station that lacks a
+  parameter having it empty. Other answers are unchanged; name the parameters for a dataset with
+  many (GH-4432)
+
 ## [0.198.0] - 2026-11-24
 
 ### Changed
