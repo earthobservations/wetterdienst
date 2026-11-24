@@ -21,6 +21,15 @@ Types of changes:
 - `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
   it) instead of Node 24. Run it from source with Node 26 (GH-4342).
 
+### Security
+
+- `[Server]` No request body is read whole before a route runs. nuxt-security's XSS validator is off
+  for the whole app: it read the body of any POST, on any path (one that does not exist included),
+  into memory before a route was picked, and a chunked body was not limited. The app's server takes
+  a body in one route only, `/mcp`, which caps what it reads; the `/api` proxy takes no body. A GET
+  query is no longer filtered either: one with `<` (`sql_values=value < 5`) was refused with a 400
+  and now reaches the backend. The page escapes what it shows and the CSP stays (GH-4364).
+
 ## [0.59.0] - 2026-11-23
 
 Paired with backend 0.196.0, which is live; it needs no route newer than 0.195.0.

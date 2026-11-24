@@ -42,12 +42,11 @@ Types of changes:
   ignored; no route reads a form). An existing installation must upgrade FastAPI itself
   (`pip install -U "fastapi>=0.163.2"`); a reverse proxy's request limits reduce the impact
   (GH-4351)
-- The floor of `filelock` is 4.2.12 (was 3.30), for GHSA-386w-3w6q-9c53 (low): before it, on Unix,
-  the lock file beside a cache directory kept in a shared sticky directory such as `/tmp`
-  (`WD_CACHE_DIR=/tmp/wetterdienst`) could be created first by another local user, who could
-  remove it during a hold, so that two processes held the cache lock at once. The default cache
-  in the user's own cache directory is not affected. An existing installation must upgrade
-  filelock itself (`pip install -U "filelock>=4.2.12"`) (GH-4378)
+- The floor of pydantic in the `mcp` extra is 2.14.2 (was 2.7.3), for GHSA-3r8g-cqwr-jr29: before
+  it, a client of `/mcp` could send the `progress_token` of a request's `_meta` under its python
+  name beside its alias and have it replace the validated one, an unvalidated value. Nothing
+  read it, so this was a validation bypass and nothing more. An existing installation must
+  upgrade pydantic itself (`pip install -U "pydantic>=2.14.2"`) (GH-4378)
 
 ## [0.196.0] - 2026-11-23
 
