@@ -243,7 +243,7 @@ def host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 
 
 def _left_untouched(host: SimpleNamespace, *, also: tuple[str, ...] = ()) -> None:
-    """Nothing was written to the working or the home directory."""
+    """Nothing was written to the working directory or the home (DuckDB on Windows has another home: see the control)."""
     assert sorted(path.name for path in host.work.iterdir()) == sorted(["secret.csv", "secret.txt", *also])
     assert list(host.home.rglob("*")) == []
 
@@ -386,9 +386,15 @@ def test_the_configuration_of_the_connection_is_locked(connection: duckdb.DuckDB
 
 
 def test_a_connection_that_stores_no_secret_writes_none(host: SimpleNamespace) -> None:
-    """Control: a persistent secret is a file in the home directory, unless the setting is off."""
+    """Control: a persistent secret is a file, unless the setting is off.
+
+    The directory is set, as DuckDB on Windows does not take the home directory from this process's environment and
+    would write the control's secret to the one of whoever runs the test.
+    """
+    directory = f"SET secret_directory = '{(host.home / 'secrets').as_posix()}'"
     control = duckdb.connect()
     try:
+        control.execute(directory)
         control.execute("CREATE PERSISTENT SECRET s (TYPE http, BEARER_TOKEN 'x')")
     finally:
         control.close()
@@ -399,6 +405,7 @@ def test_a_connection_that_stores_no_secret_writes_none(host: SimpleNamespace) -
 
     quiet = duckdb.connect(config={"allow_persistent_secrets": False})
     try:
+        quiet.execute(directory)
         with pytest.raises(duckdb.InvalidInputException, match="Persistent secrets are disabled"):
             quiet.execute("CREATE PERSISTENT SECRET s (TYPE http, BEARER_TOKEN 'x')")
     finally:
