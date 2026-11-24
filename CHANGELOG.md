@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- The floor of pydantic in the `mcp` extra is 2.14.2 (was 2.7.3), for GHSA-3r8g-cqwr-jr29: before
+  it, a client of `/mcp` could send the `progress_token` of a request's `_meta` under its python
+  name beside its alias and have it replace the validated one, an unvalidated value. Nothing
+  read it, so this was a validation bypass and nothing more. An existing installation must
+  upgrade pydantic itself (`pip install -U "pydantic>=2.14.2"`) (GH-4378)
+
 ## [0.197.0] - 2026-11-24
 
 ### Added
@@ -44,11 +52,6 @@ Types of changes:
   ignored; no route reads a form). An existing installation must upgrade FastAPI itself
   (`pip install -U "fastapi>=0.163.2"`); a reverse proxy's request limits reduce the impact
   (GH-4351)
-- The floor of pydantic in the `mcp` extra is 2.14.2 (was 2.7.3), for GHSA-3r8g-cqwr-jr29: before
-  it, a client of `/mcp` could send the `progress_token` of a request's `_meta` under its python
-  name beside its alias and have it replace the validated one, an unvalidated value. Nothing
-  read it, so this was a validation bypass and nothing more. An existing installation must
-  upgrade pydantic itself (`pip install -U "pydantic>=2.14.2"`) (GH-4378)
 
 ## [0.196.0] - 2026-11-23
 
