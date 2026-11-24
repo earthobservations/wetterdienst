@@ -64,11 +64,14 @@ def oracle(station_id: str, parameter: str) -> list[tuple[dt.datetime, float]]:
     return rows
 
 
-def serve(monkeypatch: pytest.MonkeyPatch, count: int = 3, *, missing: tuple[str, ...] = ()) -> None:
+def serve(
+    monkeypatch: pytest.MonkeyPatch, count: int = 3, *, missing: tuple[str, ...] = (), every_parameter: bool = False
+) -> None:
     """Serve `count` stations and their daily readings from memory, so that nothing is read upstream.
 
     The first three are the stations of `STATIONS`; more are numbered on and named after their number. A station in
-    `missing` has every reading missing: its files are there and say nothing.
+    `missing` has every reading missing: its files are there and say nothing. With `every_parameter` the stub reads
+    every parameter of the dataset and not the three the oracle knows (for the width of a wide frame).
     """
     ids = [f"{number:05d}" for number in range(1, count + 1)]
     names = [STATIONS.get(station_id, f"Station {station_id}") for station_id in ids]
@@ -95,7 +98,8 @@ def serve(monkeypatch: pytest.MonkeyPatch, count: int = 3, *, missing: tuple[str
         frames = [
             _frame(station_id, parameter.name, parameter.name_original, dataset.name)
             for parameter in dataset
-            if parameter.name in ("temperature_air_min_2m", "temperature_air_max_2m", "wind_gust_max")
+            if every_parameter
+            or parameter.name in ("temperature_air_min_2m", "temperature_air_max_2m", "wind_gust_max")
         ]
         frame = pl.concat(frames)
         if station_id in missing:

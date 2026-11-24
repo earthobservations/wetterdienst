@@ -1142,7 +1142,8 @@ def searched_of(
     Both are null for a `forecast` and where the series is coarser than its resolution: almost none of its steps is as
     short as the resolution's (the 5 % quantile of the steps is above one and a half times it). A maximum of the last
     12 hours in an hourly dataset has a value every 12 hours, so 11 of 12 hours are no gap; a series that misses half
-    its hours, or that was read every 7 hours for twenty years and then every hour, is not coarser, and its gaps count.
+    its hours, or that was read at 7, 14 and 21 h for twenty years and then every hour, is not coarser: its gaps
+    count. A series with no value has no gaps to count, and its `expected` is the window.
     """
     import polars as pl  # noqa: PLC0415
 

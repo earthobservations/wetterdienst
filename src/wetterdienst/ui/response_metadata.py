@@ -425,7 +425,8 @@ class SearchedSeries(BaseModel):
     )
     gaps: int | None = Field(
         description="The values the series lacks between `first` and `last`, whatever the window says: null where the "
-        "resolution has no fixed step, for a forecast, and where the series is coarser than its resolution.",
+        "resolution has no fixed step, for a forecast, where the series is coarser than its resolution, and for a "
+        "series with no value (its `expected` is then the window, all of it missing).",
     )
     matched: int = Field(
         description="The rows the options chose from this station and parameter (in the wide shape the rows of its "

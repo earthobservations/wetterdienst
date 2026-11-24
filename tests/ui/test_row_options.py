@@ -729,3 +729,26 @@ def test_a_repeated_number_is_refused_with_a_hint_to_give_one() -> None:
         result = _cli(*args)
         assert result.exit_code == 2, result.output
         assert "give one number" in result.output
+
+
+def test_the_limit_of_the_choice_again_is_in_rows_whatever_the_width_of_the_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A wide choice of 10,000 rows of 14 parameters or more is answered with a limit of 12,000: cells are no rows.
+
+    10 stations of 1,000 days, wide, with `by=none` (the groups span stations, so the held rows are chosen again as
+    soon as their cells reach the limit): a station alone is 14,000 cells and 1,000 rows, and the answer is 10,000 rows.
+    """
+    serve(monkeypatch, 10, every_parameter=True)
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "12000")
+    window = {"timestamp": "2018-01-01/2020-09-26", "parameters": "daily/climate_summary", "shape": "wide"}
+    response = _rest(sort="timestamp", first=10000, by="none", **window)
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    assert len(answer["values"]) == 10_000
+    assert answer["metadata"]["search"]["totals"]["returned"] == 10_000
+    width = len([key for key in answer["values"][0] if not key.endswith("_quality_flags")]) - 4  # the keys of the row
+    assert width >= 13  # a station is over 12,000 cells: the cells are over the limit at the first choice again
+    # and one row more than the limit is refused, as rows
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "9999")
+    assert _rest(sort="timestamp", first=10000, by="none", **window).status_code == 400

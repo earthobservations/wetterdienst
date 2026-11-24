@@ -1261,7 +1261,8 @@ before the options choose the rows.
   400) when the parameters are not in one unit, saying to name one. `sort=value` is not: a group is one parameter.
 - **The wide shape.** `year`, `month`, `day` and `hour` work on its rows (a row is one timestamp of one station and
   resolution, and a group is that resolution of the station). `value` is refused in `filter` and `sort`: a row has one
-  column for each parameter and no `value`. Use `shape=long`.
+  column for each parameter and no `value`. Use `shape=long`. A CSV of the rows chosen by `sort` or `first` is one
+  frame that was cut, not streamed station by station, so it has the columns the stations delivered.
 - **Every format.** `json`, `geojson`, `csv`, `ndjson` and the charts hold the rows chosen. `with_stations` lists the
   stations that have a row left, as it does for any cut of the rows. Forecasts with an issue and `lead_time` are chosen
   among the rows the request reads, as the rows are.
@@ -1300,7 +1301,7 @@ missing, which the answer says:
 | `series[].first`, `last` | the timestamps of the first and the last value searched: the period the series was searched over |
 | `series[].searched` | the values searched: readings with a value, after the plausibility checks and the conversion of units, within the window |
 | `series[].expected` | the values the request covers, by the step of its resolution (calendar months and years for monthly and annual data). With a `timestamp` window, from its start to its end or to the last complete reading (yesterday for daily data, the previous hour, month or year), whichever is earlier, and never narrower than the values found; without one, from `first` to `last`. `expected` minus `searched` is what is missing from the request. Null where the resolution has no fixed step, for a forecast, and where the series is coarser than its resolution: almost none of its steps is as short as the resolution's (a maximum of the last 12 hours in an hourly dataset has a value every 12 hours: no gap; a series that misses half its hours is not coarser, its gaps count) |
-| `series[].gaps` | the values the series lacks between its `first` and its `last`, whatever the window says: the holes inside it. Null where `expected` is null |
+| `series[].gaps` | the values the series lacks between its `first` and its `last`, whatever the window says: the holes inside it. Null for a forecast, for a resolution with no fixed step, where the series is coarser than its resolution, and for a series with no value (its `expected` is then the window, all of it missing) |
 | `series[].matched` | the rows the options chose from that station and parameter, before `max_rows` |
 | `series[].returned` | the rows of the answer from that station and parameter: `matched`, or fewer where `max_rows` cut the answer |
 | `totals` | the same summed over all series (`series` is their number); `expected` and `gaps` are null when one series has none. `matched` and `returned` are the rows of the answer as its frame counts them (in the wide shape a row counts once, not once for each parameter). `stations_read` is how many stations the walk read, those with no value in the window included, and `stations_with_values` how many of them have a value searched: a station whose values are all missing is read and has none (with the nulls kept its series is listed, with 0 searched) |
@@ -1351,9 +1352,9 @@ until they are sent, so they are held to the limit of one body (`rows`, 500,000)
 A request with `sort` and no `first` holds every row it reads, so it is held to `rows` for what it reads, and a stream
 does not help it (the refusal says: add `first`, or drop `sort`). A request with a `filter` alone reads and sends as it
 did: `rows` for a body, `stream_rows` for a stream, which it does not hold. The number of stations and the timeout hold
-as they do for every request. A request the timeout ends is a 504, and the walk goes on in its thread until it
-finishes or reaches a limit: the work of such a request is not stopped by the answer. The estimate of rows, and the
-stations, are those of the request without options.
+as they do for every request: a request the timeout ends is a 504 and its walk stops at the station in hand, the rows
+it held are freed and its place of the cap is free again (the rows chosen are not made for nobody). The estimate of
+rows, and the stations, are those of the request without options.
 
 `max_rows` stops what a stream sends at the cap and goes on counting: the stations after it are read, and the `end` line
 has the counts, the `rows-capped` warning and the whole `search`; a CSV has no place for the warning, and its headers
