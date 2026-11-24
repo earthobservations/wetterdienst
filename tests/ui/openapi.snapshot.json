@@ -11088,6 +11088,6 @@
   ],
   "x-generated-with": {
     "fastapi": "0.165.0",
-    "pydantic": "2.14.0"
+    "pydantic": "2.14.4"
   }
 }
