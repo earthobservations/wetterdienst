@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import MethodsPage from '~/pages/methods.vue'
 import { CHIPS } from '~/utils/ask/registry'
@@ -25,6 +25,27 @@ async function useLocale(code: string) {
 /** The levels of the headings of a page, in the order of the page */
 function headingLevels(root: Element): number[] {
   return [...root.querySelectorAll('h1, h2, h3, h4, h5, h6')].map(heading => Number(heading.tagName.slice(1)))
+}
+
+/**
+ * Settles when the address has the hash `hash`. The redirect of a name a chip had to the one it has is a navigation of the router, which the
+ * test waits for and not for a second of the clock (`vi.waitFor`'s own limit, which a loaded machine runs out before the router has
+ * done): where it never comes, the test's own time-out ends the wait. Checked first and then listened for in one step, so that a
+ * redirect that has already happened is not waited for.
+ */
+function hashIs(hash: string): Promise<void> {
+  const router = useRouter()
+  if (router.currentRoute.value.hash === hash)
+    return Promise.resolve()
+  return new Promise((resolve) => {
+    // a navigation that was cancelled or is the address already (a failure) is reported here too, and changes no hash
+    const stop = router.afterEach((to, _from, failure) => {
+      if (!failure && to.hash === hash) {
+        stop()
+        resolve()
+      }
+    })
+  })
 }
 
 describe('the page in English', () => {
@@ -114,21 +135,26 @@ describe('the page in English', () => {
 
   it('takes a link to the section by the name the chip had (`#summer`) to the section it is now (`#season`)', async () => {
     await mountSuspended(MethodsPage, { route: '/methods#summer' })
-    await vi.waitFor(() => expect(useRoute().hash).toBe('#season'))
+    await hashIs('#season')
+    expect(useRouter().currentRoute.value.hash).toBe('#season')
   })
 
   it('takes a link to a rule by the old name (`#summer-summer-mean`) to the rule it is now (`#season-season-mean`)', async () => {
     await mountSuspended(MethodsPage, { route: '/methods#summer-summer-mean' })
-    await vi.waitFor(() => expect(useRoute().hash).toBe('#season-season-mean'))
+    await hashIs('#season-season-mean')
+    expect(useRouter().currentRoute.value.hash).toBe('#season-season-mean')
     await mountSuspended(MethodsPage, { route: '/methods#summer-anomaly' })
-    await vi.waitFor(() => expect(useRoute().hash).toBe('#season-anomaly'))
+    await hashIs('#season-anomaly')
+    expect(useRouter().currentRoute.value.hash).toBe('#season-anomaly')
   })
 
   it('takes a link to the wind section by the name the chip had (`#wind`) to the day section it is now, and its rules (`#wind-beaufort`) with it', async () => {
     await mountSuspended(MethodsPage, { route: '/methods#wind' })
-    await vi.waitFor(() => expect(useRoute().hash).toBe('#day'))
+    await hashIs('#day')
+    expect(useRouter().currentRoute.value.hash).toBe('#day')
     await mountSuspended(MethodsPage, { route: '/methods#wind-beaufort' })
-    await vi.waitFor(() => expect(useRoute().hash).toBe('#day-beaufort'))
+    await hashIs('#day-beaufort')
+    expect(useRouter().currentRoute.value.hash).toBe('#day-beaufort')
   })
 
   it('shows the section of the day question with the rules of every measure, each with its source or its mark', async () => {
