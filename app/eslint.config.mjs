@@ -13,7 +13,7 @@ export default antfu({
     },
   },
   rules: {
-    // Off: @antfu/eslint-config 10 turns it on and it reports 10,079 times in 464 files (one-line ternaries,
+    // Off: @antfu/eslint-config 10 turns it on and it reports about 10,000 times in about 460 files (one-line ternaries,
     // objects and arrays that it wants one item to a line). Its fix is no pure line-break change: the lines it
     // makes long set off other fixers, which add braces to `if` bodies and make a top-level `const f = () =>`
     // a `function f()` (`antfu/top-level-function`). That is a rewrite of the code of the whole app, 47,000
