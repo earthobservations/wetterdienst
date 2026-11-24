@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.197.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.197.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.198.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.198.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -98,8 +98,8 @@ Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than ann
 | `ts_skip_threshold` above 1 or 0 was accepted and skipped every station | refused: such a `WD_TS_SKIP_THRESHOLD` fails every `Settings()`; `/api/values` answers a `skip_threshold` of 0 with a 422 | 0.140.0, GH-2334 |
 | the key of KNMI's Open Data API, `Settings(auth={"knmi": ...})` or its environment variable | ignored with one warning that names `WD_AUTH__KNMI_EDR`; a `knmi/observation` request with no EDR key says the old key no longer works (`CredentialMissingError`), and the API refuses an Open Data key with a 403 (`CredentialRejectedError`). Register an EDR key at KNMI (the API Catalog of developer.dataplatform.knmi.nl) and set `WD_AUTH__KNMI_EDR` (`Settings(auth={"knmi_edr": ...})`) in its place; the quota is 1,000 requests an hour, and a query that takes more is refused with a `RequestError` (REST 400) that gives the count | 0.187.0, GH-3928 |
 | the REST API and MCP accepted `sql` and `sql_values` | a 403 unless the server runs with `WD_RESTAPI_SQL=true` | 0.140.0, GHSA-rpwr-qmm5-m9wp |
-| the setting `restapi_sql` (`WD_RESTAPI_SQL`), which let REST and MCP clients filter with `sql` and `sql_values` | removed with them: `Settings(restapi_sql=...)` is refused with the reason; a server with `WD_RESTAPI_SQL=true` warns once as it starts and runs without SQL; `false` or empty is ignored. Remove the variable | GHSA-332g-7w2w-4w59 |
-| `filter_by_sql`, `filtered_by_sql` and the CLI's `--sql` ran on any DuckDB | they need DuckDB 1.5.3 or newer and refuse an older one with `UnsupportedDependencyError`: `pip install --upgrade "duckdb>=1.5.3"`. Their restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust; the time a condition runs, memory outside DuckDB's limit and the process are not protected | GHSA-332g-7w2w-4w59 |
+| the setting `restapi_sql` (`WD_RESTAPI_SQL`), which let REST and MCP clients filter with `sql` and `sql_values` | removed with them: `Settings(restapi_sql=...)` is refused with the reason; a server with `WD_RESTAPI_SQL=true` warns once as it starts and runs without SQL; `false` or empty is ignored. Remove the variable | 0.198.0, GHSA-332g-7w2w-4w59 |
+| `filter_by_sql`, `filtered_by_sql` and the CLI's `--sql` ran on any DuckDB | they need DuckDB 1.5.3 or newer and refuse an older one with `UnsupportedDependencyError`: `pip install --upgrade "duckdb>=1.5.3"`. Their restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust; the time a condition runs, memory outside DuckDB's limit and the process are not protected | 0.198.0, GHSA-332g-7w2w-4w59 |
 
 ### Export targets
 
@@ -165,9 +165,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.197.0 renames by network, resolution and dataset.
+0.198.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.197.0.
+Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.198.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -403,10 +403,10 @@ to change.
 | `/api/stripes/*` matched a `name` at a threshold of 0.9 | 0.8, as the rest do; pass `name_threshold=0.9` to match as before | 0.140.0, GH-2063 |
 | `/api/stripes/values` and `image` with neither or both of `station` and `name`, an `end_year` not after `start_year`, a `name_threshold` outside 0 to 1 gave a 400 with a string `detail` | a 422 with typed `errors`, as the other endpoints | 0.140.0, GH-2060 |
 | `sql`, `sql_values` | a 403 (`sql-disabled`) unless the server runs with `WD_RESTAPI_SQL=true` | 0.140.0, GHSA-rpwr-qmm5-m9wp |
-| `sql`, `sql_values` of the REST API and the MCP tools, and the problem type `sql-disabled` (403) | removed: a 422 (a tool error) that says what to do. Select the stations with the filters of the route (`stations`, `name`, `wmo_id`, a point with `rank` or `distance`, a bounding box) or filter the rows of the answer yourself; the command line (`--sql`, `--sql-values`) and the library keep SQL | GHSA-332g-7w2w-4w59 (Breaking) |
+| `sql`, `sql_values` of the REST API and the MCP tools, and the problem type `sql-disabled` (403) | removed: a 422 (a tool error) that says what to do. Select the stations with the filters of the route (`stations`, `name`, `wmo_id`, a point with `rank` or `distance`, a bounding box) or filter the rows of the answer yourself; the command line (`--sql`, `--sql-values`) and the library keep SQL | 0.198.0, GHSA-332g-7w2w-4w59 (Breaking) |
 | `values` for `all=true` on any network, any number of stations | refused with the 400 `limit-exceeded` over 100 stations or over the row limits (500,000 as one body; `format=ndjson` and `csv` stream to 10,000,000). Request fewer stations or a shorter `timestamp`, stream, or raise `WD_RESTAPI_MAX_STATIONS`, `WD_RESTAPI_MAX_ROWS`, `WD_RESTAPI_MAX_STREAM_ROWS` on your own server | 0.158.0, GH-3065 |
 | a chart with a side over 8192 px | a 400 naming the limit (the library and the CLI are not limited) | 0.147.0, GH-2765 (not marked Breaking) |
-| `name` of only whitespace on `/api/alerts` (and the MCP tool `alerts`) answered every warning, the name read as none | **Breaking**: a 422 of type `blank_name` located at `name` (REST), a tool error (MCP); in Python a `RequestError`, on the command line a usage error of `--name`. An empty `name` is still none, and so is no `name`: leave it out to ask for all | unreleased, GH-4354 |
+| `name` of only whitespace on `/api/alerts` (and the MCP tool `alerts`) answered every warning, the name read as none | **Breaking**: a 422 of type `blank_name` located at `name` (REST), a tool error (MCP); in Python a `RequestError`, on the command line a usage error of `--name`. An empty `name` is still none, and so is no `name`: leave it out to ask for all | 0.198.0, GH-4354 |
 
 ### Answers and errors
 

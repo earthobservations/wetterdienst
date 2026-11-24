@@ -56,31 +56,8 @@ from typing import Any
 #: and `timestamp_position` (`coverage`, `glossary`, the `metadata` block).
 CLOSED_RESPONSE_ENUMS = frozenset({"aggregation", "timestamp_position"})
 
-_SQL_LEFT = (
-    "SQL filtering left the REST API and the MCP tools (the advisory GHSA-332g-7w2w-4w59): "
-    "a request that sends it is refused with a 422 that says so"
-)
-
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {
-    "GET /api/v1/interpolate: parameter sql_values (query) was removed": (_SQL_LEFT),
-    "GET /api/v1/stations: parameter sql (query) was removed": (_SQL_LEFT),
-    "GET /api/v1/summarize: parameter sql_values (query) was removed": (_SQL_LEFT),
-    "GET /api/v1/values: parameter sql (query) was removed": (_SQL_LEFT),
-    "GET /api/v1/values: parameter sql_values (query) was removed": (_SQL_LEFT),
-    "GET /api/v1/interpolate: response 403 was removed": (
-        "the 403 was the answer to `sql` and `sql_values` where SQL was off, which no route takes now"
-    ),
-    "GET /api/v1/stations: response 403 was removed": (
-        "the 403 was the answer to `sql` and `sql_values` where SQL was off, which no route takes now"
-    ),
-    "GET /api/v1/summarize: response 403 was removed": (
-        "the 403 was the answer to `sql` and `sql_values` where SQL was off, which no route takes now"
-    ),
-    "GET /api/v1/values: response 403 was removed": (
-        "the 403 was the answer to `sql` and `sql_values` where SQL was off, which no route takes now"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 
