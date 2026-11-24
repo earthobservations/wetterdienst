@@ -17,11 +17,14 @@ The request id, the host check, the cap on requests served at once, the request 
   A request keeps its slot until its handler is done, not until its answer is sent: see the timeout.
 - **The timeout** (`WD_RESTAPI_TIMEOUT`, 60 seconds by default, 0 for none) holds for the routes under `/api`
   until the response begins: a request that has not been answered by then is a 504 problem of the kind
-  `request-timeout`, with `Retry-After`. The work of a handler that runs in a thread of the pool cannot be
-  cancelled, so it goes on until it is done and its downloads are cached for the retry; the request is not
-  cancelled either, but left to end with its answer dropped, and keeps its slot of the cap until it has. So the
-  cap bounds the threads, which a timeout alone does not. Once the response has begun, the middleware leaves it
-  alone: a streamed answer holds the timeout between its chunks itself (`ui.streaming`).
+  `request-timeout`, with `Retry-After`. The thread of a handler cannot be cancelled, so the request is not
+  either: it is left to end with its answer dropped, and keeps its slot of the cap until it has. The work is told
+  to stop, though (`util.cancellation`, GH-4429): the middleware sets a flag as it answers (or as the request is
+  cancelled), and the walk over the stations ends at the next station, file or listing it would begin, so the slot is
+  back within the time of the station in hand and what had been fetched by then is cached for the retry. A single
+  download, the parse of a file and the readings of one station are not cut. So the cap bounds the threads, which a
+  timeout alone does not. Once the response has begun, the middleware leaves it alone: a streamed answer holds the
+  timeout between its chunks itself, and ends its work when it times out or its client has gone (`ui.streaming`).
 - **`X-Content-Type-Options: nosniff`** is sent with every response, a problem's included (`ui.problems`), unless the
   response has the header already, so that it is not sent twice (GH-3349). A `Content-Security-Policy` is not sent
   here: the answers that carry one set it themselves (`ui.restapi`).
@@ -234,25 +237,16 @@ class RequestContextMiddleware:
             await self.app(scope, exchange.receive, exchange.send)
             return
         self.in_flight += 1
-        if serving.timeout is None:
-            try:
-                with cancellable(exchange.cancellation):
-                    await self._run_app(exchange)
-            except asyncio.CancelledError:
-                # whoever cancels the request (a client of the MCP endpoint that gave up, a server that shuts down)
-                # has no use for its work
-                exchange.cancellation.set("cancelled")
-                raise
-            finally:
-                self.in_flight -= 1
-            return
         await self._serve_within(exchange, serving.timeout)
 
-    async def _serve_within(self, exchange: _Exchange, seconds: float) -> None:
-        """Serve a request of the API within the timeout, and answer it with a 504 when the timeout is over.
+    async def _serve_within(self, exchange: _Exchange, seconds: float | None) -> None:
+        """Serve a request of the API within the timeout (None: for ever), and answer a 504 when the timeout is over.
 
         The app runs as a task of its own, so that the timeout can answer without cancelling it: a handler in a thread
-        cannot be cancelled, and the place of the request is its to give back when it is done.
+        cannot be cancelled, and the place of the request is its to give back when it is done. Without a timeout it is
+        a task of its own all the same: a cancellation of the request that anyio makes (an MCP client that gave up) is
+        not delivered to a handler that awaits its thread until the thread is done, so the work is told to stop from
+        here, where it is heard at once.
         """
         from wetterdienst.ui.mcp import is_tool_request  # noqa: PLC0415
 
@@ -265,7 +259,7 @@ class RequestContextMiddleware:
         task.add_done_callback(lambda finished: self._finished(finished, exchange.request_id, scope["path"]))
         try:
             await asyncio.wait({task, waiter}, timeout=seconds, return_when=asyncio.FIRST_COMPLETED)
-            if not task.done() and not exchange.started.is_set():
+            if seconds is not None and not task.done() and not exchange.started.is_set():
                 # the timeout is over: the answer below is no response to hold to it
                 exchange.dropped = True
                 exchange.cancellation.set("timeout")
@@ -288,7 +282,15 @@ class RequestContextMiddleware:
         """Run the app for a request of the API; the end of its work, when its answer was gone, is no failure."""
         try:
             await self.app(exchange.scope, exchange.receive, exchange.send)
-        except WorkAbandoned:
+        except WorkAbandoned as gone:
+            if not exchange.cancellation.is_set():
+                # nobody ended this work: it is a defect, not the end of an answer that is gone
+                raise
+            # the exception crossed the worker future of the thread pool, and its traceback holds the frames of the
+            # walk, which hold what it had read: a cycle that only a full collection frees, for every request that
+            # timed out. Nothing reads the traceback, so it is cut here, and the context with it
+            gone.__traceback__ = None
+            gone.__context__ = None
             # the answer was given (the 504) or the client has gone: nothing is left to say, and it is no error
             log.info(
                 f"Request {exchange.request_id} to {exchange.scope['path']} stopped its work: "

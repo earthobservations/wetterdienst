@@ -1167,9 +1167,9 @@ A chart is drawn by a Chrome that Kaleido starts for the image, and the start of
 drawing have 120 seconds, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets
 through, a PDF of 8192 x 8192 px with 100000 points, took 24 to 31). A browser that does not finish is closed, and
 killed with its processes if closing it does not end it, and the request is a 504 problem of the kind
-`image-timeout` with `Retry-After`. The [request timeout](#timeout) answers the client and tells the work to stop
-at the next station or file, which a drawing that is under way does not come to, so a
-stuck Chrome keeps its thread and its place in the [limit on requests served at once](#concurrency) for at most
+`image-timeout` with `Retry-After`. The drawing is not a station or a file, so the [request timeout](#timeout)
+does not cut it: a stuck Chrome keeps its thread and its place in the
+[limit on requests served at once](#concurrency) until the drawing's own limit ends it, at most
 about 130 seconds (the limit and up to 10 seconds to close the browser), not for ever. Under the default request
 timeout of 60 seconds the client is answered `request-timeout` first, and the work ends on its own after that.
 

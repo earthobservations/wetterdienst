@@ -578,6 +578,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             stations_collected += 1
             rows.returned(station_id)
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
+        # the answer of the request may have been given up while the last station was read: what is made of the stations
+        # (the rows, the picture) is not made for nobody (GH-4429)
+        check_cancelled()
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
 

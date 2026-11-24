@@ -17,8 +17,11 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import gc
 import logging
+import sys
 import threading
+import weakref
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
@@ -63,12 +66,18 @@ class SlowProvider:
         self._arrived: dict[str, threading.Event] = {}
         #: the cancellation each station was collected under: that of the request, seen from the thread of its walk
         self.cancellations: dict[str, Cancellation | None] = {}
+        #: weak references to what the walk of each request holds in its frame, to tell whether it is freed
+        self.walks: list[weakref.ref[Any]] = []
+        #: the walks that were read to their end, whatever came of it
+        self.completed = 0
         provider = self
 
         class Values(DwdObservationValues):
             def query(self) -> Iterator[ValuesResult]:
                 try:
                     yield from super().query()
+                    with provider.lock:
+                        provider.completed += 1
                 finally:
                     with provider.lock:
                         provider.ended += 1
@@ -82,6 +91,11 @@ class SlowProvider:
                     provider.read.append(station_id)
                     provider.cancellations[station_id] = cancellation.current()
                 provider.arrived(station_id).set()
+                frame = sys._getframe()  # noqa: SLF001
+                while frame is not None and frame.f_code.co_name != "_query_stations":
+                    frame = frame.f_back  # ty: ignore[invalid-assignment]
+                if frame is not None and not provider.walks:
+                    provider.walks.append(weakref.ref(frame.f_locals["rows"]))
                 hold = provider._holds.get(station_id)
                 if hold is not None:
                     hold.wait(_HANG)
@@ -138,6 +152,10 @@ class SlowProvider:
         """Give the stations read so far."""
         with self.lock:
             return list(self.read)
+
+    def walk_is_freed(self) -> bool:
+        """Tell whether what the walk held in its frame is gone, with the collector of cycles switched off."""
+        return bool(self.walks) and self.walks[0]() is None
 
     async def until_ended(self, walks: int = 1) -> None:
         """Wait until `walks` walks are over: their threads are done and their places of the cap are given back."""
@@ -339,6 +357,151 @@ def test_the_work_of_an_estimate_that_timed_out_ends_at_the_station_in_hand(
     assert len(slow.snapshot()) < len(STATIONS)
 
 
+@pytest.fixture
+def no_collector() -> Iterator[None]:
+    """Switch the collector of cycles off, so that only what is freed by counting references is freed."""
+    gc.collect()
+    gc.disable()
+    try:
+        yield
+    finally:
+        gc.enable()
+
+
+@pytest.mark.usefixtures("no_collector")
+def test_the_walk_of_a_request_that_timed_out_is_freed_without_a_collection(
+    slow: SlowProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What the walk had read is freed once its place is given back: the exception that ended it keeps no frame.
+
+    The exception crosses the worker future of the thread pool, and its traceback would hold the frames of the walk
+    in a cycle that only a full collection frees (34, 66, 98 MB for three requests that timed out).
+    """
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "1")
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
+    slow.hold("00001")
+
+    async def run() -> None:
+        async with _async_client() as client:
+            assert (await client.get("/api/v1/values", params=_params(STATIONS[:6]))).status_code == 504
+            monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "60")
+            slow.release()
+            await slow.until_ended()
+            assert await _first_served_values(client) == 200
+
+    asyncio.run(run())
+
+    assert slow.walks, "the walk was not seen"
+    assert slow.walk_is_freed()
+
+
+def test_the_work_ends_after_the_last_station_too(slow: SlowProvider, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request with one long station times out in it: the walk ends there and is not read to its end.
+
+    What follows the last station (the rows, the picture, the export of what was read) is made for nobody otherwise.
+    """
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
+    slow.hold("00000")
+
+    async def run() -> int:
+        async with _async_client() as client:
+            response = await client.get("/api/v1/values", params=_params(STATIONS[:1]))
+            monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "60")
+            slow.release()
+            await slow.until_ended()
+            return response.status_code
+
+    assert asyncio.run(run()) == 504
+    assert slow.completed == 0
+
+
+@pytest.mark.parametrize("timeout", ["60", "0"])
+def test_a_request_that_is_cancelled_ends_its_work(
+    slow: SlowProvider, monkeypatch: pytest.MonkeyPatch, timeout: str
+) -> None:
+    """A client task that is cancelled (as an MCP client that gave up does) ends the work, with a timeout or without."""
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", timeout)
+    slow.hold("00001")
+
+    async def run() -> None:
+        async with _async_client() as client:
+            request = asyncio.ensure_future(client.get("/api/v1/values", params=_params(STATIONS[:6])))
+            await _until(slow.arrived("00001").is_set, "the walk at the second station")
+            request.cancel()
+            await asyncio.gather(request, return_exceptions=True)
+            walk = slow.cancellations["00001"]
+            assert walk is not None
+            # told to stop where the request was cancelled, not when the station in hand is done
+            await _until(walk.is_set, "the work told to stop", 5)
+            assert walk.reason == "cancelled"
+            slow.release()
+            await slow.until_ended()
+
+    asyncio.run(run())
+
+    assert slow.snapshot() == STATIONS[:2]
+
+
+@pytest.mark.parametrize("timeout", ["60", "0"])
+def test_a_tool_that_the_assistant_gave_up_on_ends_its_work(
+    slow: SlowProvider, monkeypatch: pytest.MonkeyPatch, timeout: str
+) -> None:
+    """The assistant's own timeout of a tool call cancels it, and the walk of its request stops at its station."""
+    pytest.importorskip("fastmcp")
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", timeout)
+    slow.hold("00001")
+
+    async def call() -> None:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            with pytest.raises(Exception, match=r"(?i)timed out|timeout"):
+                await client.call_tool("values", _params(STATIONS[:6]), timeout=0.5, raise_on_error=False)
+            walk = slow.cancellations.get("00001")
+            assert walk is not None
+            await _until(walk.is_set, "the work told to stop", 10)
+            assert walk.reason == "cancelled"
+            slow.release()
+            await slow.until_ended()
+
+    asyncio.run(call())
+
+    assert slow.snapshot() == STATIONS[:2]
+
+
+def test_the_end_of_the_work_that_nobody_ordered_is_not_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `WorkAbandoned` of a request whose answer is not gone is a defect: it is not hidden as the end of an answer."""
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "60")
+
+    def abandoned(**_kwargs: object) -> None:
+        reason = "nobody asked for this"
+        raise WorkAbandoned(reason)
+
+    monkeypatch.setattr(restapi, "get_values", abandoned)
+
+    async def run() -> None:
+        async with _async_client() as client:
+            await client.get("/api/v1/values", params=_params(STATIONS[:1]))
+
+    with pytest.raises(BaseException) as raised:  # noqa: PT011
+        asyncio.run(run())
+    assert "nobody asked for this" in repr(raised.value) or isinstance(raised.value, WorkAbandoned)
+
+
+def test_the_first_reason_to_stop_stays() -> None:
+    """Whoever ends the work first says why: a later reason (the response's end after a timeout) does not replace it."""
+    cancel = Cancellation()
+    assert cancel.reason is None
+    assert not cancel.is_set()
+    cancel.set("timeout")
+    cancel.set("response-ended")
+    assert (cancel.reason, cancel.is_set()) == ("timeout", True)
+    with pytest.raises(WorkAbandoned, match="timeout"):
+        cancel.check()
+
+
 # --- streams -----------------------------------------------------------------------------------------------------
 
 
@@ -372,6 +535,27 @@ def test_the_work_of_a_stream_that_timed_out_ends_at_the_station_in_hand(
         assert '"urn:wetterdienst:problem:request-timeout"' in response.text.splitlines()[-1]
     assert at_timeout == STATIONS[:3]
     assert slow.snapshot() == STATIONS[:3]
+
+
+@pytest.mark.usefixtures("no_collector")
+@pytest.mark.parametrize("fmt", ["ndjson", "csv"])
+def test_the_walk_of_a_stream_that_timed_out_is_freed_without_a_collection(
+    slow: SlowProvider, monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """As for a request: the stream's walk keeps nothing alive once its work has ended."""
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "2")
+    slow.hold("00002")
+    slow.outside_window(*STATIONS[2:6])
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    client.get("/api/v1/values", params=_params(STATIONS[:6], format=fmt))
+    slow.release()
+
+    async def freed() -> None:
+        await slow.until_ended()
+        await _until(slow.walk_is_freed, "the walk freed", 10)
+
+    asyncio.run(freed())
 
 
 def test_the_work_of_a_stream_whose_client_has_gone_ends_at_the_station_in_hand(

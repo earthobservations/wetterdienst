@@ -2,17 +2,18 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Benchmark what a request that times out costs, and what the check that ends it costs a request that does not.
 
-Run by a person, never by CI (it takes tens of seconds):
+Run by a person, never by CI (it takes under a minute):
 
     uv run python -m benchmarks.stop_at_timeout                       # 100 stations of 0.1 s, a timeout of 2 s
-    uv run python -m benchmarks.stop_at_timeout --stations 500 --timeout 5
+    uv run python -m benchmarks.stop_at_timeout --stations 500 --timeout 5 --rows 10000
 
 GH-4429: a REST or MCP request that ran into the timeout answered 504 and went on reading stations in its thread.
 The server now ends that work (`wetterdienst.util.cancellation`).
 
 **The timeout.** A local server stands in for the provider, answering each file after `--delay` seconds and counting
 what it was asked. A real `DwdObservationValues` reads one file of it for each of `--stations` stations through
-`download_file` (nothing cached, so each is a request), behind the real REST app, with a cap of one request. The
+`download_file` (nothing cached, so each is a request) and holds `--rows` rows (daily readings of ten years by default,
+so the stations that were read hold memory), behind the real REST app, with a cap of one request. The
 request times out after `--timeout` seconds and is answered with its 504; what is measured, in a process of its own
 for each of the two runs, is the CPU time of the server from the request to the moment its place of the cap is free,
 the peak memory, the requests the provider was asked, and how long after the 504 the place was free. `before` is the
@@ -20,7 +21,7 @@ server as it was: the walk looks at the cancellation at every station, but nobod
 nothing), which is what the code before the change did.
 
 **A request in time.** The check is a read of a context variable and of an attribute, once for each station and
-before each file. It is timed alone, and as the walk of 300 stations whose collection costs nothing, which is more
+before each file. It is timed alone, and as the walk of 100 stations whose collection costs nothing, which is more
 checks for the work than any real provider has: a station of a real provider is a download and a parse, milliseconds
 at the least.
 """
@@ -85,7 +86,7 @@ def _rss_mb() -> float:
     return int(out.stdout.strip()) / 1024
 
 
-def _stub_provider(url: str, stations: int) -> list[str]:
+def _stub_provider(url: str, stations: int, rows: int) -> list[str]:
     import polars as pl  # noqa: PLC0415
 
     from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
@@ -120,10 +121,14 @@ def _stub_provider(url: str, stations: int) -> list[str]:
                 cache_disable=True,
             )
             file.raise_if_exception()
-            return pl.DataFrame(
-                {"timestamp": [dt.datetime(2000, 1, 2, tzinfo=UTC)], "parameter": ["tmk"], "value": [0.1]},
-                schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
-            )
+            timestamps = pl.datetime_range(
+                dt.datetime(2000, 1, 1, tzinfo=UTC),
+                dt.datetime(2000, 1, 1, tzinfo=UTC) + dt.timedelta(days=rows - 1),
+                "1d",
+                time_zone="UTC",
+                eager=True,
+            ).alias("timestamp")
+            return pl.DataFrame({"timestamp": timestamps, "parameter": "tmk", "value": 0.1})
 
     DwdObservationRequest._all = lambda self: frame.lazy()  # type: ignore[method-assign]  # noqa: ARG005, SLF001
     DwdObservationRequest._values = Values  # type: ignore[assignment]  # noqa: SLF001
@@ -136,7 +141,7 @@ async def _timed_out_request(args: argparse.Namespace) -> dict[str, Any]:
     from wetterdienst.ui import restapi  # noqa: PLC0415
     from wetterdienst.ui.middleware import RequestContextMiddleware  # noqa: PLC0415
 
-    ids = _stub_provider(args.upstream, args.stations)
+    ids = _stub_provider(args.upstream, args.stations, args.rows)
     client = httpx2.AsyncClient(
         transport=httpx2.ASGITransport(app=restapi.app, raise_app_exceptions=False), base_url="http://testserver"
     )
@@ -145,7 +150,7 @@ async def _timed_out_request(args: argparse.Namespace) -> dict[str, Any]:
         "network": "observation",
         "parameters": "daily/climate_summary/temperature_air_mean_2m",
         "stations": ",".join(ids),
-        "timestamp": "2000-01-01/2000-01-10",
+        "timestamp": f"2000-01-01/{(dt.date(2000, 1, 1) + dt.timedelta(days=args.rows - 1)).isoformat()}",
     }
     # warm up the app and the imports outside the measurement: a request that is answered at once
     await client.get("/api/v1/version")
@@ -218,6 +223,8 @@ def _timeout_benchmark(args: argparse.Namespace) -> None:
                 str(args.stations),
                 "--timeout",
                 str(args.timeout),
+                "--rows",
+                str(args.rows),
                 "--upstream",
                 url,
             ],
@@ -233,7 +240,7 @@ def _timeout_benchmark(args: argparse.Namespace) -> None:
     server.shutdown()
 
 
-def _overhead_benchmark(stations: int = 300, repeats: int = 7) -> None:
+def _overhead_benchmark(stations: int = 100, repeats: int = 3) -> None:
     import contextvars  # noqa: PLC0415
 
     import polars as pl  # noqa: PLC0415
@@ -314,6 +321,7 @@ def main() -> None:
     parser.add_argument("--stations", type=int, default=100)
     parser.add_argument("--timeout", type=float, default=2.0)
     parser.add_argument("--delay", type=float, default=0.1)
+    parser.add_argument("--rows", type=int, default=3650, help="the rows of each station")
     parser.add_argument("--worker", choices=["before", "after"], help=argparse.SUPPRESS)
     parser.add_argument("--upstream", help=argparse.SUPPRESS)
     parser.add_argument("--skip-overhead", action="store_true")
