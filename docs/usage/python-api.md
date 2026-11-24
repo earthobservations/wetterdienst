@@ -383,7 +383,7 @@ What a region is called differs by provider, and so does how many stations have 
 
 | What `region` holds | Networks |
 | --- | --- |
-| the German state written out (`Hamburg`, `Baden-Württemberg`) | `dwd/observation`, `dwd/derived`, `dwd/phenology` (16 states; the 1 minute precipitation of `dwd/observation` has two stations without one and four in `Tirol`) |
+| the German state written out (`Hamburg`, `Baden-Württemberg`) | `dwd/observation`, `dwd/derived` (all its datasets but `monthly/climate_correction_factor`, whose stations have none), `dwd/phenology` (16 states; the 1 minute precipitation of `dwd/observation` has two stations without one and four in `Tirol`) |
 | the two letters of the state | `dwd/road` (`HH`, `NW`) |
 | the state or states as DWD writes them | `dwd/pollen` (`Niedersachsen und Bremen`) |
 | the Austrian state, the Swiss canton, the Canadian province | `geosphere/observation` (`Niederösterreich`), `meteoswiss/observation` (`ZH`), `eccc/observation` (`BC`) |
@@ -391,7 +391,7 @@ What a region is called differs by provider, and so does how many stations have 
 | the département | `eaufrance/hubeau` in capitals without accents (`FINISTERE`, 2 of 1,713 stations without), `meteofrance/observation` as its number (`09`, `972`) |
 | the municipality | `fmi/observation` (`Helsinki`; 4 of 437 stations without) |
 | the county or province | `metno/frost` (`TRØNDELAG`), `metoffice/observation` (`cumbria`), `aemet/observation` (`ILLES BALEARS`): read from stubs of the lists, which need a key |
-| none, the column is null | `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `dwd/swsmos`, `dwd/uvi`, `dmi/observation`, `rmi/observation`, `smhi/observation`, `wsv/pegel`, `nws/observation`, `meteofrance/synop`, `chmi/observation`, `ipma/observation`, `lhmt/observation`, `ea/hydrology`, both `imgw` networks, `knmi/observation` (a stub; it needs a key) |
+| none, the column is null | `dwd/derived` `monthly/climate_correction_factor`, `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `dwd/swsmos`, `dwd/uvi`, `dmi/observation`, `rmi/observation`, `smhi/observation`, `wsv/pegel`, `nws/observation`, `meteofrance/synop`, `chmi/observation`, `ipma/observation`, `lhmt/observation`, `ea/hydrology`, both `imgw` networks, `knmi/observation` (a stub; it needs a key) |
 
 A station without a region is in none: no region selects it, and the refusal of a region that is not there says how
 many stations of the network are in that case.
@@ -416,16 +416,19 @@ twenty of each and the number of the others, with control characters replaced an
 `DwdObservationRequest has no station in the region 'Hesse'. Closest: 'Hesse': 'Hessen'. The regions there are:
 Baden-Württemberg, Bayern, ...`. Where some stations of the network have no region, it ends with how many (`2 of the
 1,713 stations have no region, and no region selects them.`). The error keeps what it names as `unknown`, `known` and
-`hints`. A network whose stations have no region is refused with a `NoRegionsError` (an `UnknownRegionError`) that says
-so and advises `name`, a point or a bounding box. Neither is an empty result, which a caller could not tell from a
+`hints`. Where the stations of the requested parameters have no region, the request is refused with a `NoRegionsError`
+(an `UnknownRegionError`) that says so and advises `name`, a point or a bounding box. Neither is an empty result, which a caller could not tell from a
 region that has no station in the window. A list of stations that is empty is the exception: it has no region to
 refuse, and the result is empty, as for every other selection.
 
 Where the lookup of the stations went without a listing of the provider (`dwd/observation` and `dwd/derived` skip a
 directory that came back empty or missing, with a `file-skipped` warning), a region that is found is answered, and a
-region that is not found, or a list that came back empty, may be one the skipped directory holds: it is a
-`RegionListingIncompleteError`, an `UpstreamError` (a 502 over REST, as for a station asked for by id) that names the
-directories, and not a refusal of the caller's.
+region that is not found, or a list that came back empty or without any region, may be one the skipped directory
+holds: it is a `RegionListingIncompleteError`, an `UpstreamError` (a 502 over REST, as for a station asked for by id)
+that names the directories, and not a refusal of the caller's. A directory whose files name their stations (it lists no
+description) holds a region only if one of those stations is not in the list; an empty or missing one may hold any.
+The sentence names at most twenty of the regions asked for, as the refusal of an unknown region does, and `regions`
+of the error has them all.
 
 The command line (`--region`), the REST API and MCP (`region`) take it for `stations` and `values`, as one of the ways
 to select stations: not with `stations`, `name` or another of the selections. `interpolate` and `summarize` take a
@@ -1108,7 +1111,7 @@ below it say what kind of failure it is:
 | `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, a region the station list does not have (`UnknownRegionError`; `NoRegionsError` for a network that has none), an output format nothing renders (`UnknownFormatError`, also a `KeyError`), or a station asked for by id that exists and has none of the requested parameters (`StationLacksParametersError`, `noaa/ghcn` daily) | `ValueError` |
 | `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
-| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError` (`ProviderRateLimitError`: the provider answered 429 or the quota of the key is used up, retry later after `retry_after` seconds), `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |
+| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError` (`ProviderRateLimitError`: the provider answered 429 or the quota of the key is used up, retry later after `retry_after` seconds), `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in; `RegionListingIncompleteError` for a region, or a list without regions, that a skipped directory may hold) | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
 | `ImageTimeoutError` | the browser that draws an image did not finish in `wetterdienst.io.export.IMAGE_TIMEOUT` (120) seconds, start included, and was closed with its processes | `TimeoutError` |
 

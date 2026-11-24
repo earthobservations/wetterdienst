@@ -145,8 +145,8 @@ def select_regions(
     names = sorted({name.strip() for name in known if name and name.strip()}, key=lambda name: (name.casefold(), name))
     if not names:
         msg = (
-            f"{network} lists no region: the stations of this network have no `region`, so none can be selected by "
-            "it. Select the stations by `name`, a point or a bounding box instead."
+            f"{network} lists no region for the requested parameters: their stations have no `region`, so none can be "
+            "selected by it. Select the stations by `name`, a point or a bounding box instead."
         )
         raise NoRegionsError(msg)
     keys_of = {name: region_keys(name) for name in names}

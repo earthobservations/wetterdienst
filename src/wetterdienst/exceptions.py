@@ -373,8 +373,15 @@ class RegionListingIncompleteError(StationListingIncompleteError):
         self.regions = list(regions)
         self.gaps = dict(gaps)
         self.station_id = ", ".join(self.regions)
+        from wetterdienst.model.regions import shown_in_log  # noqa: PLC0415
+
         went_without = " and ".join(f"the directory {directory} ({reason})" for directory, reason in self.gaps.items())
-        what = "the region " + ", ".join(f"'{region}'" for region in self.regions) if self.regions else "any region"
+        # as the refusal of an unknown region writes them: at most twenty, cleaned and cut; `regions` has them all
+        what = (
+            f"the region{'s' if len(self.regions) > 1 else ''} {shown_in_log(self.regions)}"
+            if self.regions
+            else "any region"
+        )
         UpstreamError.__init__(
             self,
             f"No station found for {what}. The lookup of the stations went without {went_without}, so a station that "

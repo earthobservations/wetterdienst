@@ -73,11 +73,13 @@ What the endpoints share about which stations a request names:
   is, whole and not fuzzily (case, accents and transliteration do not matter, nor does a hyphen against a space), and
   no table of other languages' names is behind it: `Hesse` is no `Hessen`. A region the network does not have is a 400
   of the kind `request-refused` that names it, the closest regions and the regions there are (twenty at most, and how
-  many more, with how many stations have no region where some have none); a network whose stations have no region
-  (the forecast networks of DWD, `smhi/observation`, `imgw`, ...; the list is in
-  [the Python API](filter-by-region)) is a 400 that says so. Where the lookup skipped a directory of
-  DWD's server (`file-skipped`), a region that is not found is a 502 that names it, as a station of `interpolate`
-  is, and not the 400. Neither is an empty result. Like the others it is one of the exclusive selections: giving two
+  many more, with how many stations have no region where some have none); where the stations of the requested
+  parameters have no region (the forecast networks of DWD, `smhi/observation`, `imgw`, ...; the list is in
+  [the Python API](filter-by-region)) it is a 400 that says so. Neither is an empty result. The exception is a list
+  of stations that is empty: it has no region to refuse, and the result is empty. Where the lookup skipped a
+  directory of DWD's server (`file-skipped`) that may hold the region, a region that is not found, a list without
+  stations and a list without regions are a 502 that names the directory, as a station of `interpolate` is, and not
+  the 400 or the empty result. Like the others it is one of the exclusive selections: giving two
   is a 422, and `rank` and `distance` do not go with it. A `values` request is counted against the limit of stations
   as any other, and the refusal for a region tells it to name fewer regions or the stations by their ids.
   `interpolate`, `summarize` and `history` take no `region`.

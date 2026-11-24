@@ -178,7 +178,13 @@ def test_a_very_long_region_is_cut_in_the_message_and_whole_on_the_error() -> No
 @pytest.mark.parametrize("known", [[], [None, None], ["", "   "]])
 def test_a_network_with_no_region_is_refused_for_that_reason(known: list[str | None]) -> None:
     """A list whose regions are all null names none: not a misspelling, so not the 'unknown region' sentence."""
-    with pytest.raises(NoRegionsError, match=r"^N lists no region: .* Select the stations by `name`, a point") as error:
+    with pytest.raises(
+        NoRegionsError,
+        match=(
+            r"^N lists no region for the requested parameters: their stations have no `region`, .* "
+            r"Select the stations by `name`, a point"
+        ),
+    ) as error:
         select_regions(known, ["Hamburg"], network="N")
 
     assert error.value.known == []

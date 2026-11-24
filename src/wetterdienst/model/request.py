@@ -27,7 +27,6 @@ from wetterdienst.exceptions import (
     MissingTimeIntervalError,
     NoParametersFoundError,
     NoPeriodsFoundError,
-    NoRegionsError,
     ProviderContractError,
     RegionListingIncompleteError,
     RequestError,
@@ -1309,19 +1308,27 @@ class TimeseriesRequest:
         Raises:
             UnknownRegionError: a region is none of the list's. It names them, the closest regions of the list and the
                 regions there are.
-            NoRegionsError: the network names no region for its stations (the column is null). An
+            NoRegionsError: the stations of the requested parameters have no region (the column is null). An
                 `UnknownRegionError` as well.
-            RegionListingIncompleteError: no region was found, or the list is empty, and the lookup of the stations went
-                without a listing that may hold it (`dwd/observation`, `dwd/derived`), so it is not known to be unknown:
-                an `UpstreamError`, as for a station asked for by its id.
+            RegionListingIncompleteError: no region was found, the list is empty or none of its stations has a region,
+                and the lookup of the stations went without a listing that may hold it (`dwd/observation`,
+                `dwd/derived`; a directory whose files name stations that are all in the list cannot), so it is not
+                known to be unknown: an `UpstreamError`, as for a station asked for by its id.
             ValueError: no region is named, or one is blank.
             TypeError: a region is not a text.
 
         """
         asked = search_regions(region)
         df = self._stations_to_select_among()
-        # the listings the lookup went without (`dwd/observation`, `dwd/derived`): any of them may hold a region
-        gaps = {directory: gap.reason for directory, gap in self._lookup_gaps().items()}
+        # the listings the lookup went without (`dwd/observation`, `dwd/derived`) that may hold a region the list lacks:
+        # one that names no station (an empty or missing directory) may hold any, one whose files name their stations
+        # only where one of them is not in the list
+        listed = set(df.get_column("station_id"))
+        gaps = {
+            directory: gap.reason
+            for directory, gap in self._lookup_gaps().items()
+            if gap.station_ids is None or not gap.station_ids <= listed
+        }
 
         log.info(f"Filtering for region={shown_in_log(asked)}")
 
@@ -1341,11 +1348,10 @@ class TimeseriesRequest:
                 stations=has_region.height,
                 without_region=has_region.height - int(has_region.get_column("has").sum()),
             )
-        except NoRegionsError:
-            raise
         except UnknownRegionError as e:
             if gaps:
-                # not known to be unknown: a listing the lookup went without may have it, as for an id (GH-3834)
+                # not known to be unknown: a listing the lookup went without may have it, as for an id (GH-3834); a list
+                # without any region (`NoRegionsError`, no region unknown) is no better than an empty one
                 raise RegionListingIncompleteError(e.unknown, gaps) from e
             raise
 
