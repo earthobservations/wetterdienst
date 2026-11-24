@@ -13,7 +13,7 @@ test.describe('Explorer E2E Flow', () => {
     if (selectCount > 0) {
       // Select provider (DWD should be available)
       const providerSelect = page.locator('select').first()
-      await providerSelect.selectOption({ label: /dwd/i })
+      await providerSelect.selectOption({ label: 'dwd' })
 
       // Wait for the next dropdown to populate
       await page.waitForTimeout(1000)

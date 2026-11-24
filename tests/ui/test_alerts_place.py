@@ -24,6 +24,7 @@ from tests.provider.dwd.alerts.stubs import (
     CAP_COMMUNITY_SEA,
     serve_snapshot,
 )
+from tests.ui.test_mcp_budget import _client_sees
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 
@@ -146,6 +147,53 @@ def test_rest_a_coordinate_of_zero_is_given(client: TestClient) -> None:
     assert [w["code"] for w in response.json()["metadata"]["warnings"]] == ["no-alerts-for-place"]
 
 
+_BLANK = ["%20%20", "%20", "%09", "%0A%20", "%C2%A0", "%E3%80%80"]
+
+
+@pytest.mark.parametrize("name", _BLANK)
+def test_rest_a_name_of_only_whitespace_is_a_422_of_the_name(client: TestClient, name: str) -> None:
+    """It is neither every warning nor no name: the `name` parameter is refused, as a point off the Earth is."""
+    response = client.get(f"/api/alerts?name={name}")
+    assert response.status_code == 422
+    body = response.json()
+    # the message names no field, as the other rules' do: `loc` does
+    assert (
+        body["detail"] == "name: Must not be only whitespace; give the name or warn cell id of an area, or leave it out"
+    )
+    (error,) = body["errors"]
+    assert error["loc"] == ["query", "name"]
+    assert error["type"] == "blank_name"
+
+
+@pytest.mark.parametrize("name", ["", "%20Norderney%20"])
+def test_rest_an_empty_name_is_none_and_a_padded_one_is_stripped(client: TestClient, name: str) -> None:
+    """`?name=` is no filter (every warning), as it was; the padding of a name is no part of it."""
+    response = client.get(f"/api/alerts?name={name}")
+    assert response.status_code == 200
+    assert len(response.json()["alerts"]) == (1 if name else 3)
+
+
+def test_rest_a_name_of_only_whitespace_beside_a_point_is_refused_too(client: TestClient) -> None:
+    """The point does not make it a name."""
+    assert client.get("/api/alerts?latitude=54.3&longitude=10.1&name=%20").status_code == 422
+
+
+def test_the_mcp_tool_refuses_a_name_of_only_whitespace() -> None:
+    """The tool is the REST route: the call is an error that names the name, and no answer of every warning."""
+    result = _client_sees("alerts", {"name": "  "})
+    assert result.is_error
+    text = " ".join(getattr(block, "text", "") for block in result.content)
+    assert "Must not be only whitespace" in text
+
+
+def test_the_mcp_tool_answers_an_empty_name_as_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty argument is no filter, as it is for REST."""
+    serve_snapshot(monkeypatch, CAP_COMMUNITY_KIEL, CAP_COMMUNITY_NORDERNEY)
+    result = _client_sees("alerts", {"name": ""})
+    assert not result.is_error, result.content
+    assert len(result.structured_content["result"]["alerts"]) == 2
+
+
 def test_the_place_parameters_are_in_the_contract(client: TestClient) -> None:
     """The OpenAPI document, and so every MCP tool generated from it, has them, and they are optional."""
     schema = client.get("/openapi.json").json()
@@ -187,6 +235,29 @@ def test_cli_a_name(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0, result.output
     assert "Stadt Norderney" in result.output
     assert "Stadt Kiel" not in result.output
+
+
+@pytest.mark.parametrize("name", ["  ", " ", "\t", "\u00a0"])
+def test_cli_a_name_of_only_whitespace_is_a_usage_error_of_the_name(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    """Exit 2 naming `--name`, before the snapshot is fetched, and never the timestamp's fault."""
+    served = []
+    monkeypatch.setattr(
+        "wetterdienst.provider.dwd.alerts.api.download_file", lambda *args, **_kwargs: served.append(args)
+    )
+    result = CliRunner().invoke(cli, ["alerts", "--name", name])
+    assert result.exit_code == 2
+    assert "--name" in result.output
+    assert "Invalid value for --name: must not be only whitespace;" in result.output
+    assert "--timestamp" not in result.output
+    assert served == []
+
+
+def test_cli_an_empty_name_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--name=` is no filter, as `?name=` is."""
+    serve_snapshot(monkeypatch, CAP_COMMUNITY_KIEL, CAP_COMMUNITY_NORDERNEY)
+    result = CliRunner().invoke(cli, ["alerts", "--name="])
+    assert result.exit_code == 0, result.output
+    assert len(json.loads(result.output)["alerts"]) == 2
 
 
 def test_cli_a_place_without_a_warning_says_so_in_its_json(monkeypatch: pytest.MonkeyPatch) -> None:

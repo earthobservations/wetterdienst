@@ -347,7 +347,7 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
         const ratio = canvas.width / rect.width
         const data = canvas.getContext('2d')!.getImageData(Math.round((x - rect.left) * ratio), Math.round((y - rect.top) * ratio), 1, 1).data
         if (data[3]! > 0)
-          return [data[0], data[1], data[2]]
+          return [data[0]!, data[1]!, data[2]!]
       }
       return null
     }, { x, y })
@@ -449,7 +449,7 @@ async function canvasPixel(page: Page, x: number, y: number) {
       const ratio = canvas.width / rect.width
       const data = canvas.getContext('2d')!.getImageData(Math.round((x - rect.left) * ratio), Math.round((y - rect.top) * ratio), 1, 1).data
       if (data[3]! > 0)
-        return [data[0], data[1], data[2]]
+        return [data[0]!, data[1]!, data[2]!]
     }
     return null
   }, { x, y })

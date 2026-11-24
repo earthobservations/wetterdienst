@@ -1034,7 +1034,9 @@ def fit_alerts(
     if best is not None:
         cap = next(each for each in caps if tried[each, total][2] <= ANSWER_BUDGET)
     elif total > 1:
-        guess = max(1, total * ANSWER_BUDGET // _size_in(content, fmt, metadata))
+        # from the size of the slimmed answer, which the warnings are cut from, and not of the unslimmed one, whose
+        # polygons and areas would put the first probe near 1
+        guess = max(1, total * ANSWER_BUDGET // tried[cap, total][2])
         best = _largest(1, total - 1, lambda count: attempt(count, cap), guess)
     if best is None:
         # not even the worst warning fits, slimmed as it is: it is kept, and the note says the answer is still over

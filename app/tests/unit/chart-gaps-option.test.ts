@@ -54,7 +54,7 @@ describe('the option of a chart with a gap', () => {
     expect(dots.id).toBe('g:isolated')
     expect(dots.data.filter((point: [number, number | null]) => point[1] !== null)).toEqual([[START + 8 * HOUR, 1]])
     // a chart of many points with no gap has no such series
-    expect(lines(build([gappy({ x: Array.from({ length: 20 }, (_, i) => START + i * HOUR), y: Array.from({ length: 20 }).fill(1) })], true))).toHaveLength(1)
+    expect(lines(build([gappy({ x: Array.from({ length: 20 }, (_, i) => START + i * HOUR), y: Array.from<number>({ length: 20 }).fill(1) })], true))).toHaveLength(1)
   })
 })
 

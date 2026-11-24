@@ -9,7 +9,7 @@ describe('dataViewer Component Logic', () => {
   })
 
   it('determines correct API endpoint for station mode', () => {
-    const mode = 'station'
+    const mode: string = 'station'
     let endpoint = '/api/values'
 
     if (mode === 'interpolation')
@@ -21,7 +21,7 @@ describe('dataViewer Component Logic', () => {
   })
 
   it('determines correct API endpoint for interpolation mode', () => {
-    const mode = 'interpolation'
+    const mode: string = 'interpolation'
     let endpoint = '/api/values'
 
     if (mode === 'interpolation')
@@ -33,7 +33,7 @@ describe('dataViewer Component Logic', () => {
   })
 
   it('determines correct API endpoint for summary mode', () => {
-    const mode = 'summary'
+    const mode: string = 'summary'
     let endpoint = '/api/values'
 
     if (mode === 'interpolation')
