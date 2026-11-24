@@ -52,6 +52,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
 )
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.util.cancellation import check as check_cancelled
 from wetterdienst.util.datetime import is_plausible_update, newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
@@ -595,6 +596,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         for position, ((station_id,), df_station_meta) in enumerate(groups):
             if stations_collected == self.sr._rank:  # noqa: SLF001
                 break
+            # the request this walk is for may have had its answer given up (a timeout, a client that left): the work
+            # ends here, between two stations, and not at the last of them (GH-4429)
+            check_cancelled()
             station_id = cast("str", station_id)
             if self._begins_after_window(df_station_meta):
                 continue
@@ -654,6 +658,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             rows.returned(station_id)
             df, search = self._choose_rows(selection, searched, df)
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated), search=search)
+        # the answer of the request may have been given up while the last station was read: what is made of the stations
+        # (the rows, the picture) is not made for nobody (GH-4429)
+        check_cancelled()
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
 
