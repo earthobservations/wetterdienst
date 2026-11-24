@@ -32,6 +32,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import cli as cli_module
 from wetterdienst.ui import core, restapi
 from wetterdienst.ui.cli import cli
+from wetterdienst.ui.mcp import _REST_ONLY_ARGUMENTS
 from wetterdienst.util import response_warnings
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
@@ -831,9 +832,10 @@ def test_every_field_of_a_request_is_an_option_and_an_mcp_argument(model: type[B
     assert set(parameters) == set(fields)
     if tool is not None:
         arguments = _tools()[tool]["properties"]
-        assert set(arguments) == set(fields)
+        # but for the options that only the REST API needs (GH-4318): the tool is the endpoint without them
+        assert set(arguments) == set(fields) - _REST_ONLY_ARGUMENTS
         assert {name: _kind(argument) for name, argument in arguments.items()} == {
-            name: _kind(schema[name]) for name in fields
+            name: _kind(schema[name]) for name in arguments
         }
 
     if path is None:

@@ -310,7 +310,7 @@ def test_the_mcp_tool_says_what_it_finds_and_what_it_costs() -> None:
     assert tool.title == "Find a station by WMO, WIGOS or ICAO id"
     assert tool.annotations.read_only_hint is True
     assert tool.annotations.open_world_hint is True
-    assert {"wmo_id", "wigos_id", "icao_id", "format", "pretty"} == set(tool.parameters["properties"])
+    assert {"wmo_id", "wigos_id", "icao_id", "format"} == set(tool.parameters["properties"])
     assert tool.parameters.get("required", []) == []
     assert "about 9 s" in tool.description
     assert "longer on a slow" in tool.description

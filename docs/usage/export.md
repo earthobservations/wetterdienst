@@ -173,7 +173,8 @@ Which format each surface takes. `all` is `stations`, `values`, `interpolate` an
 routes and MCP tools that return a result; `alerts` and `history` have fewer formats and are described
 with their own commands. A file target is chosen by its extension, not by a format, so it has its own column.
 `tests/test_export_formats.py` holds this table to the code: a format that a surface takes and the table leaves
-out, or the other way round, fails it.
+out, or the other way round, fails it. The MCP tools take no chart format: their schemas lack the options that only
+REST needs (see [what a tool does not take](mcp.md#what-a-tool-does-not-take)).
 
 | Format | `to_format` | `to_target` file | CLI `--format` | REST `format` | MCP `format` |
 | --- | --- | --- | --- | --- | --- |
@@ -181,12 +182,12 @@ out, or the other way round, fails it.
 | `geojson` | yes | `.geojson` | all | all | all |
 | `csv` | yes | `.csv` | all | all | all |
 | `ndjson` | yes | `.jsonl`, `.ndjson` | stations, values | stations, values | stations, values |
-| `html` | yes | no | all | all | all |
-| `png` | yes | no | all | all | all |
-| `jpg` | yes | no | all | all | all |
-| `webp` | yes | no | all | all | all |
-| `svg` | yes | no | all | all | all |
-| `pdf` | yes | no | all | all | all |
+| `html` | yes | no | all | all | no |
+| `png` | yes | no | all | all | no |
+| `jpg` | yes | no | all | all | no |
+| `webp` | yes | no | all | all | no |
+| `svg` | yes | no | all | all | no |
+| `pdf` | yes | no | all | all | no |
 | `xlsx` | no | `.xlsx` | no | no | no |
 | `parquet` | no | `.parquet` | no | no | no |
 | `feather` | no | `.feather` | no | no | no |

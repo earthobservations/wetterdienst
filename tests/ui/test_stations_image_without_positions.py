@@ -139,18 +139,6 @@ def test_the_command_line_still_lists_the_stations_in_the_formats_the_message_na
     assert "Mainfranken" in result.output
 
 
-def test_an_mcp_tool_tells_it_as_a_tool_error() -> None:
-    """The tools are the REST routes: the 422 is a tool error that carries the sentence."""
-    pytest.importorskip("fastmcp")
-    from tests.ui.test_mcp_formats import _call  # noqa: PLC0415
-
-    result, _ = _call(
-        restapi.app, "stations", {**{k: v for k, v in QUERY.items() if k != "all"}, "all": True, "format": "png"}
-    )
-    assert result.is_error
-    assert MESSAGE in "".join(getattr(block, "text", "") for block in result.content)
-
-
 def test_stations_of_which_only_some_have_a_position_are_drawn_without_the_others() -> None:
     """A mix draws as it did: the stations with no position are left out of the map, which fits the others."""
     result = _result([(52.52, 13.405), (None, None), (50.0, 10.0), (51.0, None)])

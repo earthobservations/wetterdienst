@@ -13,11 +13,14 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 - a ``title`` and the annotations (read-only, not destructive, idempotent, open world or not) on every
   tool, which the Claude connectors directory requires and clients use to skip a confirmation (GH-3482),
 - the refusal of an argument a tool does not take, which FastMCP would drop,
+- input schemas without the options that make sense on the REST API only: the size and scale of a chart image,
+  `pretty` and the chart formats (html, png, jpg, webp, svg, pdf), which a model reading JSON cannot use and which
+  cost every session part of its tool list (GH-4318),
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
-- an answer in a format that is not JSON (csv, ndjson, html, svg, and the png, jpg, webp and pdf of a chart) as
-  content of the tool result: FastMCP answers a text body without structured content, which the output schema of
-  the tool refuses, and fails on a binary one (GH-3464),
+- an answer in a format that is not JSON (csv, ndjson; and, though no tool offers a chart since GH-4318, the html
+  and svg of one and its png, jpg, webp and pdf) as content of the tool result: FastMCP answers a text body without
+  structured content, which the output schema of the tool refuses, and fails on a binary one (GH-3464),
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
   not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
 - exclusion of the non-data endpoints (index, robots, health, ready, version, settings) so the tool
@@ -31,7 +34,9 @@ become the parameter descriptions, so those live with the endpoints in ``restapi
 from __future__ import annotations
 
 import base64
+import copy
 import json
+import re
 import secrets
 from collections import deque
 from typing import TYPE_CHECKING
@@ -88,7 +93,8 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
         from wetterdienst.io.export import HTML_PLOTLYJS  # noqa: PLC0415
 
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
-        # a chart as html carries plotly.js from the CDN, not inline: 4.8 MB less for an assistant to read (GH-3464)
+        # a chart as html carries plotly.js from the CDN, not inline: 4.8 MB less for an assistant to read (GH-3464).
+        # No tool offers html since GH-4318; a route that did again would not answer 4.8 MB to an assistant
         token = HTML_PLOTLYJS.set("cdn")
         try:
             await app(scope, receive, send)
@@ -358,6 +364,52 @@ _EXCLUDE_PATTERNS = (
     r"^/api(/v1)?/radar/",
 )
 
+#: the query parameters of the REST routes that no tool takes (GH-4318): the size and scale of a chart image, which a
+#: model that reads JSON has no use for, and `pretty`, which is whitespace. A call that sends one is answered as if it
+#: had not: for a data format it changes nothing of the answer, and a chart format, the one thing that gave them a
+#: meaning, is refused (`_CHART_FORMATS`).
+_REST_ONLY_ARGUMENTS = frozenset({"pretty", "width", "height", "scale"})
+
+#: the formats of a rendered chart, which only the REST API answers (GH-4318): a tool answers data
+_CHART_FORMATS = ("html", "png", "jpg", "webp", "svg", "pdf")
+
+#: the tools whose route draws a chart, which the REST API still does (`tests/ui/test_mcp_slim_schemas.py` holds it to
+#: the routes that offer a chart format)
+_CHART_TOOLS = frozenset({"stations", "values", "interpolate", "summarize"})
+
+#: the clause of a `format` description that offers a chart, which the tool no longer does
+_CHART_CLAUSE = re.compile(r" or a rendered chart \([^)]*\)")
+
+
+def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
+    """Copy the OpenAPI document of the REST API without the query parameters no tool takes (GH-4318).
+
+    The tools are generated from the routes' parameters, and FastMCP sends a route only the ones it has, so a
+    parameter left out here is neither in the input schema of the tool nor sent. `format` keeps its data formats, and
+    its description loses the offer of a chart. The REST app's own document is not touched: this is a copy.
+    """
+    slim = copy.deepcopy(spec)
+    for item in slim.get("paths", {}).values():
+        for operation in item.values():
+            # the `parameters` that a path item may carry is a list: only the operations are dicts
+            if not isinstance(operation, dict) or "parameters" not in operation:
+                continue
+            kept = []
+            for parameter in operation["parameters"]:
+                if parameter.get("in") == "query" and parameter.get("name") in _REST_ONLY_ARGUMENTS:
+                    continue
+                if parameter.get("in") == "query" and parameter.get("name") == "format":
+                    schema = parameter.get("schema", {})
+                    if "enum" in schema:
+                        schema["enum"] = [fmt for fmt in schema["enum"] if fmt not in _CHART_FORMATS]
+                    for holder in (schema, parameter):
+                        if "description" in holder:
+                            holder["description"] = _CHART_CLAUSE.sub("", holder["description"])
+                kept.append(parameter)
+            operation["parameters"] = kept
+    return slim
+
+
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).
 _TOOL_NAMES = {
     "auth_api_auth_get": "auth",
@@ -465,6 +517,12 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
 
     The input schemas are left without `additionalProperties: false`: a client checking a call
     against that would refuse a renamed argument itself, without the name it was renamed to.
+
+    The exception is of GH-4318, which took the options that only the REST API needs out of the schemas.
+    `pretty`, `width`, `height` and `scale` are no longer arguments of a tool, and a call that sends one (a client
+    that fills in every option with its default does) is not refused: it changes nothing of a data answer, and the
+    call that gave them a meaning is refused, a chart format (`html`, `png`, ...) with the formats the tool answers
+    and where the charts are, instead of the REST answer the call would otherwise get.
     """
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
@@ -488,7 +546,19 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
             tool = await provider.get_tool(context.message.name) if arguments else None
             if tool is not None:
                 taken = tool.parameters.get("properties", {})
-                unknown = [name for name in arguments if name not in taken]
+                # a chart is REST's: say so, where the call would otherwise be answered with an image (GH-4318)
+                chart = arguments.get("format")
+                offered = taken.get("format", {}).get("enum", [])
+                if isinstance(chart, str) and chart in _CHART_FORMATS and offered and chart not in offered:
+                    refused = (
+                        f"format={chart} is not offered by the tool {tool.name}, which answers "
+                        f"{join_names(offered, last='or')}."
+                    )
+                    if tool.name in _CHART_TOOLS:
+                        refused += f" Charts are drawn by the REST API: its route of {tool.name} takes format={chart}."
+                    raise ToolError(refused)
+                # `pretty` and the image size are no arguments of a tool since GH-4318, and are let go as given
+                unknown = [name for name in arguments if name not in taken and name not in _REST_ONLY_ARGUMENTS]
                 # a name the tool's route never had is no old name of one it has (`stations` never took `date`)
                 had = old_names_of_route(tool.name)
                 renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken and name in had]
@@ -841,7 +911,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         base_url=_ASGI_BASE_URL,
     )
     provider = OpenAPIProvider(
-        openapi_spec=rest_app.openapi(),
+        openapi_spec=_slim_for_tools(rest_app.openapi()),
         client=client,
         route_maps=route_maps,
         mcp_names=_TOOL_NAMES,

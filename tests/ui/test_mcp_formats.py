@@ -30,7 +30,6 @@ from fastapi import FastAPI, Response
 from fastmcp import Client
 from mcp_types import EmbeddedResource, ImageContent, TextContent
 
-from tests.ui.mcp_image_timeout import raise_if_image_timeout
 from tests.ui.test_operations import _VALUES, _no_ambient_settings, _selection_of  # noqa: F401
 from tests.ui.test_restapi import _stub_stream, _values_result_of_shape
 from wetterdienst.model.processing_note import PROCESSING_NOTE
@@ -45,43 +44,19 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
 
 
-@pytest.fixture(autouse=True)
-def _the_server_waits_for_a_slow_render(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Give a tool's request longer than the renderer has, so that a slow image is the renderer's timeout (GH-4367).
-
-    Every image is drawn by Kaleido/Chrome, which on a loaded runner under xdist outlasted the server's 60 s and was
-    answered 504 (GH-3586). That is the request's timeout, which is no image timeout and is not rerun. The tests hold
-    the format of each answer, not how long a render takes, so the server waits for as long as a slow provider is
-    given in a remote test, and a render that is too slow is the renderer's own `ImageTimeoutError`, which is rerun.
-    A test of the timeout itself sets a short one in its own body, which is after this. The ambient settings are
-    cleared first, which would take this variable out as well.
-    """
-    request.getfixturevalue("_no_ambient_settings")
-    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "300")
-
-
-#: what each format of a chart or a listing comes back as through a tool
+#: what each format of a listing comes back as through a tool (a chart is no format of a tool, GH-4318)
 _BLOCK_OF_FORMAT: dict[str, type] = {
     "json": TextContent,
     "geojson": TextContent,
     "csv": TextContent,
     "ndjson": TextContent,
-    "html": TextContent,
-    "svg": TextContent,
-    "png": ImageContent,
-    "jpg": ImageContent,
-    "webp": ImageContent,
-    "pdf": EmbeddedResource,
 }
 
 
 def _calls(
     app: FastAPI, calls: Sequence[tuple[str, Mapping[str, Any]]]
 ) -> list[tuple[ToolResult, dict[str, Any] | None]]:
-    """Make the calls on one server built from `app`, in one session; give each result with its tool's output schema.
-
-    A call whose image was not rendered in time raises `ImageTimeoutError`, which the suite reruns (GH-4367).
-    """
+    """Make the calls on one server built from `app`, in one session; give each result with its tool's output schema."""
 
     async def call() -> list[tuple[ToolResult, dict[str, Any] | None]]:
         async with Client(build_mcp_server(app)) as client:
@@ -89,7 +64,6 @@ def _calls(
             answers = []
             for tool, arguments in calls:
                 result = await client.call_tool(tool, dict(arguments), raise_on_error=False)
-                raise_if_image_timeout(result)
                 answers.append((result, schemas[tool]))
             return answers
 
@@ -104,8 +78,7 @@ def _call(app: FastAPI, tool: str, arguments: Mapping[str, Any]) -> tuple[ToolRe
 def _every_format(tool: str, arguments: Mapping[str, Any]) -> tuple[dict[str, ToolResult], dict[str, Any] | None]:
     """Call a tool of the real app in each format its input schema offers, in one session.
 
-    Gives the results by format and the output schema of the tool. An image that was not rendered in time raises
-    `ImageTimeoutError`, which the suite reruns (GH-4367).
+    Gives the results by format and the output schema of the tool.
     """
 
     async def call() -> tuple[dict[str, ToolResult], dict[str, Any] | None]:
@@ -115,7 +88,6 @@ def _every_format(tool: str, arguments: Mapping[str, Any]) -> tuple[dict[str, To
             answers = {}
             for fmt in formats:
                 answers[fmt] = await client.call_tool(tool, {**arguments, "format": fmt}, raise_on_error=False)
-                raise_if_image_timeout(answers[fmt])
             return answers, listed.output_schema
 
     return asyncio.run(call())
@@ -131,18 +103,6 @@ def _warn_then_answer(monkeypatch: pytest.MonkeyPatch) -> None:
         yield _values_result_of_shape("long")
 
     monkeypatch.setattr(DwdObservationRequest._values, "query", query)  # noqa: SLF001
-
-
-def test_the_server_waits_longer_for_a_tool_than_the_renderer_has() -> None:
-    """The request's timeout is more than `IMAGE_TIMEOUT`, so that a slow image is the renderer's error (GH-4367).
-
-    A render of 60 to 120 s, with the 60 s that a request has by default, was answered with the 504 of the request:
-    no `ImageTimeoutError`, so no rerun.
-    """
-    from wetterdienst.io.export import IMAGE_TIMEOUT  # noqa: PLC0415
-    from wetterdienst.settings import Settings  # noqa: PLC0415
-
-    assert Settings().restapi_timeout > IMAGE_TIMEOUT
 
 
 @pytest.mark.parametrize("tool", ["values", "stations"])
@@ -161,8 +121,9 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
 
     answers, schema = _every_format(tool, arguments)
 
-    # the point of the test: it holds the tool to everything it offers, not to a list kept here
-    assert {"json", "csv", "ndjson", "html", "png"} <= set(answers)
+    # the point of the test: it holds the tool to everything it offers, not to a list kept here; the formats of a
+    # chart are REST's alone (GH-4318), so what a tool offers is data
+    assert {"json", "geojson", "csv", "ndjson"} == set(answers)
     for fmt, result in answers.items():
         assert not result.is_error, (fmt, result.content)
         assert isinstance(result.content[0], _BLOCK_OF_FORMAT[fmt]), fmt
@@ -213,8 +174,6 @@ def _argument_for(schema: dict[str, Any]) -> Any:  # noqa: ANN401
 _TEXT_FORMATS = [
     ("csv", "text/csv", True),
     ("ndjson", "application/x-ndjson", True),
-    ("html", "text/html", False),
-    ("svg", "image/svg+xml", False),
 ]
 
 
@@ -225,10 +184,9 @@ def test_the_body_of_data_reaches_a_client_that_reads_the_structured_content_alo
     """Every tool that offers csv or ndjson has the body in the structured content, and in the content block (GH-4017).
 
     Claude Code hands the model the structured content of a result that has some, and not the content blocks, so a
-    sentence about the csv there (and the csv in the block) left the model with a notice and no rows. A chart (html,
-    svg) is markup a model cannot read as data, and 100 KB and more, so its structured content is the sentence alone.
-    The REST app is stood in for by one that answers every route with the same body, so what is held is the transport
-    of each tool.
+    sentence about the csv there (and the csv in the block) left the model with a notice and no rows. The REST app
+    is stood in for by one that answers every route with the same body, so what is held is the transport of each
+    tool.
     """
     body = "station_id,name\n01048,Dresden-Klotzsche\n02564,Kiel-Holtenau\n"
     stand_in = FastAPI()
@@ -261,25 +219,23 @@ def test_the_body_of_data_reaches_a_client_that_reads_the_structured_content_alo
         jsonschema.validate(result.structured_content, schema)
         told = result.structured_content["result"]
         assert "Licence: CC-BY-4.0." in told, tool
-        if repeated:
-            assert told.endswith(f"\n\n{body}"), tool
-            assert "and follows below" in told, tool
-            assert "sent as" not in told, tool
-        else:
-            assert body not in told, tool
-            assert "sent as text content of this result." in told, tool
+        assert repeated
+        assert told.endswith(f"\n\n{body}"), tool
+        assert "and follows below" in told, tool
+        assert "sent as" not in told, tool
 
 
 def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.MonkeyPatch) -> None:
     """Text is the content of the result as the REST API sends it, and csv and ndjson follow the sentence structured.
 
-    An image is image content of its media type, a pdf an embedded resource, and a json answer stays structured. Only
-    data (csv, ndjson) is repeated in the structured content: a chart, an image or a pdf has the sentence alone.
+    A json answer stays structured. Data (csv, ndjson) is repeated in the structured content. The image and the pdf
+    of a chart are no answer of a tool any more (GH-4318); the transport of them is held by
+    `test_the_transport_carries_what_is_not_json_and_leaves_the_rest_alone`.
     """
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
 
-    (csv, _), (ndjson, _), (png, _), (pdf, _), (json_, _) = _calls(
-        restapi.app, [("values", {**_VALUES, "format": fmt}) for fmt in ("csv", "ndjson", "png", "pdf", "json")]
+    (csv, _), (ndjson, _), (json_, _) = _calls(
+        restapi.app, [("values", {**_VALUES, "format": fmt}) for fmt in ("csv", "ndjson", "json")]
     )
 
     assert csv.content[0].text.splitlines()[0].startswith("station_id,resolution,")
@@ -294,36 +250,7 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
     lines = ndjson.content[0].text.splitlines()
     assert '"metadata"' in lines[0]
     assert lines[-1].startswith('{"end"')
-    assert png.content[0].mime_type == "image/png"
-    assert base64.b64decode(png.content[0].data).startswith(b"\x89PNG")
-    size = len(base64.b64decode(png.content[0].data))
-    sent = f"The answer is image/png ({size:,} bytes), sent as image content of this result."
-    assert png.structured_content["result"].startswith(sent)
-    assert png.content[0].data not in png.structured_content["result"]
-    assert pdf.content[0].resource.mime_type == "application/pdf"
-    assert base64.b64decode(pdf.content[0].resource.blob).startswith(b"%PDF")
     assert json_.structured_content["result"]["values"][0]["station_id"] == "01048"
-
-
-@pytest.mark.parametrize(("fmt", "block"), [("png", ImageContent), ("svg", TextContent), ("pdf", EmbeddedResource)])
-def test_the_image_tool_reports_the_licence_and_the_attribution(
-    fmt: str, block: type, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The image has no `metadata` block, so the headers of the route are what a tool reports them from (GH-3581)."""
-    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
-
-    result, schema = _call(restapi.app, "values", {**_VALUES, "format": fmt})
-
-    assert not result.is_error, result.content
-    assert isinstance(result.content[0], block)
-    report = result.meta["wetterdienst"]
-    assert report["license"] == "CC-BY-4.0"
-    assert report["license_url"] == "https://creativecommons.org/licenses/by/4.0/"
-    assert "Deutscher Wetterdienst" in report["attribution"]
-    if schema is not None:
-        sentence = result.structured_content["result"]
-        assert "Licence: CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/)." in sentence
-        assert "Attribution: " in sentence
 
 
 def test_every_tool_with_a_format_that_is_no_json_admits_a_string_for_it() -> None:
@@ -357,6 +284,17 @@ def _app_with_answers() -> FastAPI:
     answers = {
         "svg": lambda: Response(b"<svg xmlns='http://www.w3.org/2000/svg'/>", media_type="image/svg+xml"),
         "png": lambda: Response(b"\x89PNG\r\n\x1a\n\x00\xff", media_type="image/png"),
+        "pdf": lambda: Response(b"%PDF-1.4\n\xff", media_type="application/pdf"),
+        "html": lambda: Response(b"<html></html>", media_type="text/html"),
+        "licensed_png": lambda: Response(
+            b"\x89PNG\r\n\x1a\n\x00\xff",
+            media_type="image/png",
+            headers={
+                "X-Wetterdienst-License": "CC-BY-4.0",
+                "Link": "<https://creativecommons.org/licenses/by/4.0/>; rel=license",
+                "X-Wetterdienst-Attribution": "Deutscher%20Wetterdienst",
+            },
+        ),
         "plain_4xx": lambda: Response(b"nope", status_code=400, media_type="text/plain"),
         "no_content_type": lambda: Response(b'{"a": 1}'),
         "geo_json": lambda: Response(b'{"type": "FeatureCollection"}', media_type="application/geo+json"),
@@ -377,17 +315,41 @@ def test_the_transport_carries_what_is_not_json_and_leaves_the_rest_alone() -> N
 
     A text body is decoded with the charset of its media type, and none that is invalid or unknown is an error.
     """
-    names = ["svg", "png", "plain_4xx", "no_content_type", "geo_json", "latin1", "broken_utf8", "unknown_charset"]
+    names = [
+        "svg",
+        "png",
+        "pdf",
+        "html",
+        "licensed_png",
+        "plain_4xx",
+        "no_content_type",
+        "geo_json",
+        "latin1",
+        "broken_utf8",
+        "unknown_charset",
+    ]
 
     answers = _calls(_app_with_answers(), [("glossary", {"format": name}) for name in names])
-    (svg, schema), (png, _), (refused, _), (typeless, _), (geo, _), (latin1, _), (broken, _), (unknown, _) = answers
+    (svg, schema), (png, _), (pdf, _), (html, _), (licensed, _) = answers[:5]
+    (refused, _), (typeless, _), (geo, _), (latin1, _), (broken, _), (unknown, _) = answers[5:]
 
     assert schema is None
     assert not svg.is_error
     assert svg.content[0].text.startswith("<svg")
     assert svg.structured_content is None
-    assert not png.is_error
+    # the transport still carries a chart, though no tool of the real server offers one (GH-4318)
+    assert isinstance(png.content[0], ImageContent)
+    assert png.content[0].mime_type == "image/png"
     assert base64.b64decode(png.content[0].data).startswith(b"\x89PNG")
+    assert isinstance(pdf.content[0], EmbeddedResource)
+    assert pdf.content[0].resource.mime_type == "application/pdf"
+    assert base64.b64decode(pdf.content[0].resource.blob).startswith(b"%PDF")
+    assert html.content[0].text == "<html></html>"
+    # an image has no `metadata` block, so its report is what the headers of the route say (GH-3581)
+    report = licensed.meta["wetterdienst"]
+    assert report["license"] == "CC-BY-4.0"
+    assert report["license_url"] == "https://creativecommons.org/licenses/by/4.0/"
+    assert report["attribution"] == "Deutscher Wetterdienst"
     # a 400 in text is the tool's error, with the text of the answer and not the envelope
     assert refused.is_error
     assert "400" in refused.content[0].text
@@ -488,22 +450,6 @@ def test_the_tool_wrapper_sets_plotly_to_the_cdn_for_its_request_only() -> None:
 
     assert seen == ["cdn"]
     assert after is True
-
-
-def test_an_html_chart_through_a_tool_does_not_carry_plotly_inline(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Plotly.js is 4.8 MB inline; a tool's page loads it from the CDN, and the REST page is as it was."""
-    from fastapi.testclient import TestClient  # noqa: PLC0415
-
-    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
-
-    result, _ = _call(restapi.app, "values", {**_VALUES, "format": "html"})
-    rest = TestClient(restapi.app, raise_server_exceptions=False).get(
-        "/api/v1/values", params={**_VALUES, "format": "html"}
-    )
-
-    assert len(result.content[0].text) < 100_000
-    assert "cdn.plot.ly" in result.content[0].text
-    assert len(rest.text) > 1_000_000
 
 
 # --- an answer that fails is a tool error, not a short answer ------------------------------------------------------

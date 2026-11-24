@@ -7118,7 +7118,9 @@ def test_mcp_unknown_argument_is_refused(monkeypatch: pytest.MonkeyPatch, tool: 
         async with Client(mcp) as client:
             await client.call_tool(tool, {"bogus": "x"})
 
-    with pytest.raises(ToolError, match=rf"^bogus is not an argument of {tool}, which takes \w+(, \w+)* and \w+$"):
+    with pytest.raises(
+        ToolError, match=rf"^bogus is not an argument of {tool}, which takes \w+(?:(?:, \w+)* and \w+)?$"
+    ):
         asyncio.run(_call())
 
 
@@ -8645,26 +8647,6 @@ def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) ->
     )
     assert response.status_code == 404
     assert "No API available" in response.json()["detail"]
-
-
-def test_mcp_oversized_image_is_refused() -> None:
-    """The MCP tools are the REST API's routes, and refuse an image it refuses."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-    from fastmcp.exceptions import ToolError  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    mcp = build_mcp_server(restapi.app)
-
-    async def _call() -> None:
-        async with Client(mcp) as client:
-            await client.call_tool("stations", _image_params({"all": True}, format="png", width=100_000))
-
-    with pytest.raises(ToolError, match="renders no side longer than 8192 px"):
-        asyncio.run(_call())
 
 
 @pytest.mark.usefixtures("stubbed_values")
