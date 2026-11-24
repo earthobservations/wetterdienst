@@ -14,6 +14,7 @@ from tests.provider.dwd.radar.published import (
     SWEEP_FIRST_FILE_DELAY,
     require_published,
 )
+from tests.provider.dwd.radar.sweep import PRECIPITATION_SCAN_RANGES, assert_sweep_geometry
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -66,9 +67,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings: Settings)
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    shape = hdf["/dataset1/data1/data"].shape
-
-    assert shape == IsTuple(IsNumeric(ge=358, le=361), 600)
+    assert_sweep_geometry(hdf, b"VRADH", PRECIPITATION_SCAN_RANGES)
 
 
 @pytest.mark.remote
