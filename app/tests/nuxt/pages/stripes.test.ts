@@ -947,6 +947,29 @@ describe('stripes Page values that could not be fetched', () => {
     await button('Show').trigger('click')
   }
 
+  // an emptied field is no year: `''` is not `number | null`, and the link must not keep `start_year=` (GH-4381)
+  it.each([
+    ['Start year', 'startYear', 'start_year'],
+    ['End year', 'endYear', 'end_year'],
+  ])('leaves %s out of the link once its field is emptied, and the year is null (GH-4381)', async (label, model, parameter) => {
+    const vm = await mountPage()
+    const field = () => {
+      const name = [...document.body.querySelectorAll('label')].find(element => element.textContent?.trim() === label)!
+      return document.getElementById(name.htmlFor) as HTMLInputElement
+    }
+    const query = () => useRouter().currentRoute.value.query
+
+    field().value = '2000'
+    field().dispatchEvent(new Event('input'))
+    await vi.waitFor(() => expect(query()[parameter]).toBe('2000'))
+    expect(vm[model]).toBe(2000)
+
+    field().value = ''
+    field().dispatchEvent(new Event('input'))
+    await vi.waitFor(() => expect(vm[model]).toBeNull())
+    await vi.waitFor(() => expect(Object.keys(query())).not.toContain(parameter))
+  })
+
   it('shows the placeholder of the tools, and no result card, before there is anything to put in it (GH-3850)', async () => {
     registerEndpoint('/api/values', asValues(() => new Promise(() => {})))
     const vm = await mountPage()

@@ -543,10 +543,10 @@ watch([
 
               <div class="grid grid-cols-2 gap-4">
                 <UFormField :label="t('stripes.startYear')">
-                  <UInput v-model.number="startYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
+                  <UInput v-model.number.nullable="startYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
                 </UFormField>
                 <UFormField :label="t('stripes.endYear')">
-                  <UInput v-model.number="endYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
+                  <UInput v-model.number.nullable="endYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
                 </UFormField>
               </div>
 
