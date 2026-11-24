@@ -333,8 +333,12 @@ what the answer is missing:
   `calm-wind-direction` (wind directions that are `null` because the source wrote 0 for a calm, which has no
   direction: no reading is missing. Counted apart from the markers, with the same `raw:0` token in `quality_flags`
   and the same `drop_nulls` behaviour; a 0 that is a code for no direction or the direction of a gust that was
-  not reported stays a `missing-value-marker`),
-  `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
+  not reported stays a `missing-value-marker`). These three count over the whole request, and say at which
+  stations: the message gives the total, then the first five stations that have a count, with their name where the
+  list has one and the count at each, and `and N more stations` for the rest (`, at 01975 Hamburg-Fuhlsbüttel (18),
+  01048 Dresden-Klotzsche (3) and 95 more stations;`), and `stations` lists the ones named. The text is the same on
+  every surface, and the command line's line on stderr for a CSV, which has no `warnings`, is the same message. The
+  other codes are `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `position-unplaced` (a station whose position the source writes where no swap of latitude and
   longitude puts it in the network's country, listed with a null position: `eaufrance/hubeau`; the

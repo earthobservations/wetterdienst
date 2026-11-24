@@ -1557,7 +1557,9 @@ def test_a_value_a_hard_check_rejected_is_no_missing_value_marker_and_is_counted
 
     markers = _warning_messages("missing-value-marker")
     assert len(markers) == 1
-    assert markers[0].startswith("1 readings of the source were a marker for a missing value and are null;")
+    assert markers[0].startswith(
+        "1 readings of the source were a marker for a missing value and are null, at 00001 (1);"
+    )
     assert "no sensor" not in markers[0]
     rejected = _warning_messages("rejected-by-plausibility")
     assert len(rejected) == 1

@@ -1023,7 +1023,7 @@ The two kinds sit after the source's own flags and before `raw:`, which stays th
 A REST answer tells the two apart in its `warnings` ([REST API](../usage/restapi.md)): `missing-value-marker` counts the
 nulls that carry a code the source wrote (`raw:` alone; a calm wind direction is told by `calm-wind-direction`),
 `rejected-by-plausibility` the nulls a hard check made (`rejected:` before `raw:`), with the count per check in its
-message. A value that two checks rejected is one value,
+message. Both messages say at which stations the nulls are: the first few with their count, then how many more. A value that two checks rejected is one value,
 told under both. A soft check keeps the value and raises no warning, and neither does the `floor` check, whose value is
 the floor and not null.
 

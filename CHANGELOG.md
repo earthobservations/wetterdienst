@@ -35,6 +35,11 @@ Types of changes:
   in hand and nothing more is downloaded for it. A stream whose client has gone stops too. A request
   that ends in time is unchanged; Python and the command line have no timeout and are not affected
   (GH-4429)
+- The warnings `missing-value-marker`, `calm-wind-direction` and `rejected-by-plausibility` say
+  at which stations their count is: the total, then the first five stations with their name and
+  count (`at 01975 Hamburg-Fuhlsbüttel (18)`) and `and N more stations`, and `stations` lists the
+  ones named. Before, a count of one station read as the answer's, whatever the number of stations.
+  Text and members are the same on every surface; what is counted is unchanged (GH-4424)
 
 ## [0.198.0] - 2026-11-24
 
