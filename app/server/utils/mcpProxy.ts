@@ -28,8 +28,8 @@ const FORWARDED_HEADERS = ['content-type', 'mcp-session-id', 'mcp-protocol-versi
 //
 // A client gets this limit, and no other, because `/mcp` has no `requestSizeLimiter` of nuxt-security's (its
 // 2,000,000 bytes would answer 413 first, with an h3 error body, and for a body of 2 to 4 MiB that the backend
-// takes) and no `xssValidator` either (it reads a whole POST body before this handler runs, so nothing here could
-// limit it, and the body is JSON-RPC that the backend validates): see `routeRules` of `nuxt.config.ts`.
+// takes), see `routeRules` of `nuxt.config.ts`, and the app has no `xssValidator` (it read a whole POST body before
+// this handler ran, so nothing here could limit it, GH-4364): see `security` there.
 export const MAX_BODY_BYTES = 4 * 1024 * 1024
 
 // h3's mark on a request whose body `readBody` or `readRawBody` has read (and cached)
@@ -117,7 +117,7 @@ export function mcpProxyHandler() {
       return answerPayloadTooLarge(event, requestIdOf(getRequestHeader(event, 'x-request-id')), MAX_BODY_BYTES)
     if (body === 'consumed') {
       // Never forward an empty body for one that was sent: a middleware reads the stream before this handler
-      // (nuxt-security's `xssValidator` did, and `routeRules` of `nuxt.config.ts` switch it off for `/mcp`)
+      // (nuxt-security's `xssValidator` did, and `security` of `nuxt.config.ts` switches it off)
       const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
       console.error(`Request ${requestId} to ${event.path}: a middleware read the body before the /mcp proxy, which cannot forward it.`)
       return answerInternalError(event, requestId)
