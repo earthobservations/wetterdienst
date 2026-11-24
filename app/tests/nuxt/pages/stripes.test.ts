@@ -444,6 +444,24 @@ describe('stripes Page years', () => {
     expect(Object.keys(useSettings().settings.value.stripes).sort()).toEqual(['showDataAvailability', 'showSource', 'showTitle', 'showYears'])
   })
 
+  // a year of the link that is no whole number reads as none, a repeated one as its first value: never NaN in the model or the link (GH-4388)
+  it.each([
+    ['start_year=abc&end_year=2.5', null, null],
+    ['start_year=&end_year=1e3', null, null],
+    ['start_year=2005&start_year=abc&end_year=2015&end_year=2018', 2005, 2015],
+    ['start_year=abc&start_year=2005&end_year=xyz&end_year=2015', null, null],
+  ])('reads the link ?%s as the years %s and %s, with no NaN in the model or the link', async (query, startYear, endYear) => {
+    const vm = await show(`/stripes?kind=temperature&${query}`)
+    expect(vm.startYear).toBe(startYear)
+    expect(vm.endYear).toBe(endYear)
+    // choosing the station has written the link from the page's own options
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.station).toBe('1048'))
+    const written = useRouter().currentRoute.value.query
+    expect(written.start_year).toBe(startYear === null ? undefined : String(startYear))
+    expect(written.end_year).toBe(endYear === null ? undefined : String(endYear))
+    expect(JSON.stringify(written)).not.toContain('NaN')
+  })
+
   it('offers no checkbox for either line', async () => {
     await show('/stripes?kind=temperature')
     const settingsButton = [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Settings')!
