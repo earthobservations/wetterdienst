@@ -32,13 +32,7 @@ from tests.public_surface import build_surface
 BASELINE = DIRECTORY / "surface.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a caller
-ACCEPTED_BREAKS: dict[str, str] = {
-    "Settings: restapi_sql was removed": (
-        "the setting enabled SQL for the REST API and the MCP tools, which take none now (the advisory "
-        "GHSA-332g-7w2w-4w59); a keyword of it is refused with the reason, and WD_RESTAPI_SQL=true stops a server "
-        "from starting"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 
 def read_baseline() -> dict[str, Any]:

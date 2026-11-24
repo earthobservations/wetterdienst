@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.198.0] - 2026-11-24
+
 ### Changed
 
 - **Breaking**: the REST API and the MCP tools take no `sql` and `sql_values` any more, and the
@@ -8538,7 +8540,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...HEAD
+[0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
 [0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0
 [0.195.0]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...v0.195.0

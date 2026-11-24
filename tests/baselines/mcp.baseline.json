@@ -387,16 +387,6 @@
             }
           ]
         },
-        "sql_values": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "humanize": {
           "type": "boolean",
           "default": true
@@ -956,16 +946,6 @@
             }
           ]
         },
-        "sql": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "timestamp": {
           "anyOf": [
             {
@@ -1281,16 +1261,6 @@
           "anyOf": [
             {
               "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "sql_values": {
-          "anyOf": [
-            {
-              "type": "string"
             },
             {
               "type": "null"
@@ -1662,16 +1632,6 @@
             }
           ]
         },
-        "sql": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "with_metadata": {
           "type": "boolean",
           "default": false
@@ -1734,16 +1694,6 @@
           ]
         },
         "timestamp": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "sql_values": {
           "anyOf": [
             {
               "type": "string"
@@ -1948,5 +1898,5 @@
       ]
     }
   },
-  "x-release": "0.197.0"
+  "x-release": "0.198.0"
 }

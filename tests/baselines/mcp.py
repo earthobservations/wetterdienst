@@ -34,19 +34,8 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 #: the packages whose version shapes the input schemas
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
-_SQL_LEFT = (
-    "SQL filtering left the REST API and the MCP tools (the advisory GHSA-332g-7w2w-4w59): "
-    "a request that sends it is refused with a 422 that says so"
-)
-
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {
-    "tool interpolate: argument sql_values was removed": (_SQL_LEFT),
-    "tool stations: argument sql was removed": (_SQL_LEFT),
-    "tool summarize: argument sql_values was removed": (_SQL_LEFT),
-    "tool values: argument sql was removed": (_SQL_LEFT),
-    "tool values: argument sql_values was removed": (_SQL_LEFT),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: the keys of a schema that describe it for a reader and promise nothing
 _PROSE = frozenset({"description", "title", "examples", "example"})
