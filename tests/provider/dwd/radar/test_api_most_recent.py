@@ -5,6 +5,7 @@
 import pytest
 from dirty_equals import IsDict, IsList, IsStr
 
+from tests.provider.dwd.radar.sweep import PRECIPITATION_SCAN_RANGES, assert_sweep_geometry
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
@@ -62,7 +63,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Setti
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600))
+    assert_sweep_geometry(hdf, b"VRADH", PRECIPITATION_SCAN_RANGES)
 
 
 @pytest.mark.remote

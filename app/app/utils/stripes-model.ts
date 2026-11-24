@@ -36,6 +36,18 @@ export function stripesViewFromQuery(value: unknown): StripesView {
   return STRIPES_VIEWS.find(view => STRIPES_VIEW_QUERY[view] === name) ?? 'stripes'
 }
 
+/**
+ * The year a `start_year` or `end_year` of the link names (GH-4388): a repeated one reads as its first value, and one that is no whole
+ * number (`abc`, `2000.5`, `1e3`, an empty one) as none, so that no `NaN` reaches the model or is written back into the link
+ */
+export function stripesYearFromQuery(value: unknown): number | null {
+  const first = Array.isArray(value) ? value[0] : value
+  if (typeof first !== 'string' || !/^-?\d+$/.test(first.trim()))
+    return null
+  const year = Number(first)
+  return Number.isSafeInteger(year) ? year : null
+}
+
 /** The view is one of the drawings, which have a chart, a toolbar and an image to save (the table has none) */
 export function isStripesDrawing(view: StripesView): view is StripesVariant {
   return view !== 'table'

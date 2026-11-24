@@ -9,7 +9,7 @@ import { ghcnCountryName } from '~/utils/ghcn-country'
 import { GHCN_NETWORK } from '~/utils/map-tool'
 import { processingNote } from '~/utils/processing-note'
 import { stripesMethodNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
-import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery } from '~/utils/stripes-model'
+import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery, stripesYearFromQuery } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
 import { MIN_RECORD_YEARS, StripesRefusedError } from '~/utils/stripes-scale'
 import { fetchStripes, fetchStripesStations, stripesFetch } from '~/utils/stripes-source'
@@ -351,10 +351,8 @@ if (route.query.show_data_availability !== undefined && route.query.show_data_av
   showDataAvailability.value = route.query.show_data_availability?.toString() === 'true'
 if (route.query.show_source !== undefined && route.query.show_source !== null)
   showSource.value = route.query.show_source?.toString() === 'true'
-if (route.query.start_year)
-  startYear.value = Number(route.query.start_year.toString())
-if (route.query.end_year)
-  endYear.value = Number(route.query.end_year.toString())
+startYear.value = stripesYearFromQuery(route.query.start_year)
+endYear.value = stripesYearFromQuery(route.query.end_year)
 
 // a fetch under way is for the station chosen before: it is stopped, and its answer shows nothing
 watch(() => selectedStation.value?.station_id, () => {
