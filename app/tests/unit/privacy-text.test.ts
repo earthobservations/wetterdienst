@@ -98,7 +98,7 @@ describe('privacy policy texts', () => {
     const tiles = texts[code as keyof typeof texts].sections.find(s => s.id === 'third-parties')!.items!.find(item => /tile\.openstreetmap\.org/.test(item))!
     expect(tiles).toMatch(code === 'de' ? /oder die Karte des Radars/ : /or the radar's map/)
     // the tick and "Forget" are there as on the map
-    expect(storing.match(code === 'de' ? /auf dem Radar/g : /on the radar/g)).toHaveLength(2)
+    expect(storing!.match(code === 'de' ? /auf dem Radar/g : /on the radar/g)).toHaveLength(2)
   })
 
   it.each(Object.keys(texts))('have a section on the place search in %s: Photon of komoot GmbH, asked by the server from three letters on, not the reader\'s browser or address, 24 hours, and the legal basis (GH-3791)', (code) => {

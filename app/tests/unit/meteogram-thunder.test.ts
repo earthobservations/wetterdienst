@@ -34,7 +34,7 @@ function series(options: Parameters<typeof forecastValues>[0] = {}) {
   return buildSeries(forecastValues({ hours: 120, ...options }) as any)
 }
 
-function input(overrides: Partial<ModelInput> & { units?: Record<string, string> } = {}): ModelInput {
+function input(overrides: Partial<Omit<ModelInput, 'units'>> & { units?: Record<string, string> } = {}): ModelInput {
   const { units = FORECAST_UNITS, ...rest } = overrides
   return {
     series: series({ thunder: storm }),

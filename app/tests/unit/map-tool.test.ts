@@ -161,8 +161,8 @@ describe('the search of the stations', () => {
       count: rows.length,
       retrieved_at: null,
       station_id: rows.map(row => row.station_id),
-      latitude: rows.map(row => row.latitude),
-      longitude: rows.map(row => row.longitude),
+      latitude: rows.map(row => row.latitude!),
+      longitude: rows.map(row => row.longitude!),
       first_year: rows.map(() => null),
       last_year: rows.map(row => ('end_timestamp' in row ? 1990 : null)),
       name: rows.map(row => row.name),
@@ -467,7 +467,7 @@ describe('what a click reaches', () => {
 describe('the station picked for a place', () => {
   const running = (id: string, latitude: number, longitude: number) => ({ ...station(id, id, latitude, longitude), end_timestamp: '2026-11-06T00:00:00+00:00' })
   const closed = (id: string, latitude: number, longitude: number) => ({ ...station(id, id, latitude, longitude), end_timestamp: '2001-12-31T00:00:00+00:00' })
-  const live = (entry: { end_timestamp?: string }) => entry.end_timestamp !== '2001-12-31T00:00:00+00:00'
+  const live = (entry: { end_timestamp?: string | null }) => entry.end_timestamp !== '2001-12-31T00:00:00+00:00'
   const here = { latitude: 53.5, longitude: 10 }
   const list = placed([closed('near-closed', 53.51, 10), running('far-running', 53.9, 10), running('too-far', 50, 10)])
 

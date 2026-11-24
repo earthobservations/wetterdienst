@@ -35,7 +35,7 @@ function joined(options: { snow?: ReturnType<typeof snowForecastValues>, hours?:
   return new Map([...forecast, ...snow])
 }
 
-function input(overrides: Partial<ModelInput> & { units?: Record<string, string> } = {}): ModelInput {
+function input(overrides: Partial<Omit<ModelInput, 'units'>> & { units?: Record<string, string> } = {}): ModelInput {
   const { units = UNITS, ...rest } = overrides
   return {
     series: joined(),

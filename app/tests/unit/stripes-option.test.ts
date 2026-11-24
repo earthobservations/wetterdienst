@@ -17,7 +17,7 @@ const DISPLAY: StripesDisplay = { showTitle: true, showYears: true, showSource: 
 const ANSWER = stripesAnswer(recordOf(1950, 2024, year => (year - 1950) / 10, [1962, 1963, 1964]))
 const MODEL = buildStripesModel(ANSWER.values)!
 
-function build(over: Partial<StripesOptionInput & { display: Partial<StripesDisplay> }> = {}) {
+function build(over: Partial<Omit<StripesOptionInput, 'display'>> & { display?: Partial<StripesDisplay> } = {}) {
   const input: StripesOptionInput = {
     model: MODEL,
     kind: 'temperature',
@@ -363,7 +363,7 @@ describe('the option', () => {
       const { input, option } = build({ window: { start: 1958.5, end: 1970.5 } })
       const svg = draw(input, option)
       const { stripes, gold } = barsOf(svg)
-      const edges = (list: Bar[]) => list.map(bar => [bar.x, bar.x + bar.width])
+      const edges = (list: Bar[]): Array<[number, number]> => list.map(bar => [bar.x, bar.x + bar.width])
       // the stripes and the bars are in groups clipped to the plot: what reaches out of the window is cut, not shortened
       expect(svg.match(/<clipPath/g)!.length).toBeGreaterThanOrEqual(2)
       const plotLeft = 20

@@ -4,13 +4,13 @@
 
 from __future__ import annotations
 
+import calendar
 import datetime as dt
 from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from dateutil.relativedelta import relativedelta
 
 from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.resolution import Resolution
@@ -58,6 +58,28 @@ def raster_minutes(timestamp: dt.datetime, value: int) -> dt.datetime:
     return timestamp.replace(minute=value)
 
 
+def add_months(timestamp: dt.datetime, months: int) -> dt.datetime:
+    """Add calendar months to a timestamp, clamping the day to the end of a shorter month.
+
+    31 January plus one month is the last day of February. The time of day and the ``tzinfo`` are kept as they
+    are, so the wall-clock time holds across a change of DST; a repeated local hour is read as its first
+    occurrence (``fold=0``), as ``relativedelta`` did. Years are ``12 * n`` months. A result outside the
+    years a ``datetime`` holds raises ``ValueError``.
+
+    Args:
+        timestamp: the timestamp to start from
+        months: the months to add, negative to subtract
+
+    Returns:
+        The timestamp ``months`` calendar months later
+
+    """
+    year, month_index = divmod(timestamp.year * 12 + timestamp.month - 1 + months, 12)
+    month = month_index + 1
+    day = min(timestamp.day, calendar.monthrange(year, month)[1])
+    return timestamp.replace(year=year, month=month, day=day, fold=0)
+
+
 def mktimerange(
     resolution: Resolution,
     date_from: dt.datetime,
@@ -81,12 +103,12 @@ def mktimerange(
         date_to = date_from
 
     if resolution == Resolution.ANNUAL:
-        date_from = date_from + relativedelta(month=1, day=1)
-        date_to = date_to + relativedelta(month=12, day=31)
+        date_from = date_from.replace(month=1, day=1, fold=0)
+        date_to = date_to.replace(month=12, day=31, fold=0)
 
     elif resolution == Resolution.MONTHLY:
-        date_from = date_from + relativedelta(day=1)
-        date_to = date_to + relativedelta(day=31)
+        date_from = date_from.replace(day=1, fold=0)
+        date_to = date_to.replace(day=calendar.monthrange(date_to.year, date_to.month)[1], fold=0)
 
     else:
         msg = "mktimerange only implemented for annual and monthly time ranges"
@@ -204,8 +226,8 @@ def parse_date_span(date_string: str) -> tuple[dt.datetime, dt.datetime | None]:
         if precision == _DAY:
             return start, start + dt.timedelta(days=1)
         if precision == _MONTH:
-            return start, start + relativedelta(months=1)
-        return start, start + relativedelta(years=1)
+            return start, add_months(start, 1)
+        return start, add_months(start, 12)
     except (OverflowError, ValueError) as e:
         # a span reaching past year 9999, the last a datetime holds: `9999`, `9999-12`, `9999-12-31`
         raise InvalidTimeIntervalError(str(e)) from e

@@ -1,5 +1,6 @@
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import type { Mock } from 'vitest'
 import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -57,7 +58,7 @@ const config: { googleSiteVerification: unknown } = { googleSiteVerification: ''
 describe('the middleware', () => {
   let server: Server
   let app: string
-  let shell: ReturnType<typeof vi.fn>
+  let shell: Mock<(event: import('h3').H3Event) => string>
 
   // The globals Nitro provides are stubbed for each test and removed after it, so that no other describe of the
   // file (the warning's stubs `useRuntimeConfig` too) can take them from this one, whatever order the tests run in.

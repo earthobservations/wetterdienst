@@ -16,8 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- wetterdienst no longer depends on `python-dateutil`; a small helper does the month arithmetic with
+  the same dates, so code that imports `dateutil` through wetterdienst must depend on it itself
+  (GH-4349)
+
 ### Fixed
 
+- **Breaking**: an alerts `name` of only whitespace (`name="  "`) is refused, where it answered every
+  warning (with a point, the name was ignored): a `RequestError` in Python, a 422 of `name` in the
+  REST API, a tool error in MCP, a usage error of `--name` on the command line. An empty `name` is
+  still none; leave `name` out to ask for all (GH-4354)
 - The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were
   184,612, so a client saved them to a file): each warning loses its `geometry` and area lists (a
   `name` keeps up to 25 matching areas), then the least severe warnings go, with an
