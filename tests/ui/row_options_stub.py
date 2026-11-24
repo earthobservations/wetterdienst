@@ -64,20 +64,26 @@ def oracle(station_id: str, parameter: str) -> list[tuple[dt.datetime, float]]:
     return rows
 
 
-def serve(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Serve the three stations and their daily readings from memory, so that nothing is read upstream."""
+def serve(monkeypatch: pytest.MonkeyPatch, count: int = 3, *, missing: tuple[str, ...] = ()) -> None:
+    """Serve `count` stations and their daily readings from memory, so that nothing is read upstream.
+
+    The first three are the stations of `STATIONS`; more are numbered on and named after their number. A station in
+    `missing` has every reading missing: its files are there and say nothing.
+    """
+    ids = [f"{number:05d}" for number in range(1, count + 1)]
+    names = [STATIONS.get(station_id, f"Station {station_id}") for station_id in ids]
     stations = pl.DataFrame(
         {
-            "resolution": ["daily"] * 3,
-            "dataset": ["climate_summary"] * 3,
-            "station_id": list(STATIONS),
-            "start_timestamp": [FIRST_DAY] * 3,
-            "end_timestamp": [None] * 3,
-            "latitude": [53.6, 53.5, 53.4],
-            "longitude": [10.0, 10.1, 10.2],
-            "elevation": [11.0, 12.0, 13.0],
-            "name": list(STATIONS.values()),
-            "state": ["Hamburg"] * 3,
+            "resolution": ["daily"] * count,
+            "dataset": ["climate_summary"] * count,
+            "station_id": ids,
+            "start_timestamp": [FIRST_DAY] * count,
+            "end_timestamp": [None] * count,
+            "latitude": [53.6 - 0.01 * number for number in range(count)],
+            "longitude": [10.0 + 0.01 * number for number in range(count)],
+            "elevation": [11.0 + number for number in range(count)],
+            "name": names,
+            "state": ["Hamburg"] * count,
         },
         schema_overrides={"end_timestamp": pl.Datetime(time_zone="UTC")},
     )
@@ -91,6 +97,9 @@ def serve(monkeypatch: pytest.MonkeyPatch) -> None:
             for parameter in dataset
             if parameter.name in ("temperature_air_min_2m", "temperature_air_max_2m", "wind_gust_max")
         ]
-        return pl.concat(frames)
+        frame = pl.concat(frames)
+        if station_id in missing:
+            frame = frame.with_columns(pl.lit(None, pl.Float64).alias("value"))
+        return frame
 
     monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)

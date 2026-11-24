@@ -995,7 +995,7 @@ request = DwdObservationRequest(
 )
 reader = request.filter_by_station_id("01975").values()
 
-lowest = reader.all(sort="value", first=1)  # the lowest value ever measured at the station, and its days
+lowest = reader.all(sort="value", first=1)  # the lowest value of the station in the window, and its days
 print(lowest.df)
 print(lowest.search.to_dict()["totals"])  # {'series': 1, 'searched': ..., 'expected': ..., 'gaps': ..., 'matched': ...}
 

@@ -414,7 +414,9 @@ def _timed(call: object) -> float:
 
 def test_condition_and_key_write_themselves_as_they_are_read() -> None:
     """Condition and key write themselves as they are read."""
-    assert Condition("value", "<=", (-20.0,)).text() == "value<=-20.0"
+    assert Condition("value", "<=", (-20.0,)).text() == "value<=-20"
+    assert Condition("value", ">", (0.5,)).text() == "value>0.5"
+    assert Condition("value", "<", (1e-05,)).text() == "value<1e-05"
     assert Condition("month", "=", (12, 1)).text() == "month=12|1"
     assert SortKey("value", descending=True).text() == "-value"
     assert rs.RowSelection().echo() == {"filter": None, "sort": None, "first": None, "by": None, "max_rows": None}

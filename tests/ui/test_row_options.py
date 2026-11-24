@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -18,6 +20,7 @@ from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
 from tests.ui.row_options_stub import DAYS, GUST, STATIONS, TMIN, oracle, serve
+from wetterdienst.model.row_selection import parse_row_selection
 from wetterdienst.ui.cli import cli
 from wetterdienst.ui.restapi import app
 from wetterdienst.util.datetime import format_timestamp
@@ -79,6 +82,7 @@ def test_the_dates_of_a_series_come_before_its_counts_and_the_series_before_the_
     assert list(search) == ["options", "window", "series", "series_omitted", "totals"]
     assert list(search["series"][0]) == [
         "station_id",
+        "name",
         "resolution",
         "dataset",
         "parameter",
@@ -223,8 +227,9 @@ def test_a_request_with_first_reads_up_to_the_stream_limit_and_sends_up_to_its_o
     over = _rest(sort="value", first=1000, by="station_id,month")
     assert over.status_code == 400, over.text
     assert "options chose" in over.text
-    # the walk is stopped as the stations are read, not after the last one, and says "at least"
-    assert "at least" in over.text or "options chose 1," in over.text
+    # the walk is stopped as the stations are read, not after the last one: the rows held when it stopped, so far
+    assert re.search(r"chose [\d,]+ rows so far", over.text), over.text
+    assert "at least" not in over.text
     # a stream that holds the rows (sort, first) is held to the same limit: it does not stream them
     streamed = _rest(sort="value", first=1000, by="station_id,month", format="ndjson")
     assert streamed.status_code == 400, streamed.text
@@ -464,3 +469,190 @@ def test_a_tool_answer_cut_by_max_rows_and_by_the_budget_reads_sensibly(monkeypa
     assert f"of the 400 rows returned ({matched:,} matched; `max_rows` is 400)" in truncated
     assert answer["metadata"]["search"]["totals"]["returned"] == 400
     assert 0 < len(answer["values"]) < 400
+
+
+def test_the_wide_shape_counts_rows_of_the_frame_in_the_totals_and_the_warning() -> None:
+    """A wide row holds every parameter: five rows sent are five, not five for each parameter."""
+    response = _rest(
+        parameters=f"{TMIN},daily/climate_summary/temperature_air_max_2m",
+        shape="wide",
+        filter="month=2",
+        max_rows=5,
+        all="true",
+    )
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    totals = answer["metadata"]["search"]["totals"]
+    frame_rows = 3 * (29 + 28 + 28)  # the days of February, 2018 to 2020, of three stations: a row each
+    assert totals["returned"] == answer["metadata"]["counts"]["rows"] == 5
+    assert totals["matched"] == frame_rows
+    assert _warning(answer, "rows-capped").startswith(f"5 of {frame_rows} matched rows are returned")
+    assert response.headers["x-wetterdienst-rows-matched"] == str(frame_rows)
+    csv = _rest(
+        parameters=f"{TMIN},daily/climate_summary/temperature_air_max_2m",
+        shape="wide",
+        sort="-day",
+        first=1,
+        max_rows=2,
+        format="csv",
+    )
+    assert csv.status_code == 200, csv.text
+    assert int(csv.headers["x-wetterdienst-rows-matched"]) >= 2
+    assert len(csv.text.splitlines()) - 1 == 2
+
+
+def test_a_station_whose_values_are_all_missing_is_read_and_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """It has no series to list: the totals say it was read, and with the nulls kept its window is all missing."""
+    serve(monkeypatch, 3, missing=("00002",))
+    totals = _rest(sort="value", first=1).json()["metadata"]["search"]["totals"]
+    assert (totals["stations_read"], totals["stations_with_values"], totals["series"]) == (3, 2, 2)
+    kept = _rest(sort="value", first=1, drop_nulls="false").json()["metadata"]["search"]
+    entry = next(e for e in kept["series"] if e["station_id"] == "00002")
+    assert (entry["searched"], entry["first"], entry["last"], entry["matched"]) == (0, None, None, 0)
+    assert entry["expected"] == DAYS  # the window of the request, all of it missing
+    assert kept["totals"]["stations_with_values"] == 3
+
+
+def test_each_series_names_its_station_and_a_tool_lists_only_a_few(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Over REST a hundred series are listed with their names; a tool lists twenty, and the totals count all."""
+    serve(monkeypatch, 100)
+    answer = _rest(sort="value", first=1, max_rows=10).json()
+    search = answer["metadata"]["search"]
+    assert [e["name"] for e in search["series"][:3]] == ["Alpha", "Beta", "Gamma"]
+    assert search["series"][50]["name"] == "Station 00051"
+    assert (len(search["series"]), search["series_omitted"], search["totals"]["series"]) == (100, 0, 100)
+    assert len(json.dumps(search)) < 40_000  # what a hundred stations take of a REST answer, which has no budget
+    result = _tool(
+        {"sort": "value", "first": 1, "max_rows": 10, "stations": ",".join(f"{n:05d}" for n in range(1, 101))}
+    )
+    assert not result.is_error
+    tool = result.structured_content
+    tool = tool.get("result", tool)
+    listed = tool["metadata"]["search"]
+    assert len(listed["series"]) == 20
+    assert listed["series_omitted"] == 80
+    assert listed["totals"]["series"] == 100
+    assert len(json.dumps(tool)) < 40_000
+
+
+def test_a_series_report_that_is_the_budget_goes_before_the_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Where the report alone fills the budget, its series are left out, with the totals kept, before a row is cut."""
+    serve(monkeypatch, 100)
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 4000)
+    result = _tool(
+        {"sort": "value", "first": 1, "max_rows": 6, "stations": ",".join(f"{n:05d}" for n in range(1, 101))}
+    )
+    answer = result.structured_content
+    answer = answer.get("result", answer)
+    search = answer["metadata"]["search"]
+    assert search["series"] == []
+    assert search["series_omitted"] == 100
+    assert search["totals"]["series"] == 100
+    assert 1 <= len(answer["values"]) <= 6  # the series went and the rows that fit stayed
+    note = _warning(answer, "rows-capped")
+    assert note is not None
+
+
+def test_a_note_never_advises_what_cannot_make_fewer_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With `first=1` and `max_rows=1` there is no smaller one to ask for."""
+    from wetterdienst.ui.budget import _rows_note  # noqa: PLC0415
+
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 3000)
+    result = _tool({"sort": "-value", "first": 1})
+    answer = result.structured_content
+    answer = answer.get("result", answer)
+    truncated = _warning(answer, "answer-truncated") or ""
+    assert truncated, answer["metadata"]["warnings"]
+    assert "smaller `first`" not in truncated
+    assert "`max_rows`" in truncated
+    # and where a `first` above 1 or a `max_rows` is given, the note names it to make smaller
+    taken = SimpleNamespace(
+        series=SimpleNamespace(height=1, get_column=lambda _name: SimpleNamespace(sum=lambda: 10)),
+        selection=parse_row_selection(sort="value", first=5, max_rows=9),
+        matched_total=30,
+    )
+    note = _rows_note(result=SimpleNamespace(search=taken), kept=4, total=9, lead="", honest=False)
+    assert "a smaller `first`, a smaller `max_rows`, add or narrow a `filter`" in note
+
+
+def test_a_sort_without_first_is_told_that_a_stream_does_not_help(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `sort` holds every row it reads, so the refusal says to add `first` or drop `sort`, not to stream."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "1000")
+    for params in ({"sort": "value"}, {"sort": "value", "format": "csv"}, {"sort": "value", "format": "ndjson"}):
+        response = _rest(**params)
+        assert response.status_code == 400, response.text
+        detail = response.json()["detail"]
+        assert "add `first`" in detail
+        assert "drop `sort`" in detail
+        assert "ndjson" not in detail
+    # a request without `sort` is told to stream, as it was
+    assert "format=ndjson" in _rest().json()["detail"]
+
+
+def test_a_repeated_row_option_is_refused_and_not_silently_one_of_them() -> None:
+    """A second `filter` is a 422 that says to join the conditions with a comma; so for `sort` and `by`."""
+    for name, extra in (("filter", "month=1"), ("sort", "-value"), ("by", "year")):
+        params = {**_BASE, "sort": "value", "first": 1, "filter": "value<0", "by": "station_id"}
+        query = "&".join([f"{key}={value}" for key, value in params.items()] + [f"{name}={extra}"]).replace("<", "%3C")
+        response = TestClient(app).get(f"/api/values?{query}")
+        assert response.status_code == 422, response.text
+        errors = response.json()["errors"]
+        assert errors[0]["loc"] == ["query", name]
+        assert "given 2 times" in errors[0]["msg"]
+    assert "comma" in response.text or "one value" in response.text
+
+
+def test_a_repeated_option_on_the_command_line_is_a_usage_error() -> None:
+    """Click would keep the last of two: the command says to join the conditions with a comma."""
+    result = _cli("--filter=value<0", "--filter=month=1")
+    assert result.exit_code == 2, result.output
+    assert "--filter is given 2 times" in result.output
+    assert "comma" in result.output
+    assert _cli("--sort=value", "--sort=-value", "--first=1").exit_code == 2
+
+
+def test_a_tool_csv_carries_what_was_searched_in_its_sentence() -> None:
+    """A CSV has no block: the three headers are in the sentence that stands for it."""
+    result = _tool({"sort": "value", "first": 1, "format": "csv"})
+    assert not result.is_error
+    content = json.dumps(result.structured_content)
+    assert "Searched:" in content
+    assert "values of" in content
+    assert "rows matched the options" in content
+
+
+def test_spanning_groups_that_tie_over_many_stations_are_refused_so_far(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every station's lowest value ties: 100 stations of 16 rows are more than the limit, and none are held."""
+    serve(monkeypatch, 100)
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "1000")
+    monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "1000000")
+    refused = _rest(sort="value", first=1, by="none", max_rows=1)
+    assert refused.status_code == 400, refused.text
+    assert re.search(r"chose [\d,]+ rows so far", refused.text), refused.text
+    assert "add `timestamp` to `sort`" in refused.text
+    # a calendar column breaks the tie where it means something: one row for each year of each station is 300 rows
+    ok = _rest(sort="value,timestamp", first=1, by="year", max_rows=5)
+    assert ok.status_code == 200, ok.text
+
+
+def test_a_choice_with_max_rows_over_many_stations_is_no_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every station keeps up to `max_rows` rows and the rows held are cut to the answer, so 60 stations are fine."""
+    serve(monkeypatch, 60)
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "1500")
+    response = _rest(sort="-value", first=1000, by="station_id,month", max_rows=1000)
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    assert len(answer["values"]) == 1000
+    assert answer["metadata"]["search"]["totals"]["matched"] > 1500
+
+
+def test_a_wide_request_that_chooses_rows_is_estimated_in_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wide frame is its cells in memory: the read of a request with `first` is counted as the long shape is."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "5000")
+    monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "7000")
+    both = f"{TMIN},daily/climate_summary/temperature_air_max_2m"
+    # 3 stations x 1,096 days x 2 parameters is 6,576 cells: under the stream limit as the long shape has it, and a
+    # wide request counted in rows alone (3,288) would have been under it with room
+    assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 200
+    monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "5000")
+    assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 400

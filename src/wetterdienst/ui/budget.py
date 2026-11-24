@@ -391,7 +391,7 @@ def _rows_note(*, result: _SeriesResult, kept: int, total: int, lead: str, hones
         if search is not None and search.series.height
         else ""
     )
-    matched = int(search.series.get_column("matched").sum()) if search is not None and search.series.height else total
+    matched = search.matched_total if search is not None else total
     if kept == 1 and total == 1:
         returned = "the only row is"
     elif matched > total:
@@ -402,10 +402,15 @@ def _rows_note(*, result: _SeriesResult, kept: int, total: int, lead: str, hones
         )
     else:
         returned = f"the first {kept:,} of {total:,} matched rows are"
-    return (
-        f"{head}{returned} returned{order}; the rest are left out.{searched} For fewer rows ask for a smaller `first`, "
-        "a smaller `max_rows`, add or narrow a `filter`, or ask for fewer parameters and stations."
-    )
+    # what would make fewer rows, without advice that cannot work (a `first` of 1 or a `max_rows` of 1 keeps no less)
+    ways = []
+    if options.get("first") is not None and int(options["first"]) > 1:
+        ways.append("a smaller `first`")
+    if options.get("max_rows") is None or int(options["max_rows"]) > 1:
+        ways.append("`max_rows`" if options.get("max_rows") is None else "a smaller `max_rows`")
+    ways += ["add or narrow a `filter`", "ask for fewer parameters and stations"]
+    advice = ", ".join(ways[:-1]) + f", or {ways[-1]}"
+    return f"{head}{returned} returned{order}; the rest are left out.{searched} For fewer rows ask for {advice}."
 
 
 def _fit_rows(
@@ -469,6 +474,13 @@ def fit_values(
     # any other is a series of timestamps and is cut at one
     fit = _fit_rows if getattr(result, "search", None) is not None else _fit_values
     chosen = fit(result, asked, render, size, lead="", honest=False)
+    search = getattr(result, "search", None)
+    if chosen.size > ANSWER_BUDGET and search is not None and search.listed > 0:
+        # the series of the report go before the rows do: the totals stay, and `series_omitted` counts them
+        lean_result = replace(result, search=replace(search, listed=0))
+        chosen_lean = fit(lean_result, asked, render, size, lead="", honest=False)
+        if chosen_lean.size < chosen.size:
+            result, chosen = lean_result, chosen_lean
     if chosen.size > ANSWER_BUDGET and (
         dropped := _without_block(
             result,

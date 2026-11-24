@@ -1124,13 +1124,12 @@ Options:
                                   station_id. Example: --sort=-value (highest first)
   --first INTEGER                 Return only the first N rows of each group in the --sort order,
                                   the ties of the last one included (needs --sort). --sort=value
-                                  --first=1 is the lowest value ever measured at each station. The
-                                  whole record is read, and metadata.search says how much was
-                                  searched.
+                                  --first=1 is the lowest value of each station in the --timestamp
+                                  window. The whole window is read, and metadata.search says from
+                                  when to when.
   --by TEXT                       The groups --first counts in: station_id (the default), year,
-                                  month, day, hour, timestamp, joined by commas, or none for all
-                                  stations together; a parameter is always its own group (needs
-                                  --first)
+                                  month, day, hour, joined by commas, or none for all stations
+                                  together; a parameter is always its own group (needs --first)
   --max-rows INTEGER              Return at most this many rows of the whole answer, the first of
                                   its order (after --filter, --sort and --first), over all stations
                                   and parameters: for a short answer where many rows tie. What

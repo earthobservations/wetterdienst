@@ -964,7 +964,7 @@ def test_the_values_tool_recommends_a_window_and_the_rest_document_does_not() ->
 
     descriptions = asyncio.run(listed())
     advice = "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv"
-    assert descriptions["values"].rstrip().endswith("shape=wide (not with a `value` filter).")
+    assert descriptions["values"].rstrip().endswith("shape=wide (not with `value` in `filter` or `sort`).")
     assert advice in descriptions["values"]
     assert advice not in descriptions["stations"]
     paths = restapi.app.openapi()["paths"]

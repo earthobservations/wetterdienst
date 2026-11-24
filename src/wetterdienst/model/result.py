@@ -1090,6 +1090,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             Searched,
             parse_row_selection,
             searched_of,
+            station_names,
         )
 
         selection = parse_row_selection(filter=filter, sort=sort, first=first, by=by, max_rows=max_rows)
@@ -1113,17 +1114,15 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         matching = selection.matching(self.df)
         df = selection.cap(matching)
         window = (self.stations.start, self.stations.end)
-        if self.search is not None:
-            base = self.search.series
-        elif "parameter" in self.df.columns:
-            base = searched_of(self.df, window)
-        else:
-            base = None
-        report = (
-            Searched(series=base, selection=selection, window=window)
-            if base is not None
-            else Searched.nothing(selection, window)
+        # what is searched is what this result holds, long or wide, whatever read it: a result that was cut already
+        # has no more values than the ones it holds
+        searched = searched_of(
+            self.df,
+            window,
+            names=station_names(self.stations.df),
+            forecast=self.stations.request.metadata.kind == "forecast",
         )
+        report = Searched(series=searched, selection=selection, window=window)
         report = report.with_matched(matching).with_returned(df)
         report.warn_if_capped()
         return replace(self, df=df, search=report)

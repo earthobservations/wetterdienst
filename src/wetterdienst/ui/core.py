@@ -424,7 +424,7 @@ _ByField = Annotated[
     str | None,
     Field(
         description="The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, "
-        "`timestamp`, joined by commas, or `none` for all stations together; a parameter is always its own group. "
+        "joined by commas, or `none` for all stations together; a parameter is always its own group. "
         "Needs `first`. Example: `station_id,year`.",
     ),
 ]

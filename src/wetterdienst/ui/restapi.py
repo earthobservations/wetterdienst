@@ -67,7 +67,12 @@ from wetterdienst.model.result import (
     _ValuesDictBody,
     _ValuesOgcFeatureCollectionBody,
 )
-from wetterdienst.model.row_selection import RowsOverLimitError, Searched, parse_row_selection
+from wetterdienst.model.row_selection import (
+    MAX_TOOL_SERIES,
+    RowsOverLimitError,
+    Searched,
+    parse_row_selection,
+)
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings, removed_settings
 from wetterdienst.ui import forecast_start
@@ -1870,18 +1875,21 @@ _STREAM_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def _check_values_limits(stations: StationsResult, limits: Limits, *, streamed: bool, chooses: bool = False) -> None:
+def _check_values_limits(
+    stations: StationsResult, limits: Limits, *, streamed: bool, chooses: bool = False, holds: bool = False
+) -> None:
     """Refuse a values request that reads too many stations or would return too many rows, before any download.
 
     Counted from the selection of stations, which the server holds already; the rows are an estimate and an upper
     bound (`ui.limits`). A request that `chooses` rows with `first` is held to what it reads, not to what it sends:
     it may read up to the stream limit, whatever its format, and what is sent is held to the limit of its format after
-    (`check_chosen_rows`).
+    (`check_chosen_rows`). A request that `holds` every row it reads (a `sort`) is told that a stream does not help it.
+    What a request with `first` reads is estimated in cells in the wide shape too, as that is what it holds.
     """
     check_station_count(selected_station_count(stations), limits)
     reads_streamed = streamed or chooses
     if limits.max_stream_rows if reads_streamed else limits.max_rows:
-        check_rows(estimate_rows(stations), limits, streamed=reads_streamed)
+        check_rows(estimate_rows(stations, cells=chooses), limits, streamed=reads_streamed, holds=holds)
 
 
 def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
@@ -2335,11 +2343,11 @@ def values(
     re-request in other formats.
 
     To find a record or a rare value, have the server choose the rows instead of reading the series:
-    `sort=value&first=1` is the lowest value ever measured at each station (`sort=-value` the highest),
-    `filter=value<=-20,month=12` the readings below -20 in a December. An extreme can be a faulty reading: read its
-    `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows (every dry day
-    is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when and how many
-    values were searched, so that a record the data lacks is told from one not looked for.
+    `sort=value&first=1` is the lowest value of each station in the window (`sort=-value` the highest),
+    `filter=value<=-20,month=12` the readings at or below -20 in a December. An extreme can be a faulty reading:
+    read its `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows
+    (every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when
+    and how many values were searched, so that a record the data lacks is told from one not looked for.
 
     With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
     relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
@@ -2348,6 +2356,7 @@ def values(
     """
     begin_response()
     _refuse_oversized_chart(request)
+    _refuse_repeated_row_options(http_request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -2362,6 +2371,9 @@ def values(
         return _stream_values(api, request, settings, options, limits)
     values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
     tool = is_tool_request(http_request.scope)
+    if tool and values_.search is not None:
+        # an assistant reads the report inside the budget of its answer: the first series, the totals of all
+        values_ = replace(values_, search=replace(values_.search, listed=MAX_TOOL_SERIES))
     if tool and forecast_start.applies(api, request):
         # a forecast without a window, or with one of days around now, starts at now, before the budget counts (GH-4025)
         values_ = forecast_start.forecast_from_now(values_, floor=forecast_start.lower_bound(request))
@@ -2381,6 +2393,36 @@ def values(
         )
 
     return _answer(content, request.format, metadata)
+
+
+_ROW_OPTIONS = ("filter", "sort", "first", "by", "max_rows")
+
+
+def _refuse_repeated_row_options(http_request: Request) -> None:
+    """Refuse a row option given more than once: the query would keep one of them and the answer would not say which.
+
+    `filter=value<0&filter=month=1` is the conditions `value<0,month=1` in the grammar, which joins them by a comma;
+    a second `sort` or `by` has no such reading. A 422 located at the option, as an option that cannot be read is.
+    """
+    entries: list[dict[str, Any]] = [
+        {
+            "type": "repeated",
+            "loc": ["query", name],
+            "msg": (
+                f"`{name}` is given {len(values)} times and a request takes it once: "
+                + (
+                    "join the conditions of `filter` with a comma, as in filter=value<=-20,month=12"
+                    if name == "filter"
+                    else f"give one value of `{name}`, columns joined by commas where it takes several"
+                )
+            ),
+            "input": values,
+        }
+        for name in _ROW_OPTIONS
+        if len(values := http_request.query_params.getlist(name)) > 1
+    ]
+    if entries:
+        raise ProblemError(422, str(entries[0]["msg"]), ProblemKind.INVALID_PARAMETERS, extra={"errors": entries})
 
 
 def _request_options(
@@ -2653,8 +2695,6 @@ def _values(
     settings: Settings,
     options: Options,
     limits: Limits,
-    *,
-    streamed: bool = False,
 ) -> ValuesResult:
     """Collect values, telling the caller which failures are theirs to fix.
 
@@ -2663,20 +2703,23 @@ def _values(
     which also assembles a response format, a target and a set of kwargs -- is not where it belongs.
     """
     chooses = request.first is not None
+    holds = chooses or request.sort is not None
     try:
         values_ = get_values(
             api=api,
             request=request,
             settings=settings,
             options=options,
-            check=lambda stations_: _check_values_limits(stations_, limits, streamed=streamed, chooses=chooses),
+            check=lambda stations_: _check_values_limits(
+                stations_, limits, streamed=False, chooses=chooses, holds=holds
+            ),
             held_rows_limit=limits.max_rows if chooses else None,
         )
         if chooses:
             # read under the stream limit, so that a record can be searched; sent under the limit of one body
             check_chosen_rows(values_.df.height, limits)
     except RowsOverLimitError as e:
-        check_chosen_rows(e.rows, limits, at_least=True)
+        check_chosen_rows(e.rows, limits, so_far=True)
         raise
     except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers

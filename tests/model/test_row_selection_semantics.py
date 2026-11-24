@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime as dt
 import operator
+from dataclasses import replace
 from typing import Any
 
 import polars as pl
@@ -23,6 +24,7 @@ from wetterdienst.model.row_selection import (
     RowSelection,
     RowSelectionRefusedError,
     RowsOverLimitError,
+    Searched,
     latest_complete,
     parse_row_selection,
     searched_of,
@@ -408,15 +410,21 @@ def test_a_walk_whose_choice_stays_in_a_station_is_stopped_at_the_limit_it_was_g
     reader = request.all().values()
     reader._held_rows_limit = 500  # noqa: SLF001
     with pytest.raises(RowsOverLimitError) as raised:
-        reader.all(sort="value", first=1, by="station_id,timestamp")
+        reader.all(sort="value", first=1, by="station_id,year,month,day")
     # one station holds about 1,000 readings: stopped there, with the stations after it not read
     assert 500 < raised.value.rows < 1500
     assert raised.value.maximum == 500
     assert issubclass(RowsOverLimitError, RequestError)
     # a choice that fits is not stopped, and none is where no limit is given
     assert request.all().values().all(sort="value", first=1).df.height > 0
+    # groups that span stations are made again once the held rows reach the limit (here 10), and refused if what
+    # is left is more: the tie of every station's lowest value is 17 rows
     reader._held_rows_limit = 10  # noqa: SLF001
-    assert reader.all(sort="value", first=1, by="none").df.height > 0  # spans stations: made again at the end
+    with pytest.raises(RowsOverLimitError) as spanning:
+        reader.all(sort="value", first=1, by="none")
+    assert spanning.value.maximum == 10
+    reader._held_rows_limit = 100  # noqa: SLF001
+    assert reader.all(sort="value", first=1, by="none").df.height > 0
 
 
 def test_what_piles_up_over_groups_that_span_stations_is_made_again_without_changing_the_rows(
@@ -425,7 +433,7 @@ def test_what_piles_up_over_groups_that_span_stations_is_made_again_without_chan
     """The choice is made again over what piled up, and the rows are those of the choice made once."""
     request = DwdObservationRequest(parameters=[TMIN], start="2018-01-01", end="2020-12-31")
     expected = request.all().values().all(sort="-value", first=3, by="year")
-    monkeypatch.setattr(TimeseriesValues, "_COMPACT_ROWS", 1)
+    monkeypatch.setattr(TimeseriesValues, "_COMPACT_CELLS", 1)
     compacted = request.all().values().all(sort="-value", first=3, by="year")
     _same(_got(compacted.df), _got(expected.df))
     assert compacted.search is not None
@@ -608,3 +616,196 @@ def test_the_walk_holds_no_more_than_max_rows_of_the_rows_it_reads(monkeypatch: 
     assert got.search.series.get_column("matched").sum() == sum(
         len(oracle(station, "temperature_air_min_2m")) for station in STATIONS
     )
+
+
+def test_a_series_with_a_step_coarser_than_its_resolution_has_no_gaps_to_count() -> None:
+    """A maximum of the last 12 hours has a value every 12 hours in an hourly dataset: 11 of 12 hours are no gap."""
+    stamps = [_utc(2026, 11, 20) + dt.timedelta(hours=12 * n) for n in range(20)]
+    row = _report(_series_frame("hourly", stamps), (None, None))
+    assert (row["searched"], row["expected"], row["gaps"]) == (20, None, None)
+    # with a window too, and the usual step is the median: a series that merely misses some hours keeps its counts
+    row = _report(_series_frame("hourly", stamps), (_utc(2026, 11, 20), _utc(2026, 11, 30)))
+    assert (row["expected"], row["gaps"]) == (None, None)
+    hours = [s for s in (_utc(2026, 11, 20) + dt.timedelta(hours=n) for n in range(48)) if s.hour not in (3, 4)]
+    row = _report(_series_frame("hourly", hours), (None, None))
+    assert (row["searched"], row["expected"], row["gaps"]) == (44, 48, 4)
+    # calendar resolutions are measured against their own step: a month is no coarser than a month
+    months = [_utc(2020, m, 1) for m in (1, 2, 3, 5, 6)]
+    assert _report(_series_frame("monthly", months), (None, None))["gaps"] == 1
+
+
+def test_a_forecast_has_no_expected_values_and_no_gaps() -> None:
+    """Counted over the horizon of a run it would invent gaps: both are null for a forecast network."""
+    stamps = [_utc(2026, 11, 25) + dt.timedelta(hours=n) for n in range(24) if n not in (5, 6)]
+    row = searched_of(_series_frame("hourly", stamps), (None, None), NOW, forecast=True).row(0, named=True)
+    assert (row["searched"], row["expected"], row["gaps"]) == (22, None, None)
+
+
+def test_values_found_outside_the_window_widen_what_is_covered_never_narrow_it() -> None:
+    """A reading before the window's start or after its end is a value that was searched: counted, never lost."""
+    inside = _series_frame("daily", _days(dt.date(2020, 1, 10), dt.date(2020, 1, 20)))
+    # values from the 10th on, a window that starts on the 15th: what the request covers begins at the first value
+    row = _report(inside, (_utc(2020, 1, 15), _utc(2020, 1, 31)))
+    assert (row["searched"], row["expected"]) == (11, 22)
+    # values to the 20th, a window that ends on the 12th: what is covered runs to the last value
+    row = _report(inside, (_utc(2020, 1, 1), _utc(2020, 1, 12)))
+    assert (row["searched"], row["expected"]) == (11, 20)
+
+
+def test_station_names_come_from_the_stations_and_a_missing_one_is_null() -> None:
+    """The name of a station is in each series, null where the provider has none."""
+    frame = pl.concat(
+        [
+            _series_frame("daily", _days(dt.date(2020, 1, 1), dt.date(2020, 1, 3))).with_columns(station_id=pl.lit(i))
+            for i in ("1", "2")
+        ]
+    )
+    rows = searched_of(frame, (None, None), NOW, names={"1": "Alpha"}).select("station_id", "name").rows()
+    assert rows == [("1", "Alpha"), ("2", None)]
+
+
+def test_a_wide_frame_is_counted_per_parameter_column() -> None:
+    """The report of a wide result counts the values of each parameter column, not zero."""
+    wide = pl.DataFrame(
+        {
+            "station_id": ["1"] * 4,
+            "resolution": ["daily"] * 4,
+            "dataset": ["x"] * 4,
+            "timestamp": _days(dt.date(2020, 1, 1), dt.date(2020, 1, 4)),
+            "a": [1.0, None, 3.0, 4.0],
+            "a_quality_flags": ["1"] * 4,
+            "b": [None, None, 3.0, 4.0],
+            "b_quality_flags": ["1"] * 4,
+        },
+        schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
+    )
+    rows = searched_of(wide, (None, None), NOW).sort("parameter").select("parameter", "searched", "gaps").rows()
+    assert rows == [("a", 3, 1), ("b", 2, 0)]
+
+
+def test_selected_rows_counts_what_the_result_holds_wide_or_cut() -> None:
+    """A wide result reports its values; a result already cut to a few rows reports those, not the read it came from."""
+    request = DwdObservationRequest(parameters=[TMIN], start="2018-01-01", end="2020-12-31", options={"shape": "wide"})
+    wide = request.all().values().all()
+    report = wide.selected_rows(filter="month=2").search
+    assert report is not None
+    assert report.series.get_column("searched").sum() == sum(
+        len(oracle(station, "temperature_air_min_2m")) for station in STATIONS
+    )
+    long_request = DwdObservationRequest(parameters=[TMIN], start="2018-01-01", end="2020-12-31")
+    cut = long_request.all().values().all().selected_rows(sort="value", first=1, max_rows=7)
+    again = cut.selected_rows(sort="-value")
+    assert again.search is not None
+    assert again.search.series.get_column("searched").sum() == 7
+    assert again.search.matched_total == 7
+
+
+def test_returned_rows_are_counted_for_the_series_they_belong_to() -> None:
+    """Counts of a frame whose stations are in another order than the report's land on the series they belong to."""
+    series = searched_of(_series_frame("daily", _days(dt.date(2020, 1, 1), dt.date(2020, 1, 4))))
+    two = pl.concat([series, series.with_columns(station_id=pl.lit("2"))])
+    report = Searched(series=two, selection=parse_row_selection(max_rows=3), window=(None, None))
+    answer = pl.concat(
+        [
+            _series_frame("daily", _days(dt.date(2020, 1, 1), dt.date(2020, 1, 3))).with_columns(
+                station_id=pl.lit("2")
+            ),
+            _series_frame("daily", _days(dt.date(2020, 1, 1), dt.date(2020, 1, 1))),
+        ]
+    )
+    counted = report.with_matched(answer).series
+    assert counted.select("station_id", "matched", "returned").rows() == [("1", 1, 1), ("2", 3, 3)]
+    assert report.with_returned(answer.head(2)).series.select("station_id", "returned").rows() == [("1", 0), ("2", 2)]
+
+
+def test_a_report_lists_at_most_its_cap_and_counts_the_rest() -> None:
+    """The first 100 series are listed, `series_omitted` counts the others, and the totals are of all."""
+    frame = pl.concat(
+        [
+            _series_frame("daily", _days(dt.date(2020, 1, 1), dt.date(2020, 1, 2))).with_columns(
+                station_id=pl.lit(f"{n:03d}")
+            )
+            for n in range(130)
+        ]
+    )
+    report = Searched(
+        series=searched_of(frame, (None, None), NOW),
+        selection=parse_row_selection(sort="value", first=1),
+        window=(None, None),
+    ).with_matched(frame)
+    listed = report.to_dict()
+    assert len(listed["series"]) == 100  # ty: ignore[invalid-argument-type]
+    assert listed["series_omitted"] == 30
+    assert listed["totals"]["series"] == 130  # ty: ignore[invalid-argument-type]
+    assert listed["totals"]["searched"] == 260  # ty: ignore[invalid-argument-type]
+    few = replace(report, listed=20).to_dict()
+    assert (len(few["series"]), few["series_omitted"]) == (20, 110)  # ty: ignore[invalid-argument-type]
+    assert few["totals"]["series"] == 130  # ty: ignore[invalid-argument-type]
+
+
+def test_a_group_of_missing_values_alone_keeps_no_row() -> None:
+    """A row without a value has no place in the order: a group of nothing else keeps nothing, however many `first`."""
+    frame = _series_frame("daily", _days(dt.date(2020, 1, 1), dt.date(2020, 1, 3))).with_columns(
+        value=pl.lit(None, pl.Float64)
+    )
+    for first in (1, 3):
+        selection = parse_row_selection(sort="value", first=first)
+        assert selection is not None
+        assert selection.apply(frame).is_empty()
+    mixed = pl.concat([frame.head(2), _series_frame("daily", [_utc(2020, 1, 9)])])
+    selection = parse_row_selection(sort="value", first=3)
+    assert selection is not None
+    assert selection.apply(mixed).get_column("value").to_list() == [1.0]
+
+
+def test_filtered_results_keep_no_report_of_rows_they_do_not_hold() -> None:
+    """`filtered_by_date` and `filtered_by_sql` leave the rows that a report counted: the new result has none."""
+    request = DwdObservationRequest(parameters=[TMIN], start="2018-01-01", end="2020-12-31")
+    got = request.all().values().all(sort="value", first=1)
+    assert got.search is not None
+    assert got.filtered_by_date("2019").search is None
+    assert got.filtered_by_date("2019").df.height <= got.df.height
+
+
+def test_the_groups_that_span_stations_are_chosen_again_when_what_is_held_doubles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The work is of the order of the rows read: the held rows are chosen again at doubling heights."""
+    serve(monkeypatch, 40)
+    seen: list[int] = []
+    finish = RowSelection.finish
+
+    def watching(self: RowSelection, frames: Any, schema: Any = None) -> pl.DataFrame:  # noqa: ANN401
+        seen.append(sum(frame.height for frame in frames))
+        return finish(self, frames, schema)
+
+    monkeypatch.setattr(RowSelection, "finish", watching)
+    monkeypatch.setattr(TimeseriesValues, "_COMPACT_CELLS", 300)
+    request = DwdObservationRequest(parameters=[TMIN], start="2018-01-01", end="2020-12-31")
+    got = request.all().values().all(sort="-value", first=1, by="year")
+    # one choice at the end and a few on the way (the held rows reach 300 and then twice what was left), not forty
+    assert 2 <= len(seen) <= 10, seen
+    assert max(seen[:-1]) < 2000
+    assert got.search is not None
+    expected = request.all().values().all().selected_rows(sort="-value", first=1, by="year")
+    assert _got(got.df) == _got(expected.df)
+
+
+def test_many_stations_cut_to_max_rows_never_hold_more_than_a_few_times_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each station keeps up to `max_rows` rows; the held rows are cut to the first of the answer when they double."""
+    serve(monkeypatch, 60)
+    seen: list[int] = []
+    finish = RowSelection.finish
+
+    def watching(self: RowSelection, frames: Any, schema: Any = None) -> pl.DataFrame:  # noqa: ANN401
+        seen.append(sum(frame.height for frame in frames))
+        return finish(self, frames, schema)
+
+    monkeypatch.setattr(RowSelection, "finish", watching)
+    request = DwdObservationRequest(parameters=[TMIN], start="2018-01-01", end="2020-12-31")
+    got = request.all().values().all(sort="-value", first=1000, by="station_id,month", max_rows=100)
+    assert max(seen) <= 4 * 100, seen
+    expected = (
+        request.all().values().all().selected_rows(sort="-value", first=1000, by="station_id,month", max_rows=100)
+    )
+    assert _got(got.df) == _got(expected.df)

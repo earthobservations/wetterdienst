@@ -520,6 +520,20 @@ limits_opt = click.option(
 )
 
 
+def _given_once(ctx: click.Context, param: click.Parameter, value: tuple[str, ...]) -> str | None:
+    """Read an option of the row options that is given once: twice is refused, where click would keep the last."""
+    if len(value) > 1:
+        name = param.opts[0]
+        hint = (
+            "join the conditions with a comma: --filter='value<=-20,month=12'"
+            if name == "--filter"
+            else f"give one value of {name}, columns joined by commas"
+        )
+        msg = f"{name} is given {len(value)} times and a command takes it once: {hint}."
+        raise click.UsageError(msg, ctx)
+    return value[0] if value else None
+
+
 def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
     """Add `--filter`, `--sort`, `--first` and `--by` to a command: the rows of the answer (GH-4411)."""
     options = (
@@ -527,6 +541,8 @@ def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
             "--filter",
             "filter_",
             type=click.STRING,
+            multiple=True,
+            callback=_given_once,
             help=(
                 "Keep only the rows that meet every condition, joined by commas: column, operator, number. Columns: "
                 "value, year, month, day, hour (UTC; a daily value's own date). Operators: = != < <= > >=; a list a|b "
@@ -537,6 +553,8 @@ def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
         click.option(
             "--sort",
             type=click.STRING,
+            multiple=True,
+            callback=_given_once,
             help=(
                 "Order of the answer: columns joined by commas, - before one for descending. Columns: value, "
                 "timestamp, year, month, day, hour, station_id. Example: --sort=-value (highest first)"
@@ -547,15 +565,17 @@ def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
             type=click.INT,
             help=(
                 "Return only the first N rows of each group in the --sort order, the ties of the last one included "
-                "(needs --sort). --sort=value --first=1 is the lowest value ever measured at each station. The whole "
-                "record is read, and metadata.search says how much was searched."
+                "(needs --sort). --sort=value --first=1 is the lowest value of each station in the --timestamp "
+                "window. The whole window is read, and metadata.search says from when to when."
             ),
         ),
         click.option(
             "--by",
             type=click.STRING,
+            multiple=True,
+            callback=_given_once,
             help=(
-                "The groups --first counts in: station_id (the default), year, month, day, hour, timestamp, joined "
+                "The groups --first counts in: station_id (the default), year, month, day, hour, joined "
                 "by commas, or none for all stations together; a parameter is always its own group (needs --first)"
             ),
         ),

@@ -2360,7 +2360,7 @@
           "Values"
         ],
         "summary": "Values",
-        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nTo find a record or a rare value, have the server choose the rows instead of reading the series:\n`sort=value&first=1` is the lowest value ever measured at each station (`sort=-value` the highest),\n`filter=value<=-20,month=12` the readings below -20 in a December. An extreme can be a faulty reading: read its\n`quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows (every dry day\nis 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when and how many\nvalues were searched, so that a record the data lacks is told from one not looked for.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
+        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nTo find a record or a rare value, have the server choose the rows instead of reading the series:\n`sort=value&first=1` is the lowest value of each station in the window (`sort=-value` the highest),\n`filter=value<=-20,month=12` the readings at or below -20 in a December. An extreme can be a faulty reading:\nread its `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows\n(every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when\nand how many values were searched, so that a record the data lacks is told from one not looked for.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
         "operationId": "values_api_values_get",
         "parameters": [
           {
@@ -3398,10 +3398,10 @@
                   "type": "null"
                 }
               ],
-              "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, `timestamp`, joined by commas, or `none` for all stations together; a parameter is always its own group. Needs `first`. Example: `station_id,year`.",
+              "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, joined by commas, or `none` for all stations together; a parameter is always its own group. Needs `first`. Example: `station_id,year`.",
               "title": "By"
             },
-            "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, `timestamp`, joined by commas, or `none` for all stations together; a parameter is always its own group. Needs `first`. Example: `station_id,year`."
+            "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, joined by commas, or `none` for all stations together; a parameter is always its own group. Needs `first`. Example: `station_id,year`."
           },
           {
             "name": "max_rows",
@@ -7450,7 +7450,7 @@
                 "type": "null"
               }
             ],
-            "description": "What `filter`, `sort`, `first` and `by` searched, per station and parameter: present with one of them, also where no row matched. Never in a streamed answer's first line, which goes out before the search is done: NDJSON carries it in the `end` line, CSV its totals in headers."
+            "description": "What `filter`, `sort`, `first`, `by` and `max_rows` searched, per station and parameter: present with one of them, also where no row matched. A streamed answer that chooses its rows station by station (a `filter` alone) has it in the `end` line of NDJSON and not in the first, which goes out before the search is done; one that chooses before it begins (`sort`, `first`) has it in the first line. A CSV has the totals of `searched`, `expected` and `matched` in headers where the rows were chosen before it began."
           },
           "parameters": {
             "anyOf": [
@@ -7564,7 +7564,7 @@
           "totals"
         ],
         "title": "Search",
-        "description": "What the row options (`filter`, `sort`, `first`, `by`) looked at, so that a reader knows the search was complete.\n\nGiven where the request has one of them. Counted before the options choose: per station and parameter from when\nto when (`first`, `last`) it was searched, how many `searched` values that is, of the `expected`, and the `matched`\nrows that are in the answer. The `warnings` of the block say what else was left out (a file skipped, a source that\nfell back to another, an answer cut to fit a tool); an empty answer reports as well."
+        "description": "What the row options looked at, so that a reader knows whether the search was complete.\n\nThe options are `filter`, `sort`, `first`, `by` and `max_rows`; given where the request has one of them. Counted\nbefore the options choose: per station and parameter from when\nto when (`first`, `last`) it was searched, how many `searched` values that is, of the `expected`, the `matched` rows\nthe options chose and the `returned` rows that are in the answer (`max_rows` may return fewer than matched). The\n`warnings` of the block say what else was left out (a file skipped, a source that fell back to another, rows cut by\n`max_rows` as `rows-capped`, an answer cut to fit a tool); an empty answer reports as well."
       },
       "SearchOptions": {
         "properties": {
@@ -7643,6 +7643,23 @@
       },
       "SearchTotals": {
         "properties": {
+          "stations_read": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stations Read",
+            "description": "How many stations the walk read, those with no value in the window included; null for a result that did not walk (`selected_rows`). `stations_with_values` of them have a series."
+          },
+          "stations_with_values": {
+            "type": "integer",
+            "title": "Stations With Values",
+            "description": "How many stations have at least one series (one value)."
+          },
           "series": {
             "type": "integer",
             "title": "Series",
@@ -7680,17 +7697,19 @@
           "matched": {
             "type": "integer",
             "title": "Matched",
-            "description": "The rows the options chose of the values searched, before `max_rows` cut them."
+            "description": "The rows the options chose of the values searched, before `max_rows` cut them: the rows of the frame, so in the wide shape a row counts once, not once for each parameter."
           },
           "returned": {
             "type": "integer",
             "title": "Returned",
-            "description": "The rows of the answer: `matched`, or fewer where `max_rows` cut the answer."
+            "description": "The rows of the answer, as `counts.rows` has them: `matched`, or fewer where `max_rows` cut the answer."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "stations_read",
+          "stations_with_values",
           "series",
           "searched",
           "expected",
@@ -7742,6 +7761,18 @@
           "station_id": {
             "type": "string",
             "title": "Station Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "The name of the station, null where the provider has none."
           },
           "resolution": {
             "type": "string",
@@ -7795,7 +7826,7 @@
               }
             ],
             "title": "Expected",
-            "description": "The values the request covers, in the steps of the resolution (calendar months and years for the monthly and annual): with a `timestamp` window from its start to its end or to the last complete reading, whichever is earlier, so that a window that begins before `first`, a series that ended before the window does and a year that is not over are incomplete; without one from `first` to `last`. `expected` minus `searched` is what is missing. Null where the resolution has no fixed step."
+            "description": "The values the request covers, in the steps of the resolution (calendar months and years for the monthly and annual): with a `timestamp` window from its start to its end or to the last complete reading, whichever is earlier, so that a window that begins before `first`, a series that ended before the window does and a year that is not over are incomplete; without one from `first` to `last`. `expected` minus `searched` is what is missing. Null where the resolution has no fixed step, for a forecast, and where the usual step of the series is coarser than its resolution's (a value every 12 hours in an hourly dataset)."
           },
           "gaps": {
             "anyOf": [
@@ -7807,12 +7838,12 @@
               }
             ],
             "title": "Gaps",
-            "description": "The values the series lacks between `first` and `last`, whatever the window says: null where the resolution has no fixed step."
+            "description": "The values the series lacks between `first` and `last`, whatever the window says: null where the resolution has no fixed step, for a forecast, and where the usual step of the series is coarser than its resolution's."
           },
           "matched": {
             "type": "integer",
             "title": "Matched",
-            "description": "The rows the options chose from this station and parameter."
+            "description": "The rows the options chose from this station and parameter (in the wide shape the rows of its station and resolution, which hold every parameter)."
           },
           "returned": {
             "type": "integer",
@@ -7824,6 +7855,7 @@
         "type": "object",
         "required": [
           "station_id",
+          "name",
           "resolution",
           "dataset",
           "parameter",

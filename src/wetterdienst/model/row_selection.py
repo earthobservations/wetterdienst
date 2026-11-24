@@ -33,13 +33,13 @@ from __future__ import annotations
 
 import datetime as dt
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Final, Literal, TypedDict
 
 from wetterdienst.exceptions import RequestError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     import polars as pl
 
@@ -63,13 +63,18 @@ MAX_FIRST: Final = 10_000
 MAX_MAX_ROWS: Final = 10_000
 #: the series a report names one by one (`Searched.to_dict`); the totals count all of them
 MAX_REPORTED_SERIES: Final = 100
+#: the same in the answer of an MCP tool, whose answer is held to a budget the report would otherwise take (100 stations
+#: are 28,000 characters of 40,000)
+MAX_TOOL_SERIES: Final = 20
 
 #: the columns a condition of `filter` may name; the calendar parts are those of the `timestamp` in UTC
 FILTER_COLUMNS: Final = ("value", "year", "month", "day", "hour")
 #: the columns `sort` may name
 SORT_COLUMNS: Final = ("value", "timestamp", "year", "month", "day", "hour", "station_id")
-#: the columns `by` may name, besides `none`: the group is always one series (resolution, dataset, parameter) as well
-BY_COLUMNS: Final = ("station_id", "timestamp", "year", "month", "day", "hour")
+#: the columns `by` may name, besides `none`: the group is always one series (resolution, dataset, parameter) as well.
+#: Not `timestamp`: a group of one instant over many stations has no bound but the rows read, and the calendar parts
+#: do the same for the groups that mean something (a year, a month, a day)
+BY_COLUMNS: Final = ("station_id", "year", "month", "day", "hour")
 #: the group `first` counts in when `by` is not given
 DEFAULT_BY: Final = ("station_id",)
 
@@ -115,6 +120,9 @@ _COLUMN_HINTS: Final = {
     "time": "use `hour` for the hour of the day, or `timestamp` for the window of the request",
     "timestamp": "the window is the `timestamp` option of the request; use `year`, `month`, `day` or `hour` here",
     "top": "`top` is the northern edge of a bounding box; the first rows of a group are `first`",
+    "by:timestamp": (
+        "a group of one instant is a row: use `year`, `month`, `day` or `hour`, or `none` for all stations together"
+    ),
     "quality": "quality flags are not available in the row options yet",
     "quality_flags": "quality flags are not available in the row options yet",
     "flags": "quality flags are not available in the row options yet",
@@ -252,6 +260,9 @@ class Condition:
 
 
 def _number_text(number: float) -> str:
+    """Write a number as the parser reads it: a whole one without a point (`-20`), another as its shortest text."""
+    if isinstance(number, float) and number.is_integer() and abs(number) < 1e15:
+        return str(int(number))
     return str(number) if isinstance(number, int) else repr(number)
 
 
@@ -327,7 +338,7 @@ class _Scanner:
 def _unknown_column(
     scanner: _Scanner, word: str, allowed: Sequence[str], start: int, example: str
 ) -> RowSelectionError:
-    hint = _COLUMN_HINTS.get(word.lower())
+    hint = _COLUMN_HINTS.get(f"{scanner.option}:{word.lower()}") or _COLUMN_HINTS.get(word.lower())
     return scanner.fail(
         f"`{word}` is not a column of this option" if word else "no column",
         expected=f"one of {', '.join(allowed)}",
@@ -874,22 +885,54 @@ class Searched:
     and last value, UTC), `matched` (the rows the options chose from it) and `returned` (the rows of the answer from it,
     fewer than `matched` where `max_rows` cut the answer). `window` is the window of the request, `selection` what was
     asked.
+
+    The rows of the answer are counted as the frame has them: `matched_rows` and `returned_rows` are heights, which in
+    the long shape are the sums of the series, and in the wide shape are not (a wide row holds every parameter of its
+    resolution, so the sum over the series counts it once for each). `stations_read` is how many stations the walk read,
+    those that had no value included, which the series of a station without one cannot say.
     """
 
     series: pl.DataFrame
     selection: RowSelection
     window: tuple[dt.datetime | None, dt.datetime | None] = (None, None)
-    #: the rows of the answer, which `matched` counts
+    #: the rows of the answer
     rows: int = field(default=0)
+    #: the rows the options chose, and the rows returned, as frames hold them; None where a count was not made
+    matched_rows: int | None = None
+    returned_rows: int | None = None
+    #: the stations the walk read; None where the report was made from a result that did not walk
+    stations_read: int | None = None
+    #: how many series `to_dict` lists: a tool lists fewer, so that the report does not take its budget
+    listed: int = MAX_REPORTED_SERIES
+
+    @property
+    def matched_total(self) -> int:
+        """Give the rows that matched, as the frame counts them, else as the series add up."""
+        if self.matched_rows is not None:
+            return self.matched_rows
+        return int(self.series.get_column("matched").sum())
+
+    @property
+    def returned_total(self) -> int:
+        """Give the rows returned, as the frame counts them, else as the series add up."""
+        if self.returned_rows is not None:
+            return self.returned_rows
+        return int(self.series.get_column("returned").sum())
 
     @classmethod
-    def nothing(cls, selection: RowSelection, window: tuple[dt.datetime | None, dt.datetime | None]) -> Searched:
+    def nothing(
+        cls,
+        selection: RowSelection,
+        window: tuple[dt.datetime | None, dt.datetime | None],
+        stations_read: int | None = None,
+    ) -> Searched:
         """Give the report of a search that found no station with values: no series, the options and the window."""
         import polars as pl  # noqa: PLC0415
 
         series = pl.DataFrame(
             schema={
                 "station_id": pl.String,
+                "name": pl.String,
                 "resolution": pl.String,
                 "dataset": pl.String,
                 "parameter": pl.String,
@@ -902,7 +945,14 @@ class Searched:
                 "returned": pl.UInt32,
             }
         )
-        return cls(series=series, selection=selection, window=window)
+        return cls(
+            series=series,
+            selection=selection,
+            window=window,
+            matched_rows=0,
+            returned_rows=0,
+            stations_read=stations_read,
+        )
 
     def with_matched(self, frame: pl.DataFrame) -> Searched:
         """Count the rows of `frame`, the answer, per station and series, and give the report with them."""
@@ -914,21 +964,23 @@ class Searched:
             matched = series.with_columns(pl.lit(0, pl.UInt32).alias("matched"))
         elif "parameter" in frame.columns:
             counts = frame.group_by(keys).agg(pl.len().alias("matched"))
-            matched = series.join(counts, on=keys, how="left", nulls_equal=True).with_columns(
+            matched = series.join(counts, on=keys, how="left", nulls_equal=True, maintain_order="left").with_columns(
                 pl.col("matched").fill_null(0)
             )
         else:
             # a wide row holds the parameters of its resolution (and its dataset, null where it merged several)
             counts = frame.group_by("station_id", "resolution", "dataset").agg(pl.len().alias("matched"))
-            exact = series.join(counts, on=["station_id", "resolution", "dataset"], how="left", nulls_equal=True)
+            exact = series.join(
+                counts, on=["station_id", "resolution", "dataset"], how="left", nulls_equal=True, maintain_order="left"
+            )
             merged = counts.filter(pl.col("dataset").is_null()).drop("dataset").rename({"matched": "merged"})
             matched = (
-                exact.join(merged, on=["station_id", "resolution"], how="left")
+                exact.join(merged, on=["station_id", "resolution"], how="left", maintain_order="left")
                 .with_columns(pl.coalesce("matched", "merged").fill_null(0).alias("matched"))
                 .drop("merged")
             )
         matched = matched.with_columns(pl.col("matched").alias("returned"))
-        return Searched(series=matched, selection=self.selection, window=self.window, rows=frame.height)
+        return replace(self, series=matched, rows=frame.height, matched_rows=frame.height, returned_rows=frame.height)
 
     def with_returned(self, frame: pl.DataFrame) -> Searched:
         """Count the rows of `frame`, the answer as it is returned, per station and series, beside those that matched.
@@ -937,7 +989,7 @@ class Searched:
         """
         counted = self.with_matched(frame).series
         series = self.series.with_columns(counted.get_column("matched").alias("returned"))
-        return Searched(series=series, selection=self.selection, window=self.window, rows=frame.height)
+        return replace(self, series=series, rows=frame.height, returned_rows=frame.height)
 
     def warn_if_capped(self) -> None:
         """Tell, as a warning of the answer being served, that `max_rows` cut it: how many of how many matched rows.
@@ -949,8 +1001,7 @@ class Searched:
 
         from wetterdienst.util.response_warnings import ROWS_CAPPED, warn_response  # noqa: PLC0415
 
-        matched = int(self.series.get_column("matched").sum())
-        returned = int(self.series.get_column("returned").sum())
+        matched, returned = self.matched_total, self.returned_total
         if returned < matched:
             warn_response(
                 logging.getLogger(__name__),
@@ -969,7 +1020,7 @@ class Searched:
         from wetterdienst.util.datetime import format_timestamp  # noqa: PLC0415
 
         series = self.series
-        shown = series.head(MAX_REPORTED_SERIES)
+        shown = series.head(self.listed)
 
         def stamp(value: dt.datetime | None) -> str | None:
             return format_timestamp(value) if value is not None else None
@@ -985,6 +1036,7 @@ class Searched:
             "series": [
                 {
                     "station_id": row["station_id"],
+                    "name": row["name"],
                     "resolution": row["resolution"],
                     "dataset": row["dataset"],
                     "parameter": row["parameter"],
@@ -998,14 +1050,16 @@ class Searched:
                 }
                 for row in shown.iter_rows(named=True)
             ],
-            "series_omitted": max(0, series.height - MAX_REPORTED_SERIES),
+            "series_omitted": max(0, series.height - self.listed),
             "totals": {
+                "stations_read": self.stations_read,
+                "stations_with_values": series.get_column("station_id").n_unique(),
                 "series": series.height,
                 "searched": int(series.get_column("searched").sum()),
                 "expected": total("expected"),
                 "gaps": total("gaps"),
-                "matched": int(series.get_column("matched").sum()),
-                "returned": int(series.get_column("returned").sum()),
+                "matched": self.matched_total,
+                "returned": self.returned_total,
             },
         }
 
@@ -1033,25 +1087,59 @@ def latest_complete(resolution: Resolution, now: dt.datetime) -> dt.datetime | N
     return now - (now - epoch) % step - step
 
 
+def station_names(stations: pl.DataFrame) -> dict[str, str | None]:
+    """Give the name of each station of a stations frame by its id, for the report; none where the frame has none."""
+    if "name" not in stations.columns or "station_id" not in stations.columns:
+        return {}
+    rows = stations.select("station_id", "name").unique(subset="station_id", keep="first", maintain_order=True)
+    return dict(rows.iter_rows())
+
+
+def wide_value_columns(frame: pl.DataFrame) -> list[str]:
+    """Name the columns of a wide frame that hold a parameter's values: not the keys, not the columns of the flags."""
+    keys = {"station_id", "resolution", "dataset", "timestamp"}
+    return [c for c in frame.columns if c not in keys and not c.endswith("_quality_flags")]
+
+
+def _usual_step(resolution: Resolution) -> dt.timedelta | None:
+    """Give how far apart the readings of a resolution usually are, for the comparison with a series' own step."""
+    from wetterdienst.metadata.resolution import Resolution, reading_step  # noqa: PLC0415
+
+    if resolution == Resolution.MONTHLY:
+        return dt.timedelta(days=30)
+    if resolution == Resolution.ANNUAL:
+        return dt.timedelta(days=365)
+    return reading_step(resolution)
+
+
 def searched_of(
     frame: pl.DataFrame,
     window: tuple[dt.datetime | None, dt.datetime | None] = (None, None),
     now: dt.datetime | None = None,
+    *,
+    names: Mapping[str, str | None] | None = None,
+    forecast: bool = False,
 ) -> pl.DataFrame:
-    """Count what a long frame of values holds per station and series, before any selection: the report's raw rows.
+    """Count what a frame of values holds per station and series, before any selection: the report's raw rows.
 
-    `searched` counts the readings with a value; `first` and `last` are the stamps of the first and the last of them.
-    `expected` is what the request covers, counted in the steps of the resolution (calendar months and years for the
-    monthly and annual data), null where the resolution has none or more readings were found than the step allows (a
-    source with a finer step than its resolution says):
+    The frame is long (a row a value) or wide (a column a parameter, whose `parameter` is then the name of the column).
+    `searched` counts the readings with a value; `first` and `last` are the stamps of the first and the last of them;
+    `name` is the station's, from `names`. `expected` is what the request covers, counted in the steps of the
+    resolution (calendar months and years for the monthly and annual data), null where the resolution has none or more
+    readings were found than the step allows (a source with a finer step than its resolution says):
 
     - with a window, from its start to its end or to the last complete reading at `now`, whichever is earlier, so that
       a window that begins before the data, a series that ended before the window does, and a year that is not over
       are incomplete, as they are; never narrower than the values found. A window that begins after the last complete
-      reading (a forecast's) has no past to be missing: the span of the values is counted;
+      reading (a forecast's) has no past to be missing: the span of the values is counted. A series with no value is
+      counted over the window too, so that it reads as all missing;
     - without one, from the first value to the last.
 
     `gaps` is what the series lacks inside its own span, from its first value to its last, whatever the window says.
+
+    Both are null for a `forecast` and where the series' usual step is coarser than its resolution's (a maximum of the
+    last 12 hours in an hourly dataset has a value every 12 hours, so 11 of 12 hours are no gap): they would count
+    readings the source never meant to have.
     """
     import polars as pl  # noqa: PLC0415
 
@@ -1059,34 +1147,75 @@ def searched_of(
 
     now = now or dt.datetime.now(dt.UTC)
     keys = ["station_id", "resolution", "dataset", "parameter"]
-    valued = pl.col("value").is_not_null()
-    grouped = frame.group_by(keys, maintain_order=True).agg(
-        valued.sum().alias("searched"),
-        pl.col("timestamp").filter(valued).min().alias("first"),
-        pl.col("timestamp").filter(valued).max().alias("last"),
-    )
+    if "parameter" in frame.columns:
+        valued = pl.col("value").is_not_null()
+        grouped = frame.group_by(keys, maintain_order=True).agg(
+            valued.sum().alias("searched"),
+            pl.col("timestamp").filter(valued).min().alias("first"),
+            pl.col("timestamp").filter(valued).max().alias("last"),
+            pl.col("timestamp").filter(valued).sort().diff().median().alias("usual"),
+        )
+    else:
+        parts = [
+            frame.group_by(keys[:3], maintain_order=True)
+            .agg(
+                pl.col(column).is_not_null().sum().alias("searched"),
+                pl.col("timestamp").filter(pl.col(column).is_not_null()).min().alias("first"),
+                pl.col("timestamp").filter(pl.col(column).is_not_null()).max().alias("last"),
+                pl.col("timestamp").filter(pl.col(column).is_not_null()).sort().diff().median().alias("usual"),
+            )
+            .with_columns(pl.lit(column).alias("parameter"))
+            for column in wide_value_columns(frame)
+        ]
+        grouped = (
+            pl.concat(parts).select([*keys, "searched", "first", "last", "usual"])
+            if parts
+            else pl.DataFrame(
+                schema={
+                    **dict.fromkeys(keys, pl.String),
+                    "searched": pl.UInt32,
+                    "first": pl.Datetime("us", "UTC"),
+                    "last": pl.Datetime("us", "UTC"),
+                    "usual": pl.Duration("us"),
+                }
+            )
+        )
     known = {resolution.value for resolution in Resolution}
     start, end = window
     expected: list[int | None] = []
     gaps: list[int | None] = []
     for row in grouped.iter_rows(named=True):
         span = covered = None
-        if row["first"] is not None and row["resolution"] in known:
+        if row["resolution"] in known and not forecast:
             resolution = Resolution(row["resolution"])
-            span = count_readings(resolution, row["first"], row["last"])
-            covered = span
+            nominal = _usual_step(resolution)
+            coarser = row["usual"] is not None and nominal is not None and row["usual"] > nominal * 1.5
             latest = latest_complete(resolution, now)
-            if start is not None and latest is not None and start <= latest:
-                until = min(end or latest, latest)
-                covered = count_readings(resolution, min(start, row["first"]), max(until, row["last"]))
+            has_window = start is not None and latest is not None and start <= latest
+            if coarser:
+                pass
+            elif row["first"] is not None:
+                span = count_readings(resolution, row["first"], row["last"])
+                covered = span
+                if has_window:
+                    until = min(end or latest, latest)
+                    covered = count_readings(resolution, min(start, row["first"]), max(until, row["last"]))
+            elif has_window:
+                covered = count_readings(resolution, start, min(end or latest, latest))
             if span is not None and row["searched"] > span:
                 span = covered = None
             if covered is not None and row["searched"] > covered:
                 covered = None
         expected.append(covered)
         gaps.append(None if span is None else span - row["searched"])
+    name = (
+        pl.col("station_id").replace_strict(dict(names), default=None, return_dtype=pl.String)
+        if names
+        else pl.lit(None, pl.String)
+    )
     return grouped.with_columns(
+        name.alias("name"),
         pl.Series("expected", expected, dtype=pl.UInt32),
         pl.Series("gaps", gaps, dtype=pl.UInt32),
         pl.col("searched").cast(pl.UInt32),
-    ).select([*keys, "searched", "expected", "gaps", "first", "last"])
+    ).select(["station_id", "name", *keys[1:], "searched", "expected", "gaps", "first", "last"])

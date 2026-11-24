@@ -406,7 +406,7 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
 # `ui.budget.ANSWER_BUDGET` characters.
 _VALUES_WINDOW_ADVICE = (
     "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv with "
-    "shape=wide (not with a `value` filter)."
+    "shape=wide (not with `value` in `filter` or `sort`)."
 )
 
 # The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same
@@ -607,6 +607,9 @@ _REPORTING_HEADERS = (
     "x-wetterdienst-warnings",
     "x-wetterdienst-truncated",
     "x-wetterdienst-forecast-from-now",
+    "x-wetterdienst-values-searched",
+    "x-wetterdienst-values-expected",
+    "x-wetterdienst-rows-matched",
 )
 # The media types that are text though they are not `text/*`.
 _TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
@@ -677,7 +680,7 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
     return CarryBodiesAsJson()
 
 
-def _report_of(headers: dict[str, str]) -> dict[str, Any]:
+def _report_of(headers: dict[str, str]) -> dict[str, Any]:  # noqa: C901
     """Read the licence, credit line, processing note and warnings off the headers of an answer, as text."""
     report: dict[str, Any] = {}
     if license_ := headers.get("x-wetterdienst-license"):
@@ -694,6 +697,13 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:
         report["truncated"] = unquote(truncated)
     if started := headers.get("x-wetterdienst-forecast-from-now"):
         report["forecast_from_now"] = unquote(started)
+    # what the row options searched, which a CSV has no block to carry (`metadata.search` of the JSON answers)
+    if searched := headers.get("x-wetterdienst-values-searched"):
+        report["values_searched"] = searched
+        if expected := headers.get("x-wetterdienst-values-expected"):
+            report["values_expected"] = expected
+        if matched := headers.get("x-wetterdienst-rows-matched"):
+            report["rows_matched"] = matched
     return report
 
 
@@ -722,6 +732,12 @@ def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], 
         sentence += f" Truncated: {report['truncated']}"
     if "forecast_from_now" in report:
         sentence += f" Forecast: {report['forecast_from_now']}"
+    if "values_searched" in report:
+        of = f" of {report['values_expected']} expected" if "values_expected" in report else ""
+        sentence += (
+            f" Searched: {report['values_searched']} values{of}; {report.get('rows_matched', '?')} rows matched "
+            "the options."
+        )
     return sentence
 
 

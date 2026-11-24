@@ -132,7 +132,7 @@ def check_stations_in_reach(count: int, limits: Limits, *, distance: str) -> Non
         raise error
 
 
-def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
+def check_rows(rows: int, limits: Limits, *, streamed: bool, holds: bool = False) -> None:
     """Refuse an answer of more rows than the limit of its kind, saying what to change.
 
     An answer sent as one body that would fit a stream is told to stream. An MCP tool is told the three ways that
@@ -153,25 +153,31 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
             if streamable
             else f"{narrow}."
         )
+        if holds:
+            # a `sort` holds every row it reads, in a stream too: the way out is to choose fewer rows from the record
+            advice = f"{narrow}, add `first` to choose rows from the whole record, or drop `sort`."
     head = f"This request would return about {rows:,} rows, more than the {maximum:,} {what}."
     error = _refuse(name, maximum, rows, f"{head} {advice}", tool_message=f"{head} {narrow}.")
     raise error
 
 
-def check_chosen_rows(rows: int, limits: Limits, *, at_least: bool = False) -> None:
+def check_chosen_rows(rows: int, limits: Limits, *, so_far: bool = False) -> None:
     """Refuse an answer whose rows chosen by `first` are more than the limit of one body, saying what to change.
 
     A request with `first` reads under the stream limit whatever its format, so that a record can be searched, and the
     rows it chooses are held before they are sent, so they are held to `rows`, the limit of an answer sent as one
     body, in every format. They are known only as the values are read, so this is told then, and names what makes them
-    fewer. `at_least` is for a walk stopped at the limit: the rows are those chosen until then.
+    fewer. `so_far` is for a walk stopped at the limit: the rows are those held when it was stopped.
     """
     maximum = limits.max_rows
     if not maximum or rows <= maximum:
         return
-    count = f"at least {rows:,}" if at_least else f"{rows:,}"
-    head = f"The options chose {count} rows, more than the {maximum:,} this server holds and sends as one answer."
-    message = f"{head} Ask for a smaller `first`, add a `filter`, or name fewer parameters and stations."
+    count = f"{rows:,} rows so far" if so_far else f"{rows:,} rows"
+    head = f"The options chose {count}, more than the {maximum:,} this server holds and sends as one answer."
+    message = (
+        f"{head} Ask for a smaller `first`, add a `filter`, name fewer parameters and stations, or, where rows tie "
+        "over many stations, add `timestamp` to `sort` to tell them apart."
+    )
     error = _refuse("rows", maximum, rows, message)
     raise error
 
@@ -250,8 +256,12 @@ def _utc(value: dt.datetime) -> dt.datetime:
     return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
-def estimate_rows(stations: StationsResult) -> int:
-    """Estimate, as an upper bound, the rows `values` returns for the stations selected, see this module's docstring."""
+def estimate_rows(stations: StationsResult, *, cells: bool = False) -> int:
+    """Estimate, as an upper bound, the rows `values` returns for the stations selected, see this module's docstring.
+
+    `cells` counts a reading of every parameter, as the long shape has them, in the wide shape too: the memory of a wide
+    frame is its cells, which a request that chooses rows from the whole record holds.
+    """
     df = stations.df
     if df.is_empty() or not stations.parameters:
         return 0
@@ -263,7 +273,7 @@ def estimate_rows(stations: StationsResult) -> int:
     for parameter in stations.parameters:
         key = (parameter.dataset.resolution.name, parameter.dataset.name.lower())
         parameters_of.setdefault(key, []).append(parameter)
-    tidy = stations.options.tidy
+    tidy = stations.options.tidy or cells
     window_start = _utc(stations.start) if stations.start else None
     window_end = _utc(stations.end) if stations.end else None
     request = stations.request

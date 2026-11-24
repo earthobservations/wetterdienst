@@ -1124,7 +1124,7 @@ A request that asks for more than the [limits](#limits) allow is refused;
 ## Choose the rows
 
 A long series does not fit an answer: a station's daily minimum is megabytes, a tool's answer is 40,000 characters,
-and "the lowest temperature ever measured in Hamburg" is one number in them. `filter`, `sort`, `first`, `by` and `max_rows` of
+and "the lowest temperature in Hamburg" is one number in them. `filter`, `sort`, `first`, `by` and `max_rows` of
 `values` have the server choose the rows instead: it reads the whole series, as the same request without them does, and
 sends the rows the options name, with a report of what it looked at. They are the same on the REST API, the MCP
 `values` tool, the command line (`--filter`, `--sort`, `--first`, `--by`, `--max-rows`) and in Python
@@ -1139,7 +1139,7 @@ sends the rows the options name, with a report of what it looked at. They are th
 | `max_rows` | the most rows of the whole answer, the first of its order: the last step, after the others | `20` |
 
 ```bash
-# The lowest temperature ever measured at a station, and the days it was measured on.
+# The lowest temperature of a station in the window, and the days it was measured on.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==01975 timestamp==1900/2024 sort==value first==1
 
 # The ten hottest days.
@@ -1179,13 +1179,13 @@ max_rows = a whole number from 1 to 10000
 
 | Rule | What it says |
 | --- | --- |
-| Columns | `filter`: `value`, `year`, `month`, `day`, `hour`. `sort`: those, `timestamp` and `station_id`. `by`: `station_id`, `timestamp`, `year`, `month`, `day`, `hour`. A name that is none of them is refused with the allowed ones listed, so that columns can be added later. |
+| Columns | `filter`: `value`, `year`, `month`, `day`, `hour`. `sort`: those, `timestamp` and `station_id`. `by`: `station_id`, `year`, `month`, `day`, `hour`, or `none` (not `timestamp`: a group of one instant is a row). A name that is none of them is refused with the allowed ones listed, so that columns can be added later. |
 | Numbers | `-20`, `0.5`, `1e3`, `2e-3`; no plus sign (a `+` in a URL is a space), no `nan`, `inf`, unit or thousands separator. A calendar column takes a whole number in its range: `month` 1 to 12, `day` 1 to 31, `hour` 0 to 23, `year` 1 to 9999; one outside is refused (`month=0`), not an empty answer. |
 | Lists | `month=12\|1\|2` is true for any of them; `month!=12\|1` for none of them. Only with `=` and `!=`; a range is two conditions: `value>=-20,value<=-10`. |
 | Spaces and case | Spaces and tabs between tokens are ignored; column names and the `e` of an exponent are read in either case. The text is plain ASCII. |
 | Quoting | None is needed, and none is read: `<`, `>` and `\|` are plain characters of the text. A URL may write them as `%3C`, `%3E` and `%7C`; `+` must not stand for a sign. On a shell quote the text: `--filter='value<=-20'`. |
 | The same column twice | Allowed: `value>=-20,value<=-10` is a range. Conditions that cannot all be true (`month=12,month=1`) give an empty answer, not an error. |
-| Caps | The `filter` text 400 characters, 8 conditions, 32 numbers in a list, 24 characters in a number; `sort` and `by` 100 characters; `first` and `max_rows` 10,000. |
+| Caps | The `filter` text 400 characters, 8 conditions, 32 numbers in a list, 24 characters in a number; `sort` and `by` 100 characters; `first` and `max_rows` 10,000. Each option is given once: a second `filter`, `sort` or `by` in a query is a 422 (join conditions with a comma), and on the command line a usage error. |
 
 An error names the option, the position of the character where the text goes wrong, what is found there and what is
 allowed, and says what to write instead. It is a 422 located at the option (the `loc` of the error is the option), a
@@ -1263,14 +1263,15 @@ missing, which the answer says:
 
 ```json
 "search": {
-  "options": {"filter": null, "sort": "value", "first": 1, "by": null},
+  "options": {"filter": null, "sort": "value", "first": 1, "by": null, "max_rows": null},
   "window": {"start": "1951-01-01T00:00:00.000000+00:00", "end": "2006-12-31T23:59:59.999999+00:00"},
-  "series": [{"station_id": "01979", "resolution": "daily", "dataset": "climate_summary",
-              "parameter": "temperature_air_min_2m",
+  "series": [{"station_id": "01979", "name": "Hamburg-Kirchwerder", "resolution": "daily",
+              "dataset": "climate_summary", "parameter": "temperature_air_min_2m",
               "first": "1951-01-01T00:00:00.000000+00:00", "last": "2006-12-31T00:00:00.000000+00:00",
-              "searched": 16285, "expected": 20454, "gaps": 4169, "matched": 1}],
+              "searched": 16285, "expected": 20454, "gaps": 4169, "matched": 1, "returned": 1}],
   "series_omitted": 0,
-  "totals": {"series": 1, "searched": 16285, "expected": 20454, "gaps": 4169, "matched": 1}
+  "totals": {"stations_read": 1, "stations_with_values": 1, "series": 1, "searched": 16285, "expected": 20454,
+             "gaps": 4169, "matched": 1, "returned": 1}
 }
 ```
 
@@ -1278,13 +1279,14 @@ missing, which the answer says:
 | --- | --- |
 | `options` | the options as they were read (`first` and `by` as given, null for one not given) |
 | `window` | the window the request read; where it is null, everything the provider holds for the stations. A provider that needs a window (NOAA GHCN, EA) shows the one that was asked for |
+| `series[].name` | the name of the station, null where the provider has none |
 | `series[].first`, `last` | the timestamps of the first and the last value searched: the period the series was searched over |
 | `series[].searched` | the values searched: readings with a value, after the plausibility checks and the conversion of units, within the window |
-| `series[].expected` | the values the request covers, by the step of its resolution (calendar months and years for monthly and annual data). With a `timestamp` window, from its start to its end or to the last complete reading (yesterday for daily data, the previous hour, month or year), whichever is earlier, and never narrower than the values found; without one, from `first` to `last`. `expected` minus `searched` is what is missing from the request. Null where the resolution has no fixed step |
-| `series[].gaps` | the values the series lacks between its `first` and its `last`, whatever the window says: the holes inside it. Null where the resolution has no fixed step |
+| `series[].expected` | the values the request covers, by the step of its resolution (calendar months and years for monthly and annual data). With a `timestamp` window, from its start to its end or to the last complete reading (yesterday for daily data, the previous hour, month or year), whichever is earlier, and never narrower than the values found; without one, from `first` to `last`. `expected` minus `searched` is what is missing from the request. Null where the resolution has no fixed step, for a forecast, and where the usual step of the series is coarser than its resolution's (a maximum of the last 12 hours in an hourly dataset has a value every 12 hours: no gap) |
+| `series[].gaps` | the values the series lacks between its `first` and its `last`, whatever the window says: the holes inside it. Null where `expected` is |
 | `series[].matched` | the rows the options chose from that station and parameter, before `max_rows` |
 | `series[].returned` | the rows of the answer from that station and parameter: `matched`, or fewer where `max_rows` cut the answer |
-| `totals` | the same summed over all series (`series` is their number); `expected` and `gaps` are null when one series has none |
+| `totals` | the same summed over all series (`series` is their number); `expected` and `gaps` are null when one series has none. `matched` and `returned` are the rows of the answer as its frame counts them (in the wide shape a row counts once, not once for each parameter). `stations_read` is how many stations the walk read, those with no value in the window included, and `stations_with_values` how many of them have a series: a station whose values are all missing is read and has none |
 | `series_omitted` | how many series `totals` counts that `series` does not list: the first 100 are listed |
 
 What `expected` says, by case, with a window of the request:
@@ -1307,20 +1309,34 @@ An extreme can be a faulty reading. The lowest daily flow of the Thames at Kings
 options do not judge a reading; they find it.
 
 The warnings of the block stay and say the rest: a file that was skipped (`file-skipped`), a source that fell back to
-another (`source-fallback`), values that a hard check nulled (`rejected-by-plausibility`), , for an answer that `max_rows` cut `rows-capped`,
+another (`source-fallback`), values that a hard check nulled (`rejected-by-plausibility`), for an answer that `max_rows` cut `rows-capped`,
 and, for a tool's answer, one that was cut to its budget (`answer-truncated`). A station that is read and has no values in the window is not a series. `matched` counts
 the rows chosen before `max_rows`; a tool's answer that is cut to its budget keeps the first rows of it and says how many of how many matched.
 
 ### Limits and streaming
 
-A request with `first` may read up to the limit of a stream (`stream_rows`, 10,000,000 rows estimated), whatever its format,
-so that a long record can be searched: the series is read station by station and only the rows chosen are kept. The
-rows it chooses are held until they are sent, so they are held to the limit of one body (`rows`, 500,000), in every
-format, a stream included, and told once they are known: a walk whose groups stay in a station (the default) is stopped
-the moment it has chosen more, with "at least N rows". A request with `sort` and no `first` holds every row it reads, so
-it is held to `rows` for what it reads. A request with a `filter` alone reads and sends as it did: `rows` for a body,
-`stream_rows` for a stream, which it does not hold. The number of stations and the timeout hold as they do for every
-request. The estimate of rows, and the stations, are those of the request without options.
+A request with `first` may read up to the limit of a stream (`stream_rows`, 10,000,000 rows estimated), whatever its
+format, so that a long record can be searched; in the wide shape that is counted in cells, a reading for each parameter,
+as the memory is. The series is read station by station and only the rows chosen are kept. The rows it chooses are held
+until they are sent, so they are held to the limit of one body (`rows`, 500,000) in every format, a stream included:
+
+- a choice whose groups stay in a station (the default) is the answer as it is read, and the walk is refused the moment
+  it holds more, "N rows so far";
+- with `max_rows` and `sort`, every station keeps up to `max_rows` rows and the held rows are cut to the first
+  `max_rows` of the answer's order whenever they are twice that, so many stations are no refusal;
+- groups that span stations (`by=year`, `by=none`) are chosen again over the rows held when these double what the last
+  time left (not before a million cells, or the limit where that is lower), and refused, "N rows so far", if what
+  remains is above the limit. A tie over many stations (every dry day is 0.0 mm) is such a group: add `timestamp` to
+  `sort` to tell the rows apart, or a calendar column to `by`. A later station can still take rows out of such a group,
+  so the refusal is of an answer that would be very large, not a proof that it is;
+- the rows are checked once more when the answer is whole, as an answer to be sent.
+
+A request with `sort` and no `first` holds every row it reads, so it is held to `rows` for what it reads, and a stream
+does not help it (the refusal says: add `first`, or drop `sort`). A request with a `filter` alone reads and sends as it
+did: `rows` for a body, `stream_rows` for a stream, which it does not hold. The number of stations and the timeout hold
+as they do for every request. A request the timeout ends is a 504, and the walk goes on in its thread until it
+finishes or reaches a limit: the work of such a request is not stopped by the answer. The estimate of rows, and the
+stations, are those of the request without options.
 
 `max_rows` stops what a stream sends at the cap and goes on counting: the stations after it are read, and the `end` line
 has the counts, the `rows-capped` warning and the whole `search`; a CSV has no place for the warning, and its headers

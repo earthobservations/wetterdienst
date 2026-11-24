@@ -57,7 +57,7 @@ answer holds the rows chosen and `metadata.search`, which says how many values w
 `>` or `|` in it, which a shell reads. A text that cannot be read is a usage error (exit 2) that names the position.
 
 ```bash
-# the lowest value ever measured at a station, and the coldest day of every year
+# the lowest value of a station in the window, and the coldest day of every year
 wetterdienst values --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
     --stations=01975 --timestamp=1900/2024 --sort=value --first=1
 wetterdienst values --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \

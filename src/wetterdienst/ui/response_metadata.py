@@ -371,6 +371,11 @@ class SearchTotals(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    stations_read: int | None = Field(
+        description="How many stations the walk read, those with no value in the window included; null for a result "
+        "that did not walk (`selected_rows`). `stations_with_values` of them have a series.",
+    )
+    stations_with_values: int = Field(description="How many stations have at least one series (one value).")
     series: int = Field(description="How many stations and parameters were searched (also those that are not listed).")
     searched: int = Field(description="The values searched in all.")
     expected: int | None = Field(
@@ -380,8 +385,14 @@ class SearchTotals(BaseModel):
     gaps: int | None = Field(
         description="The values the series lack inside their own span, in all; null where one series has none to give.",
     )
-    matched: int = Field(description="The rows the options chose of the values searched, before `max_rows` cut them.")
-    returned: int = Field(description="The rows of the answer: `matched`, or fewer where `max_rows` cut the answer.")
+    matched: int = Field(
+        description="The rows the options chose of the values searched, before `max_rows` cut them: the rows of the "
+        "frame, so in the wide shape a row counts once, not once for each parameter.",
+    )
+    returned: int = Field(
+        description="The rows of the answer, as `counts.rows` has them: `matched`, or fewer where `max_rows` cut the "
+        "answer.",
+    )
 
 
 class SearchedSeries(BaseModel):
@@ -390,6 +401,7 @@ class SearchedSeries(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     station_id: str
+    name: str | None = Field(description="The name of the station, null where the provider has none.")
     resolution: str
     dataset: str
     parameter: str = Field(description="The name the answer's rows have.")
@@ -407,13 +419,18 @@ class SearchedSeries(BaseModel):
         "monthly and annual): with a `timestamp` window from its start to its end or to the last complete reading, "
         "whichever is earlier, so that a window that begins before `first`, a series that ended before the window "
         "does and a year that is not over are incomplete; without one from `first` to `last`. `expected` minus "
-        "`searched` is what is missing. Null where the resolution has no fixed step.",
+        "`searched` is what is missing. Null where the resolution has no fixed step, for a forecast, and where the "
+        "usual step of the series is coarser than its resolution's (a value every 12 hours in an hourly dataset).",
     )
     gaps: int | None = Field(
         description="The values the series lacks between `first` and `last`, whatever the window says: null where the "
-        "resolution has no fixed step.",
+        "resolution has no fixed step, for a forecast, and where the usual step of the series is coarser than its "
+        "resolution's.",
     )
-    matched: int = Field(description="The rows the options chose from this station and parameter.")
+    matched: int = Field(
+        description="The rows the options chose from this station and parameter (in the wide shape the rows of its "
+        "station and resolution, which hold every parameter).",
+    )
     returned: int = Field(
         description="The rows of the answer from this station and parameter: `matched`, or fewer where `max_rows` "
         "cut the answer, which keeps its first rows over all stations and parameters.",
@@ -421,12 +438,14 @@ class SearchedSeries(BaseModel):
 
 
 class Search(BaseModel):
-    """What the row options (`filter`, `sort`, `first`, `by`) looked at, so that a reader knows the search was complete.
+    """What the row options looked at, so that a reader knows whether the search was complete.
 
-    Given where the request has one of them. Counted before the options choose: per station and parameter from when
-    to when (`first`, `last`) it was searched, how many `searched` values that is, of the `expected`, and the `matched`
-    rows that are in the answer. The `warnings` of the block say what else was left out (a file skipped, a source that
-    fell back to another, an answer cut to fit a tool); an empty answer reports as well.
+    The options are `filter`, `sort`, `first`, `by` and `max_rows`; given where the request has one of them. Counted
+    before the options choose: per station and parameter from when
+    to when (`first`, `last`) it was searched, how many `searched` values that is, of the `expected`, the `matched` rows
+    the options chose and the `returned` rows that are in the answer (`max_rows` may return fewer than matched). The
+    `warnings` of the block say what else was left out (a file skipped, a source that fell back to another, rows cut by
+    `max_rows` as `rows-capped`, an answer cut to fit a tool); an empty answer reports as well.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -484,9 +503,11 @@ class ResponseMetadata(BaseModel):
     )
     search: Search | None = Field(
         default=None,
-        description="What `filter`, `sort`, `first` and `by` searched, per station and parameter: present with one of "
-        "them, also where no row matched. Never in a streamed answer's first line, which goes out before the "
-        "search is done: NDJSON carries it in the `end` line, CSV its totals in headers.",
+        description="What `filter`, `sort`, `first`, `by` and `max_rows` searched, per station and parameter: present "
+        "with one of them, also where no row matched. A streamed answer that chooses its rows station by station "
+        "(a `filter` alone) has it in the `end` line of NDJSON and not in the first, which goes out before the "
+        "search is done; one that chooses before it begins (`sort`, `first`) has it in the first line. A CSV has the "
+        "totals of `searched`, `expected` and `matched` in headers where the rows were chosen before it began.",
     )
     parameters: list[ParameterInfo] | None = Field(default=None, description="With `with_metadata` only.")
     quality: Quality | None = Field(default=None, description="With `with_metadata` only.")
