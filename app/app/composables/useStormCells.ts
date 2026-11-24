@@ -24,7 +24,7 @@ export type StormCellsStatus = PolledStatus
 export function useStormCells(active: () => boolean, options: { interval?: number, load?: () => Promise<unknown> } = {}) {
   const polled = usePolledAnswer<StormScan>(active, {
     interval: options.interval ?? REFRESH_MS,
-    load: options.load ?? (() => $fetch('/api/storm-cells', { query: { track: 'false' }, ...API_FETCH })),
+    load: options.load ?? (() => $fetch<unknown>('/api/storm-cells', { query: { track: 'false' }, ...API_FETCH })),
     parse: parseScan,
   })
   // the age is the server's time (`clockSkewMs`), not a device clock that may be wrong

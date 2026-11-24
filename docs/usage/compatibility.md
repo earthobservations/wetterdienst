@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.196.0 until the next release.
+The baselines are those of 0.197.0 until the next release.
 
 ## What counts as breaking
 
@@ -268,7 +268,8 @@ the arguments are the query parameters of its route with the same names, and the
 - An argument a tool does not take is refused with the names of those it takes.
 - The descriptions of the tools and the instructions the server gives are written for agents and are improved without
   a new version.
-- The endpoint is stateless: it creates no session.
+- The endpoint is stateless: it keeps no session. `initialize` returns an `Mcp-Session-Id` that is neither stored nor
+  checked.
 
 The generation from the routes means the baseline check of the OpenAPI document covers the arguments and answers of the
 tools. The 14 names of the tools (`_TOOL_NAMES` in `ui/mcp.py`) are held to the list on the MCP page by

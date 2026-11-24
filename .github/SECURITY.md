@@ -82,7 +82,8 @@ memory, CPU and outbound connections; the cache directory; the browser of an app
 
 1. *Library and CLI.* The caller is the host's own user and is trusted: no limits, `sql` filters ungated, export targets
    (`--target`, `to_target`) used as given. No REST or MCP parameter reaches one (`extra="forbid"` in `ui/core.py`).
-2. *REST API and MCP* (`wetterdienst restapi`; `/mcp` is the same app, stateless, present with the `[mcp]` extra). The
+2. *REST API and MCP* (`wetterdienst restapi`; `/mcp` is the same app, stateless: `initialize` returns an
+   `Mcp-Session-Id` that is neither stored nor checked, and is no credential; present with the `[mcp]` extra). The
    caller is anonymous and untrusted. Every route of `/api` is a `GET`.
 3. *The app* (`app/`). Its Nuxt server proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend at
    `NUXT_API_BASE`; the browser calls its own origin only. It holds no secret.

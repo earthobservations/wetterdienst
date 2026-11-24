@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.196.0"
+version = "0.197.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -229,11 +229,13 @@ radarplus = [
     "xradar>=0.8,<1",
 ]
 restapi = [
-    # >=0.142: ui/restapi.py passes `FastAPI(telemetry=...)`, which 0.142 added
-    "fastapi>=0.142,<1",
+    # >=0.142: ui/restapi.py passes `FastAPI(telemetry=...)`, which 0.142 added; >=0.163.2 for GHSA-f56c-v883-vx8r
+    # (denial of service: quadratic processing of query parameters, which every data route declares; GH-4351)
+    "fastapi>=0.163.2,<1",
     # ui/restapi.py imports starlette.exceptions.HTTPException and registers a handler for it; >=1.3: the first
-    # release whose starlette.testclient takes httpx2 (the project's dev group has httpx2 only, no httpx)
-    "starlette>=1.3,<2",
+    # release whose starlette.testclient takes httpx2 (the project's dev group has httpx2 only, no httpx);
+    # >=1.3.1 for GHSA-82w8-qh3p-5jfq (form limits ignored; no route here reads a form, GH-4351)
+    "starlette>=1.3.1,<2",
     "uvicorn[standard]>=0.30,<1",
 ]
 sql = [
