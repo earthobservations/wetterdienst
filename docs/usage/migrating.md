@@ -403,6 +403,7 @@ to change.
 | `sql`, `sql_values` | a 403 (`sql-disabled`) unless the server runs with `WD_RESTAPI_SQL=true` | 0.140.0, GHSA-rpwr-qmm5-m9wp |
 | `values` for `all=true` on any network, any number of stations | refused with the 400 `limit-exceeded` over 100 stations or over the row limits (500,000 as one body; `format=ndjson` and `csv` stream to 10,000,000). Request fewer stations or a shorter `timestamp`, stream, or raise `WD_RESTAPI_MAX_STATIONS`, `WD_RESTAPI_MAX_ROWS`, `WD_RESTAPI_MAX_STREAM_ROWS` on your own server | 0.158.0, GH-3065 |
 | a chart with a side over 8192 px | a 400 naming the limit (the library and the CLI are not limited) | 0.147.0, GH-2765 (not marked Breaking) |
+| `name` of only whitespace on `/api/alerts` (and the MCP tool `alerts`) answered every warning, the name read as none | **Breaking**: a 422 of type `blank_name` located at `name` (REST), a tool error (MCP); in Python a `RequestError`, on the command line a usage error of `--name`. An empty `name` is still none, and so is no `name`: leave it out to ask for all | unreleased, GH-4354 |
 
 ### Answers and errors
 

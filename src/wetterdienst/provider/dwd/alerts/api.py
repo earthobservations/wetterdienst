@@ -42,7 +42,7 @@ from wetterdienst.provider.dwd.alerts.metadata import (
     DwdWeatherAlertLanguage,
 )
 from wetterdienst.provider.dwd.alerts.parser import parse_cap_alert
-from wetterdienst.provider.dwd.alerts.place import check_point, is_for_place, names_match
+from wetterdienst.provider.dwd.alerts.place import check_name, check_point, is_for_place, names_match
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import check_zip, read_unpacked
@@ -404,7 +404,8 @@ class DwdWeatherAlertRequest:
             longitude: the longitude of the point; it is given with ``latitude``, or not at all.
             name: keep the warnings with an area of this name (the words of it, in any case: ``Kiel`` is ``Stadt
                 Kiel``, not ``Kielstau``) or of this warn cell id (``101002000``, or its 8-digit key ``01002000``). With
-                a point, a warning must be for both.
+                a point, a warning must be for both. An empty name is none; one of only whitespace is a
+                ``RequestError``.
             kwargs: none is taken; ``date``, the old name of ``timestamp`` (GH-2438), is refused
                 with an error naming it.
 
@@ -426,8 +427,9 @@ class DwdWeatherAlertRequest:
         check_point(latitude, longitude)
         self.latitude = latitude
         self.longitude = longitude
-        # an empty name (a query parameter that is present and empty) is no filter, as an empty timestamp is none
-        self.name = name.strip() or None if isinstance(name, str) else name
+        # an empty name (a query parameter that is present and empty) is no filter, as an empty timestamp is none; one
+        # of only whitespace is refused, as it is neither every warning nor no name
+        self.name = check_name(name)
 
     def __repr__(self) -> str:
         """Return a string representation of the request."""
