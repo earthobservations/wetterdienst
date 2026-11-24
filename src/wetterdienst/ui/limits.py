@@ -104,14 +104,24 @@ def selected_station_count(stations: StationsResult) -> int:
     return count
 
 
-def check_station_count(count: int, limits: Limits) -> None:
-    """Refuse a request that reads more stations than the limit, naming how to read fewer."""
+def check_station_count(count: int, limits: Limits, *, by_region: bool = False) -> None:
+    """Refuse a request that reads more stations than the limit, naming how to read fewer.
+
+    A selection by `region` reads every station its provider lists under it, which none of `rank`, `distance` or a box
+    narrows: it is told fewer regions or the ids of the stations (GH-4418).
+    """
     if limits.max_stations and count > limits.max_stations:
-        message = (
-            f"This request reads {count} stations, more than the {limits.max_stations} this server allows for one "
-            "request. Name fewer stations, or narrow the selection: a smaller `rank`, a smaller `distance` or "
-            "bounding box. Request the rest in further calls."
-        )
+        head = f"This request reads {count} stations, more than the {limits.max_stations} this server allows for one"
+        if by_region:
+            message = (
+                f"{head} request. A `region` selects every station its provider lists under it: name fewer regions, "
+                "or the stations by their ids (`stations`). Request the rest in further calls."
+            )
+        else:
+            message = (
+                f"{head} request. Name fewer stations, or narrow the selection: a smaller `rank`, a smaller "
+                "`distance` or bounding box. Request the rest in further calls."
+            )
         error = _refuse("stations", limits.max_stations, count, message)
         raise error
 

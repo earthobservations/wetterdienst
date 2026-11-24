@@ -28,11 +28,13 @@ from wetterdienst.exceptions import (
     NoParametersFoundError,
     NoPeriodsFoundError,
     ProviderContractError,
+    RegionListingIncompleteError,
     RequestError,
     ReversedTimeIntervalError,
     StationLacksParametersError,
     StationListingIncompleteError,
     StationNotFoundError,
+    UnknownRegionError,
 )
 from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
@@ -54,6 +56,7 @@ from wetterdienst.model.metadata import (
     parse_parameters,
     requested_by_kind,
 )
+from wetterdienst.model.regions import search_regions, select_regions, shown_in_log
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
     StationsFilter,
@@ -1277,6 +1280,92 @@ class TimeseriesRequest:
             df=df_found,
             _df_all=df,
             _stations_filter=selection,
+        )
+
+    def filter_by_region(self, region: str | Sequence[str]) -> StationsResult:
+        """Filter stations by the ``region`` their provider lists them under (GH-4418).
+
+        The region is the source's, not a place: DWD's ``Hamburg`` is the nine stations of the city and also a
+        lightship, a platform and a buoy in the North Sea, each with the position the answer holds. Every station of
+        the region comes back, with a row for each requested dataset, in the order of the catalogue. The list says
+        what a region is called (the ``region`` column of `all`): ``Hamburg`` on ``dwd/observation``, ``HH`` on
+        ``dwd/road``.
+
+        A region is compared as a name is, whole: without regard to case, accents or transliteration, and with a
+        hyphen or a space counting as one (``hamburg``, ``baden wuerttemberg`` and ``COTES D'ARMOR`` are regions). Not
+        fuzzily, and no table of other languages' names is behind it: ``Hesse`` is no ``Hessen``.
+
+        As `filter_by_station_id` it selects among the whole list, whatever the window of the request, so that a
+        region with no station in the window is an empty result, not an unknown region.
+
+        Args:
+            region: One region or several, as the list writes them (a text is one region, a comma in it is no
+                separator).
+
+        Returns:
+            StationsResult: The stations of the regions, in catalogue order.
+
+        Raises:
+            UnknownRegionError: a region is none of the list's. It names them, the closest regions of the list and the
+                regions there are.
+            NoRegionsError: the stations of the requested parameters have no region (the column is null). An
+                `UnknownRegionError` as well.
+            RegionListingIncompleteError: no region was found, the list is empty or none of its stations has a region,
+                and the lookup of the stations went without a listing that may hold it (`dwd/observation`,
+                `dwd/derived`; a directory whose files name stations that are all in the list cannot), so it is not
+                known to be unknown: an `UpstreamError`, as for a station asked for by its id.
+            ValueError: no region is named, or one is blank.
+            TypeError: a region is not a text.
+
+        """
+        asked = search_regions(region)
+        df = self._stations_to_select_among()
+        # the listings the lookup went without (`dwd/observation`, `dwd/derived`) that may hold a region the list lacks:
+        # one that names no station (an empty or missing directory) may hold any, one whose files name their stations
+        # only where one of them is not in the list
+        listed = set(df.get_column("station_id"))
+        gaps = {
+            directory: gap.reason
+            for directory, gap in self._lookup_gaps().items()
+            if gap.station_ids is None or not gap.station_ids <= listed
+        }
+
+        log.info(f"Filtering for region={shown_in_log(asked)}")
+
+        if df.is_empty():
+            if gaps:
+                raise RegionListingIncompleteError([], gaps)
+            # as every filter answers a list without stations: no station, and nothing to refuse
+            return StationsResult(request=self, df=df, _df_all=df, _stations_filter=StationsFilter.BY_REGION)
+
+        stripped = pl.col("region").str.strip_chars()
+        has_region = df.group_by("station_id").agg((stripped.fill_null("") != "").any().alias("has"))
+        try:
+            regions = select_regions(
+                df.get_column("region").drop_nulls().unique().to_list(),
+                asked,
+                network=type(self).__name__,
+                stations=has_region.height,
+                without_region=has_region.height - int(has_region.get_column("has").sum()),
+            )
+        except UnknownRegionError as e:
+            if gaps:
+                # not known to be unknown: a listing the lookup went without may have it, as for an id (GH-3834); a list
+                # without any region (`NoRegionsError`, no region unknown) is no better than an empty one
+                raise RegionListingIncompleteError(e.unknown, gaps) from e
+            raise
+
+        df_found = df.filter(stripped.is_in(regions))
+
+        # the stations of a region are not named by the caller, as those of a bounding box are not: only the ones that
+        # survive the window of the answer are told when a position is wrong
+        self._warn_unplaced(df_found, named=False)
+
+        return StationsResult(
+            request=self,
+            df=df_found,
+            _df_all=df,
+            _stations_filter=StationsFilter.BY_REGION,
         )
 
     def filter_by_name(

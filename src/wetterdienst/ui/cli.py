@@ -331,7 +331,7 @@ start_date_renamed_opt = _renamed_opt("--start-date", "--start")
 end_date_renamed_opt = _renamed_opt("--end-date", "--end")
 
 # station selection for `stations` and `values`: exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id,
-# --name, a point
+# --name, --region, a point
 # or a bounding box, --sql. The request models enforce it, so the CLI, REST API and MCP share it
 all_opt = _bool_opt("--all", dest="all_", default=False, help="Select all stations. Default: false")
 stations_opt = click.option(
@@ -364,6 +364,15 @@ icao_id_opt = click.option(
     help=(
         "Select stations by ICAO location indicator (four letters, any case), comma-separated: every station that "
         "has one of them. Example: EDDH,EDDB"
+    ),
+)
+region_opt = click.option(
+    "--region",
+    type=click.STRING,
+    help=(
+        "Select stations by the region their source lists them under (a state, province, département), "
+        "comma-separated, any case: every station of it, those not on land included. An unknown region is refused "
+        "and the regions there are named. Example: Hamburg"
     ),
 )
 name_opt = click.option(
@@ -1005,8 +1014,10 @@ STATIONS_EXAMPLES = r"""
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
         --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-05
 
-    # stations by region, or by a pattern in their name
-    wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --sql="region='Sachsen'"
+    # the stations their source lists under a region, those not on land included
+    wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --region=Hamburg
+
+    # stations by a pattern in their name
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
         --sql="lower(name) LIKE lower('%dresden%')"
 
@@ -1929,6 +1940,7 @@ def fields(
 @wmo_id_opt
 @wigos_id_opt
 @icao_id_opt
+@region_opt
 @name_opt
 @name_threshold_opt
 @latitude_opt
@@ -1963,6 +1975,7 @@ def stations(
     wmo_id: str,
     wigos_id: str,
     icao_id: str,
+    region: str,
     name: str,
     name_threshold: float,
     latitude: float,
@@ -1987,7 +2000,7 @@ def stations(
 ) -> None:
     """Acquire stations.
 
-    Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
+    Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name, --region,
     --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql. Given a
     window, with --timestamp or --start / --end, only the stations whose record overlaps it are listed.
 
@@ -2012,6 +2025,7 @@ def stations(
             "wmo_id": wmo_id,
             "wigos_id": wigos_id,
             "icao_id": icao_id,
+            "region": region,
             "name": name,
             "name_threshold": name_threshold,
             "latitude": latitude,
@@ -2279,6 +2293,7 @@ def history(
 @wmo_id_opt
 @wigos_id_opt
 @icao_id_opt
+@region_opt
 @name_opt
 @name_threshold_opt
 @latitude_opt
@@ -2356,6 +2371,7 @@ def values(
     wmo_id: str,
     wigos_id: str,
     icao_id: str,
+    region: str,
     name: str,
     name_threshold: float,
     latitude: float,
@@ -2402,7 +2418,7 @@ def values(
     """Acquire data.
 
     Select the stations with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
-    --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
+    --region, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
     from wetterdienst import Settings
     from wetterdienst.ui.core import PLAUSIBILITY_OPTIONS, CliValuesRequest
@@ -2424,6 +2440,7 @@ def values(
             "wmo_id": wmo_id,
             "wigos_id": wigos_id,
             "icao_id": icao_id,
+            "region": region,
             "name": name,
             "name_threshold": name_threshold,
             "latitude": latitude,
