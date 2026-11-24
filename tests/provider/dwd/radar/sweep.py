@@ -2,10 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """What the geometry of an ODIM sweep file has to be (GH-4399).
 
-DWD extended the range of the precipitation scan from 150 km to 180 km on 24 November 2026, 09:20 UTC (the first
-file, a scan of the slot 09:20; at all 17 sites at once), which is 720 bins of 250 m a ray instead of 600. A file
-of the day before holds 600, one of the day after 720, and a request for "yesterday" or "the last hour" returns
-either. So a test does not pin the bins: it holds the file to what the file itself states.
+DWD extended the range of the precipitation scan from 150 km to 180 km on 24 November 2026: 720 bins of 250 m a
+ray instead of 600. At the five sites looked at (BOO, ASB, FLD, NHB, TUR) the last file with 600 bins is the scan of
+09:15 UTC and the first with 720 that of 09:20; the latest file of all 17 sites has 720. A file of the day before
+holds 600, one of the day after 720, and a request for "yesterday" or "the last hour" returns either. So a test does
+not pin the bins: it holds the file to what the file itself states.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ SWEEP_BIN_LENGTH = (100.0, 1000.0)
 SWEEP_BINS = (100, 1500)
 # The range of a sweep in m, `how/range` of its dataset: from 60 km to 180 km at DWD.
 SWEEP_RANGE = (50_000.0, 300_000.0)
-# The ranges the precipitation scan has had, in m: 150 km until 23 November 2026, 180 km after (see above).
+# The ranges the precipitation scan has had, in m: 150 km until 24 November 2026, 09:15 UTC, 180 km after (see above).
 PRECIPITATION_SCAN_RANGES = (150_000.0, 180_000.0)
 
 
