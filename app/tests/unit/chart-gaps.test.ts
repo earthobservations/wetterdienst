@@ -166,7 +166,7 @@ describe('what is drawn of a gap', () => {
 
   it('is a gap of this series\' own: a series that has every hour is not broken where another has none', () => {
     const data = gappy()
-    const full = { ...series('f', Array.from({ length: 222 }).fill(1), {}, HOUR), resolution: 'hourly' }
+    const full = { ...series('f', Array.from<number>({ length: 222 }).fill(1), {}, HOUR), resolution: 'hourly' }
     expect(nulls(drawnPoints(full, whole(data), 700, gapRuleOf(full)))).toEqual([])
   })
 

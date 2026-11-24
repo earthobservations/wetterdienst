@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, ClassVar
 
 import polars as pl
 import portion
-from dateutil.relativedelta import relativedelta
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
@@ -29,6 +28,7 @@ from wetterdienst.provider.imgw.fileindex import (
 )
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.archive import open_zip
+from wetterdienst.util.datetime import add_months
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.polars_util import read_csv_without_header
@@ -393,14 +393,14 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         interval = None
         folder_interval = None
-        if self.sr.start:
+        if self.sr.start and self.sr.end:
             interval = portion.closed(self.sr.start, self.sr.end)
             # widen by 2 months on each side when pruning folders: IMGW files use "hydrological years"
             # (shifted by 2 months, see __parse_file below) internally, so e.g. a file living in the "2023"
             # folder can contain data as early as 2022-11. The exact per-file filtering below is unaffected.
             folder_interval = portion.closed(
-                self.sr.start - relativedelta(months=2),
-                self.sr.end + relativedelta(months=2),
+                add_months(self.sr.start, -2),
+                add_months(self.sr.end, 2),
             )
         files = list_files_for_interval(url, self.sr.settings, folder_interval, skipped=skipped)
         df_files = pl.DataFrame({"url": files}, schema={"url": pl.String})

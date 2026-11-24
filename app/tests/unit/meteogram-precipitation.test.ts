@@ -21,7 +21,7 @@ function steps(pairs: [number, number][]): Series {
   return { x: pairs.map(([hours]) => new Date(T(hours))), y: pairs.map(([, amount]) => amount) }
 }
 const hourlyFrom = (first: number, amounts: number[]): [number, number][] => amounts.map((amount, i) => [first + i, amount])
-const zeros = (count: number) => Array.from({ length: count }).fill(0)
+const zeros = (count: number) => Array.from<number>({ length: count }).fill(0)
 
 describe('the runs the late days were found dry in', () => {
   const keys = precipitationRunKeys()
@@ -297,7 +297,7 @@ describe('the rain over a local day', () => {
     const autumn = day('2026-10-25')
     expect([spring.hours, autumn.hours]).toEqual([23, 25])
     const from = Date.UTC(2026, 0, 1)
-    const plan = planPrecipitation(new Map([[PRECIPITATION.six, { x: Array.from({ length: 4 * 365 }, (_, i) => new Date(from + 6 * (i + 1) * HOUR)), y: Array.from({ length: 4 * 365 }).fill(1) }]]))!
+    const plan = planPrecipitation(new Map([[PRECIPITATION.six, { x: Array.from({ length: 4 * 365 }, (_, i) => new Date(from + 6 * (i + 1) * HOUR)), y: Array.from<number>({ length: 4 * 365 }).fill(1) }]]))!
     // 1 mm in 6 hours is 1/6 mm an hour, whatever the length of the day
     expect(precipitationOver(plan, spring.from, spring.to).amount).toBeCloseTo(23 / 6, 9)
     expect(precipitationOver(plan, autumn.from, autumn.to).amount).toBeCloseTo(25 / 6, 9)
@@ -307,7 +307,7 @@ describe('the rain over a local day', () => {
 
   it('adds the days up to the rain of the run, cut anywhere: every block is shared out whole', () => {
     const origin = Date.UTC(2026, 0, 1)
-    const plan = planPrecipitation(new Map([[PRECIPITATION.six, { x: Array.from({ length: 16 }, (_, i) => new Date(origin + 6 * (i + 1) * HOUR)), y: Array.from({ length: 16 }).fill(1) }]]))!
+    const plan = planPrecipitation(new Map([[PRECIPITATION.six, { x: Array.from({ length: 16 }, (_, i) => new Date(origin + 6 * (i + 1) * HOUR)), y: Array.from<number>({ length: 16 }).fill(1) }]]))!
     // four days from the hour -5 to the hour 91: the plan begins at 0
     const sum = [0, 1, 2, 3].reduce((total, k) => total + precipitationOver(plan, origin + (k * 24 - 5) * HOUR, origin + ((k + 1) * 24 - 5) * HOUR).amount!, 0)
     expect(sum).toBeCloseTo(91 / 6, 9)
