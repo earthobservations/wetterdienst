@@ -26,6 +26,9 @@ Types of changes:
 - `[Stripes]` Emptying the start or the end year no longer leaves an empty `start_year=` or
   `end_year=` in the link of the page: the year is taken as none and the parameter is left out
   (GH-4381).
+- `[Stripes]` A link whose `start_year` or `end_year` is no whole number (`abc`, `2000.5`) no longer
+  gives `NaN` in the page and in the link it writes back: the year is taken as none, and a repeated
+  one as its first value (GH-4388).
 
 ### Security
 
