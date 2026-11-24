@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- wetterdienst no longer depends on `python-dateutil`; a small helper does the month arithmetic with
+  the same dates, so code that imports `dateutil` through wetterdienst must depend on it itself
+  (GH-4349)
+
 ### Fixed
 
 - **Breaking**: an alerts `name` of only whitespace (`name="  "`) is refused, where it answered every
