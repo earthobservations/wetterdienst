@@ -168,6 +168,7 @@ pl.scan_ndjson("rows.ndjson").group_by("station_id").agg(pl.col("value").mean())
 `httpx.stream("GET", url)`). `ndjson` refuses `with_stations` (a 400). A stream may run longer than the timeout, which holds between two chunks. The first station is
 read before the response begins, so a station that takes longer than the timeout to download is a 504 (ask again: what
 was downloaded is cached); a later one is the last line of an NDJSON stream, `error`, and a cut connection of a CSV.
+When a stream ends so, or its client leaves, the server stops reading stations for it.
 
 ## Ask in slices
 
@@ -386,7 +387,8 @@ WD_RESTAPI_MAX_ROWS=2000000 WD_RESTAPI_MAX_STATIONS=500 WD_RESTAPI_TIMEOUT=300 w
 
 The limits are what keeps a request from taking the server with it: an answer sent as one body is built in memory
 (a row of the long JSON is about 200 bytes, so half a million rows is about 100 MB, per request, with 32 at once by
-default), a request holds a thread until its work is done, and a reverse proxy in front has a timeout of its own, 60
+default), a request holds a thread until its work is done (one that timed out, until the station in hand is read: the
+work stops at the timeout, see [Timeout](restapi.md#timeout)), and a reverse proxy in front has a timeout of its own, 60
 seconds usually, that a longer `WD_RESTAPI_TIMEOUT` does not move. A server that others reach should raise one limit
 at a time and put a gateway in front that limits each client; [Running it for others](restapi.md#running-it-for-others)
 says what else to set. In a container, pass them as environment variables of the image (`docker run --env ...`), see

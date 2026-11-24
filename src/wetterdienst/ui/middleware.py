@@ -47,6 +47,7 @@ from wetterdienst.ui.problems import (
     request_id_from,
     set_request_id,
 )
+from wetterdienst.util.cancellation import Cancellation, WorkAbandoned, cancellable
 from wetterdienst.util.hosts import host_of_header, host_of_origin, is_allowed
 from wetterdienst.util.logging import get_one_line_logger
 
@@ -177,6 +178,8 @@ class _Exchange:
         self.started = asyncio.Event()
         #: whether the client was answered with the timeout's 504
         self.dropped = False
+        #: set when the answer is gone, for the work of the request to end (`util.cancellation`)
+        self.cancellation = Cancellation()
 
     async def send(self, message: Message) -> None:
         """Send to the client, with the request id and the deprecation headers, unless it was answered already."""
@@ -233,7 +236,13 @@ class RequestContextMiddleware:
         self.in_flight += 1
         if serving.timeout is None:
             try:
-                await self.app(scope, exchange.receive, exchange.send)
+                with cancellable(exchange.cancellation):
+                    await self._run_app(exchange)
+            except asyncio.CancelledError:
+                # whoever cancels the request (a client of the MCP endpoint that gave up, a server that shuts down)
+                # has no use for its work
+                exchange.cancellation.set("cancelled")
+                raise
             finally:
                 self.in_flight -= 1
             return
@@ -248,7 +257,10 @@ class RequestContextMiddleware:
         from wetterdienst.ui.mcp import is_tool_request  # noqa: PLC0415
 
         scope = exchange.scope
-        task = asyncio.ensure_future(self.app(scope, exchange.receive, exchange.send))
+        # the task copies the context it is made in: the work of the request, in the threads it starts, sees the
+        # cancellation of this request and of no other
+        with cancellable(exchange.cancellation):
+            task = asyncio.ensure_future(self._run_app(exchange))
         waiter = asyncio.ensure_future(exchange.started.wait())
         task.add_done_callback(lambda finished: self._finished(finished, exchange.request_id, scope["path"]))
         try:
@@ -256,6 +268,7 @@ class RequestContextMiddleware:
             if not task.done() and not exchange.started.is_set():
                 # the timeout is over: the answer below is no response to hold to it
                 exchange.dropped = True
+                exchange.cancellation.set("timeout")
                 self._abandoned.add(task)
                 log.warning(f"Request {exchange.request_id} to {scope['path']} timed out after {seconds:g} seconds.")
                 detail = timeout_detail(seconds, tool=is_tool_request(scope), point=is_point_route(scope["path"]))
@@ -266,9 +279,21 @@ class RequestContextMiddleware:
             await task
         except asyncio.CancelledError:
             task.cancel()
+            exchange.cancellation.set("cancelled")
             raise
         finally:
             waiter.cancel()
+
+    async def _run_app(self, exchange: _Exchange) -> None:
+        """Run the app for a request of the API; the end of its work, when its answer was gone, is no failure."""
+        try:
+            await self.app(exchange.scope, exchange.receive, exchange.send)
+        except WorkAbandoned:
+            # the answer was given (the 504) or the client has gone: nothing is left to say, and it is no error
+            log.info(
+                f"Request {exchange.request_id} to {exchange.scope['path']} stopped its work: "
+                f"{exchange.cancellation.reason}."
+            )
 
     def _finished(self, task: asyncio.Task[None], request_id: str, path: str) -> None:
         """Give the slot back when the request is done, and say why one that nobody was waiting for failed."""
