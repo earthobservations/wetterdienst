@@ -1257,38 +1257,38 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # once: the same parameter of a dataset of one name at two resolutions is one column
         requested = list(dict.fromkeys(requested))
 
-        if not df.is_empty():
-            delivered = {
+        delivered = (
+            {
                 key[0]: df_parameter
                 for key, df_parameter in df.partition_by(["parameter"], as_dict=True, maintain_order=True).items()
             }
-            # a name the request does not account for, which the humanize mapping did not cover, follows
-            ordered = [name for name in requested if name in delivered]
-            ordered += [name for name in delivered if name not in ordered]
-            for parameter in ordered:
-                df_parameter = delivered[parameter]
-                df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality_flags"])
-                df_parameter = df_parameter.rename(
-                    mapping={
-                        "value": parameter,
-                        "quality_flags": f"{parameter}{WIDE_FLAGS_SUFFIX}",
-                    },
-                )
-                # left, not inner: a parameter that has no reading at a timestamp another parameter
-                # does have one at must leave a null behind rather than take the whole timestamp
-                # out of the frame. Chained inner joins reduced the frame to the timestamps every
-                # requested parameter shared, which silently dropped readings that were asked for
-                # -- three quarters of a 15-minute series joined against an hourly one
-                df_wide = df_wide.join(df_parameter, on=["resolution", "timestamp"], how="left")
-        else:
-            # named as the populated branch above names them, so that an empty frame carries the column
-            # names a populated one would have rather than the unprefixed names it used to, which named
-            # no column the request could produce
-            for parameter_name in requested:
+            if not df.is_empty()
+            else {}
+        )
+        # every column of the request, whether the station has the parameter or not: the frames of the stations of
+        # an answer have the same columns, which the header of a streamed CSV is written from (GH-4432), and the
+        # frame of a request that collected nothing has them as well (`_empty_values_df`). A name the request does
+        # not account for, which the humanize mapping did not cover, follows
+        for parameter in requested + [name for name in delivered if name not in requested]:
+            if parameter not in delivered:
                 df_wide = df_wide.with_columns(
-                    pl.lit(None, WIDE_VALUE_DTYPE).alias(parameter_name),
-                    pl.lit(None, WIDE_FLAGS_DTYPE).alias(f"{parameter_name}{WIDE_FLAGS_SUFFIX}"),
+                    pl.lit(None, WIDE_VALUE_DTYPE).alias(parameter),
+                    pl.lit(None, WIDE_FLAGS_DTYPE).alias(f"{parameter}{WIDE_FLAGS_SUFFIX}"),
                 )
+                continue
+            df_parameter = delivered[parameter].select(["resolution", "timestamp", "value", "quality_flags"])
+            df_parameter = df_parameter.rename(
+                mapping={
+                    "value": parameter,
+                    "quality_flags": f"{parameter}{WIDE_FLAGS_SUFFIX}",
+                },
+            )
+            # left, not inner: a parameter that has no reading at a timestamp another parameter
+            # does have one at must leave a null behind rather than take the whole timestamp
+            # out of the frame. Chained inner joins reduced the frame to the timestamps every
+            # requested parameter shared, which silently dropped readings that were asked for
+            # -- three quarters of a 15-minute series joined against an hourly one
+            df_wide = df_wide.join(df_parameter, on=["resolution", "timestamp"], how="left")
 
         return df_wide
 

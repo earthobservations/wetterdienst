@@ -89,27 +89,38 @@ def csv_stream(
 ) -> Iterator[bytes]:
     """Write the chunks of a CSV answer: the header with the first frame, then the rows of each.
 
-    Every frame is written with the columns of the first, in its order: a station that lacks one has it empty,
-    one that has another is written without it. `empty` gives the frame whose header is written when there are no
-    rows. `fail` is told of an exception, which is raised again so that the connection is cut: the status can no
-    longer change and CSV has no place to say it.
+    Every frame is written with the columns of the first, in its order. The header is written before the others are
+    read, so a column that only a later frame has cannot be added, and is not dropped without a word either: it is
+    a `ValueError`, raised so that the connection is cut. The frames of the values have the same columns for every
+    station (`TimeseriesValues._widen_df` writes every requested column), so none comes. A frame that lacks a column
+    has it empty. `empty` gives the frame whose header is written when there are no rows. `fail` is told of an
+    exception, which is raised again so that the connection is cut: the status can no longer change and CSV has no
+    place to say it.
     """
     columns: list[str] | None = None
     try:
         for frame in frames:
+            header = columns is None
             if columns is None:
                 columns = frame.columns
-                header = True
             else:
-                header = False
-                if frame.columns != columns:
-                    frame = frame.select([pl.col(c) if c in frame.columns else pl.lit(None).alias(c) for c in columns])
+                frame = _with_columns(frame, columns)
             yield to_csv(frame, header=header).encode()
         if columns is None:
             yield to_csv(empty(), header=True).encode()
     except Exception as e:
         fail(e)
         raise
+
+
+def _with_columns(frame: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
+    """Give the frame the columns of a header already written, in its order; a column the header lacks is an error."""
+    if extra := [column for column in frame.columns if column not in columns]:
+        msg = f"a CSV cannot add the columns {extra} after its header was written with {columns}"
+        raise ValueError(msg)
+    if frame.columns == columns:
+        return frame
+    return frame.select([pl.col(c) if c in frame.columns else pl.lit(None).alias(c) for c in columns])
 
 
 def frames_in_batches(frame: pl.DataFrame, size: int | None = None) -> Iterator[pl.DataFrame]:
