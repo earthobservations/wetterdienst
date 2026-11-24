@@ -10,7 +10,7 @@ import { FORECAST_UNITS, forecastValues } from '../helpers/meteogram-forecast'
 const HOUR = 3_600_000
 const t = (key: string, named?: Record<string, unknown>) => key + (named?.unit ? ` ${named.unit}` : '')
 
-function input(overrides: Partial<ModelInput> & { values?: ReturnType<typeof forecastValues>, units?: Record<string, string> } = {}): ModelInput {
+function input(overrides: Partial<Omit<ModelInput, 'units'>> & { values?: ReturnType<typeof forecastValues>, units?: Record<string, string> } = {}): ModelInput {
   const { values = forecastValues(), units = FORECAST_UNITS, ...rest } = overrides
   return {
     series: buildSeries(values as any),
@@ -44,7 +44,7 @@ describe('what the chart draws', () => {
   })
 
   it('leaves out the panel that is off and the panel whose series the forecast lacks', () => {
-    expect(model({ panels: { temp: true, wind: false, precip: true, cloud: true, pressure: false } }).panels).toEqual(['precip', 'cloud', 'temp'])
+    expect(model({ panels: { temp: true, wind: false, precip: true, snow: false, cloud: true, pressure: false } }).panels).toEqual(['precip', 'cloud', 'temp'])
     expect(model({ values: forecastValues({ without: ['pressure_air_sea_level'] }) }).panels).not.toContain('pressure')
   })
 

@@ -31,7 +31,7 @@ function hourly(parameter: string, from: string, values: number[]): Reading[] {
 
 describe('will it rain tomorrow', () => {
   // tomorrow in Berlin is 30 October, 23:00 UTC on the 29th to 23:00 UTC on the 30th; its first hour's reading is at 00:00 UTC
-  const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from({ length: 48 }).fill(0))
+  const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from<number>({ length: 48 }).fill(0))
 
   it('says no for a dry day, and the hours of the day in the place\'s time', () => {
     const answer = rainTomorrow(dry(), BERLIN, NOW)!
@@ -80,7 +80,7 @@ describe('will it rain tomorrow', () => {
   })
 
   it('gives no answer where the forecast does not reach most of the day', () => {
-    expect(rainTomorrow(hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from({ length: 20 }).fill(0)), BERLIN, NOW)).toBeNull()
+    expect(rainTomorrow(hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from<number>({ length: 20 }).fill(0)), BERLIN, NOW)).toBeNull()
   })
 })
 
@@ -276,7 +276,7 @@ describe('the answers in the unit of the settings', () => {
   })
 
   describe('will it rain tomorrow', () => {
-    const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from({ length: 48 }).fill(0))
+    const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from<number>({ length: 48 }).fill(0))
     const withHour = (readings: Reading[], at: string, value: number) => readings.map(reading => reading.timestamp.startsWith(at) ? { ...reading, value } : reading)
 
     it('says the same in millimetres and in litres per square metre, and writes the unit of the answer', () => {

@@ -240,7 +240,8 @@ test('the Forecast\'s panel toggles and summary icons reach contrast in both sch
     const summary = Array.from(document.querySelectorAll('[data-summary-icon]')).map(icon => ({ panel: (icon as HTMLElement).dataset.summaryIcon!, ...read(icon) }))
     return { toggles, summary }
   })
-  type Mark = Awaited<ReturnType<typeof marks>>['toggles'][number]
+  // the colours of a mark, which a toggle and a summary icon both have (a toggle adds whether it is pressed)
+  type Mark = Awaited<ReturnType<typeof marks>>['summary'][number]
   // the layers composed over the white of the page (the dark scheme's page is a layer of its own), as rgb()
   const ground = (mark: Mark) => mark.layers.reduce((under, layer) => onPaper(`rgba(${layer[0]}, ${layer[1]}, ${layer[2]}, ${layer[3]})`, under), 'rgb(255, 255, 255)')
   const colour = (mark: Mark) => `rgb(${mark.color[0]}, ${mark.color[1]}, ${mark.color[2]})`

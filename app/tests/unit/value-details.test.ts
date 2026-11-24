@@ -1,3 +1,4 @@
+import type { DetailStation } from '../../app/utils/value-details'
 import { describe, expect, it } from 'vitest'
 import { sumsUp, valueDetails, windowMinutes, windowsOverlap } from '../../app/utils/value-details'
 
@@ -17,7 +18,7 @@ function reading(station_id: string, parameter: string, value: number | null) {
   return { station_id, resolution: 'daily', dataset: 'climate_summary', parameter, timestamp: '2025-01-01T00:00:00Z', value }
 }
 
-function details(rows: object[], stations = [hamburg, munich], split = true) {
+function details(rows: object[], stations: DetailStation[] = [hamburg, munich], split = true) {
   return valueDetails(rows, { split, stations, parameters: facts })
 }
 

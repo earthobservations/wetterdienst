@@ -108,7 +108,8 @@ test.describe('CORS', () => {
   // through it. Without `NUXT_CORS_ALLOWED_ORIGINS` it answers no page of another origin.
   for (const path of ['/api/providers', '/', '/docs']) {
     test(`answers no access-control-allow-origin on ${path}, to a page of another origin or to none`, async ({ request }) => {
-      for (const headers of [{}, { origin: 'https://some-page.example' }]) {
+      const pages: Record<string, string>[] = [{}, { origin: 'https://some-page.example' }]
+      for (const headers of pages) {
         const response = await request.get(path, { headers, timeout: REQUEST_TIMEOUT })
         expect(response.ok()).toBeTruthy()
         expect(response.headers()['access-control-allow-origin']).toBeUndefined()

@@ -21,7 +21,7 @@ const ANSWER = stripesAnswer(recordOf(1950, 2024, year => 8 + (year - 1987) / 20
 const MODEL = buildStripesModel(ANSWER.values)!
 const AXIS = barAxis(MODEL)
 
-function build(over: Partial<StripesOptionInput & { display: Partial<StripesDisplay> }> = {}) {
+function build(over: Partial<Omit<StripesOptionInput, 'display'>> & { display?: Partial<StripesDisplay> } = {}) {
   const input: StripesOptionInput = {
     model: MODEL,
     kind: 'temperature',
@@ -176,7 +176,7 @@ describe('the bars', () => {
 })
 
 describe('the bars with a scale', () => {
-  const scale = (over: Partial<StripesOptionInput & { display: Partial<StripesDisplay> }> = {}) => build({ variant: 'barsScale', subtitleLines: SUBTITLE, ...over })
+  const scale = (over: Partial<Omit<StripesOptionInput, 'display'>> & { display?: Partial<StripesDisplay> } = {}) => build({ variant: 'barsScale', subtitleLines: SUBTITLE, ...over })
 
   it('has a y axis in the unit of the anomaly: a label for each tick, at the grid line, with the sign and zero as 0', () => {
     const { input } = scale()
