@@ -20,6 +20,7 @@
 headers (`X-Wetterdienst-*`, `Link`), which are sent before any row: `X-Wetterdienst-Rows` is left out, and the
 warnings are those known before the first reading. A failure after the response began cuts the connection, as CSV
 has no place to say it; the server logs it.
+A wide CSV has the columns of the request, in its order, as its header is written with the first station (GH-4432).
 
 The first station is read before the response begins, so that a request that fails on it has the status of the
 failure and not a 200. The timeout of the server holds between two chunks (`ui.middleware`).
@@ -86,41 +87,51 @@ def csv_stream(
     to_csv: Callable[..., str],
     empty: Callable[[], pl.DataFrame],
     fail: Callable[[Exception], object],
+    schema: pl.Schema | None = None,
 ) -> Iterator[bytes]:
     """Write the chunks of a CSV answer: the header with the first frame, then the rows of each.
 
-    Every frame is written with the columns of the first, in its order. The header is written before the others are
-    read, so a column that only a later frame has cannot be added, and is not dropped without a word either: it is
-    a `ValueError`, raised so that the connection is cut. The frames of the values have the same columns for every
-    station (`TimeseriesValues._widen_df` writes every requested column), so none comes. A frame that lacks a column
-    has it empty. `empty` gives the frame whose header is written when there are no rows. `fail` is told of an
-    exception, which is raised again so that the connection is cut: the status can no longer change and CSV has no
-    place to say it.
+    The header is written before the other frames are read, so every frame is written with the columns of the
+    header, in its order. They are `schema`'s where it is given, the columns of the first frame where not. A frame
+    that lacks one has it empty: the wide frame of a station has the columns of the parameters it delivers only, so
+    the stream of a wide answer is given the columns of the request (`TimeseriesValues.wide_schema`), and the CSV of
+    a station that has no maximum still has the column of the maximum that a later station fills (GH-4432).
+
+    A column that the header lacks cannot be added. It is not dropped without a word: it is logged, once for each
+    column, at the point the stream has reached. It is no failure to cut the connection for, which would throw away
+    what was sent already, and CSV has no place to say it. `empty` gives the frame whose header is written when there
+    are no rows. `fail` is told of an exception, which is raised again so that the connection is cut: the status can
+    no longer change and CSV has no place to say it.
     """
-    columns: list[str] | None = None
+    columns = schema
+    sent = False
+    told: set[str] = set()
     try:
         for frame in frames:
-            header = columns is None
             if columns is None:
-                columns = frame.columns
-            else:
-                frame = _with_columns(frame, columns)
-            yield to_csv(frame, header=header).encode()
-        if columns is None:
+                columns = frame.schema
+            yield to_csv(_with_columns(frame, columns, told), header=not sent).encode()
+            sent = True
+        if not sent:
             yield to_csv(empty(), header=True).encode()
     except Exception as e:
         fail(e)
         raise
 
 
-def _with_columns(frame: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
-    """Give the frame the columns of a header already written, in its order; a column the header lacks is an error."""
-    if extra := [column for column in frame.columns if column not in columns]:
-        msg = f"a CSV cannot add the columns {extra} after its header was written with {columns}"
-        raise ValueError(msg)
-    if frame.columns == columns:
+def _with_columns(frame: pl.DataFrame, columns: pl.Schema, told: set[str]) -> pl.DataFrame:
+    """Give the frame the columns of the header, in its order: one it lacks is null, one the header lacks is logged."""
+    for column in frame.columns:
+        if column not in columns and column not in told:
+            told.add(column)
+            log.warning(
+                f"The CSV has no column {column!r}, its header was written without it: the values of it are left out."
+            )
+    if frame.columns == list(columns):
         return frame
-    return frame.select([pl.col(c) if c in frame.columns else pl.lit(None).alias(c) for c in columns])
+    return frame.select(
+        [pl.col(c) if c in frame.columns else pl.lit(None, dtype).alias(c) for c, dtype in columns.items()]
+    )
 
 
 def frames_in_batches(frame: pl.DataFrame, size: int | None = None) -> Iterator[pl.DataFrame]:

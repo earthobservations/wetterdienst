@@ -30,10 +30,10 @@ Types of changes:
 ### Fixed
 
 - A streamed wide CSV (`shape=wide`) no longer drops, without a word, the columns that only a later
-  station has: the header came from the first station, so a parameter it lacked lost its values for
-  every other. A wide answer now has the columns of the request for every station, in the order of
-  the request, a parameter a station lacks being null (the CSV, NDJSON lines and `values().all()`
-  of Python all alike); a dataset has the columns of all its parameters (GH-4432)
+  station has: its header came from the first station, so a parameter it lacked lost its values for
+  every other. The header is now the columns of the request, in its order, a station that lacks a
+  parameter having it empty. Other answers are unchanged; name the parameters for a dataset with
+  many (GH-4432)
 
 ## [0.198.0] - 2026-11-24
 

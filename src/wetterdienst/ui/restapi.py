@@ -2041,6 +2041,8 @@ def _stream_values(
         lambda df, header: ValuesResult(stations=stations, df=df).to_csv(include_header=header),
         reader._empty_values_df,  # noqa: SLF001
         failure,
+        # the header is written with the first station, which lacks the parameters only a later one has
+        schema=None if options.tidy else reader.wide_schema(),
     )
     return _stream_response(chunks, "text/csv", metadata, ndjson=False)
 

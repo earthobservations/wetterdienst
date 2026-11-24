@@ -1263,11 +1263,14 @@ it is in the headers: `X-Wetterdienst-API-Version`, `-Schema-Version`, `-Retriev
 first row, so `X-Wetterdienst-Rows` is left out, and `X-Wetterdienst-Warnings` has only what was raised by then. A
 failure after the response began cuts the connection, as CSV cannot say it; the server logs it.
 
-The header is written with the first station, so the columns of a wide CSV (`shape=wide`) cannot depend on what a
-station has: every station's rows have the columns of the request, in its order, a parameter a station lacks being
-empty (and `null` in the rows of NDJSON, as in the JSON answer). The CSV is the one the command line and `to_csv` of
-the whole result write. A request for a dataset has the columns of all its parameters, so a dataset whose stations
-each have few of them (NOAA GHCN's `daily/data` has 210) has empty columns: name the parameters you want.
+A streamed wide CSV (`shape=wide`) has every column of the request: the header is written with the first station, so
+it is the columns of the requested parameters, in the order of the request, and a station that lacks a parameter has
+it empty. A parameter that only a later station has is not lost. The CSV of the same request that is not streamed
+(the command line, an MCP tool, `to_csv` of the result) has the columns of what the stations delivered, so the two
+differ by the columns with no value at all, and by their order where the first station lacks a parameter. A request
+for a dataset has the columns of all its parameters, so a dataset that each station has few of (NOAA GHCN's
+`daily/data` has 210 parameters, 420 columns) has many empty columns: name the parameters you want. The NDJSON lines
+are as before.
 
 `ndjson` refuses `with_stations` (a 400): it lists the stations of the whole answer, which a stream never holds.
 
