@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-11-24
+
+Paired with backend 0.198.0, which is live; it needs no route newer than 0.195.0.
+
 ### Changed
 
 - `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
@@ -36,8 +40,8 @@ Types of changes:
   for the whole app: it read the body of any POST, on any path (one that does not exist included),
   into memory before a route was picked, and a chunked body was not limited. The app's server takes
   a body in one route only, `/mcp`, which caps what it reads; the `/api` proxy takes no body. A GET
-  query is no longer filtered either: one with `<` (`sql_values=value < 5`) was refused with a 400
-  and now reaches the backend. The page escapes what it shows and the CSP stays (GH-4364).
+  query is no longer filtered either: one with `<` was refused with a 400 and now reaches the
+  backend. The page escapes what it shows and the CSP stays (GH-4364).
 - `[Dependencies]` Packages with advisories are updated to fixed releases: `@nuxt/ui` 4.12.2,
   `vue-i18n` 11.4.23, `xss` 1.0.17, and `swagger-ui-dist` 5.35.1, so `/docs` runs DOMPurify 3.4.17
   instead of 3.4.16, besides the build and test tooling (`undici`, `ws`, `brace-expansion`,
@@ -2767,7 +2771,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.59.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.60.0...HEAD
+[0.60.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.59.0...app-v0.60.0
 [0.59.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.58.0...app-v0.59.0
 [0.58.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.57.0...app-v0.58.0
 [0.57.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...app-v0.57.0
