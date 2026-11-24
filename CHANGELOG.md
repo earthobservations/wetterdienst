@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were
+  184,612, so a client saved them to a file): each warning loses its `geometry` and area lists (a
+  `name` keeps up to 25 matching areas), then the least severe warnings go, with an
+  `answer-truncated` warning. A `name` matching no area adds `no-area-matched`. Other answers, REST,
+  the command line and Python are unchanged (GH-4338)
+
 ## [0.197.0] - 2026-11-24
 
 ### Added

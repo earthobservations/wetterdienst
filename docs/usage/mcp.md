@@ -160,7 +160,7 @@ before now, answers no row and says so. The REST API, the command line and Pytho
 
 An assistant reads the answer of a tool in its context, and Claude Code saves a result of more than 50,000 characters to
 a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
-`interpolate`, `summarize` and `coverage` is held to **40,000 characters** of what the client receives, in
+`interpolate`, `summarize`, `coverage` and `alerts` is held to **40,000 characters** of what the client receives, in
 `json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
 included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the
 licence and the note below, and the body, each newline and quote of it written as the escape it is there. A chart is
@@ -195,6 +195,23 @@ An answer over the budget is cut, not refused, and says so:
   means. The answer keeps its shape. It has no `metadata` block and takes no key beside the resolutions, so the note is
   the start of the `description` of the first resolution; a JSON answer reaches a client as its body alone, so no header
   carries it. `providers` is not cut: it is 20,000 characters for all providers together.
+
+- **`alerts`** is mostly polygons and lists of areas: a warning for a coast is 80,000 characters, and the answer for
+  Kiel (three warnings, REST JSON, live on 2026-11-23) was 184,612 and the 34 of Germany 1,290,282, so no warning can
+  be kept whole and fit. An answer over the budget is cut in steps, each only where the one before is still over; an
+  answer within it is not changed. (1) Every warning without its polygon (`geometry` null) and its lists of areas
+  (`area_names` and `warncell_ids` empty, but for a `name`, where the areas that match it are kept), the rest of each
+  warning as it is (1,000 to 1,600 characters each: the 34 of Germany are 38,000 and the three for Kiel 4,800). (2) For
+  a `name` that matches many areas (1,644 in one warning for a coast), only the first 25 for each warning, which are
+  about 1,000 characters; the note names the warnings that have more. (3) As many warnings as fit, the most severe
+  first, then the most urgent, then the earliest onset. A request for a place holds only the warnings for it, so none
+  goes first for it. The note names the warnings left out as `event (severity)` and how to ask for fewer: a more
+  specific `name`, a `name` added to a point (both must hold), or a place where none was given. The polygon and the
+  areas are not available through the tool: the REST API, the command line and Python give them. A `name` that matches
+  no area of any warning in force is told in a `no-area-matched` warning beside `no-alerts-for-place`: it is no
+  all-clear for the place (a place without a warning is in no list, and a name that is not DWD's German one is in none
+  either), so ask by point, or, for a request that has a point, ask without the name. The REST API, the command line
+  and Python do not add it.
 
 The note (but for `coverage`, above) is a warning, `answer-truncated`, in `metadata.warnings`. A JSON answer reaches a
 client as its body alone, so no header carries it (a `csv` answer has no block; for `csv` and `ndjson` the headers are in
