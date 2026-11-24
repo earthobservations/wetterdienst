@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, cast
 
 import polars as pl
 from tqdm import tqdm
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, Unpack
 
 from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
@@ -35,6 +35,14 @@ from wetterdienst.model.plausibility import REJECTED_TOKEN, leave_out_suspect
 from wetterdienst.model.quality_flags import CALM_TOKEN, QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
+from wetterdienst.model.row_selection import (
+    RowSelection,
+    RowSelectionRefusedError,
+    RowsOverLimitError,
+    Searched,
+    parse_row_selection,
+    searched_of,
+)
 from wetterdienst.model.schema import (
     LONG_SCHEMA,
     WIDE_FLAGS_DTYPE,
@@ -61,6 +69,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping, Sequence
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
+    from wetterdienst.model.row_selection import RowOptions
 
 log = logging.getLogger(__name__)
 
@@ -354,6 +363,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: `metno/frost` leaves the monthly and annual value of an open window out of one, as it does a daily value,
     #: and `dmi/observation` the day, the month and the year still running (`model/open_window.py`)
     _left_out_of_estimate: EstimateLeftOut | None = field(default=None, init=False, repr=False, compare=False)
+    #: whether `all` is the caller of `query`, which finishes what the walk reduces station by station: a grouping that
+    #: spans stations (`by=year`) and the order of `sort` are the whole answer's, and `query` alone cannot give them
+    _finishing_rows: bool = field(default=False, init=False, repr=False, compare=False)
+    #: the most rows `all` holds of the rows chosen, which a caller that answers within a limit (the REST API)
+    #: sets; None for no limit. A walk whose choice stays in a station is stopped with `RowsOverLimitError` when it
+    #: has chosen more
+    _held_rows_limit: int | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -466,18 +482,61 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         df = df.with_columns(convert)
         return df.drop(SOURCE_COLUMN) if canonical else df
 
-    def query(self) -> Iterator[ValuesResult]:
+    def _unit_symbol(self, parameter: ParameterModel) -> str:
+        """Give the symbol of the unit the values of a parameter come back in."""
+        if self.sr.options.convert_units:
+            return self.unit_converter.targets[parameter.unit_type].symbol
+        return self.unit_converter.get_unit(parameter.unit, parameter.unit_type).symbol
+
+    def _row_selection(self, rows: RowOptions, *, whole: bool) -> RowSelection | None:
+        """Read the options that choose the rows and check them against this request, None where none is given.
+
+        Raised before a station is read: a text that cannot be read (`RowSelectionError`), `value` over parameters in
+        different units or in the wide shape, and a grouping across stations asked of `query`, which yields the
+        stations one by one and cannot give it (`RowSelectionRefusedError`). `whole` is `all`, which can.
+        """
+        selection = parse_row_selection(**rows)
+        if selection is None:
+            return None
+        if not self.sr.options.tidy:
+            selection.refuse_wide()
+        selection.refuse_for(self.sr.parameters, self._unit_symbol)
+        if not whole and not selection.per_station:
+            msg = (
+                f"`by` without station_id groups across stations ({selection.echo()['by']}), which the stations of "
+                "`query` cannot give one by one: use `all`, or add station_id to `by`."
+            )
+            raise RowSelectionRefusedError(msg)
+        return selection
+
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Query data for all stations and parameters and return a DataFrame for each station.
 
         For a provider that names the files of a station beforehand (`_files_ahead`) the files of the next stations
         are fetched while one is read, as many as `Settings.fetch_ahead` says (GH-3454). Nothing about the answer
         depends on it: the stations come in the same order with the same rows, and a failure is the failure of the
         station it was met at.
+
+        `filter`, `sort`, `first` and `by` choose the rows of each station (`RowSelection`): the readings that meet the
+        conditions, the first of each group in the order of `sort`. They are applied to a station after it is counted
+        for a `rank` and for `skip_empty`, so that they change which rows come back and never which stations are read.
+        Each result carries what was searched of its station (`ValuesResult.search`). A `by` that spans stations needs
+        the whole answer, and is refused here: use `all`. `max_rows` caps the answer, which `query` has station by
+        station: each station's rows are cut to it, and the cap of the whole is the caller's (`all` does it).
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read, when the walk begins and before any station is.
+            RowSelectionRefusedError: a selection that cannot be applied to this request, at the same point.
+
         """
+        return self._walk(self._row_selection(rows, whole=self._finishing_rows))
+
+    def _walk(self, selection: RowSelection | None) -> Iterator[ValuesResult]:
+        """Walk the stations of the request, each reduced by `selection` where there is one."""
         groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
         ahead = self._fetch_ahead(groups)
         try:
-            yield from self._query_stations(groups, ahead)
+            yield from self._query_stations(groups, ahead, selection)
         finally:
             # a consumer that stops (a closed generator, an error, a streamed answer whose client has gone) starts
             # nothing more: what is begun ends with its download, and a download never leaves a part of a file in
@@ -486,7 +545,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 ahead.close()
 
     def _query_stations(
-        self, groups: list[tuple[Any, pl.DataFrame]], ahead: FetchAhead | None
+        self, groups: list[tuple[Any, pl.DataFrame]], ahead: FetchAhead | None, selection: RowSelection | None = None
     ) -> Iterator[ValuesResult]:
         """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
@@ -559,6 +618,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             self._tell_missing_value_markers()
             if hpm is not None:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
+            # what the selection searches, as the answer names it, counted before it chooses
+            searched = searched_of(df, (self.sr.start, self.sr.end)) if selection is not None else None
             if not self.sr.options.tidy:
                 df = self._widen_df(df=df)
             # sorted by resolution first in either shape: two resolutions are two series, and
@@ -573,9 +634,28 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.sort(sort_columns)
             stations_collected += 1
             rows.returned(station_id)
-            yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
+            df, search = self._choose_rows(selection, searched, df)
+            yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated), search=search)
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
+
+    def _choose_rows(
+        self, selection: RowSelection | None, searched: pl.DataFrame | None, df: pl.DataFrame
+    ) -> tuple[pl.DataFrame, Searched | None]:
+        """Apply the selection to the rows of a station that is counted, and say what it searched there.
+
+        After the station is counted for a rank and for `skip_empty`: the rows chosen are the answer's, the station
+        read is what the options of the request decided.
+        """
+        if selection is None or searched is None:
+            return df, None
+        df = selection.reduce_station(df)
+        search = Searched(series=searched, selection=selection, window=(self.sr.start, self.sr.end)).with_matched(df)
+        if selection.per_station:
+            # a station holds no more than the answer can: the count of what matched is taken before
+            df = selection.cap_station(df)
+            search = search.with_returned(df)
+        return df, search
 
     def _pass_over(self, rows: ParameterRows, station_id: str) -> None:
         """Note that a rank walk passed a candidate over (an empty frame, or one below `skip_threshold`) for the next.
@@ -1292,17 +1372,45 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         return df_wide
 
-    def all(self) -> ValuesResult:
-        """Collect all data for all stations and parameters and return a single DataFrame."""
+    def all(self, **rows: Unpack[RowOptions]) -> ValuesResult:
+        """Collect all data for all stations and parameters and return a single DataFrame.
+
+        `filter`, `sort`, `first` and `by` choose the rows (`RowSelection`; see `query`). Each station is reduced as it
+        is read, so that only the rows chosen are held, and the whole is finished once: the groups of `by` that span
+        stations, and the order of `sort` (by series, the sort keys, then station and timestamp). The result says
+        what was searched, per station and series, in `search`.
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read, before any station is.
+            RowSelectionRefusedError: a selection that cannot be applied to this request.
+
+        """
+        selection = self._row_selection(rows, whole=True)
         data = []
         updated = []
+        parts: list[pl.DataFrame] = []
+        # `max_rows` over a choice that stays in a station: what is held is no more than the answer, and the walk
+        # goes on counting what matched at the stations after it
+        keep = selection.max_rows if selection is not None and selection.per_station and not selection.sort else None
 
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
 
-        for result in tqdm(self.query(), total=len(self.sr.station_id), file=tqdm_out):
-            data.append(result.df)
-            if result.data_updated_at is not None:
-                updated.append(result.data_updated_at)
+        self._finishing_rows = selection is not None
+        held = 0
+        try:
+            walk = self.query(**rows) if selection is not None else self.query()
+            for result in tqdm(walk, total=len(self.sr.station_id), file=tqdm_out):
+                frame = result.df if keep is None else result.df.head(max(keep - held, 0))
+                data.append(frame)
+                held += frame.height
+                if selection is not None and selection.first is not None:
+                    held, data = self._hold(selection, held, data)
+                if result.data_updated_at is not None:
+                    updated.append(result.data_updated_at)
+                if result.search is not None:
+                    parts.append(result.search.series)
+        finally:
+            self._finishing_rows = False
 
         if not data:
             # an ordinary outcome -- no station covered the requested window -- rather than an
@@ -1311,11 +1419,45 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # concatenates it against a populated frame, and none of that survives a frame with no
             # columns at all
             log.info("No data available for given constraints")
-            return ValuesResult(stations=self.sr, df=self._empty_values_df())
+            empty = self._empty_values_df()
+            search = None
+            if selection is not None:
+                search = Searched.nothing(selection, (self.sr.start, self.sr.end))
+            return ValuesResult(stations=self.sr, df=empty, search=search)
 
-        df = pl.concat(data, how="diagonal")
+        if selection is None:
+            df = pl.concat(data, how="diagonal")
+            return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
+        matching = selection.finish(data)
+        search = Searched(series=pl.concat(parts), selection=selection, window=(self.sr.start, self.sr.end))
+        if not (selection.max_rows is not None and selection.per_station):
+            # the rows of the walk are what matched: counted again over the whole, which a group that spans stations
+            # settles. Where the stations were cut to `max_rows`, the counts of the walk are the ones that count
+            search = search.with_matched(matching)
+        df = selection.cap(matching)
+        search = search.with_returned(df)
+        search.warn_if_capped()
+        return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated), search=search)
 
-        return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
+    #: the rows chosen that `all` lets pile up before it makes the first rows of the groups that span stations of them
+    _COMPACT_ROWS = 1_000_000
+
+    def _hold(self, selection: RowSelection, held: int, data: list[pl.DataFrame]) -> tuple[int, list[pl.DataFrame]]:
+        """Keep what `all` holds of the rows chosen small, and stop a walk that has chosen more than it may hold.
+
+        A choice that stays in a station (`by` has `station_id`) is the answer as it is read, so more rows than the
+        limit are an answer that is refused, now and not after the last station. A choice over groups that span
+        stations is made again over what was chosen once it has piled up, which gives the same rows (the first rows of
+        a group are among those of its parts) and holds no more than the answer and a million rows.
+        """
+        if selection.per_station:
+            if self._held_rows_limit and held > self._held_rows_limit:
+                raise RowsOverLimitError(held, self._held_rows_limit)
+            return held, data
+        if held >= self._COMPACT_ROWS:
+            compact = selection.finish(data)
+            return compact.height, [compact]
+        return held, data
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
         """Wrap to_target of all queried results.

@@ -58,6 +58,14 @@ from wetterdienst.model.request import (
     limit_to_window,
     require_window,
 )
+from wetterdienst.model.row_selection import (
+    MAX_FIRST,
+    MAX_MAX_ROWS,
+    RowSelectionError,
+    parse_row_selection,
+    read_first,
+    read_max_rows,
+)
 from wetterdienst.model.station_ids import search_icao_id, search_wigos_id, search_wmo_id
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.kostra.metadata import DURATIONS as KOSTRA_DURATIONS
@@ -77,6 +85,7 @@ if TYPE_CHECKING:
         SummarizedValuesResult,
         ValuesResult,
     )
+    from wetterdienst.model.row_selection import RowOptions
     from wetterdienst.settings import Settings
 
 log = get_one_line_logger(__name__)
@@ -372,6 +381,51 @@ _DropNullsField = Annotated[
     Field(
         description="Drop rows with null values from the output. "
         "Default: the server's WD_TS_DROP_NULLS if set, else true."
+    ),
+]
+
+_FilterField = Annotated[
+    str | None,
+    Field(
+        description="Keep only the rows that meet every condition, joined by commas: column, operator, number. "
+        "Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date). Operators `=` `!=` `<` `<=` "
+        "`>` `>=`; a list `a|b` with `=` and `!=`. A missing value never matches. `value` needs parameters of one "
+        "unit and shape=long. Example: `value<=-20,month=12|1|2`.",
+    ),
+]
+_SortField = Annotated[
+    str | None,
+    Field(
+        description="Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, "
+        "`timestamp`, `year`, `month`, `day`, `hour`, `station_id`. Example: `-value` (highest first), `month,day`.",
+    ),
+]
+_FirstField = Annotated[
+    int | None,
+    Field(
+        description="Return only the first N rows of each group in the `sort` order, with the ties of the last one; "
+        "needs `sort`. The `timestamp` window is what is searched: give one that spans the record (`1883/2026`); "
+        "`metadata.search` says from when to when.",
+        ge=1,
+        le=MAX_FIRST,
+    ),
+]
+_MaxRowsField = Annotated[
+    int | None,
+    Field(
+        description="Return at most this many rows of the whole answer, the first of its order (after `filter`, `sort` "
+        "and `first`), over all stations and parameters: for a short answer where many rows tie. What matched is still "
+        "counted in `metadata.search`, and a `rows-capped` warning says how many of how many are returned.",
+        ge=1,
+        le=MAX_MAX_ROWS,
+    ),
+]
+_ByField = Annotated[
+    str | None,
+    Field(
+        description="The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, "
+        "`timestamp`, joined by commas, or `none` for all stations together; a parameter is always its own group. "
+        "Needs `first`. Example: `station_id,year`.",
     ),
 ]
 
@@ -794,6 +848,28 @@ REMOVED_ON_ROUTES: dict[str, dict[str, str]] = {
 }
 
 
+#: names a caller of `values` may try for what `max_rows` and the other row options do, by name, with what to write
+#: instead. They never were parameters, so the answer is not "was renamed" or "was removed" but where to look
+#: (GH-4411)
+HINTED_ON_VALUES: dict[str, str] = {
+    "limit": (
+        "the most rows of an answer are `max_rows`; `limits` bounds values for the plausibility check, and `first` "
+        "keeps the first rows of each group"
+    ),
+    "offset": (
+        "there is no offset and no paging: `max_rows` keeps the first rows of the answer, and `filter`, `sort` and "
+        "`first` choose which they are"
+    ),
+}
+
+
+def hinted_parameter_message(name: str, route: str = "") -> str | None:
+    """Say what to write instead of a name that is no parameter of the route, None where there is no such hint."""
+    if route == "values" and name in HINTED_ON_VALUES:
+        return f"{name} is not a parameter of values: {HINTED_ON_VALUES[name]}"
+    return None
+
+
 def removed_parameter_text(name: str, route: str = "") -> str | None:
     """Give what a caller of `route` is to do instead of a removed parameter, None if the route never took it."""
     if name in REMOVED_ON_ROUTES:
@@ -833,6 +909,11 @@ class _RefusesRenamedParameters(BaseModel):
                 _rule_error("removed", removed_parameter_message(name, cls.route), (name,), data[name])
                 for name in removed_parameter_names(cls.route)
                 if name in data and name not in cls.model_fields
+            ]
+            errors += [
+                _rule_error("hinted", message, (name,), data[name])
+                for name in data
+                if name not in cls.model_fields and (message := hinted_parameter_message(name, cls.route))
             ]
             if errors:
                 raise ValidationError.from_exception_data(cls.__name__, errors)
@@ -1345,6 +1426,13 @@ class ValuesRequest(_RefusesRenamedParameters):
     plausibility_relations: _PlausibilityRelationsField = "soft"
     limits: _LimitsField = None
 
+    # the rows of the answer (GH-4411): read by `RowSelection`, applied by the reader of the values
+    filter: _FilterField = None
+    sort: _SortField = None
+    first: _FirstField = None
+    by: _ByField = None
+    max_rows: _MaxRowsField = None
+
     @field_validator("unit_targets", "limits", mode="before")
     @classmethod
     def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
@@ -1354,6 +1442,36 @@ class ValuesRequest(_RefusesRenamedParameters):
         if isinstance(v, dict):
             return v
         return _load_json(v)
+
+    @field_validator("filter", "sort", "by", mode="before")
+    @classmethod
+    def validate_row_option_is_given(cls, v: object) -> object:
+        """Read a row option left empty as none given, as an empty query parameter is."""
+        return None if isinstance(v, str) and not v else v
+
+    @field_validator("first", mode="before")
+    @classmethod
+    def validate_first(cls, v: object) -> object:
+        """Read `first` as a whole number, naming what is wrong where it is none."""
+        return None if v is None or v == "" else read_first(v)
+
+    @field_validator("max_rows", mode="before")
+    @classmethod
+    def validate_max_rows(cls, v: object) -> object:
+        """Read `max_rows` as a whole number, naming what is wrong where it is none."""
+        return None if v is None or v == "" else read_max_rows(v)
+
+    @model_validator(mode="after")
+    def check_row_options(self) -> ValuesRequest:
+        """Read the row options in full, and refuse one that cannot be read, located at the option it is in."""
+        try:
+            parse_row_selection(
+                filter=self.filter, sort=self.sort, first=self.first, by=self.by, max_rows=self.max_rows
+            )
+        except RowSelectionError as e:
+            value = getattr(self, e.option)
+            _raise_rule_errors(self, [_rule_error("row_selection", str(e), (e.option,), value)])
+        return self
 
     @model_validator(mode="after")
     def check_station_selection(self) -> ValuesRequest:
@@ -2860,17 +2978,28 @@ def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
     return stations
 
 
+def row_options_of(request: ValuesRequest) -> RowOptions:
+    """Give the row options a values request names, as the keywords of the reader: those given, none for none."""
+    rows: RowOptions = {}
+    for name in ("filter", "sort", "first", "by", "max_rows"):
+        if (value := getattr(request, name, None)) is not None:
+            rows[name] = value
+    return rows
+
+
 def get_values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
     settings: Settings,
     options: Options | None = None,
     check: Callable[[StationsResult], None] | None = None,
+    held_rows_limit: int | None = None,
 ) -> ValuesResult:
     """Get values based on request.
 
     `check` is given the stations selected before any value is downloaded, and refuses the request by raising:
-    the limits of the REST API are applied there (GH-3065).
+    the limits of the REST API are applied there (GH-3065). `held_rows_limit` is the most rows of the choice of
+    `filter`, `sort`, `first` and `by` that may pile up as the stations are read (`RowsOverLimitError`).
     """
     stations_ = get_stations(
         api=api,
@@ -2885,7 +3014,9 @@ def get_values(
     # TODO: Add stream-based processing here.
     # a `ValueError` from the values -- a provider refusing a request it cannot serve as phrased
     # (`ParameterNotCarriedError`), or a parse failure -- propagates: reporting it is the caller's
-    values_ = stations_.values().all()
+    reader = stations_.values()
+    reader._held_rows_limit = held_rows_limit  # noqa: SLF001
+    values_ = reader.all(**row_options_of(request))
 
     if values_.df.is_empty():
         # nothing to filter, and nothing more to say about it. An empty window is the caller's

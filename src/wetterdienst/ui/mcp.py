@@ -406,7 +406,7 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
 # `ui.budget.ANSWER_BUDGET` characters.
 _VALUES_WINDOW_ADVICE = (
     "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv with "
-    "shape=wide."
+    "shape=wide (not with a `value` filter)."
 )
 
 # The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same
@@ -471,6 +471,7 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
 
     from wetterdienst.ui.core import (  # noqa: PLC0415
         RENAMED_REQUEST_PARAMETERS,
+        hinted_parameter_message,
         join_names,
         old_names_of_route,
         removed_parameter_message,
@@ -496,7 +497,9 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
                 # a removed name is told only by a tool whose route took it (`glossary` never took `sql`)
                 removed = [name for name in unknown if name in removed_parameter_names(tool.name)]
                 refused += [removed_parameter_message(name, tool.name) for name in removed]
-                if others := [name for name in unknown if name not in renamed and name not in removed]:
+                hinted = [name for name in unknown if hinted_parameter_message(name, tool.name)]
+                refused += [hinted_parameter_message(name, tool.name) or "" for name in hinted]
+                if others := [name for name in unknown if name not in renamed and name not in removed + hinted]:
                     verb = "is not an argument" if len(others) == 1 else "are not arguments"
                     refused.append(
                         f"{join_names(others)} {verb} of {tool.name}, which takes {join_names(sorted(taken))}"

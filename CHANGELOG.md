@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `values` takes `filter`, `sort`, `first`, `by` and `max_rows`, which have the server choose the
+  rows of the answer from the whole series: `sort=value&first=1` is the lowest value ever measured
+  at each station, `filter=value<=-20` the days below -20, `max_rows=20` keeps the first 20 rows.
+  The same words on REST, in the MCP tool, on the command line and in Python; a text that cannot
+  be read is refused with its position. `metadata.search` says per station and parameter from when
+  to when the series was searched, how many values, of how many the request covers, and how many
+  rows matched and were returned. A request with `first` may read up to the stream limit
+  (GH-4411)
+
 ## [0.198.0] - 2026-11-24
 
 ### Changed

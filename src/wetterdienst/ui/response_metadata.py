@@ -342,6 +342,108 @@ class StationIdsMetadata(BaseModel):
     )
 
 
+class SearchOptions(BaseModel):
+    """The row options of the request as they were read, null for one that was not given."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    filter: str | None = Field(description="The conditions, as read: `value<=-20,month=12|1|2`.")
+    sort: str | None = Field(description="The sort keys, as read: `-value`, `month,day`.")
+    first: int | None = Field(description="How many rows of each group were kept, the ties of the last included.")
+    by: str | None = Field(
+        description="The groups `first` counted in as read: `station_id` or `none` or a list; null for the default, "
+        "the station.",
+    )
+    max_rows: int | None = Field(description="The most rows the answer was cut to, as the last step; null for no cap.")
+
+
+class SearchWindow(BaseModel):
+    """The window the request read, in UTC."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start: str | None = Field(description="Start of the window; null where the request has none.")
+    end: str | None = Field(description="End of the window; null where the request has none.")
+
+
+class SearchTotals(BaseModel):
+    """What the whole answer searched, summed over its series."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    series: int = Field(description="How many stations and parameters were searched (also those that are not listed).")
+    searched: int = Field(description="The values searched in all.")
+    expected: int | None = Field(
+        description="The values the request covers, in all (see `series[].expected`); null where one series has none "
+        "to give.",
+    )
+    gaps: int | None = Field(
+        description="The values the series lack inside their own span, in all; null where one series has none to give.",
+    )
+    matched: int = Field(description="The rows the options chose of the values searched, before `max_rows` cut them.")
+    returned: int = Field(description="The rows of the answer: `matched`, or fewer where `max_rows` cut the answer.")
+
+
+class SearchedSeries(BaseModel):
+    """What was searched of one parameter of one station, from when to when, and what of it is in the answer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    station_id: str
+    resolution: str
+    dataset: str
+    parameter: str = Field(description="The name the answer's rows have.")
+    first: str | None = Field(
+        description="The timestamp of the first value searched, in UTC; null where none. The series is searched from "
+        "here, whatever the station's record or the window say.",
+    )
+    last: str | None = Field(description="The timestamp of the last value searched, in UTC; null where none.")
+    searched: int = Field(
+        description="The values searched: readings with a value, after the plausibility rules and the conversion of "
+        "units, within the window.",
+    )
+    expected: int | None = Field(
+        description="The values the request covers, in the steps of the resolution (calendar months and years for the "
+        "monthly and annual): with a `timestamp` window from its start to its end or to the last complete reading, "
+        "whichever is earlier, so that a window that begins before `first`, a series that ended before the window "
+        "does and a year that is not over are incomplete; without one from `first` to `last`. `expected` minus "
+        "`searched` is what is missing. Null where the resolution has no fixed step.",
+    )
+    gaps: int | None = Field(
+        description="The values the series lacks between `first` and `last`, whatever the window says: null where the "
+        "resolution has no fixed step.",
+    )
+    matched: int = Field(description="The rows the options chose from this station and parameter.")
+    returned: int = Field(
+        description="The rows of the answer from this station and parameter: `matched`, or fewer where `max_rows` "
+        "cut the answer, which keeps its first rows over all stations and parameters.",
+    )
+
+
+class Search(BaseModel):
+    """What the row options (`filter`, `sort`, `first`, `by`) looked at, so that a reader knows the search was complete.
+
+    Given where the request has one of them. Counted before the options choose: per station and parameter from when
+    to when (`first`, `last`) it was searched, how many `searched` values that is, of the `expected`, and the `matched`
+    rows that are in the answer. The `warnings` of the block say what else was left out (a file skipped, a source that
+    fell back to another, an answer cut to fit a tool); an empty answer reports as well.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    options: SearchOptions
+    window: SearchWindow = Field(
+        description="The window the request read: a provider that needs one names it here, and where there is none "
+        "everything the provider holds for the stations was searched.",
+    )
+    series: list[SearchedSeries] = Field(
+        description="One entry per station and parameter, at most 100; `totals.series` counts them all. A series is "
+        "searched from its `first` to its `last` value, which need not be the period of the station or the window.",
+    )
+    series_omitted: int = Field(description="How many series `totals` counts that `series` does not list.")
+    totals: SearchTotals
+
+
 class ResponseMetadata(BaseModel):
     """The `metadata` block of an answer."""
 
@@ -379,6 +481,12 @@ class ResponseMetadata(BaseModel):
     crs: Crs
     warnings: list[ResponseWarning] = Field(
         description="What the answer is missing but did not fail on, each with a stable `code` and a `message`.",
+    )
+    search: Search | None = Field(
+        default=None,
+        description="What `filter`, `sort`, `first` and `by` searched, per station and parameter: present with one of "
+        "them, also where no row matched. Never in a streamed answer's first line, which goes out before the "
+        "search is done: NDJSON carries it in the `end` line, CSV its totals in headers.",
     )
     parameters: list[ParameterInfo] | None = Field(default=None, description="With `with_metadata` only.")
     quality: Quality | None = Field(default=None, description="With `with_metadata` only.")
@@ -469,6 +577,9 @@ def result_metadata(
         crs=Crs(),
         warnings=recorded_warnings(),
     )
+    searched = None if isinstance(result, StationsResult) else getattr(result, "search", None)
+    if searched is not None:
+        block.search = Search.model_validate(searched.to_dict())
     if heavy:
         converter = UnitConverter()
         converter.update_targets(options.unit_targets)
@@ -748,7 +859,7 @@ def station_ids_headers(metadata: StationIdsMetadata) -> Mapping[str, str]:
 
 def metadata_to_dict(metadata: ResponseMetadata) -> dict[str, Any]:
     """Write the block as the JSON of an answer has it: the heavy parts only where they were asked for."""
-    exclude = {name for name in _HEAVY if getattr(metadata, name) is None}
+    exclude = {name for name in (*_HEAVY, "search") if getattr(metadata, name) is None}
     return metadata.model_dump(mode="json", exclude=exclude)
 
 
@@ -774,6 +885,13 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
     }
     if metadata.data_updated_at is not None:
         headers["X-Wetterdienst-Data-Updated-At"] = metadata.data_updated_at
+    if metadata.search is not None:
+        # a CSV has no block: what the row options searched goes into three headers, its series stay in JSON
+        totals = metadata.search.totals
+        headers["X-Wetterdienst-Values-Searched"] = str(totals.searched)
+        if totals.expected is not None:
+            headers["X-Wetterdienst-Values-Expected"] = str(totals.expected)
+        headers["X-Wetterdienst-Rows-Matched"] = str(totals.matched)
     if (license_ := provider["license"]) is not None:
         headers["X-Wetterdienst-License"] = _header_text(_license_label(license_))
         headers["Link"] = f'<{license_["url"]}>; rel="license"'

@@ -2360,7 +2360,7 @@
           "Values"
         ],
         "summary": "Values",
-        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
+        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nTo find a record or a rare value, have the server choose the rows instead of reading the series:\n`sort=value&first=1` is the lowest value ever measured at each station (`sort=-value` the highest),\n`filter=value<=-20,month=12` the readings below -20 in a December. An extreme can be a faulty reading: read its\n`quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows (every dry day\nis 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when and how many\nvalues were searched, so that a record the data lacks is told from one not looked for.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
         "operationId": "values_api_values_get",
         "parameters": [
           {
@@ -3328,6 +3328,100 @@
               "title": "Limits"
             },
             "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep only the rows that meet every condition, joined by commas: column, operator, number. Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date). Operators `=` `!=` `<` `<=` `>` `>=`; a list `a|b` with `=` and `!=`. A missing value never matches. `value` needs parameters of one unit and shape=long. Example: `value<=-20,month=12|1|2`.",
+              "title": "Filter"
+            },
+            "description": "Keep only the rows that meet every condition, joined by commas: column, operator, number. Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date). Operators `=` `!=` `<` `<=` `>` `>=`; a list `a|b` with `=` and `!=`. A missing value never matches. `value` needs parameters of one unit and shape=long. Example: `value<=-20,month=12|1|2`."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, `timestamp`, `year`, `month`, `day`, `hour`, `station_id`. Example: `-value` (highest first), `month,day`.",
+              "title": "Sort"
+            },
+            "description": "Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, `timestamp`, `year`, `month`, `day`, `hour`, `station_id`. Example: `-value` (highest first), `month,day`."
+          },
+          {
+            "name": "first",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 10000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Return only the first N rows of each group in the `sort` order, with the ties of the last one; needs `sort`. The `timestamp` window is what is searched: give one that spans the record (`1883/2026`); `metadata.search` says from when to when.",
+              "title": "First"
+            },
+            "description": "Return only the first N rows of each group in the `sort` order, with the ties of the last one; needs `sort`. The `timestamp` window is what is searched: give one that spans the record (`1883/2026`); `metadata.search` says from when to when."
+          },
+          {
+            "name": "by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, `timestamp`, joined by commas, or `none` for all stations together; a parameter is always its own group. Needs `first`. Example: `station_id,year`.",
+              "title": "By"
+            },
+            "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, `timestamp`, joined by commas, or `none` for all stations together; a parameter is always its own group. Needs `first`. Example: `station_id,year`."
+          },
+          {
+            "name": "max_rows",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 10000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Return at most this many rows of the whole answer, the first of its order (after `filter`, `sort` and `first`), over all stations and parameters: for a short answer where many rows tie. What matched is still counted in `metadata.search`, and a `rows-capped` warning says how many of how many are returned.",
+              "title": "Max Rows"
+            },
+            "description": "Return at most this many rows of the whole answer, the first of its order (after `filter`, `sort` and `first`), over all stations and parameters: for a short answer where many rows tie. What matched is still counted in `metadata.search`, and a `rows-capped` warning says how many of how many are returned."
           }
         ],
         "responses": {
@@ -7347,6 +7441,17 @@
             "title": "Warnings",
             "description": "What the answer is missing but did not fail on, each with a stable `code` and a `message`."
           },
+          "search": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Search"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What `filter`, `sort`, `first` and `by` searched, per station and parameter: present with one of them, also where no row matched. Never in a streamed answer's first line, which goes out before the search is done: NDJSON carries it in the `end` line, CSV its totals in headers."
+          },
           "parameters": {
             "anyOf": [
               {
@@ -7422,6 +7527,316 @@
         ],
         "title": "ResponseWarning",
         "description": "One thing an answer is missing, told by a `code` that stays and a `message` that may improve."
+      },
+      "Search": {
+        "properties": {
+          "options": {
+            "$ref": "#/components/schemas/SearchOptions"
+          },
+          "window": {
+            "$ref": "#/components/schemas/SearchWindow",
+            "description": "The window the request read: a provider that needs one names it here, and where there is none everything the provider holds for the stations was searched."
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/SearchedSeries"
+            },
+            "type": "array",
+            "title": "Series",
+            "description": "One entry per station and parameter, at most 100; `totals.series` counts them all. A series is searched from its `first` to its `last` value, which need not be the period of the station or the window."
+          },
+          "series_omitted": {
+            "type": "integer",
+            "title": "Series Omitted",
+            "description": "How many series `totals` counts that `series` does not list."
+          },
+          "totals": {
+            "$ref": "#/components/schemas/SearchTotals"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "options",
+          "window",
+          "series",
+          "series_omitted",
+          "totals"
+        ],
+        "title": "Search",
+        "description": "What the row options (`filter`, `sort`, `first`, `by`) looked at, so that a reader knows the search was complete.\n\nGiven where the request has one of them. Counted before the options choose: per station and parameter from when\nto when (`first`, `last`) it was searched, how many `searched` values that is, of the `expected`, and the `matched`\nrows that are in the answer. The `warnings` of the block say what else was left out (a file skipped, a source that\nfell back to another, an answer cut to fit a tool); an empty answer reports as well."
+      },
+      "SearchOptions": {
+        "properties": {
+          "filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter",
+            "description": "The conditions, as read: `value<=-20,month=12|1|2`."
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort",
+            "description": "The sort keys, as read: `-value`, `month,day`."
+          },
+          "first": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First",
+            "description": "How many rows of each group were kept, the ties of the last included."
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By",
+            "description": "The groups `first` counted in as read: `station_id` or `none` or a list; null for the default, the station."
+          },
+          "max_rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Rows",
+            "description": "The most rows the answer was cut to, as the last step; null for no cap."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "filter",
+          "sort",
+          "first",
+          "by",
+          "max_rows"
+        ],
+        "title": "SearchOptions",
+        "description": "The row options of the request as they were read, null for one that was not given."
+      },
+      "SearchTotals": {
+        "properties": {
+          "series": {
+            "type": "integer",
+            "title": "Series",
+            "description": "How many stations and parameters were searched (also those that are not listed)."
+          },
+          "searched": {
+            "type": "integer",
+            "title": "Searched",
+            "description": "The values searched in all."
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected",
+            "description": "The values the request covers, in all (see `series[].expected`); null where one series has none to give."
+          },
+          "gaps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gaps",
+            "description": "The values the series lack inside their own span, in all; null where one series has none to give."
+          },
+          "matched": {
+            "type": "integer",
+            "title": "Matched",
+            "description": "The rows the options chose of the values searched, before `max_rows` cut them."
+          },
+          "returned": {
+            "type": "integer",
+            "title": "Returned",
+            "description": "The rows of the answer: `matched`, or fewer where `max_rows` cut the answer."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "series",
+          "searched",
+          "expected",
+          "gaps",
+          "matched",
+          "returned"
+        ],
+        "title": "SearchTotals",
+        "description": "What the whole answer searched, summed over its series."
+      },
+      "SearchWindow": {
+        "properties": {
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start",
+            "description": "Start of the window; null where the request has none."
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End",
+            "description": "End of the window; null where the request has none."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "SearchWindow",
+        "description": "The window the request read, in UTC."
+      },
+      "SearchedSeries": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter",
+            "description": "The name the answer's rows have."
+          },
+          "first": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First",
+            "description": "The timestamp of the first value searched, in UTC; null where none. The series is searched from here, whatever the station's record or the window say."
+          },
+          "last": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last",
+            "description": "The timestamp of the last value searched, in UTC; null where none."
+          },
+          "searched": {
+            "type": "integer",
+            "title": "Searched",
+            "description": "The values searched: readings with a value, after the plausibility rules and the conversion of units, within the window."
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected",
+            "description": "The values the request covers, in the steps of the resolution (calendar months and years for the monthly and annual): with a `timestamp` window from its start to its end or to the last complete reading, whichever is earlier, so that a window that begins before `first`, a series that ended before the window does and a year that is not over are incomplete; without one from `first` to `last`. `expected` minus `searched` is what is missing. Null where the resolution has no fixed step."
+          },
+          "gaps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gaps",
+            "description": "The values the series lacks between `first` and `last`, whatever the window says: null where the resolution has no fixed step."
+          },
+          "matched": {
+            "type": "integer",
+            "title": "Matched",
+            "description": "The rows the options chose from this station and parameter."
+          },
+          "returned": {
+            "type": "integer",
+            "title": "Returned",
+            "description": "The rows of the answer from this station and parameter: `matched`, or fewer where `max_rows` cut the answer, which keeps its first rows over all stations and parameters."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "resolution",
+          "dataset",
+          "parameter",
+          "first",
+          "last",
+          "searched",
+          "expected",
+          "gaps",
+          "matched",
+          "returned"
+        ],
+        "title": "SearchedSeries",
+        "description": "What was searched of one parameter of one station, from when to when, and what of it is in the answer."
       },
       "ServerSettings": {
         "properties": {

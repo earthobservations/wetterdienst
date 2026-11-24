@@ -158,6 +158,24 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
     raise error
 
 
+def check_chosen_rows(rows: int, limits: Limits, *, at_least: bool = False) -> None:
+    """Refuse an answer whose rows chosen by `first` are more than the limit of one body, saying what to change.
+
+    A request with `first` reads under the stream limit whatever its format, so that a record can be searched, and the
+    rows it chooses are held before they are sent, so they are held to `rows`, the limit of an answer sent as one
+    body, in every format. They are known only as the values are read, so this is told then, and names what makes them
+    fewer. `at_least` is for a walk stopped at the limit: the rows are those chosen until then.
+    """
+    maximum = limits.max_rows
+    if not maximum or rows <= maximum:
+        return
+    count = f"at least {rows:,}" if at_least else f"{rows:,}"
+    head = f"The options chose {count} rows, more than the {maximum:,} this server holds and sends as one answer."
+    message = f"{head} Ask for a smaller `first`, add a `filter`, or name fewer parameters and stations."
+    error = _refuse("rows", maximum, rows, message)
+    raise error
+
+
 def check_point_rows(rows: int, limits: Limits) -> None:
     """Refuse an `interpolate` or `summarize` answer of more rows than `rows`, saying what to change.
 

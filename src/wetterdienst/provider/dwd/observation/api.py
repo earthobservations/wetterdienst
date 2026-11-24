@@ -90,8 +90,10 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from fsspec.implementations.zip import ZipFileSystem
+    from typing_extensions import Unpack
 
     from wetterdienst.model.result import HistoryResult, StationsResult, ValuesResult
+    from wetterdienst.model.row_selection import RowOptions
 log = logging.getLogger(__name__)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
@@ -153,9 +155,9 @@ class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
     @remembering_empty_directories
-    def query(self) -> Iterator[ValuesResult]:
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
-        yield from super().query()
+        yield from super().query(**rows)
 
     def _zero_direction_is_no_bearing(self) -> pl.Expr:
         """Have the hourly directions of 0 that are no calm alone stay with `missing-value-marker` (GH-3696).
