@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.197.0] - 2026-11-24
+
 ### Added
 
 - The MCP endpoint (`/mcp/v1`, `/mcp`) answers `initialize` with an `Mcp-Session-Id`, a new random
@@ -8494,7 +8496,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...HEAD
+[0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
 [0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0
 [0.195.0]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...v0.195.0
 [0.194.0]: https://github.com/earthobservations/wetterdienst/compare/v0.193.0...v0.194.0
