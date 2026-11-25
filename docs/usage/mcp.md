@@ -112,17 +112,40 @@ does not take is refused with the name of the one it takes where the tool had th
 `debug`: the log level of the server is its operator's, and a call that gives it is refused saying so.
 
 Every `format` a tool offers is answered, as one body held to the `rows` limit. `json` and `geojson` are the
-structured content of the result. The other formats are content blocks: `csv`, `ndjson`, `html` and `svg` are text, as
-the REST API sends them; `png`, `jpg` and `webp` are image content and `pdf` is an embedded resource. The structured
-content that the output schema of the tool requires is then one sentence about the answer: its media type and size in
-bytes, and the licence, the attribution, the note on what wetterdienst did to the
-data and the warnings that the REST API sends in headers for these formats (the same
-in the `_meta` of the result, under `wetterdienst`). For data (`csv` and `ndjson`) the body follows the sentence in the
-structured content, since a client may hand the model that alone; a chart is not repeated. An `html` chart loads plotly.js
-from the CDN, so the page is a few kilobytes (9 KB for one station) where the REST API sends it inline, about 4.8 MB,
-and the page needs the network to draw. The default is `json`, which
-the assistant reads without further ado: a chart is for a client that shows it, and a long `csv` goes through the
-context of the assistant.
+structured content of the result. `csv` is a text content block, as the REST API sends it, and so is `ndjson`, which
+only `values` and `stations` offer. The structured content that the output schema of the tool
+requires is then one sentence about the answer: its media type and size in bytes, and the licence, the attribution,
+the note on what wetterdienst did to the data and the warnings that the REST API sends in headers for these formats
+(the same in the `_meta` of the result, under `wetterdienst`), followed by the body itself, since a client may hand the
+model the structured content alone. The default is `json`, which the assistant reads without further ado, and a long
+`csv` goes through the context of the assistant.
+
+### What a tool does not take
+
+A tool is its REST route without the options that only the REST API needs, which a model reading JSON cannot use and
+which were part of the tool list of every session: `pretty`, the `width`, `height` and `scale` of an image, and the
+formats of a chart (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`). Nothing else is dropped (the `left`, `right`, `top` and
+`bottom` of a station box are arguments of the tools as they were). Charts are gone from the tools: a client that needs
+a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`, `/interpolate` and `/summarize` with
+`format=png` and the like, as do the command line and Python, which are unchanged.
+
+A call that still sends one of the options is answered like this, so that a client written for an earlier release
+keeps working where it can. Where the tool's route took the option:
+
+- `pretty` at any value, and `width`, `height` and `scale` as `null` (the default they had), are let go: the call is
+  answered as one without them, since they change nothing of an answer in a data format. A client that sends every
+  option with its default (`pretty=false`) is not refused for it.
+- a `width`, `height` or `scale` with a value is a tool error. The tool draws no image, and a value may mean something
+  else to a model: `interpolate` and `summarize` name `elevation` for a `height`, the height of the point above sea
+  level, which let go would have been ignored.
+- a `format` that the tool does not offer is a tool error that names the formats the tool answers (`format=png is not
+  offered by the tool values, which answers json, geojson, csv or ndjson. Charts are drawn by the REST API:
+  /api/v1/values takes format=png.`), whether it is a chart format (also in capitals, or with spaces round it) or any
+  other, such as `ndjson` for `interpolate`; so is a list of formats with such a one in it. Nothing is requested from
+  the provider.
+
+The option is an unknown argument, refused as above, for a tool whose route never took it (`pretty` for `glossary`).
+All the refusals of a call are one error.
 
 ## A forecast starts at now
 
@@ -163,8 +186,8 @@ a file instead of handing it over (it counts characters, not tokens). So the ans
 `interpolate`, `summarize`, `coverage` and `alerts` is held to **40,000 characters** of what the client receives, in
 `json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
 included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the
-licence and the note below, and the body, each newline and quote of it written as the escape it is there. A chart is
-not counted. The budget is a constant of the server and applies to the tools alone: the REST API, the command line and Python answer everything the
+licence and the note below, and the body, each newline and quote of it written as the escape it is there. The budget is
+a constant of the server and applies to the tools alone: the REST API, the command line and Python answer everything the
 [limits](restapi.md#limits) allow, so an app that lists every station of a network is unaffected.
 
 An answer over the budget is cut, not refused, and says so:
