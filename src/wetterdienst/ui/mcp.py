@@ -810,8 +810,9 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
 
     What it carries is text: csv and ndjson, the data formats of a tool that are not JSON. A 2xx of any other media
     type is no answer of a tool (a chart, or what a route answered to an argument it should not have been given): it is
-    an error, a 502 that names the media type, and its body is not read (GH-4453). That is the last line, not the
-    first: a chart format and an object for an argument that takes none are refused before the route is called
+    an error, a 502 that names the media type, and its body is not decoded, not copied and not passed on (GH-4453; the
+    in-process transport holds it whole, nothing here uses it). That is the last line, not the first: a chart format
+    and an object for an argument that takes none are refused before the route is called
     (`_refuse_unknown_arguments`, GH-4318, GH-4453), and `tests/ui/test_mcp_formats.py` holds what a tool offers (every
     `format` an enum of the data formats, and no route of the OpenAPI document that a tool is made from declaring
     another media type for a 2xx, which says nothing of what a route answers without declaring it).
