@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import re
 from collections.abc import Callable, Mapping
 from copy import copy
 from pathlib import Path
@@ -30,7 +31,10 @@ from wetterdienst.util.json_util import dumps_json
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     import sqlalchemy
+    from duckdb import DuckDBPyConnection
 
     from wetterdienst.io.export import ExportMixin
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
@@ -405,6 +409,29 @@ def _find_writer(target: str, filepath: str, writers: Mapping[str, FileWriter]) 
     raise ExportRefusedError(msg)
 
 
+def _connect_duckdb(duckdb: ModuleType, database: str) -> DuckDBPyConnection:
+    """Open the database for writing, a new file in the storage format of DuckDB 1.0 where DuckDB is 2 or newer.
+
+    DuckDB 2 writes a format by default that DuckDB 1.x cannot open, so a new file is created as `v1.0.0`, which DuckDB
+    1.5 wrote as well and which 1.5 and 2 read: a reader on 1.5 keeps working. DuckDB 1.5 writes it anyway, and is
+    opened as it was. A file that exists keeps its own format whatever is asked, and is opened as before, so that a
+    caller who connects to it meanwhile is not refused: DuckDB refuses a connection to a file in this process that has
+    another configuration than one already open. Each way is tried in turn, a new file with the setting first, a file
+    that exists without it first, so that a connection of a caller or of another export that holds the file open does
+    not fail the write.
+    """
+    plain = {}
+    pinned = {"storage_compatibility_version": "v1.0.0"}
+    major = re.match(r"\s*v?(\d+)", str(duckdb.__version__))
+    if major is None or int(major.group(1)) < 2:
+        return duckdb.connect(database=database, read_only=False)
+    configs = [plain, pinned] if Path(database).exists() else [pinned, plain]
+    try:
+        return duckdb.connect(database=database, read_only=False, config=configs[0])
+    except duckdb.ConnectionException:
+        return duckdb.connect(database=database, read_only=False, config=configs[1])
+
+
 def _write_duckdb(result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists) -> None:  # noqa: ARG001
     """Write the frame to a DuckDB database."""
     database = connspec.database
@@ -434,19 +461,22 @@ def _write_duckdb(result: ExportMixin, target: str, connspec: ConnectionString, 
     df = copy(result.df)
 
     df = df.with_columns(cs.datetime().dt.replace_time_zone(None))
+    # a column with no value is polars' `Null`, which DuckDB 2 makes a column of the type "NULL" in a new table, and
+    # a later append of values into it fails; as text it takes any value later, as the INTEGER of DuckDB 1.x did
+    df = df.with_columns(pl.col(name).cast(pl.String) for name, dtype in df.schema.items() if dtype == pl.Null)
 
-    connection = duckdb.connect(database=database, read_only=False)
+    connection = _connect_duckdb(duckdb, database)
     try:
         connection.register("origin", df)
         if if_exists == "replace":
             connection.execute(f"DROP TABLE IF EXISTS {tablename};")
             connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
         elif if_exists == "append":
-            result = connection.execute(
+            # read to its end (`fetchall`): DuckDB 2 runs no other query on the connection before
+            rows = connection.execute(
                 f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';",  # noqa: S608
-            )
-            row = result.fetchone()
-            exists = row is not None and row[0] > 0
+            ).fetchall()
+            exists = bool(rows) and rows[0][0] > 0
             if not exists:
                 connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
             else:
@@ -468,11 +498,11 @@ def _write_duckdb(result: ExportMixin, target: str, connspec: ConnectionString, 
                 raise ExportRefusedError(msg) from e
         elif if_exists == "skip":
             # Only create if not exists, skip if exists
-            result = connection.execute(
+            # read to its end (`fetchall`): DuckDB 2 runs no other query on the connection before
+            rows = connection.execute(
                 f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name='{tablename}';"  # noqa: S608
-            )
-            row = result.fetchone()
-            exists = row is not None and row[0] > 0
+            ).fetchall()
+            exists = bool(rows) and rows[0][0] > 0
             if not exists:
                 connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
             else:

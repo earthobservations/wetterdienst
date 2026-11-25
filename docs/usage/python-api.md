@@ -1099,7 +1099,24 @@ so sort or slice the returned frame instead. The condition runs on a DuckDB conn
 own, which cannot read files, reach the network or load extensions, and holds nothing but the
 frame.
 
-The filter needs DuckDB 1.5.3 or newer and refuses an older one with `UnsupportedDependencyError`. It is for the
+The filter needs DuckDB 1.5.3 or newer and refuses an older one with `UnsupportedDependencyError`. A condition is
+read by the DuckDB that is installed, 1.5 or 2.0, and DuckDB 2.0 reads some conditions differently
+([its migration guide](https://duckdb.org/docs/stable/operations_manual/migration)). Those that a condition on
+a result meets:
+
+- a text operator: `name ~ 'resd'` and `!~` match a part of the text on 2.0 (on 1.5 the whole text, so false for
+  `Dresden`); `regexp_full_match(name, 'Dres.*')` is the 1.5 `~` on both, and `~*` (case-insensitive, a part of the
+  text) exists on 2.0 only
+- `NaN`: a `NaN` is greater than every number on 2.0, so `value > 20.0`, `value >= 20.0` and `NOT value <= 20.0`
+  keep the rows where `value` is `NaN`, which they dropped on 1.5; add `AND NOT isnan(value)` where that matters
+- `sqrt` of a negative number and `ln`, `log`, `log10` and `log2` of zero or less are an error on 1.5 and `NaN` or
+  `-inf` on 2.0
+- division by zero: `value // 0` and `divide(value, 0)` (a number of any type) and `n % 0` and `mod(n, 0)` (an integer or a decimal)
+  are an error on 2.0 and null on 1.5, `TRY(value // 0) IS NULL` is true on both; `value / 0` and a floating-point
+  `value % 0` are as before
+- the lambda arrow: `x -> x + 1` is an error on 2.0 and is written `lambda x: x + 1`, which 1.5 reads too
+
+It is for the
 library and the command line (`--sql`, `--sql-values`): the REST API and the MCP tools take no SQL. These restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust to the filter. The time a condition runs, memory outside DuckDB's limit and the process itself are not protected.
 
 ```{code-cell}
