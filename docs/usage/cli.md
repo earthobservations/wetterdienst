@@ -54,7 +54,9 @@ wetterdienst values --provider=dwd --network=observation --parameters=daily/kl -
 `--filter`, `--sort`, `--first`, `--by` and `--max-rows` choose the rows of `values` on the server's words, see
 [Choose the rows](restapi.md#choose-the-rows) for the grammar and what a group is: the whole record is read, and the
 answer holds the rows chosen and `metadata.search`, which says how many values were searched. Quote a text that has `<`,
-`>` or `|` in it, which a shell reads. A text that cannot be read is a usage error (exit 2) that names the position.
+`>` or `|` in it, which a shell reads. A text that cannot be read is a usage error (exit 2) that names the position. A
+parameter's name is a column too, for conditions on two parameters at one time
+([Parameters as columns](restapi.md#parameters-as-columns)): `--filter='temperature_air_min_2m<0,wind_gust_max>=17.2'`.
 
 ```bash
 # the lowest value of a station in the window, and the coldest day of every year

@@ -175,7 +175,6 @@ def test_geojson_and_with_stations_answer_the_chosen_rows() -> None:
     ("params", "loc", "fragment"),
     [
         ({"filter": "value<="}, "filter", "position 8"),
-        ({"filter": "temperature<5"}, "filter", "is not a column"),
         ({"filter": "value<=5x"}, "filter", "position 9"),
         ({"sort": "parameter"}, "sort", "`parameters`"),
         ({"by": "year"}, "by", "no `first` is given"),
@@ -195,6 +194,17 @@ def test_a_text_that_cannot_be_read_is_a_422_located_at_the_option(
     errors = body["errors"] if "errors" in body else body["detail"]
     assert errors[0]["loc"][-1] == loc, errors
     assert fragment in errors[0]["msg"], errors
+
+
+def test_a_word_that_is_no_parameter_of_the_request_is_a_400_with_its_closest_names() -> None:
+    """A name that the request does not have is refused once the request is known (GH-4419), with the names it has."""
+    response = _rest(filter="temperature<5")
+    assert response.status_code == 400, response.text
+    detail = response.json()["detail"]
+    assert "`temperature` is not a column of this option" in detail
+    assert "or a parameter of this request (temperature_air_min_2m)" in detail
+    assert "Did you mean temperature_air_min_2m?" in detail
+    assert response.json()["status"] == 400
 
 
 def test_value_over_two_units_and_value_in_the_wide_shape_are_refused_as_a_400() -> None:
@@ -359,7 +369,8 @@ def test_the_tool_description_and_schema_name_the_options_in_few_characters() ->
     assert "pattern" not in json.dumps(properties["filter"])
     added = sum(len(json.dumps(properties[name])) for name in ("filter", "sort", "first", "by"))
     assert "sort=value&first=1" in tool["description"]
-    assert added < 1500, added
+    # 1,403 before a parameter's name became a column (GH-4419), which took 236 characters of the descriptions
+    assert added < 1700, added
 
 
 def _warning(answer: dict[str, Any], code: str) -> str | None:

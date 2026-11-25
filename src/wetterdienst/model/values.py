@@ -36,6 +36,7 @@ from wetterdienst.model.quality_flags import CALM_TOKEN, QUALITY_FLAGS, RAW_TOKE
 from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
 from wetterdienst.model.row_selection import (
+    ParameterNames,
     RowSelection,
     RowSelectionRefusedError,
     RowsOverLimitError,
@@ -521,6 +522,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return self.unit_converter.targets[parameter.unit_type].symbol
         return self.unit_converter.get_unit(parameter.unit, parameter.unit_type).symbol
 
+    def _row_names(self) -> ParameterNames:
+        """Give the names of the parameters of the request that a `filter` or a `sort` may write, as answered."""
+        return ParameterNames.of(self.sr.parameters, humanize=self.sr.options.humanize, symbols=self._unit_symbol)
+
     def _row_selection(self, rows: RowOptions, *, whole: bool) -> RowSelection | None:
         """Read the options that choose the rows and check them against this request, None where none is given.
 
@@ -528,7 +533,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         different units or in the wide shape, and a grouping across stations asked of `query`, which yields the
         stations one by one and cannot give it (`RowSelectionRefusedError`). `whole` is `all`, which can.
         """
-        selection = parse_row_selection(**rows)
+        selection = parse_row_selection(**rows, parameters=self._row_names())
         if selection is None:
             return None
         if not self.sr.options.tidy:
@@ -1538,7 +1543,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if selection.per_station:
             if selection.max_rows is not None:
                 if selection.sort and rows > 2 * selection.max_rows:
-                    compact = selection.cap(selection.finish(data))
+                    compact = selection.cap_held(selection.finish(data))
                     return compact.height, _cells(compact), [compact]
                 return rows, cells, data
             if selection.first is not None and limit and rows > limit:

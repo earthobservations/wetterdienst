@@ -72,7 +72,6 @@ from wetterdienst.model.row_selection import (
     MAX_TOOL_SERIES,
     RowsOverLimitError,
     Searched,
-    parse_row_selection,
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings, removed_settings
@@ -2075,7 +2074,7 @@ def _stream_values(
     failure = _stream_failure(request, "stream values")
 
     def search_report() -> dict[str, Any]:
-        selection = parse_row_selection(**rows)
+        selection = reader._row_selection(rows, whole=True)  # noqa: SLF001
         assert selection is not None  # noqa: S101 -- search_report is asked for only where row options are given
         window = (stations.start, stations.end)
         read = reader._stations_read  # noqa: SLF001
@@ -2363,7 +2362,10 @@ def values(
     `filter=value<=-20,month=12` the readings at or below -20 in a December. An extreme can be a faulty reading:
     read its `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows
     (every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when
-    and how many values were searched, so that a record the data lacks is told from one not looked for.
+    and how many values were searched, so that a record the data lacks is told from one not looked for. To meet two
+    parameters at one time (one resolution), name them: `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the
+    days of frost and strong gusts, with all parameters' rows; `sort=temperature_air_min_2m&first=10` the ten coldest
+    days and their wind.
 
     With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
     relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`

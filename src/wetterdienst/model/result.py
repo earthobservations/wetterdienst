@@ -1083,10 +1083,12 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
 
         Raises:
             RowSelectionError: an option whose text cannot be read.
-            RowSelectionRefusedError: `value` in the wide shape, or in a condition over parameters of different units.
+            RowSelectionRefusedError: `value` in the wide shape, in a condition over parameters of different units,
+                or beside a parameter's name; names with parameters of several resolutions.
 
         """
         from wetterdienst.model.row_selection import (  # noqa: PLC0415
+            ParameterNames,
             RowSelectionRefusedError,
             Searched,
             parse_row_selection,
@@ -1094,14 +1096,6 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             station_names,
         )
 
-        selection = parse_row_selection(filter=filter, sort=sort, first=first, by=by, max_rows=max_rows)
-        if selection is None:
-            return self
-        if "parameter" not in self.df.columns:
-            selection.refuse_wide()
-        if self.df.is_empty() and "station_id" not in self.df.columns:
-            msg = "This result holds no values to choose rows from."
-            raise RowSelectionRefusedError(msg)
         options = self.stations.options
         converter = UnitConverter()
         converter.update_targets(options.unit_targets)
@@ -1111,6 +1105,17 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
                 return converter.targets[parameter.unit_type].symbol
             return converter.get_unit(parameter.unit, parameter.unit_type).symbol
 
+        names = ParameterNames.of(self.stations.parameters, humanize=options.humanize, symbols=symbol)
+        selection = parse_row_selection(
+            filter=filter, sort=sort, first=first, by=by, max_rows=max_rows, parameters=names
+        )
+        if selection is None:
+            return self
+        if "parameter" not in self.df.columns:
+            selection.refuse_wide()
+        if self.df.is_empty() and "station_id" not in self.df.columns:
+            msg = "This result holds no values to choose rows from."
+            raise RowSelectionRefusedError(msg)
         selection.refuse_for(self.stations.parameters, symbol)
         matching = selection.matching(self.df)
         df = selection.cap(matching)

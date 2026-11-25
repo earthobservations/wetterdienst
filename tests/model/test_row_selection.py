@@ -140,7 +140,6 @@ def test_refusals_name_the_position_and_what_is_wrong(text: str, position: int, 
         ("station_id", "`stations`"),
         ("quality", "not available"),
         ("top", "`first`"),
-        ("temperature", "Example"),
     ],
 )
 def test_an_unknown_column_is_refused_with_what_to_do_instead(column: str, hint: str) -> None:
@@ -281,11 +280,16 @@ def test_no_option_is_no_selection_and_an_empty_text_is_no_option() -> None:
 
 
 def test_the_reserved_names_of_step_2_are_not_columns() -> None:
-    """The reserved names of step 2 are not columns."""
+    """The reserved names of step 2 are not columns: `by` refuses them, `filter` and `sort` read them as a name.
+
+    A word that is no column is a parameter's name (GH-4419), looked up in the request; the refusal of these words
+    where the request has no parameter of the name is held in `test_row_selection_names.py`.
+    """
     for name in ("window", "year_start", "timezone", "aggregate", "having", "per", "max_missing"):
-        for parse in (parse_filter, parse_sort, parse_by):
-            with pytest.raises(RowSelectionError):
-                parse(name)
+        with pytest.raises(RowSelectionError):
+            parse_by(name)
+        assert parse_filter(f"{name}<1")[0].column == name
+        assert parse_sort(name)[0].column == name
 
 
 def _random_text(rng: random.Random, kind: str) -> str:

@@ -395,16 +395,18 @@ _FilterField = Annotated[
     str | None,
     Field(
         description="Keep only the rows that meet every condition, joined by commas: column, operator, number. "
-        "Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date). Operators `=` `!=` `<` `<=` "
-        "`>` `>=`; a list `a|b` with `=` and `!=`. A missing value never matches. `value` needs parameters of one "
-        "unit and shape=long. Example: `value<=-20,month=12|1|2`.",
+        "Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date), or a requested parameter's "
+        "name (its unit; a row is then a timestamp where all hold, with every parameter's rows). Operators `=` `!=` "
+        "`<` `<=` `>` `>=`; a list `a|b` with `=` and `!=`. A missing value never matches. `value` needs one unit, "
+        "shape=long and no name. Example: `value<=-20,month=12|1|2`, `temperature_air_min_2m<0,wind_gust_max>=17.2`.",
     ),
 ]
 _SortField = Annotated[
     str | None,
     Field(
         description="Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, "
-        "`timestamp`, `year`, `month`, `day`, `hour`, `station_id`. Example: `-value` (highest first), `month,day`.",
+        "`timestamp`, `year`, `month`, `day`, `hour`, `station_id`, or a requested parameter's name (ranks "
+        "timestamps). Example: `-value` (highest first), `month,day`, `temperature_air_min_2m`.",
     ),
 ]
 _FirstField = Annotated[

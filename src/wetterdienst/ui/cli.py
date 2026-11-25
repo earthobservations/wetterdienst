@@ -555,9 +555,12 @@ def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
             callback=_given_once,
             help=(
                 "Keep only the rows that meet every condition, joined by commas: column, operator, number. Columns: "
-                "value, year, month, day, hour (UTC; a daily value's own date). Operators: = != < <= > >=; a list a|b "
-                "with = and !=. A missing value never matches. A value condition needs parameters of one unit. "
-                "Example: value<=-20,month=12|1|2 (quote it: < and | are the shell's)"
+                "value, year, month, day, hour (UTC; a daily value's own date), or the name of a requested parameter "
+                "(in its unit; then a row is a timestamp: all conditions must hold at it, and every parameter's rows "
+                "at those timestamps come back). Operators: = != < <= > >=; a list a|b with = and !=. A missing value "
+                "never matches. A value condition needs parameters of one unit and no name. Example: "
+                "value<=-20,month=12|1|2 or temperature_air_min_2m<0,wind_gust_max>=17.2 (quote it: < and | are the "
+                "shell's)"
             ),
         ),
         click.option(
@@ -567,7 +570,8 @@ def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
             callback=_given_once,
             help=(
                 "Order of the answer: columns joined by commas, - before one for descending. Columns: value, "
-                "timestamp, year, month, day, hour, station_id. Example: --sort=-value (highest first)"
+                "timestamp, year, month, day, hour, station_id, or the name of a requested parameter (orders and ranks "
+                "the timestamps by it). Example: --sort=-value (highest first)"
             ),
         ),
         click.option(
