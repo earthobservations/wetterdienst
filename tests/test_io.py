@@ -2127,6 +2127,66 @@ def test_export_duckdb_appends_values_to_a_column_that_was_written_with_none(tmp
     connection.close()
 
 
+@pytest.mark.parametrize("held_with", ["defaults", "the_format_of_duckdb_1"])
+def test_export_duckdb_while_the_caller_holds_the_file_open(tmp_path: Path, held_with: str) -> None:
+    """The sink writes to a file that another connection of the process holds open, whichever way it was opened.
+
+    DuckDB refuses a connection to a file that has another configuration than one that is open; the sink takes the
+    file as that connection has it. The one that created the file stays open through both writes.
+    """
+    duckdb = pytest.importorskip("duckdb")
+    if held_with != "defaults" and int(duckdb.__version__.split(".")[0]) < 2:
+        pytest.skip("DuckDB 1.x writes that format by default, and the sink opens a file as it was on 1.x")
+
+    filename = tmp_path.joinpath("test.duckdb")
+    config = {"storage_compatibility_version": "v1.0.0"} if held_with != "defaults" else {}
+    holder = duckdb.connect(str(filename), config=config)
+    try:
+        holder.execute("CREATE TABLE testdrive AS SELECT 'x' AS station_id")
+        target = f"duckdb:///{filename}?table=testdrive"
+        ExportMixin(df=pl.DataFrame({"station_id": ["01048"]})).to_target(target, if_exists="append")
+        ExportMixin(df=pl.DataFrame({"station_id": ["01050"]})).to_target(target, if_exists="append")
+        assert holder.execute("SELECT station_id FROM testdrive ORDER BY 1").fetchall() == [
+            ("01048",),
+            ("01050",),
+            ("x",),
+        ]
+    finally:
+        holder.close()
+
+
+def test_export_duckdb_from_several_threads_into_a_new_file(tmp_path: Path) -> None:
+    """Exports to one new file, started together from several threads, all arrive."""
+    duckdb = pytest.importorskip("duckdb")
+    import threading  # noqa: PLC0415
+
+    filename = tmp_path.joinpath("test.duckdb")
+    target = f"duckdb:///{filename}?table=testdrive"
+    _one_row("start").to_target(target)
+    threads = 8
+    start = threading.Barrier(threads)
+    errors: list[BaseException] = []
+
+    def export(number: int) -> None:
+        try:
+            start.wait(timeout=30)
+            _one_row(f"{number:05d}").to_target(target, if_exists="append")
+        except BaseException as e:  # noqa: BLE001
+            errors.append(e)
+
+    workers = [threading.Thread(target=export, args=(number,)) for number in range(threads)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(timeout=120)
+
+    assert errors == []
+    connection = duckdb.connect(str(filename), read_only=True)
+    assert connection.execute("SELECT count(*) FROM testdrive").fetchone() == (threads + 1,)
+    connection.close()
+    assert _duckdb_storage_version(filename) == 64
+
+
 def test_export_duckdb_if_exists_skip(
     tmp_path: Path,
 ) -> None:

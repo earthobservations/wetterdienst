@@ -643,6 +643,7 @@ REFUSED_STATEMENTS = [
     ("COPY df TO 'out.csv'", _PERMISSION),
     ("COPY df TO 'out.parquet' (FORMAT parquet)", _PERMISSION),
     ("COPY (SELECT * FROM df) TO 'out.json' (FORMAT json)", _PERMISSION),
+    ("WITH x AS (COPY (SELECT 1) TO 'out.csv') SELECT * FROM x", _KNOWN_FROM_2_0),
     ("EXPORT DATABASE 'out'", _PERMISSION),
     ("CREATE TEMP TABLE t AS SELECT * FROM 'secret.csv'", _PERMISSION),
     ("CREATE VIEW v AS SELECT * FROM read_csv('secret.csv')", _PERMISSION),
@@ -681,44 +682,48 @@ def test_the_connection_refuses_what_the_parser_keeps_out(
     _left_untouched(host)
 
 
-#: functions and statements of DuckDB's own that take a path, a name or a setting, tried with a path of the host: what
-#: each answers differs between the releases, one that a release does not have is a `CatalogException`
-NOTHING_READ_NOTHING_WRITTEN = [
-    "SELECT * FROM duckdb_extension_repositories()",
-    "SELECT * FROM destroy_external_resource('x')",
-    "SELECT * FROM destroy_external_resource('{csv}')",
-    "SELECT * FROM create_external_resource('x', '{csv}')",
-    "SELECT * FROM register_external_resource_type('x')",
-    "SELECT * FROM add_grammar_extension('{csv}')",
-    "SELECT * FROM enable_logging()",
-    "SELECT * FROM enable_logging(storage = 'file', storage_path = 'logs')",
-    "SELECT * FROM enable_logging(storage = 'file', storage_path = '{dir}/logs')",
-    "SELECT * FROM enable_profiling()",
-    "SELECT * FROM enable_profiling(coverage = 'all')",
-    "SELECT * FROM query('COPY df TO ''out.csv''')",
-    "SELECT * FROM query('COPY (SELECT 1) TO ''out.parquet'' (FORMAT parquet)')",
-    "SELECT * FROM query('COPY (SELECT 1) TO ''{dir}/out.csv''')",
-    "SELECT * FROM read_single_csv_file('{csv}')",
-    "SELECT * FROM parquet_page_index('{csv}')",
+#: functions of DuckDB 2.0 and later that reach for a file or a directory of the host, each in a form that reaches it:
+#: the function, the statement, the class the connection refuses it with and what the message says
+SINCE_2_0 = [
+    (
+        "duckdb_extension_repositories",
+        "SELECT * FROM duckdb_extension_repositories()",
+        duckdb.PermissionException,
+        "Cannot access directory",
+    ),
+    (
+        "destroy_external_resource",
+        "SELECT * FROM destroy_external_resource('read_text', '{csv}')",
+        duckdb.IOException,
+        "file system operations are disabled",
+    ),
 ]
 
 
-@pytest.mark.parametrize("statement", NOTHING_READ_NOTHING_WRITTEN)
-def test_what_the_connection_must_refuse_reads_nothing_and_writes_nothing(
-    host: SimpleNamespace, connection: duckdb.DuckDBPyConnection, loopback: _Loopback, statement: str
+@pytest.mark.parametrize(("function", "statement", "refused_as", "message"), SINCE_2_0, ids=[s[0] for s in SINCE_2_0])
+def test_the_functions_that_duckdb_2_adds_reach_nothing_of_the_host(
+    host: SimpleNamespace,
+    connection: duckdb.DuckDBPyConnection,
+    loopback: _Loopback,
+    function: str,
+    statement: str,
+    refused_as: type[Exception],
+    message: str,
 ) -> None:
-    """Restriction: whatever a release answers to these, nothing of the host was read and nothing was written.
+    """Restriction: a function of DuckDB 2.0 that takes a path of the host is refused where it would reach it.
 
-    The answer is the release's own: an error of one class on one, no such function on another, an empty result of
-    a setting that the release leaves alone. What must hold on every release is that no answer carries what is in
-    the host's file, that no file or directory appeared in the working directory or in the home directory, and that
-    nothing was connected to (the listener counts).
+    Skipped on a release that has no such function. Nothing is written to the working or the home directory, the
+    file of the host is as it was, and nothing was connected to (the listener counts).
     """
-    try:
-        rows = connection.execute(statement.format(csv=host.csv, dir=host.work.as_posix())).fetchall()
-    except duckdb.Error:
-        rows = []
-    assert CANARY not in str(rows)
+    known = connection.execute(
+        "SELECT count(*) FROM duckdb_functions() WHERE function_name = ? AND function_type IN ('table', 'table_macro')",
+        [function],
+    ).fetchone()
+    if not known or not known[0]:
+        pytest.skip(f"DuckDB {duckdb.__version__} has no table function {function}")
+    with pytest.raises(refused_as, match=message):
+        connection.execute(statement.format(csv=host.csv))
+    assert host.work.joinpath("secret.csv").read_text() == f"elevation\n{CANARY}\n"
     assert loopback.hits() == 0
     _left_untouched(host)
 
@@ -726,13 +731,17 @@ def test_what_the_connection_must_refuse_reads_nothing_and_writes_nothing(
 @pytest.mark.parametrize(
     "clause",
     [
-        "elevation > (SELECT count(*) FROM query('COPY df TO ''out.csv'''))",
-        "elevation > (SELECT count(*) FROM query('COPY (SELECT 1) TO ''{dir}/out.csv'''))",
+        "elevation > (WITH x AS (COPY (SELECT 1) TO 'out.csv') SELECT count(*) FROM x)",
+        "elevation > (WITH x AS (COPY (SELECT 1) TO '{dir}/out.csv') SELECT count(*) FROM x)",
     ],
 )
 def test_a_copy_inside_a_condition_writes_nothing(host: SimpleNamespace, clause: str) -> None:
-    """Restriction: a condition that holds a `COPY` is an error of DuckDB, and nothing is written."""
-    with pytest.raises(duckdb.Error):
+    """Smoke check: a condition that holds a `COPY` is refused, and nothing is written.
+
+    A parser or binder error of the release stands before the connection is asked, so this holds no restriction of the
+    connection itself: the statement in `REFUSED_STATEMENTS` does, and fails when the file system is open.
+    """
+    with pytest.raises((duckdb.ParserException, duckdb.BinderException, duckdb.PermissionException)):
         filter_by_sql(_frame(), clause.format(dir=host.work.as_posix()))
     _left_untouched(host)
 

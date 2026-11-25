@@ -1111,8 +1111,9 @@ a result meets:
   keep the rows where `value` is `NaN`, which they dropped on 1.5; add `AND NOT isnan(value)` where that matters
 - `sqrt` of a negative number and `ln`, `log`, `log10` and `log2` of zero or less are an error on 1.5 and `NaN` or
   `-inf` on 2.0
-- an integer divided by zero, `10 // 0`, `10 % 0`, `divide(10, 0)` and `mod(10, 0)`, is an error on 2.0 and null on
-  1.5; `TRY(10 // 0)` is null on both
+- division by zero: `value // 0` and `divide(value, 0)` (a number of any type) and `n % 0` and `mod(n, 0)` (an integer)
+  are an error on 2.0 and null on 1.5, `TRY(value // 0) IS NULL` is true on both; `value / 0` and a decimal
+  `value % 0` are as before
 - the lambda arrow: `x -> x + 1` is an error on 2.0 and is written `lambda x: x + 1`, which 1.5 reads too
 
 It is for the

@@ -104,12 +104,12 @@ def _(mo):
 
 @app.cell
 def _(con, mo):
-    _total = con.execute("SELECT count(*) FROM stations").fetchone()[0]
-    _start_min, _start_max = con.execute("SELECT min(start_timestamp)::date, max(start_timestamp)::date FROM stations").fetchone()
+    _total = con.execute("SELECT count(*) FROM stations").fetchall()[0][0]
+    _start_min, _start_max = con.execute("SELECT min(start_timestamp)::date, max(start_timestamp)::date FROM stations").fetchall()[0]
     _active = con.execute("""
         SELECT count(DISTINCT station_id) FROM "values"
         WHERE year(timestamp) = 2024
-    """).fetchone()[0]
+    """).fetchall()[0][0]
 
     mo.hstack(
         [
@@ -298,10 +298,10 @@ def _(alt, con):
 
 @app.cell
 def _(con, mo):
-    _total_rows = con.execute('SELECT count(*) FROM "values"').fetchone()[0]
-    _total_stations = con.execute('SELECT count(DISTINCT station_id) FROM "values"').fetchone()[0]
-    _date_min, _date_max = con.execute('SELECT min(timestamp)::date, max(timestamp)::date FROM "values"').fetchone()
-    _total_params = con.execute('SELECT count(DISTINCT parameter) FROM "values"').fetchone()[0]
+    _total_rows = con.execute('SELECT count(*) FROM "values"').fetchall()[0][0]
+    _total_stations = con.execute('SELECT count(DISTINCT station_id) FROM "values"').fetchall()[0][0]
+    _date_min, _date_max = con.execute('SELECT min(timestamp)::date, max(timestamp)::date FROM "values"').fetchall()[0]
+    _total_params = con.execute('SELECT count(DISTINCT parameter) FROM "values"').fetchall()[0][0]
 
     mo.hstack(
         [
@@ -626,7 +626,7 @@ def _(alt, birthday, con, mo):
         GROUP BY year(timestamp)
         ORDER BY year
     """,
-        [_month, _day, _birth_year],
+        params=[_month, _day, _birth_year],
     ).pl()
 
     _avg = float(_df["mean_temp"].mean())
