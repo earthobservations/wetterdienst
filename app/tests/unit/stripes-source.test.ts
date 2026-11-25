@@ -271,6 +271,47 @@ describe('the stripes of a station of GHCN daily', () => {
     expect(full.calls[0]!.query).not.toHaveProperty('start_year')
   })
 
+  describe('read from the mirror of NOAA\'s data on AWS (GH-4390)', () => {
+    const fallback = { code: 'source-fallback', message: 'The file of station USW00094728 was not read from NOAA NCEI (it answered 503) and comes from the AWS mirror instead.' }
+
+    it('carry where the record ends where the answer has the `source-fallback` warning, and none where it has not', async () => {
+      const mirrored = fetchOf({ '/_ghcn/annual': () => ({ ...answer, metadata: { ...answer.metadata, warnings: [fallback] } }) })
+      const stripes = await fetchStripes(mirrored.fetch, request({ source: 'ghcn' }))
+      expect(stripes.mirror).toEqual({ last_year: Math.max(...record.filter(item => item.value !== null).map(item => item.year)) })
+      // the numbers are the same as without the warning
+      const plain = await fetchStripes(fetchOf({ '/_ghcn/annual': () => answer }).fetch, request({ source: 'ghcn' }))
+      expect(plain).not.toHaveProperty('mirror')
+      expect({ ...stripes, mirror: undefined }).toEqual({ ...plain, mirror: undefined })
+      // another warning is no mirror
+      const other = await fetchStripes(fetchOf({ '/_ghcn/annual': () => ({ ...answer, metadata: { ...answer.metadata, warnings: [{ code: 'file-skipped', message: 'x' }] } }) }).fetch, request({ source: 'ghcn' }))
+      expect(other).not.toHaveProperty('mirror')
+    })
+
+    it('take the last year of the whole record, whatever window is shown', async () => {
+      const mirrored = fetchOf({ '/_ghcn/annual': () => ({ ...answer, metadata: { ...answer.metadata, warnings: [fallback] } }) })
+      const windowed = await fetchStripes(mirrored.fetch, request({ source: 'ghcn', startYear: 2000, endYear: 2005 }))
+      expect(windowed.values).toHaveLength(6)
+      expect(windowed.mirror?.last_year).toBeGreaterThan(2005)
+    })
+
+    it('say on the refusal where the record was read from the mirror, whose file may end early and so be too short', async () => {
+      const short = answer.values.slice(0, 5)
+      const mirrored = fetchOf({ '/_ghcn/annual': () => ({ ...answer, metadata: { ...answer.metadata, warnings: [fallback] }, values: short }) })
+      const refusal = await fetchStripes(mirrored.fetch, request({ source: 'ghcn' })).catch((failure: unknown) => failure) as StripesRefusedError
+      expect(refusal).toBeInstanceOf(StripesRefusedError)
+      expect(refusal).toMatchObject({ statusCode: 400, reason: 'record-too-short' })
+      expect(refusal.mirror).toEqual({ last_year: Math.max(...short.filter(item => item.value !== null).map(item => Number(item.timestamp.slice(0, 4)))) })
+      // the same refusal of a record NCEI gave says nothing of a mirror
+      const plain = await fetchStripes(fetchOf({ '/_ghcn/annual': () => ({ ...answer, values: short }) }).fetch, request({ source: 'ghcn' })).catch((failure: unknown) => failure) as StripesRefusedError
+      expect(plain.mirror).toBeUndefined()
+    })
+
+    it('are not marked for DWD\'s, whatever its answer carries', async () => {
+      const { fetch } = fetchOf({ '/api/values': () => valuesAnswer(record, { warnings: [fallback] }) })
+      expect(await fetchStripes(fetch, request())).not.toHaveProperty('mirror')
+    })
+  })
+
   it('never ask a stripes route of the backend', async () => {
     const { fetch, calls } = fetchOf({ '/api/values': () => valuesAnswer(record), '/_ghcn/annual': () => answer, '/api/stations': () => ({ stations: [] }), '/_ghcn/stations': () => ({ stations: [] }) })
     await fetchStripes(fetch, request())

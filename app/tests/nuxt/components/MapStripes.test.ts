@@ -25,6 +25,8 @@ const unitTargetsAsked: unknown[] = []
 const queries: Array<Record<string, string>> = []
 const urls: string[] = []
 let method: 'midrange' | 'tavg' | null = null
+/** Whether the answer of the app's server for GHCN daily says the days were read from the mirror of NOAA's data on AWS (GH-4390) */
+let mirror = false
 /** The warnings of the answer of DWD's annual values: a station the lookup did not find, and a listing it went without */
 let warnings: Array<{ code: string }> = []
 
@@ -51,7 +53,7 @@ function serve(url: string, ghcn: boolean) {
       return { detail: 'This station has no complete years.' }
     }
     return ghcn
-      ? ghcnAnnualAnswer(recordHeld(unitTargets), { unit: unitSymbolOf(unitTargets), method })
+      ? ghcnAnnualAnswer(recordHeld(unitTargets), { unit: unitSymbolOf(unitTargets), method, mirror })
       : warnings.length
         ? { ...valuesAnswer([]), metadata: { warnings } }
         : valuesAnswer(recordHeld(unitTargets), { unit: unitSymbolOf(unitTargets) })
@@ -78,6 +80,7 @@ afterEach(() => {
   queries.length = 0
   urls.length = 0
   method = null
+  mirror = false
   warnings = []
   status = 200
 })
@@ -215,6 +218,51 @@ describe('the climate stripes of a station of GHCN daily (GH-4078)', () => {
     const wrapper = await mountStripes('GM000010147', true)
     await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(12))
     expect(wrapper.find('[data-testid="map-stripes-method"]').text()).toBe(en.stripes.methodTavg)
+  })
+
+  it('says under the stripes that the days were read from the mirror on AWS, and where the record ends, where NCEI did not give the station\'s file (GH-4390)', async () => {
+    years = twelve(8, 12, 9)
+    mirror = true
+    const wrapper = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(12))
+    // the record of the test ends in 2011, long before the last complete year
+    const note = wrapper.find('[data-testid="map-stripes-mirror"]')
+    expect(note.text()).toBe(en.stripes.mirrorNoteEnds.replace('{year}', '2011'))
+    expect(note.text()).toBe('Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record read there ends in 2011.')
+    // the stripes themselves are the same: the numbers are kept as they are
+    expect(colours(wrapper)).toHaveLength(12)
+    // the note is in the sentence's place under it, before the credit
+    const html = wrapper.html()
+    expect(html.indexOf('map-stripes-mirror')).toBeLessThan(html.indexOf('map-stripes-credit'))
+  })
+
+  it('says beside the refusal of a record that is too short that it was read from the mirror, and hands the line to the card that takes the stripes away (GH-4390)', async () => {
+    years = [8, 9, 10]
+    mirror = true
+    const wrapper = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-stripes-refused"]').exists()).toBe(true))
+    const line = en.stripes.mirrorNoteEnds.replace('{year}', '2002')
+    expect(wrapper.find('[data-testid="map-stripes-refused-mirror"]').text()).toBe(line)
+    expect(wrapper.emitted('none')).toEqual([[line]])
+    wrapper.unmount()
+    clearNuxtData()
+    // the same refusal of a record NCEI gave has no line
+    mirror = false
+    const plain = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(plain.find('[data-testid="map-stripes-refused"]').exists()).toBe(true))
+    expect(plain.find('[data-testid="map-stripes-refused-mirror"]').exists()).toBe(false)
+    expect(plain.emitted('none')).toEqual([['']])
+  })
+
+  it('says nothing of a mirror where NCEI answered, or for a station of DWD', async () => {
+    years = twelve(8, 12, 9)
+    const ghcn = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(ghcn.findAll('.map-stripes span')).toHaveLength(12))
+    expect(ghcn.find('[data-testid="map-stripes-mirror"]').exists()).toBe(false)
+    mirror = true
+    const dwd = await mountStripes()
+    await vi.waitFor(() => expect(dwd.findAll('.map-stripes span')).toHaveLength(12))
+    expect(dwd.find('[data-testid="map-stripes-mirror"]').exists()).toBe(false)
   })
 
   it('says nothing of a method for a station of DWD', async () => {

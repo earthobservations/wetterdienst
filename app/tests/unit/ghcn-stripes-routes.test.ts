@@ -164,6 +164,91 @@ describe('the annual values route', () => {
     expect(headers.get('x-request-id')).toBe('my-request')
   })
 
+  describe('where the backend read the days from the mirror of NOAA\'s data on AWS (GH-4390)', () => {
+    const FALLBACK = {
+      code: 'source-fallback',
+      message: 'The file of station USW00000001 was not read from NOAA NCEI (it answered 503) and comes from the AWS mirror instead, whose files may be older: the most recent days of this station may be missing. Try again later.',
+      stations: ['USW00000001'],
+    }
+    const OTHER = { code: 'parameter-without-rows', message: 'No rows for temperature_air_min_2m.', parameter: 'daily/data/temperature_air_min_2m' }
+
+    /** The backend answers the stub station's days with these warnings in the metadata of the answer */
+    function withWarnings(...warnings: unknown[]) {
+      answer = (_request, response, query) => {
+        const body = valuesAnswer(query)
+        response.writeHead(200, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ ...body, metadata: { ...body.metadata, warnings } }))
+      }
+    }
+
+    it('passes the warning on as the generic API gives it, the code and the text, in `metadata.warnings`, and keeps the numbers as they are', async () => {
+      const plain = (await raw(ANNUAL)).json()
+      withWarnings(FALLBACK, OTHER)
+      const mirrored = (await raw('/_ghcn/annual?kind=temperature&station=USW00000002')).json()
+      expect(mirrored.metadata.warnings).toEqual([FALLBACK, OTHER])
+      expect(mirrored.metadata.provider).toEqual(plain.metadata.provider)
+      expect(mirrored.values).toEqual(plain.values)
+      expect(mirrored.series).toEqual({ ...plain.series, station_id: 'USW00000002' })
+    })
+
+    it('keeps of a warning\'s stations the ones that are text', async () => {
+      withWarnings({ ...FALLBACK, stations: ['USW00000001', 7, null, 'USW00000002'] })
+      expect((await raw(ANNUAL)).json().metadata.warnings[0].stations).toEqual(['USW00000001', 'USW00000002'])
+    })
+
+    it('has no `warnings` member where the backend gave none', async () => {
+      const body = (await raw(ANNUAL)).json()
+      expect(body.metadata).not.toHaveProperty('warnings')
+    })
+
+    it('leaves out an entry of the list that is no warning (no code, no text), and a list that is no list', async () => {
+      withWarnings(FALLBACK, { code: 7 }, { message: 'no code' }, null, 'text')
+      expect((await raw(ANNUAL)).json().metadata.warnings).toEqual([FALLBACK])
+      answer = (_request, response, query) => {
+        const body = valuesAnswer(query)
+        response.writeHead(200, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ ...body, metadata: { ...body.metadata, warnings: 'source-fallback' } }))
+      }
+      expect((await raw('/_ghcn/annual?kind=temperature&station=USW00000002')).json().metadata).not.toHaveProperty('warnings')
+    })
+
+    it('lets a browser keep such an answer for 5 minutes, and an answer of NCEI for an hour', async () => {
+      withWarnings(FALLBACK)
+      expect((await raw(ANNUAL)).headers.get('cache-control')).toBe('public, max-age=300')
+      withWarnings(OTHER)
+      expect((await raw('/_ghcn/annual?kind=temperature&station=USW00000002')).headers.get('cache-control')).toBe('public, max-age=3600')
+    })
+
+    it('serves such an answer from the server\'s memory for 5 minutes, not 12 hours: the full record is read again after them', async () => {
+      vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-24T10:00:00Z') })
+      try {
+        // the cache of a route reads the clock as it is when the route is made
+        await mount()
+        withWarnings(FALLBACK)
+        await raw(ANNUAL)
+        vi.setSystemTime(new Date('2026-11-24T10:04:59Z'))
+        await raw(ANNUAL)
+        expect(seen).toHaveLength(1)
+        // NCEI is back
+        answer = null
+        vi.setSystemTime(new Date('2026-11-24T10:05:01Z'))
+        const back = (await raw(ANNUAL)).json()
+        expect(seen).toHaveLength(2)
+        expect(back.metadata).not.toHaveProperty('warnings')
+        // and that answer is kept as long as any: 11 hours later it is still served
+        vi.setSystemTime(new Date('2026-11-24T21:00:00Z'))
+        await raw(ANNUAL)
+        expect(seen).toHaveLength(2)
+        vi.setSystemTime(new Date('2026-11-24T22:06:00Z'))
+        await raw(ANNUAL)
+        expect(seen).toHaveLength(3)
+      }
+      finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
   it('reads the days from /api/values as the backend\'s stripes read them: the three parameters, the whole record, a long frame in the unit asked for', async () => {
     await raw(`${ANNUAL}&unit_targets=${encodeURIComponent('{"temperature":"degree_fahrenheit"}')}`, { 'x-request-id': 'abc123' })
 

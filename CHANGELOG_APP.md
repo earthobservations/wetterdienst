@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Stripes]` Where NOAA's NCEI does not give a station's file and the backend reads GHCN daily
+  from the AWS mirror, the stripes page, the map's panel and the saved image and CSV now say so, in
+  every language, with the last year of the record where it ends early, and a refusal for a record
+  that is too short says it too; `/_ghcn/annual` passes the backend's `source-fallback` warning on
+  in `metadata.warnings` and keeps such an answer 5 minutes, not 12 hours (GH-4390).
+- `[Measurement]` The radar entry gives the range of DWD's precipitation scan as 180 km (extended
+  from 150 km on 24 November 2026), with DWD's announcement as a source (GH-4404).
+
 ## [0.60.0] - 2026-11-24
 
 Paired with backend 0.198.0, which is live; it needs no route newer than 0.195.0.

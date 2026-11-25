@@ -17,6 +17,9 @@ import { unitSymbol } from './unit-targets'
 
 export type StripesSource = 'dwd' | 'ghcn'
 
+/** The code of the warning of the backend, passed on by the app's server, that says the days of GHCN daily came from the mirror of NOAA's data on AWS */
+const SOURCE_FALLBACK = 'source-fallback'
+
 /** Reads an address of the API or of the app's own server, and gives its JSON; a failure it throws, as `$fetch` does */
 export type StripesFetch = <T>(url: string, options?: { query?: Record<string, string> }) => Promise<T>
 
@@ -143,12 +146,26 @@ async function ghcnStripes(fetch: StripesFetch, request: StripesRequest): Promis
   const answer = await fetch<GhcnAnnualAnswer>('/_ghcn/annual', {
     query: { kind: request.kind, station: stationId, unit_targets: JSON.stringify(request.unitTargets) },
   })
-  const { values, reference } = stripesFromRecord(
-    answer.values.map(row => ({ year: yearOf(row.timestamp), value: row.value })),
-    { stationId, startYear: request.startYear, endYear: request.endYear },
-  )
+  const record = answer.values.map(row => ({ year: yearOf(row.timestamp), value: row.value }))
+  // the days came from the mirror of NOAA's data on AWS, whose file may end early (GH-4390): the page says so, and where the record ends,
+  // which is the whole record's last year with a value and not the window's
+  const fromMirror = !!answer.metadata?.warnings?.some(warning => warning.code === SOURCE_FALLBACK)
+  const yearsWithValue = record.filter(row => row.value !== null).map(row => row.year)
+  const mirror = fromMirror ? { last_year: yearsWithValue.length ? Math.max(...yearsWithValue) : null } : undefined
+  let made: ReturnType<typeof stripesFromRecord>
+  try {
+    made = stripesFromRecord(record, { stationId, startYear: request.startYear, endYear: request.endYear })
+  }
+  catch (refusal) {
+    // a record too short may be the mirror's file ending early: the refusal says where it was read from
+    if (refusal instanceof StripesRefusedError && mirror)
+      refusal.mirror = mirror
+    throw refusal
+  }
+  const { values, reference } = made
   return {
     ...(answer.metadata?.provider ? { metadata: { provider: answer.metadata.provider } } : {}),
+    ...(mirror ? { mirror } : {}),
     series: {
       station: request.station,
       resolution: 'daily',

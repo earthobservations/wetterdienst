@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import type { StripesValuesResponse } from '#shared/types/api'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
 import { STRIPES_KIND } from '~/utils/map-tool'
-import { stripeColour, stripesMethodNote, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { stripeColour, stripesMethodNote, stripesMirrorNote, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { fetchStripes, stripesFetch } from '~/utils/stripes-source'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
@@ -17,7 +18,7 @@ import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 // stripes, so for them a refusal stays the failure it is.
 
 const props = defineProps<{ stationId: string, stationName: string, ghcn?: boolean }>()
-const emit = defineEmits<{ none: [] }>()
+const emit = defineEmits<{ none: [mirrorNote: string] }>()
 
 const { t, locale } = useI18n()
 
@@ -39,9 +40,15 @@ const { data, pending, error, refresh } = useAsyncData(
 
 /** The stripes could not be made of this station of GHCN daily: it has no stripes (400, or 404, 422), which is no failure to try again */
 const refused = computed(() => props.ghcn && [400, 404, 422].includes((error.value as { statusCode?: number } | null)?.statusCode ?? 0))
+/** Where the record of a refused station was read from the mirror of NOAA's data on AWS, whose file may be the reason it is too short (GH-4390): the line that says so, else an empty text */
+// (the error of `useAsyncData` is an H3 error wrapping the one thrown, which is its `cause`)
+const refusedMirrorNote = computed(() => {
+  const failure = error.value as { mirror?: StripesValuesResponse['mirror'], cause?: { mirror?: StripesValuesResponse['mirror'] } } | null
+  return refused.value ? stripesMirrorNote(failure?.mirror ?? failure?.cause?.mirror, t) : ''
+})
 watch(refused, (now) => {
   if (now)
-    emit('none')
+    emit('none', refusedMirrorNote.value)
 }, { immediate: true })
 
 const years = computed(() => stripeYears(data.value?.values ?? []))
@@ -54,15 +61,22 @@ const summary = computed(() => years.value.length && data.value
   ? `${t('stripes.summary', stripesSummaryParams(years.value, value => `${formatNumber(value, locale.value, 1)} ${unit.value}`.trim()))} ${stripesReferenceText(data.value.reference, t, value => formatNumber(value, locale.value, 1))}`
   : '')
 const methodNote = computed(() => stripesMethodNote(data.value?.series.method, t))
+// the days were read from the mirror of NOAA's data on AWS, whose file may end early (GH-4390)
+const mirrorNote = computed(() => stripesMirrorNote(data.value?.mirror, t))
 const descriptionId = useId()
 </script>
 
 <template>
   <div data-testid="map-stripes">
     <div v-if="pending && !years.length" class="h-14 rounded-lg bg-elevated motion-safe:animate-pulse" role="status" :aria-label="t('common.loading')" />
-    <p v-else-if="refused" class="text-sm text-muted" data-testid="map-stripes-refused">
-      {{ t('mapTool.stripesNone') }}
-    </p>
+    <template v-else-if="refused">
+      <p class="text-sm text-muted" data-testid="map-stripes-refused">
+        {{ t('mapTool.stripesNone') }}
+      </p>
+      <p v-if="refusedMirrorNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-refused-mirror">
+        {{ refusedMirrorNote }}
+      </p>
+    </template>
     <div v-else-if="error" class="flex flex-col items-start gap-2">
       <p role="alert" class="text-sm text-error">
         {{ describeFetchError(error) }}
@@ -79,6 +93,10 @@ const descriptionId = useId()
       <!-- how a day's temperature was made, for a station of GHCN daily (no 24-hour mean) -->
       <p v-if="methodNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-method">
         {{ methodNote }}
+      </p>
+      <!-- the days came from the mirror of NOAA's data on AWS (NCEI did not give the station's file): the most recent may be missing, and the record may end early -->
+      <p v-if="mirrorNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-mirror">
+        {{ mirrorNote }}
       </p>
       <!-- whose data the band is made of, and what was done to it, from the terms the answer it was made of carries (GH-4255) -->
       <ProviderCredit

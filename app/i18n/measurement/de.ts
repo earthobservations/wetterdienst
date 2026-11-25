@@ -48,6 +48,7 @@ const DWD_ROAD_NOTICE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluess
 
 /** Das Radar des DWD: seine Seite zu den Radarprodukten und die Blätter seiner Komposite, RADVOR und RADOLAN */
 const DWD_RADAR_PRODUCTS = 'https://www.dwd.de/DE/leistungen/radarprodukte/radarprodukte.html'
+const DWD_OPENDATA_NEWS = 'https://www.dwd.de/DE/leistungen/opendata/neuigkeiten/opendata_november2026_1.html'
 const DWD_RADVOR = 'https://www.dwd.de/DE/leistungen/radvor/radvor.html'
 const DWD_RADOLAN = 'https://www.dwd.de/DE/leistungen/radolan/radolan.html'
 /** Die Hydrologiedienste, auf deren eigene Seiten sich der Eintrag zu Wasserstand und Abfluss stützt, und der Guide to Hydrological Practices der WMO */
@@ -889,7 +890,7 @@ export const measurement: MeasurementTexts = {
         paragraphs: [
           'Ein Wetterradar sendet von einer sich drehenden Antenne kurze Impulse aus Radiowellen aus und lauscht auf das Echo, das zurückkommt. Die WMO sagt, dass die Radare, die sich am besten für die Beobachtung der Atmosphäre eignen, Frequenzen von 3 bis 10 GHz nutzen, also Wellenlängen von 10 bis 3 cm. Die Zeit zwischen dem Impuls und seinem Echo gibt die Entfernung des Ziels an. Wie stark das Echo ist, hängt von der Größe und der Zahl der Teilchen in dem Volumen ab, das vom Radarstrahl beleuchtet wird, und die WMO sagt, dass diese Stärke genutzt wird, um den Reflektivitätsfaktor (Z) zu bestimmen, aus dem über empirische Beziehungen die Intensität des Niederschlags geschätzt wird. Der Strahl wird mit der Entfernung breiter: Ein Strahl von nominell 1° ist in 50 km Entfernung 0,9 km breit, in 100 km 1,7 km und in 200 km 3,5 km.',
           'Das Echo stammt nicht immer vom Regen. Die WMO nennt Insekten, Vögel, Flugzeuge, Sand und Staub, Bodenechos (Clutter) und sogar Schwankungen des Brechungsindex der Luft als andere Dinge, die ein Wetterradar erfassen kann. Die aktuelle Generation der Radare hat Dual-Polarisation: Die Impulse werden gleichzeitig mit horizontaler und mit vertikaler Polarisation gesendet. Die WMO sagt, dass die Hauptvorteile eine bessere Datenqualität sind, weil das Radar erkennen kann, was das Ziel ist (Vögel, Insekten, Niederschlag und seine Art, Clutter), sowie die Klassifizierung von Hydrometeoren und die Schätzung des Niederschlags; für Vorhersagen kann die Dual-Polarisation Hagel und die Grenze zwischen Regen und Schnee erkennen.',
-          'Der DWD betreibt ein Netz von 17 operationellen Wetterradaren mit Dual-Polarisations-Doppler-Technik. Ein weiteres Radar am Observatorium Hohenpeißenberg dient der Qualitätssicherung und dem Testen neuer Hard- und Software. Die horizontale Reichweite der Radare beträgt bis zu 180 km, und in der Vertikalen reicht ihre Abdeckung von bodennah bis über 10 km. Die Scanstrategie des DWD ist ein Zyklus von 5 Minuten. Er beginnt mit einem Niederschlags-Scan nahe am Boden, bei dem die Antenne dem Gelände folgt (Reichweite 150 km). Es folgt ein Volumen-Scan aus zehn Umdrehungen bei festen Elevationswinkeln: sechs von 5,5° hinunter bis 0,5° (Reichweite 180 km), dann vier bei 8°, 12°, 17° und 25°, mit einer Reichweite, die mit dem Winkel von 160 km auf 120 km abnimmt. Der Zyklus endet mit einem senkrechten Scan in den Himmel, zur Kalibrierung.',
+          'Der DWD betreibt ein Netz von 17 operationellen Wetterradaren mit Dual-Polarisations-Doppler-Technik. Ein weiteres Radar am Observatorium Hohenpeißenberg dient der Qualitätssicherung und dem Testen neuer Hard- und Software. Die horizontale Reichweite der Radare beträgt bis zu 180 km, und in der Vertikalen reicht ihre Abdeckung von bodennah bis über 10 km. Die Scanstrategie des DWD ist ein Zyklus von 5 Minuten. Er beginnt mit einem Niederschlags-Scan nahe am Boden, bei dem die Antenne dem Gelände folgt (Reichweite 180 km, am 24. November 2026 von 150 km erweitert). Es folgt ein Volumen-Scan aus zehn Umdrehungen bei festen Elevationswinkeln: sechs von 5,5° hinunter bis 0,5° (Reichweite 180 km), dann vier bei 8°, 12°, 17° und 25°, mit einer Reichweite, die mit dem Winkel von 160 km auf 120 km abnimmt. Der Zyklus endet mit einem senkrechten Scan in den Himmel, zur Kalibrierung.',
         ],
       },
       {
@@ -928,9 +929,14 @@ export const measurement: MeasurementTexts = {
         WMO_III,
       ),
       dwdFiles(
-        'Seine Seite zu den Radarprodukten beschreibt sein Radarnetz und seine Scanstrategie, und zu jedem Komposit gibt es ein Produktblatt, das sagt, was es enthält.',
-        'DWD. Radar products, dwd.de/EN/ourservices/radar_products/radar_products.html; die Produktblätter „Radarkomposit“ RV, WN, HX, DMAX, RS, VII und HymecNG, verlinkt von dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, am 22. November 2026 gelesen.',
+        'Seine Seite zu den Radarprodukten beschreibt sein Radarnetz und seine Scanstrategie, und zu jedem Komposit gibt es ein Produktblatt, das sagt, was es enthält. Seine englische Seite gab die Reichweite des Niederschlags-Scans am 25. November 2026 noch mit 150 km an, was die Reichweite bis zum 24. November 2026 war.',
+        'DWD. Radar products, dwd.de/EN/ourservices/radar_products/radar_products.html; die Produktblätter „Radarkomposit“ RV, WN, HX, DMAX, RS, VII und HymecNG, verlinkt von dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, am 22. November 2026 gelesen, die englische Seite am 25. November 2026 noch einmal.',
         DWD_RADAR_PRODUCTS,
+      ),
+      dwdFiles(
+        'Seine Open-Data-Neuigkeiten vom 3. November 2026 kündigten an, dass die Reichweite des Radar-Niederschlagsscans am 24. November 2026 von 150 km auf 180 km erweitert wird. Seine deutsche Seite zu den Radarprodukten und das Blatt zum Niederschlags-Scan eines Radarstandorts nennen 180 km.',
+        'DWD. Änderungen und Neuerungen auf Open Data, Mitteilung vom 3. November 2026, dwd.de/DE/leistungen/opendata/neuigkeiten/opendata_november2026_1.html; das Produktblatt „Standortprodukt Sweep Niederschlagsscan“, dwd.de/DE/leistungen/radarprodukte/standortprodukt_sweep_niederschlagsscan.pdf; dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, am 25. November 2026 gelesen.',
+        DWD_OPENDATA_NEWS,
       ),
       dwdFiles(
         'Seine Seite zu RADVOR, dem System für das Radar-Nowcasting, das er bis Ende Februar 2026 betrieben hat, beschreibt das Prinzip des Nowcastings durch Verlagerung.',
