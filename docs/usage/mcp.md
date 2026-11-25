@@ -176,7 +176,10 @@ An answer over the budget is cut, not refused, and says so:
 - **`values`** with `filter`, `sort`, `first` or `by` (see [Choose the rows](restapi.md#choose-the-rows)) has the rows of
   its own order (`max_rows` has cut it already if it was given, and the `rows-capped` warning says so) and is cut in it: the first rows are kept, so with `sort=-value` the highest, and the
   `answer-truncated` note says how many of how many rows matched and how many values were searched. `metadata.search`
-  stays in the answer. To find a record, ask for it (`sort=value&first=1`) instead of reading a window at a time.
+  stays in the answer. To find a record, ask for it (`sort=value&first=1`) instead of reading a window at a time. To meet
+  two parameters at one time, name them: `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` over the two requested
+  parameters is the days of frost and strong gusts, with the rows of both
+  ([Parameters as columns](restapi.md#parameters-as-columns)).
 - **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
   required, so it is always the start of the window that is kept and the next window continues it. They have no
   `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.

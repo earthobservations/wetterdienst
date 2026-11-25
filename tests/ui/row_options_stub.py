@@ -33,7 +33,12 @@ def reading(station_id: str, parameter: str, day: int) -> float | None:
     """Give the reading of a station on a day, `None` on a gap: a function, with many equal values (ties)."""
     if (day * 7 + int(station_id)) % 13 == 0:
         return None
-    base = (day * 37 + int(station_id) * 11 + len(parameter)) % 61
+    # the gust has days of its own that it misses: a day one parameter has and another lacks is what two parameters at
+    # one time (GH-4419) must treat as no value
+    if "gust" in parameter and (day * 5 + int(station_id)) % 11 == 0:
+        return None
+    # the two temperatures differ by a little, as a daily minimum and maximum do
+    base = (day * 37 + int(station_id) * 11 + len(parameter) + sum(map(ord, parameter)) % 7 * day % 5) % 61
     return base / 2.0 - 10.0 if "gust" not in parameter else base / 4.0
 
 

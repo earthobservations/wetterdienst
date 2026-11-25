@@ -70,9 +70,9 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.model.row_selection import (
     MAX_TOOL_SERIES,
+    RowSelectionError,
     RowsOverLimitError,
     Searched,
-    parse_row_selection,
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings, removed_settings
@@ -2075,7 +2075,7 @@ def _stream_values(
     failure = _stream_failure(request, "stream values")
 
     def search_report() -> dict[str, Any]:
-        selection = parse_row_selection(**rows)
+        selection = reader._row_selection(rows, whole=True)  # noqa: SLF001
         assert selection is not None  # noqa: S101 -- search_report is asked for only where row options are given
         window = (stations.start, stations.end)
         read = reader._stations_read  # noqa: SLF001
@@ -2348,10 +2348,10 @@ def values(
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
     other one. In the JSON of shape="long", the default unless the server's WD_TS_SHAPE says
     otherwise, the `values` items are grouped by station, then by
-    resolution, dataset and parameter, in timestamp order within each group: a parameter's latest
-    timestamp is the last item of its group, not of the array. With shape="wide" an item is one
-    timestamp of a station and resolution, with a key per parameter (prefixed with the full dataset
-    name, e.g. "climate_summary_", when datasets of more than one name are requested), its
+    resolution, dataset and parameter, in timestamp order within each group (unless `filter`, `sort` or `first`
+    choose the rows): a parameter's latest timestamp is the last item of its group, not of the array. With
+    shape="wide" an item is one timestamp of a station and resolution, with a key per parameter (prefixed with the
+    full dataset name, e.g. "climate_summary_", when datasets of more than one name are requested), its
     `_quality_flags` key, no `parameter` key, and a null `dataset` where
     several datasets of its resolution are requested. With format="geojson" the items sit under each
     feature's `values`, keeping their order but not `station_id`; a feature is one resolution and
@@ -2363,7 +2363,9 @@ def values(
     `filter=value<=-20,month=12` the readings at or below -20 in a December. An extreme can be a faulty reading:
     read its `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows
     (every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when
-    and how many values were searched, so that a record the data lacks is told from one not looked for.
+    and how many values were searched, so that a record the data lacks is told from one not looked for. To meet two
+    parameters at one time (one resolution), name them: `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the
+    days of frost and strong gusts, with all parameters' rows.
 
     With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
     relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
@@ -2690,6 +2692,8 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
         log.info(f"Failed to {what}: {detail}")
         if isinstance(e, NoStationPositionsError):
             return _unplaceable_format(detail, getattr(request, "format", None))
+        if isinstance(e, RowSelectionError):
+            return _unreadable_option(e, request)
         return HTTPException(status_code=status, detail=detail)
     return _server_side_failure(e, request, what)
 
@@ -2705,6 +2709,23 @@ def _unplaceable_format(detail: str, fmt: str | None) -> ProblemError:
     if fmt is not None:
         entry["input"] = fmt
     return ProblemError(422, detail, ProblemKind.INVALID_PARAMETERS, extra={"errors": [entry]})
+
+
+def _unreadable_option(e: RowSelectionError, request: BaseModel) -> ProblemError:
+    """Answer a `filter` or `sort` that the request's parameters refuse as the 422 of a text that cannot be read.
+
+    A word that is no parameter's name, or that names several, is known to be wrong only once the request's
+    parameters are (GH-4419); it is the same fault as a text that cannot be read, so it is answered the same way: a 422
+    `invalid-parameters` whose `errors` locate it at the option, with what was written in `input`.
+    """
+    entry: dict[str, Any] = {
+        "type": "row_selection",
+        "loc": ["query", e.option],
+        "msg": str(e),
+        "input": getattr(request, e.option, None),
+        "ctx": {},
+    }
+    return ProblemError(422, f"{e.option}: {e}", ProblemKind.INVALID_PARAMETERS, extra={"errors": [entry]})
 
 
 def _values(

@@ -1060,8 +1060,10 @@ The reader applies them to each station as its values arrive, after the stations
 spans stations (`by="year"`) and the order of `sort`. `query` yields the stations one by one and so takes the options
 whose groups stay in a station (a `max_rows` cuts each station's rows there, the cap of the whole is `all`'s); `by` without `station_id` is refused there with the words to use `all`. A text that cannot
 be read is a `RowSelectionError` (a `RequestError`) naming the position, and a selection that cannot be applied to the
-request, `value` over parameters of two units or in the wide shape, a `RowSelectionRefusedError`; both are raised before a
-station is read.
+request, `value` over parameters of two units or in the wide shape, or beside a parameter's name, a
+`RowSelectionRefusedError`; both are raised before a station is read. A word that is no column is the name of one of the
+request's parameters ([Parameters as columns](restapi.md#parameters-as-columns)), and a `RowSelectionError` that lists
+the request's names where it is none.
 
 `ValuesResult.search` says what was looked at, per station and parameter (`search.series`, a frame; `search.to_dict()` is
 the `metadata.search` of the REST answer). It is `None` for values read without the options.
@@ -1081,6 +1083,20 @@ print(lowest.search.to_dict()["totals"])  # {'series': 1, 'searched': ..., 'expe
 coldest_days = reader.all(sort="value", first=1, by="station_id,year")  # the coldest day of every year
 frost = request.filter_by_station_id("01975").values().all(filter="value<=-20", sort="-timestamp")
 few = reader.all(sort="value", first=1, max_rows=20)  # ties can be many rows: keep the first 20 of the answer
+
+# two parameters at one time: the days of frost with strong gusts (all parameters' rows of those days), and the
+# ten coldest days that have a gust, with it; the names are those of the request's parameters, their numbers in the answer's units
+request = DwdObservationRequest(
+    parameters=[
+        "daily/climate_summary/temperature_air_min_2m",
+        "daily/climate_summary/wind_gust_max",
+    ],
+    start="1900",
+    end="2026",
+)
+wind = request.filter_by_station_id("03987").values()
+frost_with_gusts = wind.all(filter="temperature_air_min_2m<0,wind_gust_max>=17.2")
+coldest_days = wind.all(filter="wind_gust_max>=0", sort="temperature_air_min_2m", first=10)  # with a gust
 
 # the same of a result you hold already
 everything = request.filter_by_station_id("01975").values().all()

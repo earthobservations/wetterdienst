@@ -140,7 +140,6 @@ def test_refusals_name_the_position_and_what_is_wrong(text: str, position: int, 
         ("station_id", "`stations`"),
         ("quality", "not available"),
         ("top", "`first`"),
-        ("temperature", "Example"),
     ],
 )
 def test_an_unknown_column_is_refused_with_what_to_do_instead(column: str, hint: str) -> None:
@@ -281,7 +280,7 @@ def test_no_option_is_no_selection_and_an_empty_text_is_no_option() -> None:
 
 
 def test_the_reserved_names_of_step_2_are_not_columns() -> None:
-    """The reserved names of step 2 are not columns."""
+    """The reserved names of step 2 are not columns, and no name of a parameter either (GH-4419): a 422 each."""
     for name in ("window", "year_start", "timezone", "aggregate", "having", "per", "max_missing"):
         for parse in (parse_filter, parse_sort, parse_by):
             with pytest.raises(RowSelectionError):
