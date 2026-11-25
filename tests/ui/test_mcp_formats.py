@@ -5,7 +5,8 @@
 The tools are the routes of the REST API run in process. FastMCP reads a route's answer as JSON: a text body (csv,
 ndjson) it passed on without structured content, which the output schema of the tool refuses ("has an output schema
 but did not return structured content"). And the refusal of a row limit told an assistant to use `format=ndjson` or
-`format=csv`, which it could not. No tool answers a chart (GH-4318), so none answers an image either (GH-4450).
+`format=csv`, which it could not. No tool answers a chart (GH-4318, GH-4453), so none answers an image either
+(GH-4450).
 
 Offline: the selection of the stations and the reader are stood in for, as in `test_operations.py`.
 

@@ -592,6 +592,13 @@ def _refused_image_options(tool: str, arguments: dict[str, Any], taken: dict[str
     return refused
 
 
+def _holds_object(value: Any) -> bool:  # noqa: ANN401
+    """Tell whether a value of an argument is an object, or a list that holds one at any depth."""
+    if isinstance(value, dict):
+        return True
+    return isinstance(value, list | tuple) and any(_holds_object(item) for item in value)
+
+
 def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Route]) -> Middleware:
     """Build the middleware that refuses a tool argument the tool does not take.
 
@@ -609,8 +616,11 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Rout
     that sends them at a value that means nothing: `pretty` at any value, the others as `null` (a client that fills in
     every option with its default does). A `width`, `height` or `scale` with a value is refused, since a model may
     mean something else by it (`height` for `elevation`), and so is a `format` the tool does not offer (a chart,
-    `html`, `png`, ..., with where the charts are, instead of the REST answer the call would otherwise get). Every
-    refusal of a call is in one error.
+    `html`, `png`, ..., with where the charts are, instead of the REST answer the call would otherwise get).
+
+    So is an object (or a list that holds one) for an argument that is no object (GH-4453): FastMCP sends it as one
+    query parameter for each key, so `shape={"format": "png"}` asked the route for `format=png`, past the refusal of
+    the format, and any key was a parameter the tool does not declare. Every refusal of a call is in one error.
     """
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
@@ -639,6 +649,14 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Rout
                 refused = _refused_formats(tool.name, arguments, taken, route.path)
                 # the options of GH-4318 are let go as given where the tool's route took them and they mean nothing
                 refused += _refused_image_options(tool.name, arguments, taken, route)
+                # `format` has its refusal; an argument that is an object is sent as its JSON (`_send_objects_as_json`)
+                objects = _object_arguments(tool.parameters)
+                refused += [
+                    f"{name} is not an object argument of {tool.name}: give it a value, not an object, "
+                    "as an object is read as arguments of its own"
+                    for name, value in arguments.items()
+                    if name != "format" and name not in objects and _holds_object(value)
+                ]
                 unknown = [name for name in arguments if name not in taken and name not in route.rest_only]
                 # a name the tool's route never had is no old name of one it has (`stations` never took `date`)
                 had = old_names_of_route(tool.name)
@@ -763,6 +781,10 @@ _REPORTING_HEADERS = (
 )
 
 
+# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
+_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
+
+
 def _is_json(media_type: str) -> bool:
     return media_type == "application/json" or media_type.endswith("+json")
 
@@ -796,6 +818,19 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
             media_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
             if not 200 <= response.status_code < 300 or not media_type or _is_json(media_type):
                 return response
+            if media_type not in _CARRIED_MEDIA_TYPES:
+                # the body is not read: no tool answers it (a chart, or whatever an argument made the route answer)
+                await response.aclose()
+                text = (
+                    f"The REST API answered {media_type}, which a tool does not carry: "
+                    "a tool answers json, geojson, csv or ndjson."
+                )
+                return httpx2.Response(
+                    502,
+                    headers={"content-type": "application/json"},
+                    content=json.dumps(text).encode("utf-8"),
+                    request=request,
+                )
             body = await response.aread()
             await response.aclose()
             envelope = {
