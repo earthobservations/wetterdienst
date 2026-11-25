@@ -2,7 +2,7 @@
 # requires-python = ">=3.14"
 # dependencies = [
 #   "marimo>=0.10.0",
-#   "duckdb",
+#   "duckdb>=1.5.3,<3",
 #   "polars",
 #   "pyarrow",
 #   "altair>=5.1.0",
@@ -104,12 +104,12 @@ def _(mo):
 
 @app.cell
 def _(con, mo):
-    _total = con.execute("SELECT count(*) FROM stations").fetchone()[0]
-    _start_min, _start_max = con.execute("SELECT min(start_timestamp)::date, max(start_timestamp)::date FROM stations").fetchone()
+    _total = con.execute("SELECT count(*) FROM stations").fetchall()[0][0]
+    _start_min, _start_max = con.execute("SELECT min(start_timestamp)::date, max(start_timestamp)::date FROM stations").fetchall()[0]
     _active = con.execute("""
         SELECT count(DISTINCT station_id) FROM "values"
         WHERE year(timestamp) = 2024
-    """).fetchone()[0]
+    """).fetchall()[0][0]
 
     mo.hstack(
         [
@@ -166,7 +166,7 @@ def _(alt, con):
     }
 
     def _with_active(query):
-        df = con.execute(query).pl()
+        df = con.sql(query).pl()
         return df.with_columns(
             active=df["station_id"].map_elements(
                 lambda sid: "active" if sid in _active_ids else "inactive",
@@ -220,7 +220,7 @@ def _(mo):
 
 @app.cell
 def _(alt, con):
-    _df = con.execute("""
+    _df = con.sql("""
         SELECT
             date_trunc('year', timestamp)::date AS year,
             count(DISTINCT station_id) AS active_stations
@@ -298,10 +298,10 @@ def _(alt, con):
 
 @app.cell
 def _(con, mo):
-    _total_rows = con.execute('SELECT count(*) FROM "values"').fetchone()[0]
-    _total_stations = con.execute('SELECT count(DISTINCT station_id) FROM "values"').fetchone()[0]
-    _date_min, _date_max = con.execute('SELECT min(timestamp)::date, max(timestamp)::date FROM "values"').fetchone()
-    _total_params = con.execute('SELECT count(DISTINCT parameter) FROM "values"').fetchone()[0]
+    _total_rows = con.execute('SELECT count(*) FROM "values"').fetchall()[0][0]
+    _total_stations = con.execute('SELECT count(DISTINCT station_id) FROM "values"').fetchall()[0][0]
+    _date_min, _date_max = con.execute('SELECT min(timestamp)::date, max(timestamp)::date FROM "values"').fetchall()[0]
+    _total_params = con.execute('SELECT count(DISTINCT parameter) FROM "values"').fetchall()[0][0]
 
     mo.hstack(
         [
@@ -329,7 +329,7 @@ def _(mo):
 
 @app.cell
 def _(alt, con):
-    _df = con.execute("""
+    _df = con.sql("""
         SELECT
             parameter,
             min(timestamp)::date AS first_date,
@@ -389,7 +389,7 @@ def _(mo):
 
 @app.cell
 def _(alt, con):
-    _df = con.execute("""
+    _df = con.sql("""
         WITH baseline AS (
             -- mean temperature per station per calendar day over 1961-1990
             -- only use station+doy combos with at least 20 of the 30 reference years
@@ -500,7 +500,7 @@ def _(con, mo):
 
 @app.cell
 def _(con, mo):
-    _df = con.execute("""
+    _df = con.sql("""
         SELECT
             v.timestamp::date  AS date,
             v.station_id,
@@ -534,7 +534,7 @@ def _(mo):
 
 @app.cell
 def _(alt, con, mo):
-    _df = con.execute("""
+    _df = con.sql("""
         SELECT
             year(timestamp)                                                          AS year,
             count(DISTINCT CASE WHEN value > 0 THEN station_id END)            AS stations_with_snow,
@@ -612,7 +612,7 @@ def _(alt, birthday, con, mo):
     _day = birthday.value.day
     _birth_year = birthday.value.year
 
-    _df = con.execute(
+    _df = con.sql(
         """
         SELECT
             year(timestamp)  AS year,
@@ -626,7 +626,7 @@ def _(alt, birthday, con, mo):
         GROUP BY year(timestamp)
         ORDER BY year
     """,
-        [_month, _day, _birth_year],
+        params=[_month, _day, _birth_year],
     ).pl()
 
     _avg = float(_df["mean_temp"].mean())
@@ -697,7 +697,7 @@ def _(con, mo, sql_query):
     import traceback as _tb
 
     try:
-        _result = con.execute(sql_query.value).pl()
+        _result = con.sql(sql_query.value).pl()
         _out = mo.vstack([
             mo.md(f"_{len(_result):,} rows returned_"),
             mo.ui.table(_result),

@@ -7,19 +7,29 @@ minimum is megabytes and an answer holds 40,000 characters. These four options p
 on the server, from what was read.
 
 ======  ==============================================================================================================
-filter  conditions joined with `,` (and): `column op value`; the columns `value`, `year`, `month`, `day`, `hour`; the
-        operators `=  !=  <  <=  >  >=`; a list `a|b` of numbers with `=` and `!=`. `value<=-20,month=12|1|2`
-sort    one or more columns, `-` before one for descending: `-value`, `month,day`; the columns of `filter` and
-        `timestamp` and `station_id`
+filter  conditions joined with `,` (and): `column op value`; the columns `value`, `year`, `month`, `day`, `hour` or
+        the name of a parameter of the request (GH-4419); the operators `=  !=  <  <=  >  >=`; a list `a|b` of numbers
+        with `=` and `!=`. `value<=-20,month=12|1|2`, `temperature_air_min_2m<0,wind_gust_max>=17.2`
+sort    one or more columns, `-` before one for descending: `-value`, `month,day`, `temperature_air_min_2m`; the
+        columns of `filter` and `timestamp` and `station_id`
 first   how many rows of each group, the first of the `sort` order; the rows that tie with the last one are kept
 by      the groups `first` counts in, default the station: `station_id,year`; `none` is over all the stations
 max_rows  the most rows of the whole answer, the last step, after the others: the first rows of the answer's order
 ======  ==============================================================================================================
 
 The text is read by the small parser below, which is all there is: no regular expression, no `eval`, no SQL of
-polars or DuckDB, and nothing in the text is a function, a name or a nesting. It is linear in the length of the text,
-which is bounded (`MAX_FILTER_LENGTH` and the constants beside it), and the one error it raises names the option, the
-position, what was found there and what is allowed. The text is checked in full before a station is read.
+polars or DuckDB, and nothing in the text is a function or a nesting. A name is the one thing it reads that is not a
+fixed word: letters, digits and underscores, looked up among the parameters of the request and nowhere else. It
+is linear in the length of the text, which is bounded (`MAX_FILTER_LENGTH` and the constants beside it), and the one
+error it raises names the option, the position, what was found there and what is allowed. The text is checked in full
+before a station is read.
+
+A parameter's name stands for its value at the timestamp of the row, so that two parameters of one station meet at
+one time: `temperature_air_min_2m<0,wind_gust_max>=17.2` keeps the timestamps of a station at which every condition
+holds, a missing value meeting none, and the answer is the rows of every requested parameter at those timestamps.
+With a name, a row of `filter`, `sort`, `first` and `by` is a timestamp of a station (and a resolution), not a reading
+of one parameter; `ParameterNames` says which names the request has and `RowSelection._timestamp_rows` makes the
+frame of timestamps of a station that the conditions are judged on.
 
 Where the options act, what a group is and what an empty answer means are written in `docs/usage/restapi.md` ("Choose
 the rows"); this module is the one place that implements them: the reader of the values (`TimeseriesValues.all` and
@@ -32,6 +42,7 @@ and a usage error without its cost.
 from __future__ import annotations
 
 import datetime as dt
+import difflib
 import math
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Final, Literal, TypedDict
@@ -39,7 +50,7 @@ from typing import TYPE_CHECKING, Final, Literal, TypedDict
 from wetterdienst.exceptions import RequestError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
 
     import polars as pl
 
@@ -83,6 +94,9 @@ _CALENDAR_RANGE: Final = {"year": (1, 9999), "month": (1, 12), "day": (1, 31), "
 #: the largest magnitude of a `value` number: more is no reading
 _MAX_VALUE: Final = 1e15
 
+#: the columns that make a timestamp of a station and a resolution one row of a long frame
+_STAMP_KEYS: Final = ("station_id", "resolution", "timestamp")
+
 _OPERATORS: Final = ("<=", ">=", "!=", "<", ">", "=")
 _WORD = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
 _DIGITS = frozenset("0123456789")
@@ -100,17 +114,17 @@ class RowOptions(TypedDict, total=False):
     max_rows: int | str | None
 
 
-_FILTER_EXAMPLE = "Example: filter=value<=-20,month=12|1|2"
+_FILTER_EXAMPLE = "Example: filter=value<=-20,month=12|1|2 or temperature_air_min_2m<0"
 _SORT_EXAMPLE = "Example: sort=-value (the highest first), sort=value (the lowest), sort=month,day"
 _BY_EXAMPLE = "Example: by=station_id,year (per station and year), by=none (over all stations)"
 
 #: what to say to a column that a model or a person tries and that is none of the allowed ones, by name
 _COLUMN_HINTS: Final = {
     "parameter": (
-        "a group is always one parameter: name the one you want in `parameters`, e.g. "
-        "daily/climate_summary/temperature_air_min_2m"
+        "a parameter is a column by its own name, which must be one of the request's `parameters`: "
+        "temperature_air_min_2m<0"
     ),
-    "parameters": "name the parameters in `parameters`; a group is always one parameter",
+    "parameters": "name the parameters in `parameters`, and use a parameter's own name as the column",
     "resolution": "resolutions and datasets are never mixed in a group; name the one you want in `parameters`",
     "dataset": "resolutions and datasets are never mixed in a group; name the one you want in `parameters`",
     "station": "the column is `station_id`; choose stations with `stations`, `name` or the other selections",
@@ -144,13 +158,149 @@ _OPERATOR_HINTS: Final = {
 }
 
 
+#: the words reserved for the options of step 2 (`docs/usage/compatibility.md`): no column, no parameter's name
+STEP_TWO_WORDS: Final = frozenset({"window", "year_start", "timezone", "aggregate", "having", "per", "max_missing"})
+#: the words that are never a parameter's name, so that a model that tries them is told what to do without a request
+#: (the REST model refuses them before any station is looked up): the columns of the options, and the words
+#: `_COLUMN_HINTS` answers. `tests/model/test_row_selection_names.py` holds every parameter of every provider to it
+RESERVED_WORDS: Final = frozenset(
+    {*FILTER_COLUMNS, *SORT_COLUMNS, "none", *STEP_TWO_WORDS, *(w for w in _COLUMN_HINTS if ":" not in w)}
+)
+#: the most closest names an unknown one is told, and the most names listed when none is close
+_CLOSEST: Final = 3
+_LISTED_NAMES: Final = 12
+
+
+def _name_like(word: str) -> bool:
+    """Tell whether a word can be a parameter's name: letters, digits and underscores, with a letter among them."""
+    return bool(word) and all(char in _WORD for char in word) and any(char.isalpha() for char in word)
+
+
+@dataclass(frozen=True)
+class ParameterColumn:
+    """A parameter of the request as a column of the selection: where its readings are in a frame.
+
+    `resolution`, `dataset` and `parameter` identify its rows in the long shape, as the frame has them (the dataset
+    in lower case, the parameter humanised if the request is); `wide` is the column that holds it in the wide shape;
+    the numbers of a condition are in the unit the answer has for it, after the conversion of units.
+    """
+
+    resolution: str
+    dataset: str
+    parameter: str
+    wide: str
+
+
+@dataclass(frozen=True)
+class ParameterNames:
+    """The parameters of a request by the names a `filter` or a `sort` may write.
+
+    A parameter's own name, or its name after its dataset (`climate_summary_wind_gust_max`), which is how the wide
+    shape names a column when the request spans several datasets.
+
+    `lookup` maps a name in lower case to the parameters it can mean, each with the name as it is written in the
+    answer: one for a name that is unambiguous, several where the same name is in two datasets (then only the name
+    with its dataset says which). In a request of one dataset a parameter's own name is the one the answer writes, so
+    it wins over the name after the dataset of another parameter that spells the same
+    (`water_equivalent_snow_depth` is a parameter of `water_equivalent`, and `snow_depth` after its dataset).
+    `resolutions` are those of all the parameters of the request, since a timestamp is
+    only the same instant within one of them. Names with a sign other than a letter, digit or underscore (some of a
+    provider's own, with `humanize=false`) cannot be written in the text and are `unwritable`.
+    """
+
+    lookup: Mapping[str, tuple[tuple[str, ParameterColumn], ...]] = field(default_factory=dict, compare=False)
+    resolutions: tuple[str, ...] = ()
+    unwritable: tuple[str, ...] = ()
+    #: the bare names, in the order of the request, for the text of a refusal
+    listed: tuple[str, ...] = ()
+
+    @classmethod
+    def of(
+        cls,
+        parameters: Iterable[ParameterModel],
+        *,
+        humanize: bool,
+    ) -> ParameterNames:
+        """Build the names of a request from its parameters, named as the answer names them (`humanize`)."""
+        parameters = list(parameters)
+        spans_datasets = len({parameter.dataset.name.lower() for parameter in parameters}) > 1
+        columns: dict[tuple[str, str, str], tuple[str, ParameterColumn]] = {}
+        for parameter in parameters:
+            name = parameter.name if humanize else parameter.name_original
+            dataset = parameter.dataset.name.lower()
+            resolution = parameter.dataset.resolution.name
+            wide = f"{dataset}_{name}" if spans_datasets else name
+            columns.setdefault(
+                (resolution, dataset, name),
+                (name, ParameterColumn(resolution, dataset, name, wide)),
+            )
+        found: dict[str, dict[ParameterColumn, tuple[str, bool]]] = {}
+        unwritable: list[str] = []
+        for (_, dataset, _), (name, column) in columns.items():
+            if not _name_like(name):
+                unwritable.append(name)
+                continue
+            for written, bare in ((name, True), (f"{dataset}_{name}", False)):
+                found.setdefault(written.lower(), {}).setdefault(column, (written, bare))
+        lookup: dict[str, tuple[tuple[str, ParameterColumn], ...]] = {}
+        for key, each in found.items():
+            entries = list(each.items())
+            if not spans_datasets and any(bare for _, (_, bare) in entries):
+                entries = [(column, spelled) for column, spelled in entries if spelled[1]]
+            lookup[key] = tuple((spelled[0], column) for column, spelled in entries)
+        resolutions = tuple(dict.fromkeys(resolution for resolution, _, _ in columns))
+        listed = tuple(dict.fromkeys(name for name, _ in columns.values() if _name_like(name)))
+        return cls(lookup, resolutions, tuple(dict.fromkeys(unwritable)), listed)
+
+    def column(self, written: str) -> ParameterColumn:
+        """Give the parameter a name as `find` returned it stands for."""
+        return next(column for name, column in self.lookup[written.lower()] if name == written)
+
+    def close_to(self, word: str) -> list[str]:
+        """Give the names of the request that look like a word that is none, the closest first, a parameter once."""
+        close = difflib.get_close_matches(word.lower()[:60], list(self.lookup), n=_CLOSEST * 2, cutoff=0.5)
+        seen: dict[ParameterColumn, str] = {}
+        for key in close:
+            for written, column in self.lookup[key]:
+                seen.setdefault(column, written)
+        return list(seen.values())[:_CLOSEST]
+
+    def without_spelling(self, hits: Sequence[tuple[str, ParameterColumn]]) -> list[ParameterColumn]:
+        """Give the parameters a name may mean that no spelling of the request tells apart from the others."""
+        unique = {
+            column
+            for _, column in hits
+            for spelling in (f"{column.dataset}_{column.parameter}", column.parameter)
+            if len(self.lookup.get(spelling.lower(), ())) == 1
+        }
+        return [column for _, column in hits if column not in unique]
+
+    def distinct_spellings(self, hits: Sequence[tuple[str, ParameterColumn]]) -> list[str]:
+        """Give for each parameter a name may mean a spelling that means that one only: with its dataset, else bare."""
+        spellings = []
+        for _, column in hits:
+            for spelling in (f"{column.dataset}_{column.parameter}", column.parameter):
+                if len(self.lookup.get(spelling.lower(), ())) == 1:
+                    spellings.append(spelling)
+                    break
+        return spellings
+
+    def describe(self) -> str:
+        """Write some of the request's names for a refusal: all of them where they are few."""
+        shown = self.listed[:_LISTED_NAMES]
+        more = len(self.listed) - len(shown)
+        return ", ".join(shown) + (f" and {more} more" if more > 0 else "")
+
+
 class RowSelectionError(RequestError):
     """A `filter`, `sort`, `first` or `by` that cannot be read, as the one error of the parser.
 
     A `RequestError` (a `ValueError`), so a Python caller catches it as the other refusals of a request, the REST API
     and the MCP tools answer it as a 422 located at the option and the command line as a usage error. `option` names
     the option, `position` is the 1-based character of its text where the text goes wrong (None for a refusal that is
-    not about one character), `found` what is there and `expected` what is allowed there.
+    not about one character), `found` what is there and `expected` what is allowed there. It is raised for the text
+    alone, and for a name that is none of the request's parameters or is the name of several of them, once the request
+    is known: the REST API answers that one as a 422 too, located at the option.
     """
 
     def __init__(
@@ -336,14 +486,85 @@ class _Scanner:
 
 
 def _unknown_column(
-    scanner: _Scanner, word: str, allowed: Sequence[str], start: int, example: str
+    scanner: _Scanner,
+    word: str,
+    allowed: Sequence[str],
+    start: int,
+    example: str,
+    names: ParameterNames | None = None,
 ) -> RowSelectionError:
-    hint = _COLUMN_HINTS.get(f"{scanner.option}:{word.lower()}") or _COLUMN_HINTS.get(word.lower())
+    """Build the refusal of a column that is none of the option's and, where the request is known, no parameter."""
+    hints = [_COLUMN_HINTS.get(f"{scanner.option}:{word.lower()}") or _COLUMN_HINTS.get(word.lower())]
+    expected = f"one of {', '.join(allowed)}"
+    if names is not None and names.listed and scanner.option in ("filter", "sort"):
+        expected += f", or a parameter of this request ({names.describe()})"
+        close = names.close_to(word) if _name_like(word) and word.lower() not in RESERVED_WORDS else []
+        if close:
+            hints.insert(0, f"did you mean {' or '.join(close)}?")
+        if names.unwritable:
+            hints.append(
+                f"{len(names.unwritable)} parameter(s) of this request have a name with a sign that cannot be written "
+                "here (`humanize=false`); ask for the humanised names"
+            )
+    hints.append(example)
+    text = " ".join(h if h.endswith((".", "?", ")")) else f"{h}." for h in hints if h)
     return scanner.fail(
         f"`{word}` is not a column of this option" if word else "no column",
-        expected=f"one of {', '.join(allowed)}",
-        hint=f"{hint}. {example}" if hint else example,
+        expected=expected,
+        hint=text,
         at=start,
+        found=repr(word[:40]) if word else None,
+    )
+
+
+def _name_column(
+    scanner: _Scanner,
+    word: str,
+    allowed: Sequence[str],
+    start: int,
+    example: str,
+    names: ParameterNames | None,
+) -> str:
+    """Read a word that is no column of the option as the name of a parameter, and give the name it is written as.
+
+    Without the request's names (`names` is None: the model of a REST request, the check of the command line) any
+    word that can be a name is accepted and left as written in lower case, to be looked up when the request is
+    known. With them the word must be one of them, in either case: its name as the answer writes it comes back, and
+    a name the request has twice, in two datasets, is refused with the name that says which.
+    """
+    lower = word.lower()
+    if lower in RESERVED_WORDS or not _name_like(word):
+        raise _unknown_column(scanner, word, allowed, start, example, names)
+    if names is None:
+        return lower
+    hits = names.lookup.get(lower, ())
+    if len(hits) == 1:
+        return hits[0][0]
+    if not hits:
+        raise _unknown_column(scanner, word, allowed, start, example, names)
+    if len(names.resolutions) > 1:
+        # the same name at two resolutions is the lesser fault: a request of two resolutions has no names at all
+        raise _resolutions_refusal(names)
+    spellings = names.distinct_spellings(hits)
+    shown = ", ".join(spellings[:_LISTED_NAMES]) + (
+        f" and {len(spellings) - _LISTED_NAMES} more" if len(spellings) > _LISTED_NAMES else ""
+    )
+    datasets = dict.fromkeys(column.dataset for _, column in hits)
+    where = ", ".join(list(datasets)[:_LISTED_NAMES]) + (
+        f" and {len(datasets) - _LISTED_NAMES} more" if len(datasets) > _LISTED_NAMES else ""
+    )
+    alone = names.without_spelling(hits)
+    alone_text = "; ".join(
+        f"request `{column.dataset}` alone for its `{column.parameter}`" for column in alone[:_CLOSEST]
+    ) + (" and so on" if len(alone) > _CLOSEST else "")
+    raise scanner.fail(
+        f"`{word}` is the name of {len(hits)} parameters of this request",
+        expected="a name that says which, as the wide shape writes it after the dataset: "
+        + (shown or "none is unique"),
+        hint=f"the datasets are {where}"
+        + (f"; no spelling says which of the others is meant: {alone_text}" if alone else ""),
+        at=start,
+        found=repr(word),
     )
 
 
@@ -412,11 +633,13 @@ def _read_number(scanner: _Scanner, column: str) -> int | float:  # noqa: C901
     return value
 
 
-def parse_filter(text: str) -> tuple[Condition, ...]:
+def parse_filter(text: str, names: ParameterNames | None = None) -> tuple[Condition, ...]:
     """Read a `filter` text into its conditions, joined by `,`, or raise `RowSelectionError`.
 
     Spaces and tabs between tokens are ignored; column names and `e` of an exponent are read in either case. A column
     may be named twice (`value>=-20,value<=-10` is a range, `month=12,month=1` is an empty answer, not an error).
+    A word that is no column of the option is a parameter's name: `names` are the request's, which it must be one of;
+    without them it is accepted if it can be a name (see `_name_column`).
     """
     _check_text("filter", text, MAX_FILTER_LENGTH)
     scanner = _Scanner("filter", text)
@@ -433,7 +656,7 @@ def parse_filter(text: str) -> tuple[Condition, ...]:
         word = scanner.word()
         column = word.lower()
         if column not in FILTER_COLUMNS:
-            raise _unknown_column(scanner, word, FILTER_COLUMNS, start, _FILTER_EXAMPLE)
+            column = _name_column(scanner, word, FILTER_COLUMNS, start, _FILTER_EXAMPLE, names)
         scanner.skip_blanks()
         operator = _read_operator(scanner)
         scanner.skip_blanks()
@@ -491,7 +714,11 @@ def _read_operator(scanner: _Scanner) -> Operator:
     raise scanner.fail(
         "no operator after the column" if char else "the condition ends after the column",
         expected="one of = != < <= > >=",
-        hint=_OPERATOR_HINTS.get(char, "a condition is a column, an operator and a number: value<=-20"),
+        hint=_OPERATOR_HINTS.get(
+            char,
+            "a condition is a column, an operator and a number: temperature_air_min_2m<0 or value<=-20. "
+            "No arithmetic: a difference of two parameters cannot be filtered",
+        ),
     )
 
 
@@ -507,8 +734,11 @@ def _split(option: str, text: str, maximum: int) -> list[tuple[str, int]]:
     return parts
 
 
-def parse_sort(text: str) -> tuple[SortKey, ...]:
-    """Read a `sort` text into its keys, or raise `RowSelectionError`: columns joined by `,`, `-` for descending."""
+def parse_sort(text: str, names: ParameterNames | None = None) -> tuple[SortKey, ...]:
+    """Read a `sort` text into its keys, or raise `RowSelectionError`: columns joined by `,`, `-` for descending.
+
+    A word that is no column of the option is a parameter's name, read as `parse_filter` reads it.
+    """
     scanner = _Scanner("sort", text)
     keys: list[SortKey] = []
     for part, position in _split("sort", text, MAX_ORDER_LENGTH):
@@ -518,7 +748,7 @@ def parse_sort(text: str) -> tuple[SortKey, ...]:
         word = stripped[1:].strip(" \t") if descending else stripped
         column = word.lower()
         if column not in SORT_COLUMNS:
-            raise _unknown_column(scanner, word, SORT_COLUMNS, offset + (1 if descending else 0), _SORT_EXAMPLE)
+            column = _name_column(scanner, word, SORT_COLUMNS, offset + (1 if descending else 0), _SORT_EXAMPLE, names)
         if any(key.column == column for key in keys):
             raise scanner.fail(
                 f"`{column}` is named twice",
@@ -620,6 +850,14 @@ class RowSelection:
     by: tuple[str, ...] | None = None
     #: the most rows of the whole answer, the last step: after `filter`, `sort` and `first`; None for no cap
     max_rows: int | None = None
+    #: the parameters the conditions and the keys name, each by the name it is written as in them (the name as the
+    #: answer writes it) and the parameter it stands for, in the order they are first written: empty where none is
+    names: tuple[tuple[str, ParameterColumn], ...] = ()
+
+    @property
+    def by_names(self) -> bool:
+        """Whether a parameter is named: a row of the choice is then a timestamp of a station, not one reading."""
+        return bool(self.names)
 
     @property
     def groups(self) -> tuple[str, ...]:
@@ -676,7 +914,8 @@ class RowSelection:
         if self.uses_value:
             raise RowSelectionRefusedError(
                 "`value` is not available in the wide shape, where a row has one column per parameter and no `value`. "
-                "Ask with shape=long, or use `year`, `month`, `day` and `hour` only."
+                "Name the parameter instead (temperature_air_min_2m<0), ask with shape=long, or use `year`, `month`, "
+                "`day` and `hour` only."
             )
 
     def _derived(self, frame: pl.DataFrame, columns: Sequence[str]) -> tuple[pl.DataFrame, dict[str, str]]:
@@ -711,15 +950,108 @@ class RowSelection:
         # a missing value never matches: not `!=` either, which the comparison with a null does not answer
         return expr.fill_null(value=False) & column.is_not_null()
 
+    def _names_of(self, columns: Iterable[str]) -> list[str]:
+        """Give those of some columns that name a parameter, once each, in the order given."""
+        bound = dict(self.names)
+        return [column for column in dict.fromkeys(columns) if column in bound]
+
+    def _timestamp_rows(
+        self, frame: pl.DataFrame, needed: Sequence[str]
+    ) -> tuple[pl.DataFrame, dict[str, str], list[str]]:
+        """Give the timestamps of a frame as rows, with the value of each parameter named in `needed` in a column.
+
+        A timestamp of a station and a resolution is one row, however many parameters the long frame has a reading of
+        there: the columns are made from the rows of the named parameters only (a left join of each on the stamps
+        of all of them), so what is held is as wide as the names are, not as the request is. A wide frame has its
+        timestamps as rows already and the parameters as columns, which a station that delivers fewer than the request
+        asks for lacks: those are added as missing, and the columns added are returned to be dropped. Without a name
+        the stamps of the frame are the rows. Gives the rows, the column of each name and the columns added.
+        """
+        import polars as pl  # noqa: PLC0415
+
+        bound = dict(self.names)
+        wanted = list(dict.fromkeys(needed))
+        if "parameter" not in frame.columns:
+            lacking = list(dict.fromkeys(bound[n].wide for n in wanted if bound[n].wide not in frame.columns))
+            keyed = (
+                frame.with_columns(pl.lit(None, pl.Float64).alias(column) for column in lacking) if lacking else frame
+            )
+            return keyed, {name: bound[name].wide for name in wanted}, lacking
+        keys = list(_STAMP_KEYS)
+        if not wanted:
+            return frame.select(keys).unique(maintain_order=True), {}, []
+        columns = list(dict.fromkeys(bound[name] for name in wanted))
+
+        def of(column: ParameterColumn) -> pl.Expr:
+            return (
+                (pl.col("resolution") == column.resolution)
+                & (pl.col("dataset") == column.dataset)
+                & (pl.col("parameter") == column.parameter)
+            )
+
+        rows = frame.filter(pl.any_horizontal(of(column) for column in columns))
+        keyed = rows.select(keys).unique(maintain_order=True)
+        labels: dict[ParameterColumn, str] = {}
+        for index, column in enumerate(columns):
+            labels[column] = f"_row_name_{index}"
+            part = (
+                rows.filter(of(column))
+                .select(*keys, pl.col("value").alias(labels[column]))
+                .unique(subset=keys, keep="first", maintain_order=True)
+            )
+            keyed = keyed.join(part, on=keys, how="left", maintain_order="left")
+        return keyed, {name: labels[bound[name]] for name in wanted}, []
+
+    @staticmethod
+    def _rows_of(frame: pl.DataFrame, chosen: pl.DataFrame, drop: Sequence[str]) -> pl.DataFrame:
+        """Give the rows of a frame at the timestamps `chosen` holds, in the order the frame has them.
+
+        A wide frame is its own timestamps: the chosen rows, without the columns that were added to judge them. A long
+        frame has the rows of every parameter at a chosen timestamp, which are all of them the answer's.
+        """
+        if "parameter" not in frame.columns:
+            return chosen.drop(drop)
+        return frame.join(chosen.select(*_STAMP_KEYS), on=list(_STAMP_KEYS), how="semi", maintain_order="left")
+
     def filtered(self, frame: pl.DataFrame) -> pl.DataFrame:
-        """Keep the rows that meet every condition of `filter`; the order of the rows is kept."""
+        """Keep the rows that meet every condition of `filter`; the order of the rows is kept.
+
+        A condition on a parameter's name is judged on a timestamp of a station, and meets it where that parameter
+        has a value there; all the conditions must hold at one timestamp, and the rows kept are those of every
+        parameter at it (a long frame) or the timestamp's row (a wide one).
+        """
         import polars as pl  # noqa: PLC0415
 
         if not self.conditions:
             return frame
-        work, names = self._derived(frame, [c.column for c in self.conditions])
-        kept = work.filter(pl.all_horizontal(self._condition(c, names) for c in self.conditions))
-        return kept.drop(names.values()) if names else kept
+        named = self._names_of(c.column for c in self.conditions)
+        if not named:
+            work, names = self._derived(frame, [c.column for c in self.conditions])
+            kept = work.filter(pl.all_horizontal(self._condition(c, names) for c in self.conditions))
+            return kept.drop(names.values()) if names else kept
+        keyed, labels, added = self._timestamp_rows(frame, named)
+        work, derived = self._derived(keyed, [c.column for c in self.conditions])
+        lookup = {**derived, **labels}
+        kept = work.filter(pl.all_horizontal(self._condition(c, lookup) for c in self.conditions))
+        return self._by_timestamp(self._rows_of(frame, kept, [*derived.values(), *added]))
+
+    def _by_timestamp(self, frame: pl.DataFrame) -> pl.DataFrame:
+        """Order the rows of a long frame chosen by names, where no `sort` orders them: station, then time.
+
+        The plain answer is in series order (a parameter, then its time), so a cut of it (`max_rows`, the budget of a
+        tool) keeps the first parameter's rows and none of the others', which with names would leave the answer
+        without the values the conditions were about. Within a station the rows are ordered by resolution, timestamp,
+        dataset and parameter, the stations stay in the order they came in. A wide frame is in the order of its
+        timestamps already, and a `sort` orders it as it says (`ordered`).
+        """
+        import polars as pl  # noqa: PLC0415
+
+        if self.orders or "parameter" not in frame.columns or frame.is_empty():
+            return frame
+        # the rows of a station are together, as every frame the reader or a result holds has them
+        block = pl.col("station_id").rle_id().alias("_row_station")
+        by = ["_row_station", "resolution", "timestamp", "dataset", "parameter"]
+        return frame.with_columns(block).sort(by, maintain_order=True).drop("_row_station")
 
     def _series(self, frame: pl.DataFrame) -> list[str]:
         """Give the columns that name the series of a frame: a wide one has no parameter."""
@@ -728,9 +1060,21 @@ class RowSelection:
     def _first(self, frame: pl.DataFrame) -> pl.DataFrame:
         """Keep the first `first` rows of every group in the `sort` order, with the rows that tie with the last one.
 
+        With a parameter named, a row is a timestamp of a station (its readings are the long frame's rows at it) and
+        the group is a resolution and the columns of `by`: the timestamps are ranked and the rows of those kept are
+        given back. See `_first_of`.
+        """
+        if frame.is_empty() or not self.by_names:
+            return self._first_of(frame, {})
+        keyed, labels, added = self._timestamp_rows(frame, self._names_of(k.column for k in self.sort))
+        return self._rows_of(frame, self._first_of(keyed, labels), added)
+
+    def _first_of(self, frame: pl.DataFrame, labels: dict[str, str]) -> pl.DataFrame:
+        """Keep the first `first` rows of every group in the `sort` order, with the rows that tie with the last one.
+
         A group is one series and the columns of `by`. A row is kept when fewer than `first` rows of its group sort
         strictly before it, so the ties of the last row kept are all kept. A row whose sort column is null has no
-        place in the order and is not kept.
+        place in the order and is not kept. `labels` are the columns of the parameters the keys name, where a key does.
 
         Done in one sort and a few passes over the rows, none of them a window over the groups (which costs more than
         linear when the groups are many): sorted by the group and then by the keys, a row starts a group where a group
@@ -743,7 +1087,8 @@ class RowSelection:
         if frame.is_empty():
             return frame
         columns = [key.column for key in self.sort] + list(self.groups)
-        work, names = self._derived(frame, columns)
+        work, derived = self._derived(frame, columns)
+        names = {**derived, **labels}
         sort_columns = [names.get(key.column, key.column) for key in self.sort]
         groups = self._series(work) + [names.get(column, column) for column in self.groups]
         ranked = work.drop_nulls(subset=sort_columns).sort(
@@ -759,14 +1104,16 @@ class RowSelection:
         group_start = pl.when(starts_group).then(row).otherwise(None).forward_fill()
         run_start = pl.when(starts_run).then(row).otherwise(None).forward_fill()
         kept = ranked.filter(run_start - group_start < self.first)
-        return kept.drop(names.values()) if names else kept
+        return kept.drop(derived.values()) if derived else kept
 
     def reduce_station(self, frame: pl.DataFrame) -> pl.DataFrame:
         """Apply the selection to the rows of one station (or to any frame): `filter`, then `first` within the groups.
 
-        The rows come back in the order they had, but those of `first`, which come back in the `sort` order. What
-        remains to do for a frame of several stations is `finish`: the groups of `by` that span stations, and the
-        order of the answer.
+        The rows come back in the order they had, but those of `first` in a frame without a parameter's name, which
+        come back in the `sort` order; with a name (a row is a timestamp) the rows of `first` come in the frame's order
+        and only `finish` (what `all` does) and `ordered` put them in the order of `sort`. A filter of names without
+        `sort` orders a long frame by time (`_by_timestamp`). What remains to do for a frame of several stations is
+        `finish`: the groups of `by` that span stations, and the order of the answer.
         """
         frame = self.filtered(frame)
         if self.first is not None:
@@ -793,29 +1140,68 @@ class RowSelection:
 
         The sort is stable, the keys are the columns the user named in the direction they named, a null comes last,
         and the series, the station and the timestamp make the order the same for every run, whatever the order the
-        stations came in.
+        stations came in. With a parameter named a long frame has no series of its own to go by: a row is a timestamp,
+        so the order is the resolution, the keys, the station, the timestamp, and then the rows at one timestamp by
+        dataset and parameter; a parameter used as a key is the value it has at the row's timestamp (null where it has
+        none, which comes last).
         """
         if frame.is_empty():
             return frame
         columns = [key.column for key in self.sort]
-        work, names = self._derived(frame, columns)
-        series = self._series(work)
+        by_stamp = self.by_names and "parameter" in frame.columns
+        work, helpers, added = frame, {}, []
+        if named := self._names_of(columns):
+            keyed, helpers, added = self._timestamp_rows(frame, named)
+            if "parameter" in frame.columns:
+                labels = list(dict.fromkeys(helpers.values()))
+                work = frame.join(
+                    keyed.select(*_STAMP_KEYS, *labels), on=list(_STAMP_KEYS), how="left", maintain_order="left"
+                )
+                added = labels
+            else:
+                work = keyed
+                added = [*added]
+        work, derived = self._derived(work, columns)
+        lookup = {**derived, **helpers}
+        series = ["resolution"] if by_stamp else self._series(work)
         tail = [name for name in ("station_id", "timestamp") if name in work.columns and name not in columns]
-        by = series + [names.get(column, column) for column in columns] + tail
+        if by_stamp:
+            tail += [name for name in ("dataset", "parameter") if name in work.columns]
+        by = series + [lookup.get(column, column) for column in columns] + tail
         descending = [False] * len(series) + [key.descending for key in self.sort] + [False] * len(tail)
         ordered = work.sort(by, descending=descending, nulls_last=True, maintain_order=True)
-        return ordered.drop(names.values()) if names else ordered
+        drop = [*derived.values(), *added]
+        return ordered.drop(drop) if drop else ordered
 
-    def cap_station(self, frame: pl.DataFrame) -> pl.DataFrame:
+    def cap_station(self, frame: pl.DataFrame, *, held: bool = False) -> pl.DataFrame:
         """Cut the rows of one station to the `max_rows` that could be in the answer: its first, in the answer's order.
 
         Only for a selection whose groups stay in a station (`per_station`): then no row a later step could take back
         precedes the `max_rows` kept, and a station can hold no more than the answer. The count of what matched is the
-        caller's, taken before.
+        caller's, taken before. `held` is for rows that a later step goes on with (`TimeseriesValues.all`): with a
+        parameter named the cut then leaves a timestamp whole (see `cap_held`); the rows of a station that `query`
+        yields are cut exactly.
         """
         if self.max_rows is None:
             return frame
-        return (self.ordered(frame) if self.orders else frame).head(self.max_rows)
+        frame = self.ordered(frame) if self.orders else frame
+        return self.cap_held(frame) if held else self.cap(frame)
+
+    def cap_held(self, frame: pl.DataFrame) -> pl.DataFrame:
+        """Cut rows that are held for later steps to `max_rows`, as `cap` does, but never in the middle of a timestamp.
+
+        With a parameter named a timestamp is ordered by the value that parameter has there, and a later step (the
+        choice again over the stations held, the order of the whole) finds it in the rows of the timestamp: a timestamp
+        cut between its rows would lose the row of that value and be put last. So the rows of every timestamp that has
+        one among the first `max_rows` are kept, which are at most as many more as the request has parameters, less one.
+        The answer itself is cut exactly, by `cap`, as its last step.
+        """
+        if self.max_rows is None:
+            return frame
+        head = frame.head(self.max_rows)
+        if not (self.by_names and self.orders and "parameter" in frame.columns) or head.height == frame.height:
+            return head
+        return frame.join(head.select(*_STAMP_KEYS).unique(), on=list(_STAMP_KEYS), how="semi", maintain_order="left")
 
     def cap(self, frame: pl.DataFrame) -> pl.DataFrame:
         """Cut the answer to its first `max_rows` rows, in the order it has: the last step, over all stations."""
@@ -839,6 +1225,7 @@ def parse_row_selection(
     first: int | str | None = None,
     by: str | None = None,
     max_rows: int | str | None = None,
+    parameters: ParameterNames | None = None,
 ) -> RowSelection | None:
     """Read the four options of a request into a `RowSelection`, None where none is given.
 
@@ -846,15 +1233,21 @@ def parse_row_selection(
     `RowSelectionError` carries, two rules cross them: `first` needs `sort` (the first rows of what order?) and `by`
     needs `first` (a group of what?), both told with the option to add or leave out.
 
+    `parameters` are the names of the request's parameters (`ParameterNames.of`). Given, a word of `filter` and `sort`
+    that is no column must be one of them, and the selection that comes back is bound to them: it can be applied to the
+    rows of that request. Not given, a word that can be a name is accepted as written, which is all a check of the text
+    alone needs (the command line, the model of a REST request), and the selection is not to be applied.
+
     Raises:
         RowSelectionError: a text that cannot be read, or a combination that has no meaning.
+        RowSelectionRefusedError: a name together with `value`, or names with a request of several resolutions.
 
     """
     texts = {name: value for name, value in (("filter", filter), ("sort", sort), ("by", by)) if value not in (None, "")}
     if not texts and first in (None, "") and max_rows in (None, ""):
         return None
-    conditions = parse_filter(texts["filter"]) if "filter" in texts else ()
-    keys = parse_sort(texts["sort"]) if "sort" in texts else ()
+    conditions = parse_filter(texts["filter"], parameters) if "filter" in texts else ()
+    keys = parse_sort(texts["sort"], parameters) if "sort" in texts else ()
     count = read_first(first) if first not in (None, "") else None
     columns = parse_by(texts["by"]) if "by" in texts else None
     cap = read_max_rows(max_rows) if max_rows not in (None, "") else None
@@ -863,7 +1256,8 @@ def parse_row_selection(
             "first",
             "`first` takes the first rows of an order, and no `sort` is given",
             hint="add sort=value for the lowest, sort=-value for the highest, sort=timestamp for the earliest "
-            "or sort=-timestamp for the latest. Example: sort=-value&first=1",
+            "or sort=-timestamp for the latest (a parameter's name in place of `value` orders the timestamps by it). "
+            "Example: sort=-value&first=1",
         )
     if columns is not None and count is None:
         raise _refusal(
@@ -871,7 +1265,53 @@ def parse_row_selection(
             "`by` names the groups `first` counts in, and no `first` is given",
             hint="add first=N, or leave `by` out. Example: sort=value&first=1&by=station_id,year",
         )
-    return RowSelection(conditions=conditions, sort=keys, first=count, by=columns, max_rows=cap)
+    used = _used_names(conditions, keys, parameters)
+    if used:
+        _check_names(conditions, keys, parameters)
+    return RowSelection(conditions=conditions, sort=keys, first=count, by=columns, max_rows=cap, names=used)
+
+
+def _used_names(
+    conditions: Sequence[Condition], keys: Sequence[SortKey], parameters: ParameterNames | None
+) -> tuple[tuple[str, ParameterColumn], ...]:
+    """Give the parameters the conditions and keys name, each name once in the order it is first written."""
+    if parameters is None:
+        return ()
+    columns = dict.fromkeys(
+        column
+        for column in [*(c.column for c in conditions), *(k.column for k in keys)]
+        if column not in FILTER_COLUMNS and column not in SORT_COLUMNS
+    )
+    return tuple((column, parameters.column(column)) for column in columns)
+
+
+def _check_names(conditions: Sequence[Condition], keys: Sequence[SortKey], parameters: ParameterNames | None) -> None:
+    """Refuse a selection of names that cannot be applied to the request: `value` beside a name, several resolutions.
+
+    A name stands for a parameter's value at a timestamp, so a row is a timestamp; `value` is the value of one row of
+    one parameter, which has no place in the same selection. And the timestamps of two resolutions are not the same
+    instants, so a request that names a parameter holds one resolution.
+    """
+    if any(c.column == "value" for c in conditions) or any(k.column == "value" for k in keys):
+        msg = (
+            "`value` and a parameter's name are in one selection. A name stands for that parameter's value at the "
+            "timestamp of the row, and `value` is the value of each row of one parameter: use the names, "
+            "e.g. temperature_air_min_2m<0,wind_gust_max>=17.2, and no `value`."
+        )
+        raise RowSelectionRefusedError(msg)
+    if parameters is not None and len(parameters.resolutions) > 1:
+        raise _resolutions_refusal(parameters)
+
+
+def _resolutions_refusal(names: ParameterNames) -> RowSelectionRefusedError:
+    """Build the refusal of a name in a request of several resolutions, whose timestamps are not the same instants."""
+    shown = ", ".join(names.resolutions[:_LISTED_NAMES])
+    msg = (
+        "A parameter's name is a column of the timestamps of one resolution, and this request has "
+        f"{len(names.resolutions)} ({shown}), whose timestamps are not the same instants. "
+        "Request the parameters of one resolution."
+    )
+    return RowSelectionRefusedError(msg)
 
 
 @dataclass(frozen=True)

@@ -60,9 +60,9 @@ def main() -> None:
         # this takes something like 15 min and will require roughly 1 gb on disk
         create_dwd_climate_summary_duckdb_dump(filepath, test=test)
         con = duckdb.connect(str(filepath))
-        df_stations = con.execute("SELECT * FROM stations;").pl()
+        df_stations = con.sql("SELECT * FROM stations;").pl()
         print(df_stations)
-        df_values = con.execute("SELECT * FROM values").pl()
+        df_values = con.sql("SELECT * FROM values").pl()
         print(df_values)
         con.close()
 

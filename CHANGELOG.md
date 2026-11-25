@@ -16,8 +16,27 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A parameter's name is a column of `filter` and `sort` (REST, MCP, command line, Python):
+  `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the timestamps of a station where all
+  conditions hold, a missing value meeting none, with the rows of every requested parameter there;
+  `filter=wind_gust_max>=0&sort=temperature_air_min_2m&first=10` ranks timestamps, so the wind of
+  the ten coldest days with a gust comes back. One resolution, names of the request, no `value`
+  beside a name; an unknown name is refused with the request's names (GH-4419)
+
 ### Changed
 
+- **Breaking**: the `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock),
+  which a new install takes. A condition of `filter_by_sql` and `--sql` reads as DuckDB 2 does:
+  `~` matches a part of the text, `NaN` is greater than every number, `1 // 0` is an error,
+  `x -> x + 1` is written `lambda x: x + 1` (the list is in the Python API docs). Code that reads
+  an exported `duckdb://` file with `con.execute(...).pl()` or `.arrow()` takes `con.sql(...).pl()`,
+  and runs the next query only after a finished result (`fetchall()`, not `fetchone()`): DuckDB's
+  own change. `pip install "duckdb<2"` keeps 1.5 (GH-4348)
+- A new `duckdb://` file is written in the storage format of DuckDB 1.0, so that DuckDB 1.5 can read
+  what DuckDB 2 wrote, and a column with no value is text, so that a later append of values to it
+  works on DuckDB 2 (GH-4348)
 - **Breaking**: the MCP tools no longer take the options that only the REST API needs: `pretty`
   (every tool but `auth`, `glossary` and `issues`) and the `width`, `height` and `scale` of an image
   (`stations`, `values`, `interpolate`, `summarize`), and `format` no longer offers `html`, `png`,

@@ -1060,8 +1060,10 @@ The reader applies them to each station as its values arrive, after the stations
 spans stations (`by="year"`) and the order of `sort`. `query` yields the stations one by one and so takes the options
 whose groups stay in a station (a `max_rows` cuts each station's rows there, the cap of the whole is `all`'s); `by` without `station_id` is refused there with the words to use `all`. A text that cannot
 be read is a `RowSelectionError` (a `RequestError`) naming the position, and a selection that cannot be applied to the
-request, `value` over parameters of two units or in the wide shape, a `RowSelectionRefusedError`; both are raised before a
-station is read.
+request, `value` over parameters of two units or in the wide shape, or beside a parameter's name, a
+`RowSelectionRefusedError`; both are raised before a station is read. A word that is no column is the name of one of the
+request's parameters ([Parameters as columns](restapi.md#parameters-as-columns)), and a `RowSelectionError` that lists
+the request's names where it is none.
 
 `ValuesResult.search` says what was looked at, per station and parameter (`search.series`, a frame; `search.to_dict()` is
 the `metadata.search` of the REST answer). It is `None` for values read without the options.
@@ -1082,6 +1084,20 @@ coldest_days = reader.all(sort="value", first=1, by="station_id,year")  # the co
 frost = request.filter_by_station_id("01975").values().all(filter="value<=-20", sort="-timestamp")
 few = reader.all(sort="value", first=1, max_rows=20)  # ties can be many rows: keep the first 20 of the answer
 
+# two parameters at one time: the days of frost with strong gusts (all parameters' rows of those days), and the
+# ten coldest days that have a gust, with it; the names are those of the request's parameters, their numbers in the answer's units
+request = DwdObservationRequest(
+    parameters=[
+        "daily/climate_summary/temperature_air_min_2m",
+        "daily/climate_summary/wind_gust_max",
+    ],
+    start="1900",
+    end="2026",
+)
+wind = request.filter_by_station_id("03987").values()
+frost_with_gusts = wind.all(filter="temperature_air_min_2m<0,wind_gust_max>=17.2")
+coldest_days = wind.all(filter="wind_gust_max>=0", sort="temperature_air_min_2m", first=10)  # with a gust
+
 # the same of a result you hold already
 everything = request.filter_by_station_id("01975").values().all()
 lowest_again = everything.selected_rows(sort="value", first=1)
@@ -1099,7 +1115,24 @@ so sort or slice the returned frame instead. The condition runs on a DuckDB conn
 own, which cannot read files, reach the network or load extensions, and holds nothing but the
 frame.
 
-The filter needs DuckDB 1.5.3 or newer and refuses an older one with `UnsupportedDependencyError`. It is for the
+The filter needs DuckDB 1.5.3 or newer and refuses an older one with `UnsupportedDependencyError`. A condition is
+read by the DuckDB that is installed, 1.5 or 2.0, and DuckDB 2.0 reads some conditions differently
+([its migration guide](https://duckdb.org/docs/stable/operations_manual/migration)). Those that a condition on
+a result meets:
+
+- a text operator: `name ~ 'resd'` and `!~` match a part of the text on 2.0 (on 1.5 the whole text, so false for
+  `Dresden`); `regexp_full_match(name, 'Dres.*')` is the 1.5 `~` on both, and `~*` (case-insensitive, a part of the
+  text) exists on 2.0 only
+- `NaN`: a `NaN` is greater than every number on 2.0, so `value > 20.0`, `value >= 20.0` and `NOT value <= 20.0`
+  keep the rows where `value` is `NaN`, which they dropped on 1.5; add `AND NOT isnan(value)` where that matters
+- `sqrt` of a negative number and `ln`, `log`, `log10` and `log2` of zero or less are an error on 1.5 and `NaN` or
+  `-inf` on 2.0
+- division by zero: `value // 0` and `divide(value, 0)` (a number of any type) and `n % 0` and `mod(n, 0)` (an integer or a decimal)
+  are an error on 2.0 and null on 1.5, `TRY(value // 0) IS NULL` is true on both; `value / 0` and a floating-point
+  `value % 0` are as before
+- the lambda arrow: `x -> x + 1` is an error on 2.0 and is written `lambda x: x + 1`, which 1.5 reads too
+
+It is for the
 library and the command line (`--sql`, `--sql-values`): the REST API and the MCP tools take no SQL. These restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust to the filter. The time a condition runs, memory outside DuckDB's limit and the process itself are not protected.
 
 ```{code-cell}

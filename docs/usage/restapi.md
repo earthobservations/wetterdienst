@@ -1161,8 +1161,8 @@ sends the rows the options name, with a report of what it looked at. They are th
 
 | Option | Meaning | Example |
 | --- | --- | --- |
-| `filter` | the rows that meet every condition (joined by `,`): `column`, an operator and a number | `value<=-20,month=12\|1\|2` |
-| `sort` | the order of the answer: columns joined by `,`, `-` before one for descending | `-value`, `month,day` |
+| `filter` | the rows that meet every condition (joined by `,`): `column`, an operator and a number; a column is `value`, a calendar part or [a parameter's name](#parameters-as-columns) | `value<=-20,month=12\|1\|2`, `temperature_air_min_2m<0,wind_gust_max>=17.2` |
+| `sort` | the order of the answer: columns joined by `,`, `-` before one for descending | `-value`, `month,day`, `temperature_air_min_2m` |
 | `first` | the first N rows of each group in the `sort` order; the rows that tie with the last one are kept | `1` |
 | `by` | the groups `first` counts in, default the station; `none` is all stations together | `station_id,year` |
 | `max_rows` | the most rows of the whole answer, the first of its order: the last step, after the others | `20` |
@@ -1193,12 +1193,14 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 ### The grammar
 
 The text of each option is read by a small parser of its own and by nothing else: no regular expression, no `eval`, no
-SQL, no function, no name of a parameter, no nesting, no `or`. What is not in the table below is not read, and a text
+SQL, no function, no nesting, no `or`, and a parameter's name only as a column, looked up among the parameters of the
+request and nowhere else. What is not in the table below is not read, and a text
 that is not in it is refused. The reading is linear in the length of the text, and every text is bounded.
 
 ```text
 filter = condition { "," condition }
 condition = column operator number | column ("=" | "!=") number { "|" number }
+column = a column of the option | the name of a requested parameter (letters, digits, underscore)
 operator = "=" | "!=" | "<" | "<=" | ">" | ">="
 sort = [ "-" ] column { "," [ "-" ] column }
 by = "none" | column { "," column }
@@ -1208,7 +1210,7 @@ max_rows = a whole number from 1 to 10000
 
 | Rule | What it says |
 | --- | --- |
-| Columns | `filter`: `value`, `year`, `month`, `day`, `hour`. `sort`: those, `timestamp` and `station_id`. `by`: `station_id`, `year`, `month`, `day`, `hour`, or `none` (not `timestamp`: a group of one instant is a row). A name that is none of them is refused with the allowed ones listed, so that columns can be added later. |
+| Columns | `filter`: `value`, `year`, `month`, `day`, `hour`, or the [name of a requested parameter](#parameters-as-columns). `sort`: those, `timestamp` and `station_id`. `by`: `station_id`, `year`, `month`, `day`, `hour`, or `none` (not `timestamp`: a group of one instant is a row; no name). A word that is none of them is refused with the allowed ones listed, so that columns can be added later. |
 | Numbers | `-20`, `0.5`, `1e3`, `2e-3`; no plus sign (a `+` in a URL is a space), no `nan`, `inf`, unit or thousands separator. A calendar column takes a whole number in its range: `month` 1 to 12, `day` 1 to 31, `hour` 0 to 23, `year` 1 to 9999; one outside is refused (`month=0`), not an empty answer. |
 | Lists | `month=12\|1\|2` is true for any of them; `month!=12\|1` for none of them. Only with `=` and `!=`; a range is two conditions: `value>=-20,value<=-10`. |
 | Spaces and case | Spaces and tabs between tokens are ignored; column names and the `e` of an exponent are read in either case. The text is plain ASCII. |
@@ -1218,7 +1220,8 @@ max_rows = a whole number from 1 to 10000
 
 An error names the option, the position of the character where the text goes wrong, what is found there and what is
 allowed, and says what to write instead. It is a 422 located at the option (the `loc` of the error is the option), a
-tool error of the MCP tool, a usage error on the command line and a `RowSelectionError` (a `RequestError`) in Python:
+tool error of the MCP tool, a usage error on the command line and a `RowSelectionError` (a `RequestError`) in Python. A
+word that can be a parameter's name passes that reading, and is refused once the request is known, as the same 422 located at the option (see below):
 
 ```json
 {"type": "urn:wetterdienst:problem:invalid-parameters", "title": "Unprocessable Content", "status": 422,
@@ -1251,7 +1254,9 @@ before the options choose the rows.
 - **Groups.** `first` counts in groups. A group is one parameter of one dataset and resolution, always, and the columns
   of `by`, which is the station unless it says otherwise: `sort=value&first=1` is the lowest value of each parameter at
   each station, `by=none` the lowest of each parameter over all stations, `by=station_id,year` the lowest of each year at
-  each station, `by=year` the lowest of each year over the stations. Parameters are never mixed in a group.
+  each station, `by=year` the lowest of each year over the stations. Parameters are never mixed in a group. With a
+  [parameter's name](#parameters-as-columns) a row is a timestamp, and a group is the timestamps of a resolution and the
+  columns of `by`.
 - **Ties.** A row is kept when fewer than `first` rows of its group sort strictly before it, so every row that ties with
   the last one kept is kept too: `first=1` on a record that three days share is three rows. Two rows tie when all the
   columns of `sort` are equal; add `timestamp` to `sort` to have one.
@@ -1265,19 +1270,63 @@ before the options choose the rows.
   frame, a timestamp of a station and resolution, since that is what `counts.rows` counts there. A tool's answer may be
   cut once more to fit its budget: the note of `answer-truncated` then says how many of the rows `max_rows` returned
   are kept, and how many matched.
-- **The order of the answer.** Without `sort` the rows are in the order they are read in: by station, by series, by time.
-  With `sort` they are ordered by series (resolution, dataset, parameter), then by the keys, then by station and
+- **The order of the answer.** Without `sort` the rows are in the order they are read in: by station, by series, by time
+  (with [parameters as columns](#parameters-as-columns): by station, by time, by parameter, so that a cut keeps every
+  parameter). With `sort` they are ordered by series (resolution, dataset, parameter), then by the keys, then by station and
   timestamp, which fixes the order whatever order the stations arrived in: ties are ordered by station, then
   timestamp. A null is last.
 - **`value` and units.** A condition on `value` has one number for every parameter of the request, so it is refused (a
-  400) when the parameters are not in one unit, saying to name one. `sort=value` is not: a group is one parameter.
+  400) when the parameters are not in one unit, saying to name one, or to name the parameters as columns, which each
+  have their own number. `sort=value` is not refused: a group is one parameter.
 - **The wide shape.** `year`, `month`, `day` and `hour` work on its rows (a row is one timestamp of one station and
-  resolution, and a group is that resolution of the station). `value` is refused in `filter` and `sort`: a row has one
-  column for each parameter and no `value`. Use `shape=long`. A CSV of the rows chosen by `sort` or `first` is one
+  resolution, and a group is that resolution of the station), and so do the [names of the parameters](#parameters-as-columns),
+  which are its columns. `value` is refused in `filter` and `sort`: a row has one column for each parameter and no
+  `value`. Use a name, or `shape=long`. A CSV of the rows chosen by `sort` or `first` is one
   frame that was cut, not streamed station by station, so it has the columns the stations delivered.
 - **Every format.** `json`, `geojson`, `csv`, `ndjson` and the charts hold the rows chosen. `with_stations` lists the
   stations that have a row left, as it does for any cut of the rows. Forecasts with an issue and `lead_time` are chosen
   among the rows the request reads, as the rows are.
+
+### Parameters as columns
+
+A parameter's name is a column of `filter` and `sort`, for conditions on **two parameters of one station at one
+time**: frost with strong gusts, or the wind on the coldest days. A row is then a **timestamp** of a station (and a
+resolution), not one reading, and the name stands for that parameter's value at it. "One time" is an equal timestamp, not
+an equal interval: within one resolution two parameters meet where their stamps are the same, whatever span each value
+covers (a mean over a day and a maximum over the same day meet at the stamp both carry):
+
+Read on 2026-11-25 over the record of Potsdam up to 2024:
+
+```bash
+# Frost with strong gusts at Potsdam: 319 days, where the frost alone is 11,578 and the gusts alone 2,368.
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m,daily/climate_summary/wind_gust_max stations==03987 timestamp==1850/2024 filter=='temperature_air_min_2m<0,wind_gust_max>=17.2'
+
+# The ten coldest days that have a gust, with the wind of them: 20 rows, 10 days.
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m,daily/climate_summary/wind_gust_max stations==03987 timestamp==1850/2024 filter=='wind_gust_max>=0' sort==temperature_air_min_2m first==10
+```
+
+| Rule | What it says |
+| --- | --- |
+| Names | The name the answer gives the parameter (`parameter` of the long shape, the column of the wide one, after `humanize`), in either case, among the parameters **of the request**: `temperature_air_min_2m`. Letters, digits and underscores only. Anything else is refused with the names the request has and the closest of them: a 422 located at the option, as a text that cannot be read is, but known only once the request is. A bare name can become ambiguous when a dataset gains a parameter of that name: the spelling after the dataset guards against it. A provider's own names with a space or a sign (`humanize=false`) cannot be written: ask for the humanised names. |
+| The same name twice | A name two requested datasets share (`temperature_air_2m` in `temperature_air` and `dew_point` of the hourly data) is refused, with the spellings that say which; write it after its dataset, as the wide shape does when datasets of several names are requested: `dew_point_temperature_air_2m`. In a request of one dataset a parameter's own name is the one the answer writes and wins (`water_equivalent_snow_depth` is a parameter of `water_equivalent`, and `snow_depth` after its dataset spells the same). Where no spelling tells a parameter apart (`daily/water_equivalent` with `daily/climate_summary`, which has a `snow_depth` too), the refusal says so: request `water_equivalent` alone for its `snow_depth`. |
+| A column of the options | `value`, `year`, `month`, `day`, `hour`, `timestamp` and `station_id` are the columns, never a name, and neither are the reserved words (`window`, `aggregate`, `count`, `min`, ...): each is a 422. No parameter of any provider is called like one (a test holds every provider to it). |
+| Conditions | All hold at one timestamp of a station. A name that is missing at a timestamp (a gust not measured that day, a station without the parameter) meets no condition, `!=` included, and a timestamp has no place in the order of a `sort` by a parameter it lacks. Conditions of `year`, `month`, `day` and `hour` mix in: `temperature_air_min_2m<0,month=12\|1\|2`. |
+| Numbers | In the unit the answer has for each name, after the conversion of units (`temperature_air_min_2m<32` with `unit_targets` of degrees Fahrenheit), so two names have each their own unit. `coverage` lists the unit of a parameter. |
+| `value` | Not beside a name (a 400, as `value` over two units is): `value` is the value of one row of one parameter, a name is the value at a timestamp. Name the parameter instead. |
+| One resolution | The request holds parameters of one resolution (a 400 otherwise): the timestamps of an hourly and a daily series are not the same instants. Several datasets of one resolution are fine, as in the wide shape, where they share a row. |
+| The answer | The rows of **every requested parameter** at the timestamps chosen, in the order of the plain answer of a station by time and then parameter (not by parameter, so that a cut by `max_rows` or a tool's budget keeps every parameter of the timestamps it keeps) or of `sort` (the keys, station, timestamp, then dataset and parameter). A parameter without a value at a chosen timestamp has no row there (with `drop_nulls=false` a null row): the ten coldest days of Potsdam (1929, 1893, ...) have no gust, so `sort=temperature_air_min_2m&first=10` alone returns their temperatures only; add `filter=wind_gust_max>=0` to ask for days that have both. In the wide shape the answer is the rows of the timestamps. |
+| `sort` and `first` | `sort=temperature_air_min_2m&first=10` ranks the **timestamps** of each station by that parameter and keeps the ten lowest with the ties of the tenth (11 at Potsdam, where two days share the tenth value): `first` counts timestamps, never rows, and `by` groups them by the station and the calendar as before. A `sort` by a name and calendar columns together is fine; `value` is not. |
+| `max_rows` | Counts rows of the answer, as it always did: `max_rows=10` over three parameters is three timestamps and a row of the fourth. The answer is cut exactly, and so are the rows of a station that `query` yields. The rows `all` holds for a later step are never cut inside a timestamp (their sort value is in one of them), so while it reads it may hold up to the number of parameters less one rows more than `max_rows` for a station. |
+| `metadata.search` | Unchanged: a series is a station and a parameter, and `matched` is its rows in the answer. For a parameter that a condition names it is the number of timestamps that held (319 for both at Potsdam), for another it is its rows at those timestamps (fewer if it lacks a value there). `searched` and `expected` are of the whole series, as without names. |
+| Limits and streaming | As for the same options without names: a name reads what the request reads, under the same limits, and a `filter` alone still streams station by station. A station's timestamps are made one row each for the names the options use only (a join of those parameters on the stamps, never the whole request's width), so the memory of a station is its own frame and a column or two a name. |
+
+An unknown name is refused like this (a 422 located at the option over REST, a tool error, a usage error, `RowSelectionError` in Python):
+
+```text
+Invalid `filter` at position 1: `temperature_air_min_2` is not a column of this option; found 'temperature_air_min_2',
+expected one of value, year, month, day, hour, or a parameter of this request (temperature_air_min_2m, wind_gust_max).
+Did you mean temperature_air_min_2m? Example: filter=value<=-20,month=12|1|2 or temperature_air_min_2m<0.
+```
 
 ### What was searched
 

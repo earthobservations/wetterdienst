@@ -394,25 +394,28 @@ _DropNullsField = Annotated[
 _FilterField = Annotated[
     str | None,
     Field(
-        description="Keep only the rows that meet every condition, joined by commas: column, operator, number. "
-        "Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date). Operators `=` `!=` `<` `<=` "
-        "`>` `>=`; a list `a|b` with `=` and `!=`. A missing value never matches. `value` needs parameters of one "
-        "unit and shape=long. Example: `value<=-20,month=12|1|2`.",
+        description="Keep the rows that meet every condition, joined by commas: column, operator, number. "
+        "Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date), or a requested parameter's "
+        "name (its unit; a row is then a timestamp where all hold, with every parameter's rows). Operators = != < <= "
+        "> >=; a list `a|b` with = and !=. A missing value never matches. No arithmetic: a difference of two "
+        "parameters can't be filtered. `value` needs one unit, shape=long and no name. Example: "
+        "`value<=-20,month=12|1|2`, `temperature_air_min_2m<0,wind_gust_max>=17.2`.",
     ),
 ]
 _SortField = Annotated[
     str | None,
     Field(
         description="Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, "
-        "`timestamp`, `year`, `month`, `day`, `hour`, `station_id`. Example: `-value` (highest first), `month,day`.",
+        "`timestamp`, `year`, `month`, `day`, `hour`, `station_id`, or a requested parameter's name (ranks "
+        "timestamps). Example: `-value` (highest first), `month,day`, `temperature_air_min_2m`.",
     ),
 ]
 _FirstField = Annotated[
     int | None,
     Field(
-        description="Return only the first N rows of each group in the `sort` order, with the ties of the last one; "
-        "needs `sort`. The `timestamp` window is what is searched: give one that spans the record (`1883/2026`); "
-        "`metadata.search` says from when to when.",
+        description="The first N rows of each group in the `sort` order, with every tie of the last "
+        "(`sort=value&first=1`: the extreme with all its ties; `max_rows` cuts them); needs `sort`. Give a "
+        "`timestamp` window that spans the record (`1883/2026`); `metadata.search` says what was searched.",
         ge=1,
         le=MAX_FIRST,
     ),
@@ -431,8 +434,7 @@ _ByField = Annotated[
     str | None,
     Field(
         description="The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, "
-        "joined by commas, or `none` for all stations together; a parameter is always its own group. "
-        "Needs `first`. Example: `station_id,year`.",
+        "joined by commas, or `none` for all stations. Needs `first`. Example: `station_id,year`.",
     ),
 ]
 
@@ -2451,8 +2453,8 @@ def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
     carries a clause, are the
     refusals of the connection the clause runs on (`wetterdienst.io.sql_filter.filter_by_sql`): a file, URL or
     extension it may not touch (`PermissionException`), more memory than the limit sized to the
-    frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as an
-    outer join on a correlated column (`NotSupportedError`), and an extension DuckDB would install
+    frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as a
+    time zone it does not know (`NotSupportedError`), and an extension DuckDB would install
     on the fly, refused with the bare `duckdb.Error`. Every DuckDB error derives from that one, so
     only the exact class counts: an `InternalException` or an `IOException` fails inside DuckDB and
     stays a 500, and so does DuckDB running out of memory for a request without a clause. DuckDB is

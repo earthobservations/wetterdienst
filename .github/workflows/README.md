@@ -41,7 +41,7 @@ and left the offline jobs a landing waits for queued.
 
 | Event | `Tests` | `Coverage` |
 |---|---|---|
-| pull request | `Offline selection on ...` (6 legs), `Minimum dependency versions` (offline selection), one remote leg: `Python 3.15 on OS ubuntu-latest` | `coverage` (offline selection) |
+| pull request | `Offline selection on ...` (6 legs), `Minimum dependency versions` (offline selection), one remote leg: `remote (ubuntu-latest, 3.15)` | `coverage` (offline selection) |
 | push to `main` | the offline legs and `Minimum dependency versions` (offline); no remote leg | `coverage` (offline selection) |
 | nightly (`schedule`, 02:23 UTC for `Tests`, 06:17 for `Coverage`) and `workflow_dispatch` | the whole remote matrix (9 legs) and `Minimum dependency versions` (remote suite); no offline leg on the schedule | `coverage` (whole suite) |
 
@@ -144,8 +144,8 @@ image's smoke build up to 30 (60), the coverage job up to 52 (120), the accessib
 and growing (120), the daily Docker cleanup 31 (90); lint, unused, typecheck and the pages build take
 a few minutes and have 15 to 30, the link check 45. The remote matrix has 60 minutes for its Ubuntu and Windows legs
 and 120 for its macOS legs; it had 180. Over about 18 runs of `main`, an Ubuntu or Windows leg took 45 to 49
-minutes when it ran normally and 71 to 113 when it failed, a macOS leg (HDF5, h5py, duckdb and numcodecs are built on Python
-3.15) 43 to 179, commonly 102 to 114. A leg that goes past the limit was red anyway, so only its tail is lost, and
+minutes when it ran normally and 71 to 113 when it failed, a macOS leg (HDF5, h5py, duckdb 1.5 and numcodecs were built on Python
+3.15; duckdb 2 has an abi3 wheel) 43 to 179, commonly 102 to 114. A leg that goes past the limit was red anyway, so only its tail is lost, and
 a leg that hangs no longer holds its runner for three hours (`macos-26-intel` once for 216 minutes, with the queue
 behind it). The offline coverage job and the offline run of the minimum-versions
 job have 45. The time spent queued for a runner does not count. When a job legitimately outgrows
