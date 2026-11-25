@@ -56,7 +56,7 @@ from wetterdienst.util.hosts import host_of_header, host_of_origin, is_allowed
 from wetterdienst.util.logging import get_one_line_logger
 
 if TYPE_CHECKING:
-    from starlette.responses import JSONResponse
+    from starlette.responses import Response
     from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
     from wetterdienst.ui.deprecation import Deprecation
@@ -310,7 +310,7 @@ class RequestContextMiddleware:
             log.warning(f"Request {request_id} to {path} failed after its timeout: {type(error).__name__}.")
 
     @staticmethod
-    def _refuse_host(scope: Scope, headers: Headers, allowed: tuple[str, ...]) -> JSONResponse | None:
+    def _refuse_host(scope: Scope, headers: Headers, allowed: tuple[str, ...]) -> Response | None:
         """Answer a request whose `Host` is not allowed, or an MCP request whose `Origin` is not, with a 400."""
         from wetterdienst.ui.mcp import is_tool_request  # noqa: PLC0415
 

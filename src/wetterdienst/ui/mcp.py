@@ -854,10 +854,11 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
                     f"The REST API answered {media_type}, which a tool does not carry: "
                     "a tool answers json, geojson, csv or ndjson."
                 )
+                # plain text, as the REST app answers a tool's failures: FastMCP quotes a JSON string
                 return httpx2.Response(
                     502,
-                    headers={"content-type": "application/json"},
-                    content=json.dumps(text).encode("utf-8"),
+                    headers={"content-type": "text/plain; charset=utf-8"},
+                    content=text.encode("utf-8"),
                     request=request,
                 )
             body = await response.aread()

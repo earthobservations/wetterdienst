@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The `mcp` extra needs `fastmcp>=4.2.4` (was 4.1.2), which the Docker image and an environment
+  synced from `uv.lock` now hold. The text of a tool error is as before. FastMCP cuts the text of
+  an upstream error at 1,000 characters (`… (truncated)`) from 4.1.5, so the list of available
+  parameters in the answer to a wrong parameter name is shortened for providers with many (`dwd`
+  `mosmix`, `noaa` `ghcn`); `coverage` lists them all (GH-4384)
+
+### Security
+
+- fastmcp 4.2.4 is the only release that fixes GHSA-78c8-3jhx-5mg7 (`OAuthProxy` redeemed an
+  authorization code twice under concurrent requests). The MCP server of `wetterdienst restapi`
+  is open and does not use `OAuthProxy`, so it did not reach it (GH-4384)
+
 ## [0.200.0] - 2026-11-25
 
 ### Added
