@@ -91,7 +91,7 @@ jobs:
   # `matrix` is read from an expression because a job-level `if` cannot see the matrix, and this way
   # the legs that are not wanted are never created (a skipped leg would still be a check on the pull
   # request). The names of the legs are the same on either path.
-  tests:
+  remote:
     if: ${{ github.event_name != 'push' }}
     runs-on: ${{ matrix.os }}
     # On about 18 recent runs of main an Ubuntu or Windows leg took 45 to 49 minutes when it ran normally and 71
@@ -131,7 +131,8 @@ jobs:
       run:
         shell: bash
 
-    name: Python ${{ matrix.python-version }} on OS ${{ matrix.os }}
+    # no `name`: where the job is skipped (a push to main) the matrix is not expanded, and a name made of it is shown as its
+    # text; without one GitHub writes `remote (ubuntu-latest, 3.15)` for a leg and `remote` for the skipped job
     steps:
       - name: Acquire sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
