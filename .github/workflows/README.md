@@ -41,7 +41,7 @@ and left the offline jobs a landing waits for queued.
 
 | Event | `Tests` | `Coverage` |
 |---|---|---|
-| pull request | `Offline selection on ...` (6 legs), `Minimum dependency versions` (offline selection), one remote leg: `Python 3.15 on OS ubuntu-latest` | `coverage` (offline selection) |
+| pull request | `Offline selection on ...` (6 legs), `Minimum dependency versions` (offline selection), one remote leg: `remote (ubuntu-latest, 3.15)` | `coverage` (offline selection) |
 | push to `main` | the offline legs and `Minimum dependency versions` (offline); no remote leg | `coverage` (offline selection) |
 | nightly (`schedule`, 02:23 UTC for `Tests`, 06:17 for `Coverage`) and `workflow_dispatch` | the whole remote matrix (9 legs) and `Minimum dependency versions` (remote suite); no offline leg on the schedule | `coverage` (whole suite) |
 
