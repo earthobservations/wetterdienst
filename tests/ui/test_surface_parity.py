@@ -618,11 +618,13 @@ def test_every_command_spells_pretty_the_same() -> None:
         if any(param.name == "pretty" for param in command.params)
     }
 
-    # stations, history, values, interpolate and summarize, alerts, storm cells, KOSTRA and the search for an id
+    # stations, history, values, statistics, interpolate and summarize, alerts, storm cells, KOSTRA and the search for
+    # an id
     assert set(with_pretty) == {
         "stations",
         "history",
         "values",
+        "statistics",
         "interpolate",
         "summarize",
         "alerts",
@@ -1151,6 +1153,10 @@ _SELECTION_ROUTES: dict[str, tuple[type[BaseModel], dict[str, str]]] = {
     "/api/v1/stations": (core.StationsRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
     "/api/v1/values": (core.ValuesRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
     "/api/v1/history": (core.HistoryRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
+    "/api/v1/statistics": (
+        core.StatisticsRequest,
+        {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "aggregate": "count"},
+    ),
     "/api/v1/interpolate": (
         core.RestInterpolationRequest,
         {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "timestamp": "2020-05-02"},
@@ -1317,10 +1323,13 @@ _STATION_GROUPS = [
     ["latitude", "longitude"],
     ["left", "bottom", "right", "top"],
 ]
+# fewer than `values`: no bounding box and no list of WMO, WIGOS or ICAO ids (GH-4412)
+_STATISTICS_GROUPS = [["all"], ["stations"], ["name"], ["region"], ["latitude", "longitude"]]
 _EXPECTED_GROUPS = {
     "/api/v1/stations": _STATION_GROUPS,
     "/api/v1/values": _STATION_GROUPS,
     "/api/v1/history": [["all"], ["stations"]],
+    "/api/v1/statistics": _STATISTICS_GROUPS,
     "/api/v1/interpolate": [["station"], ["latitude", "longitude"]],
     "/api/v1/summarize": [["station"], ["latitude", "longitude"]],
 }
@@ -1348,7 +1357,7 @@ def _is_accepted(path: str, keys: set[str]) -> bool:
     made = [group for group in _EXPECTED_GROUPS[path] if keys & set(group)]
     if len(made) != 1 or not set(made[0]) <= keys:
         return False
-    if _EXPECTED_GROUPS[path] is _STATION_GROUPS:
+    if _EXPECTED_GROUPS[path] in (_STATION_GROUPS, _STATISTICS_GROUPS):
         point = {"latitude", "longitude"} <= keys
         # a point wants a rank or a distance, not both; a distance wants a point, a rank a point or a name
         if point and len(keys & {"rank", "distance"}) != 1:

@@ -43,6 +43,7 @@
     "fsspec_client_kwargs",
     "restapi_allowed_hosts",
     "restapi_max_concurrent",
+    "restapi_max_groups",
     "restapi_max_rows",
     "restapi_max_stations",
     "restapi_max_stream_rows",

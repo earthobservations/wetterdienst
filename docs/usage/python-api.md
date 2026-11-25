@@ -1103,6 +1103,44 @@ everything = request.filter_by_station_id("01975").values().all()
 lowest_again = everything.selected_rows(sort="value", first=1)
 ```
 
+### Statistics
+
+`values().statistics(...)` counts, averages, adds up or takes the extremes of each station's values per year, month, day
+or hour, by the same words as the REST API, the MCP tool and the command line: see [Statistics](restapi.md#statistics)
+for the options, the twelve rules of the completeness and the answer. The reader reduces each station to its groups as
+its values arrive and lets its rows go, so that what is held is the groups; `ValuesResult.statistics(...)` does the same
+to a result you hold, by the same function. They return a `StatisticsResult`: `df` is one row per group with the identity
+of its series in front, `series` the report of each series with the statistics over its groups (`over_groups`), and
+`to_dict()`, `to_json()`, `to_csv()` and `to_ndjson()` write the answer as the REST API does, without its `metadata` block.
+A text that cannot be read is a `RowSelectionError`, an option that cannot be applied to a series of the request (a sum of
+a pressure, `by="hour"` of daily values, the wide shape) a `RowSelectionRefusedError`; both are raised before a station is read.
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters="daily/climate_summary/temperature_air_min_2m", start="1961", end="1990"
+)
+reader = request.filter_by_station_id("03987").values()
+
+frost_days = reader.statistics("count", by="year", filter="value<0")  # the frost days of each year
+print(frost_days.df)
+print(frost_days.series[0].over_groups["count"])  # {'groups': 30, 'usable': 30, ..., 'mean': 89.4}
+
+# the five years with the most frost days, and the years with a gap told apart by `searched` and `expected`
+most = reader.statistics("count", by="year", filter="value<0", sort="-count", first=5)
+
+# the coldest winter: December to February, a year named by the year its season ends in
+winters = DwdObservationRequest(parameters="daily/climate_summary/temperature_air_mean_2m", start="1893", end="2026")
+coldest = winters.filter_by_station_id("03987").values().statistics(
+    "mean", by="year", filter="month=12|1|2", year_start=12, sort="mean", first=3
+)
+
+# the same of a result you hold already
+held = reader.all()
+again = held.statistics("count", by="year", filter="value<0")
+```
+
 ### SQL
 
 Querying data using SQL is provided by an in-memory [DuckDB](https://duckdb.org/) database.

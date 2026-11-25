@@ -63,6 +63,9 @@ class Limits(BaseModel):
     max_stream_rows: int = Field(
         description="The most rows (estimated) of an answer streamed as `ndjson` or `csv` by `stations` or `values`.",
     )
+    max_groups: int = Field(
+        description="The most groups of an answer of `statistics`, held as the stations are read and sent as one body.",
+    )
     timeout: float = Field(
         description="The seconds a request may take until its answer begins, and a streamed answer between "
         "two chunks, else a 504.",
@@ -79,6 +82,7 @@ def limits_of(settings: Settings) -> Limits:
         max_stations=settings.restapi_max_stations,
         max_rows=settings.restapi_max_rows,
         max_stream_rows=settings.restapi_max_stream_rows,
+        max_groups=settings.restapi_max_groups,
         timeout=settings.restapi_timeout,
         max_concurrent=settings.restapi_max_concurrent,
     )
@@ -192,6 +196,42 @@ def check_chosen_rows(rows: int, limits: Limits, *, so_far: bool = False) -> Non
         "over many stations, add `timestamp` to `sort` to tell them apart."
     )
     error = _refuse("rows", maximum, rows, message)
+    raise error
+
+
+def check_chosen_groups(groups: int, limits: Limits, *, so_far: bool = False) -> None:
+    """Refuse a `statistics` answer whose groups are more than the limit of one body, saying what to change.
+
+    The groups are held as the stations are read, and an answer is one body, so they are held to `max_groups`
+    (`groups`), in every format. They are known only as the values are read, so this is told then. `so_far` is for a
+    walk stopped at the limit: the groups are those held when it was stopped.
+    """
+    maximum = limits.max_groups
+    if not maximum or groups <= maximum:
+        return
+    count = f"{groups:,} groups so far" if so_far else f"{groups:,} groups"
+    head = f"The statistics made {count}, more than the {maximum:,} this server holds and sends as one answer."
+    message = (
+        f"{head} Drop a column of `by`, add `having`, or `sort` with `first`, or narrow the request with `filter`, a "
+        "shorter `timestamp` window, or fewer parameters and stations."
+    )
+    error = _refuse("groups", maximum, groups, message)
+    raise error
+
+
+def check_series_count(series: int, maximum: int) -> None:
+    """Refuse a `statistics` request of more series (stations times parameters) than an answer reports.
+
+    A series has a header of its own (its report and the statistics over its groups), so the series of an answer are
+    bounded, as the series of the report of `values` are: the totals count all of them, the answer lists these.
+    """
+    if series <= maximum:
+        return
+    message = (
+        f"This request has {series} series, more than the {maximum} an answer reports: name fewer stations or "
+        "parameters, or ask in several requests."
+    )
+    error = _refuse("series", maximum, series, message)
     raise error
 
 

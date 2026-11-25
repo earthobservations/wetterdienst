@@ -111,9 +111,9 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
     ),
     ProblemKind.LIMIT_EXCEEDED: ProblemSpec(
         400,
-        "The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or "
-        "`stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to "
-        "narrow it.",
+        "The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, "
+        "`stream_rows`, `groups` or `series`), `maximum` its value and `requested` what the request comes to; `detail` "
+        "says how to narrow it.",
     ),
     ProblemKind.IMAGE_TOO_LARGE: ProblemSpec(400, "A chart would be longer than 8192 px on a side."),
     ProblemKind.HOST_NOT_ALLOWED: ProblemSpec(

@@ -138,7 +138,7 @@ def test_rest_keeps_the_options_and_the_charts_and_building_a_server_does_not_ch
         assert {"pretty", "width", "height", "scale"} <= set(route), name
         assert set(_CHART_FORMATS) <= set(route["format"]["schema"]["enum"]), name
         assert "chart" in route["format"]["schema"]["description"], name
-    for name in ("coverage", "providers", "history", "alerts", "storm_cells", "kostra", "station_ids"):
+    for name in ("coverage", "providers", "history", "alerts", "storm_cells", "kostra", "station_ids", "statistics"):
         assert "pretty" in _query_parameters(name), name
 
 
@@ -171,6 +171,7 @@ _OLD_OPTIONS_OF_TOOL: dict[str, set[str]] = {
     "alerts": {"pretty"},
     "storm_cells": {"pretty"},
     "kostra": {"pretty"},
+    "statistics": {"pretty"},
     "auth": set(),
     "glossary": set(),
     "issues": set(),

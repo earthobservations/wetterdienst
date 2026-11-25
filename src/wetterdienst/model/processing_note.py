@@ -32,6 +32,13 @@ STATION_IDS_NOTE = (
 )
 
 
+#: what the answer of `statistics` says besides: the numbers are calculated per group, and are no readings
+STATISTICS_NOTE = (
+    "The values were calculated per group (year, month, day or hour) from the provider's readings: counts, means, sums "
+    "and extremes, which are no readings; `searched` and `expected` say how many readings each group rests on."
+)
+
+
 def processing_note(*, derived: bool = False, calculated: str | None = None, image_note: str | None = None) -> str:
     """Give the note of an answer: `PROCESSING_NOTE`, then `DERIVED_NOTE` where it applies.
 

@@ -126,7 +126,7 @@ examples on this page and the web app use the alias.
   "mcp_enabled": true,
   "mcp_path": "/mcp/v1",
   "mcp_alias_path": "/mcp",
-  "limits": {"max_stations": 100, "max_rows": 500000, "max_stream_rows": 10000000, "timeout": 60.0, "max_concurrent": 32}
+  "limits": {"max_stations": 100, "max_rows": 500000, "max_stream_rows": 10000000, "max_groups": 50000, "timeout": 60.0, "max_concurrent": 32}
 }
 ```
 
@@ -1435,6 +1435,242 @@ order, `filter`, then `sort`, then `first`. `window`, `year_start`, `timezone`, 
 `max_missing` are reserved names: no option or column will be given them for another meaning. Nothing is kept on the
 server between requests.
 
+## Statistics
+
+"How many frost days a year does Potsdam have?" and "which winter was the coldest?" are counts and means over
+thousands of values, and the values do not fit an answer. `/api/statistics` has the server count, average, add up or
+take the extremes of each station's values per year, month, day or hour, and say per group how many values it rests on.
+It is the next step after `stations`, as `values` is, and the same on the REST API, the MCP tool `statistics`, the
+command line (`wetterdienst statistics`) and in Python
+([`values().statistics(...)`](python-api.md#statistics)). It takes the stations and the `timestamp` of `values` (a
+name, ids, a region, a point with `rank` or `distance`, or `all`; not the bounding box and the WMO, WIGOS and ICAO
+lists), reads each station as `values` does, and reduces it to its groups before it reads the next: what is held is the
+groups, never the readings of a hundred stations. The shape is always long, and the values are in the units of
+`values`. A series (a station and a parameter) is never merged with another.
+
+| Option | Meaning | Example |
+| --- | --- | --- |
+| `aggregate` (required) | what to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `earliest`, `latest` | `count`, `mean,max` |
+| `by` | the groups, besides the series: any of `year`, `month`, `day`, `hour` (UTC), each once; none is one group per series | `year`, `year,month`, `month` |
+| `filter` | the grammar of [`values`](#the-grammar): `year`, `month`, `day`, `hour` say which values are looked at, `value` which of them count | `value<0`, `month=12\|1\|2,value>=25` |
+| `year_start` | the month a `year` begins (1 to 12, default 1); the year is named by the year it ends in | `12` |
+| `max_missing` | how many values a group may lack and still be `complete`, with a `mean` and a `sum` (0 to 10,000, default 0); with any aggregate | `40` |
+| `having` | keep the groups that meet conditions on the results: the aggregates asked for, `searched`, `expected`, `complete` (1 or 0, or `true`, `yes`, `false`, `no`; the word `complete` alone is `complete=1`) | `count>=100`, `searched<360`, `complete` |
+| `sort` | the order of the groups: the aggregates asked for, the columns of `by`, `station_id`, `searched`, `expected`, `complete`; `-` for descending | `-mean`, `count,year`, `-complete,-mean` |
+| `first` | the first N groups of the `sort` order, exactly N; needs `sort` | `5` |
+| `per` | over what `first` counts: `station` (each series, the default) or `none` (the stations of one parameter together: each group gets its `rank`) | `none` |
+| `max_rows` | the most groups of the whole answer, the first of its order, the last step | `20` |
+
+The order is fixed, and nothing is chained: `filter` (the time conditions, then the value conditions), the groups of
+`by`, the aggregates, completeness (`max_missing`), `having`, `sort`, `first` (per series, or over the stations with
+`per=none`), `max_rows`. The statistics over the groups (`over_groups`) are made before `having`, `sort` and `first`,
+so `first=5` still gives the mean of all the years.
+
+**What a group is.** A group is one series and one value of each column of `by`. `by=year` is a group a year;
+`by=year,month` a group a month; `by=month` puts every January together (the climate normal); `by=hour` the hours of the
+day over all days; without `by` the whole window of a series is one group. The groups are those of the window (without a
+`timestamp`, from the first value to the last): a period that has no step inside it, the months of a year that the window
+leaves out, is no group. A group that lies wholly before the first or after the last value of a
+series is no row, but is counted (`groups_not_listed`); a hole inside the record is a row.
+
+### How complete a group is
+
+Every group says how many values it has (`searched`) and how many it should have (`expected`), and the aggregates
+follow these twelve rules, each held by a test that works the case out by hand (`tests/model/test_group_statistics_rules.py`):
+
+1. **Present and missing.** A value is present if it is not null in what `values` returns (after the plausibility checks
+   and the conversion of units). A null the source wrote and a reading a check made null are missing, as is a step with
+   no row.
+2. **Cells.** The cells of a group are the steps of its series' resolution (days for daily, hours for hourly, calendar
+   months and years for monthly and annual values) that lie in its period and pass the time conditions of `filter`.
+   `expected` is the number of cells, counted by the calendar (a leap day, the length of a month). Steps finer than an
+   hour count by the hour: a day of 10-minute values has 144 cells. The steps are those of the clock (a 10-minute
+   value is dated 00:10, 00:20), so a window from 00:05 begins at 00:10.
+3. **The period of a group.** With `year` in `by`, the calendar year (or the season of `year_start`), **whole**: not cut
+   by the window, nor by the start of the record, nor by today. A station that began in March has an incomplete first
+   year, a year that is not over is incomplete until it is, and so is the first or the last year or season a `timestamp`
+   cuts (`timestamp=1941/1969` with `year_start=12` makes the winter 1970 31 of 90 days: incomplete, and no coldest
+   winter). Without `year`, from the start of the window (without one, the
+   first value) to its end (without one, the last value), and not past the last complete step (yesterday, the previous
+   hour): the future is not missing. A period that has not begun is no group (December of the running year). This is
+   not the `expected` of `values`, which stops at yesterday for any window: that is why the running year is incomplete
+   here.
+4. **Searched.** `searched` is the number of present values among the cells (after the time conditions, before the value
+   conditions). More values than cells (a source finer than its resolution) makes `expected` null for that group.
+5. **Incomplete.** A group is incomplete if `expected - searched` is more than `max_missing` (default 0). Where `expected`
+   is null (a forecast, a resolution with no fixed step, a series whose step is coarser than its resolution) completeness
+   is not known: the group counts as complete and `completeness-unknown` says so once per series.
+6. **What an incomplete group gets.** Its `mean` and `sum` are null. Its `count`, `min`, `max`, `earliest` and `latest`
+   are those of the values there are (a count is a lower bound, an extreme can have been missed), with `searched` and
+   `expected` beside them, `complete` false, and always the warning `incomplete-groups`, whatever is asked. An
+   incomplete group may compete in `sort` and `first` (`having=complete` keeps the complete ones).
+7. **No value, and no match.** A group with no present value has `searched` 0 and every aggregate null, `count` too:
+   nothing was looked at, it is not 0 frost days. A group with values and none that meets the value conditions has a
+   `count` of 0 and a `sum` of 0 (a sum of nothing: the Hellmann number of a winter without frost is 0), and a null
+   `mean`, `min`, `max`, `first` and `last`. So the tropical nights of 1961 to 1990 average 0.2333 a year over 30
+   years, not 1.1667 over the 6 years that had one.
+8. **Which groups are rows.** Every group of the window is a group. Those with no present value that lie wholly before
+   the series' first value or after its last are not rows (counted in `groups` and `groups_not_listed`, with the warning
+   `no-values-in-groups`); a group inside the record with no value is a row.
+9. **The statistics over the groups.** `over_groups.<aggregate>` has `groups` (all of the series, rows or not),
+   `usable` (the complete groups with a value) and the `min`, `max` and `mean` over the usable ones: the mean of the
+   yearly frost days is over complete years, and a running year's lower bound does not move it.
+10. **`max_missing`.** `max_missing=40` accepts a year with 328 of 365 days as complete: it then has its `mean` and
+    `sum`, with `searched` and `expected` shown beside it. It counts for every aggregate, since it decides `complete`.
+    **Keep it 0 to rank**; raise it only for a gap you accept. A group that `max_missing` lets in with values lacking,
+    or a year that is not over, is `complete: true` (the flag says that no more than `max_missing` values lack, not
+    that none does) and competes in `sort` and `first` with its `mean` of the values there are; the warning
+    `gaps-allowed` counts such groups of the answer and what they lack, and is not told where none is in it. A model
+    that sets `max_missing=400` out of habit ranks half-years with whole ones: read `searched` and `expected`. For `count`,
+    `min`, `max`, `earliest` and `latest`, `max_missing` changes only `complete`: to rank only groups that have every value
+    use `having=complete` with `max_missing` 0.
+11. **`year_start` and `year`.** `year` means the year a season ends in, in `by`, `filter` and `sort`: with
+    `year_start=12` the winter 2023/24 is 2024 and `filter=year=2024` selects December 2023 to November 2024. A season
+    the record or the window covers only in part is incomplete by rule 3.
+12. **Sub-daily data and forecasts.** The calendar parts are UTC, as in `filter` of `values`: 24 cells a day for hourly
+    data, 144 for 10-minute data, and no daylight saving. A forecast has no `expected` (rule 5).
+
+### Which aggregate for which parameter
+
+It follows the parameter's own metadata (`unit_type` and `aggregation` of the parameter table, those `glossary` and
+`coverage` show), and a request the parameter does not allow is a 400 that names the aggregates it does, before any
+station is read, whether or not a station has rows.
+
+| Aggregate | Allowed | Refused |
+| --- | --- | --- |
+| `count`, `earliest`, `latest` | every parameter | none |
+| `min`, `max` | every parameter with a magnitude (a zenith angle has one) | directions, weather codes and other codes |
+| `mean` | the same, and not estimates of an error | the same |
+| `sum` | amounts, durations, energies and counts; a temperature **daily or hourly**, as degree days (`°Cd`) or degree hours (`°Ch`: the Hellmann number, heating degree days) | pressure, humidity, wind speed, cloud cover, probabilities, dates; a total over a window of its own whose rows overlap (`precipitation_amount_last_3h` of hourly values, `_multiday`, `_since_last_routine_report`; `_last_1h` of hourly values is each hour once and is allowed); a temperature at any other resolution |
+
+A column finer than the resolution is refused too (`by=hour` of daily values, a `month` condition of annual ones), and
+`year_start` of annual values, which have no seasons. The mean over monthly or yearly values is unweighted: the mean of
+twelve monthly means is not the mean of the days. The `min_at`, `max_at` of an extreme is the timestamp of the row that
+holds it, the earliest on a tie; `earliest_at` and `latest_at` are the timestamps of the first and the last value that
+meets the conditions. A date is written in the shortest ISO form of the series: `2007-03-24` for daily and coarser
+values, `2026-11-23T13:00Z` for finer ones. A `value` condition is in the unit of the values and, over parameters of
+two units, refused with the hint to name one parameter. The name of the request's one parameter is `value` too
+(`filter=temperature_air_min_2m<0` with that parameter alone); with several, a name is no column. `sum` and `mean` are
+rounded to 6 decimals where they are made, so that two sums that differ in the last bit of a float tie; `min`, `max`,
+`earliest` and `latest` are readings and are not rounded.
+
+**Ties.** `first=N` keeps exactly N groups, which a count needs (most years have 0 days of a frost below -15
+degrees, and tie): the ties are ordered by the columns of `by` and then by station, and the warning `ties-not-shown` says
+how many more tie with the last group shown. In `values` the ties of the last row are kept.
+
+**Ranking over the stations.** With `per=none` the groups of one parameter compete across the stations, and each
+group has its `rank` (1 is the best, in front of the columns of `by`; groups that tie have distinct ranks, in the order
+of `by` and then of the station, so the rank is a place in the list and not a competition rank). The series are listed in
+the order of their best group; a series that kept no group is not listed (`metadata.search.totals.series` counts all of them), and `max_rows` and
+the cut of a tool keep the groups of the first ranks.
+
+### The answer
+
+One object per series; everything that is true of a series is in it.
+
+```json
+{"metadata": {"...": "the block of every answer, with search.options, search.window and search.totals",
+              "warnings": []},
+ "series": [{"station_id": "03987", "name": "Potsdam", "resolution": "daily", "dataset": "climate_summary",
+             "parameter": "temperature_air_min_2m", "unit": "°C",
+             "first_timestamp": "1961-01-01", "last_timestamp": "1990-12-31", "searched": 10957, "expected": 10957,
+             "gaps": 0,
+             "over_groups": {"count": {"groups": 30, "usable": 30, "min": 52.0, "max": 123.0, "mean": 89.4}},
+             "groups": [{"year": 1961, "count": 70, "searched": 365, "expected": 365, "complete": true},
+                        {"year": 1962, "count": 100, "searched": 365, "expected": 365, "complete": true}]}]}
+```
+
+(`filter=value<0&aggregate=count&by=year&timestamp=1961/1990`: `over_groups.count.mean` is the 89.4 frost days a year of
+the normal period, equal to DWD's own `count_days_frost`.) The members of `series` are the report of the series as
+[`metadata.search.series`](#what-was-searched) of `values` has it (`first_timestamp`, `last_timestamp`, `searched`,
+`expected`, `gaps`), then the statistics over its groups, then its groups, which are in `series[].groups`: the `rank`
+(`per=none`), the columns of `by`, each aggregate (with `min_at`, `max_at`, `earliest_at`, `latest_at` for the four that
+have a date), `searched`, `expected` and `complete`; with `year_start` a group's `year` is the year its season ends in. A
+`sum` of temperatures says `°Cd` or `°Ch` in the series' `units`. `metadata.search` has the options as read (with their
+defaults), the `window` and the `totals`: `stations_read`, `stations_with_values`, `series`, `searched`, `expected`,
+`gaps`, and the groups: `groups`, `groups_not_listed`, `groups_incomplete`, `groups_matched` (after `having`) and
+`groups_returned`; `stations_read` counts the stations the walk read, those with no value included.
+
+`format=csv` is one row per group with the identity of its series in front (`station_id`, `resolution`, `dataset`,
+`parameter`, the `rank`, the columns of `by`, the aggregates and their dates, `searched`, `expected`, `complete`), and
+the block in the headers; `format=ndjson` is the block, a line for each group, and an `end` line with the counts, the
+warnings and the series without their groups. Both are one body and are not streamed.
+
+| Warning | Meaning |
+| --- | --- |
+| `incomplete-groups` | how many groups have fewer values than expected, by station, whatever is asked, and how many of them are in the answer: `complete` is false, and their `mean` and `sum` are null |
+| `no-values-in-groups` | how many groups lie before the first or after the last value and are not listed |
+| `gaps-allowed` | how many groups of the answer lack values and are `complete` only because `max_missing` allows it, the most one lacks and what all lack; not told where there is none |
+| `completeness-unknown` | for how many series how many values a group should have is not known |
+| `ties-not-shown` | how many more groups tie with the last one `first` shows |
+| `rows-capped` | `max_rows` cut the answer: how many of how many groups are returned |
+| `answer-truncated` | a tool's answer was cut to the budget (below) |
+
+**The MCP tool** is `statistics`. Its answer is cut to 40,000 characters as `values` is, by dropping groups from the
+end in the answer's order (by rank with `per=none`), and says so: "the first 279 of 1,607 groups are returned, in the
+answer's order; `metadata.search.totals` and `over_groups` cover all of them. Narrow with `having`, `first` or `filter`."
+A tool lists at most 20 series that have a group, and says so in its own note, which is no cut to the budget: the first 20
+in the order the stations were read, or with `per=none` those with the best groups over all parameters. The totals count
+all, with `groups_returned` the groups shown, and the warning `incomplete-groups` says how many of its groups are in the
+answer. REST, the command line and Python are never cut.
+
+**Limits.** The stations and the readings read are held to the limits of `values` as a request with `first` is: up to
+the stream limit whatever the format. A request of more than 100 series (stations times parameters) is refused before a
+station is read (`series`): "This request has 240 series, more than the 100 an answer reports: name fewer stations or
+parameters, or ask in several requests." The groups held, as the stations are read, and the groups of an answer are held
+to `max_groups` of the [limits](#limits), 50,000 by default (`WD_RESTAPI_MAX_GROUPS`; a group is about 150 bytes of
+JSON): "683,736 groups so far, more than the 50,000 that may be held. Drop a column of `by`, or add `having` or
+`first`." A window of more than 1.5 million steps of a resolution (170 years of hours) is refused. The timeout ends the
+walk between two stations. A text that cannot be read is a 422 located at the option, a request that is well written
+and cannot be applied to a series (a sum of a pressure, `by=hour` of daily values) a 400.
+
+**For later, and kept free.** `longest_run`, `window`, percentiles, `by=decade`, `by=season` and `timezone` are not
+options yet and their names are reserved: no column, option or parameter is given another meaning.
+
+### Examples
+
+Ten questions on Potsdam (03987) and DWD's `daily/climate_summary`, each held to the truth worked out a second way
+(plain Python over the rows, or DWD's own annual datasets):
+
+```bash
+# 1. Frost days per year, and their mean over the years under over_groups: 133 years, equal to DWD's count_days_frost.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==03987 timestamp==1893/2024 filter=='value<0' aggregate==count by==year
+
+# 2. Tropical nights 1961 to 1990: 0.2333 a year (24 of the 30 years have none, which count).
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==03987 timestamp==1961/1990 filter=='value>=20' aggregate==count by==year
+
+# 3. The coldest winters (December to February, a year ends in November): 1940, 1963, 1947.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_mean_2m stations==03987 timestamp==1893/2024 filter=='month=12|1|2' year_start==12 aggregate==mean by==year sort==mean first==3
+
+# 4. The five warmest years: 2024, 2019, 2018, 2023 and 2020 (a year that is not over, such as 2026 now, has no mean).
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_mean_2m stations==03987 timestamp==1893/2024 aggregate==mean by==year sort==-mean first==5
+
+# 5. The Hellmann number of the coldest winters, in degree days.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_mean_2m stations==03987 timestamp==1893/2024 filter=='value<0,month=11|12|1|2|3' year_start==11 aggregate==sum by==year sort==sum first==3
+
+# 6. The statistics of 24 December.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_max_2m stations==03987 timestamp==1893/2024 filter=='month=12,day=24' aggregate==count,min,max,mean
+
+# 7. The wettest months ever: July 1907, July 2011, August 2002.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/precipitation_amount stations==03987 timestamp==1893/2024 aggregate==sum by==year,month sort==-sum first==3
+
+# 8. Summer days per year: 133 years, equal to DWD's count_days_summer.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_max_2m stations==03987 timestamp==1893/2024 filter=='value>=25' aggregate==count by==year
+
+# 9. The first frost of each autumn season (July to June).
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==03987 timestamp==1893/2024 filter=='value<0' year_start==7 aggregate==earliest by==year
+
+# 10. How complete is a station: Hamburg-Kirchwerder lacks 4,169 days, in 13 years (1976 to 1988), whose mean is null.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==01979 timestamp==1951/2006 aggregate==count,mean by==year having=='searched<360'
+
+# The same station with a gap of 40 days allowed: 1976 (31 days short) has a mean now, 1988 (121 short) has none, and
+# the warning `gaps-allowed` says which group `max_missing` let in. Keep it 0 to rank.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==01979 timestamp==1951/2006 aggregate==count,mean by==year having=='searched<360' max_missing==40
+
+# The three warmest years of all the stations of a list together (per=none), each with its rank, as CSV.
+http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_mean_2m stations==03987,01975 timestamp==1893/2024 aggregate==mean by==year sort==-mean first==3 per==none format==csv
+```
+
 ## SQL filters
 
 `sql` and `sql_values` were removed from the REST API and the MCP tools (GHSA-332g-7w2w-4w59): they ran a
@@ -1498,11 +1734,13 @@ to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
 | `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many. For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
 | `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations` |
 | `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values` |
+| `groups` | `WD_RESTAPI_MAX_GROUPS` | 50,000 | the groups of an answer of [`statistics`](#statistics) |
+| `series` | none (100) | 100 | the series (stations times parameters) of a `statistics` request, which an answer lists |
 
 The host sets them with the settings of the same names (`restapi_max_stations`, ...; see [Settings](settings.md)),
 and `0` switches a limit off. They hold for the REST API and the MCP tools; the library and the command line have
 none. The default of 100 stations is the number `request.stations.ids` of the `metadata` block lists.
-`GET /api/version` reports the values of the instance as `limits` (`max_stations`, `max_rows`, `max_stream_rows`,
+`GET /api/version` reports the values of the instance as `limits` (`max_stations`, `max_rows`, `max_stream_rows`, `max_groups`,
 the `timeout` in seconds and `max_concurrent`), so a client can size its requests before one is refused.
 
 The stations are counted from the selection, which the server holds already. The rows of `values` are an
@@ -1809,7 +2047,7 @@ are these, and a kind keeps its status:
 | --- | --- | --- |
 | `urn:wetterdienst:problem:invalid-parameters` | 422 | A query parameter is unknown, malformed or invalid, or a selection that needs exactly one of several does not. `errors` has an entry for each invalid parameter. |
 | `urn:wetterdienst:problem:request-refused` | 400 | The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range. |
-| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
+| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows`, `groups` or `series`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
 | `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
 | `urn:wetterdienst:problem:host-not-allowed` | 400 | The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists. |
 | `urn:wetterdienst:problem:origin-not-allowed` | 400 | The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint. |

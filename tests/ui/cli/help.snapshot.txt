@@ -29,12 +29,13 @@ Commands:
   info         Display project information.
   interpolate  Interpolate data for a point from the stations around it.
   issues       List available issue (model-run) datetimes for a station.
-  kostra       Acquire DWD's heavy-rainfall statistics (KOSTRA) at a point.
+  kostra       Acquire DWD's design rainfall (KOSTRA: return periods of heavy rain) at a point.
   providers    List the providers and their networks, and describe what each provider is.
   radar        List radar stations.
   restapi      Start the Wetterdienst REST API web service.
   station-ids  Find one WMO number, WIGOS identifier or ICAO code at every provider that has it.
   stations     Acquire stations.
+  statistics   Count, average, add up or take the extremes of each station's values per year,...
   storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
   summarize    Summarize data for a point: the nearest station's value.
   values       Acquire data.
@@ -449,7 +450,7 @@ $ wetterdienst kostra --help
 
 Usage: wetterdienst kostra [OPTIONS]
 
-  Acquire DWD's heavy-rainfall statistics (KOSTRA) at a point.
+  Acquire DWD's design rainfall (KOSTRA: return periods of heavy rain) at a point.
 
   Reads KOSTRA-DWD-2020 and returns the table of the cell of DWD's 5 km grid that holds the point:
   for each duration of a rain (5 minutes to 7 days) and each return period (1 to 100 years), its
@@ -751,6 +752,124 @@ Options:
   # export to a spreadsheet
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all \
       --target=file://stations.xlsx
+
+
+$ wetterdienst statistics --help
+
+Usage: wetterdienst statistics [OPTIONS]
+
+  Count, average, add up or take the extremes of each station's values per year, month, day or hour.
+
+  Select the stations with exactly one of --all, --stations, --region, --name, or
+  --latitude/--longitude with --rank or --distance. Each group says how many values it has
+  (searched) and should have (expected): a group with a gap, and a year that is not over, has no
+  mean or sum unless --max-missing allows it. --having, --sort and --first choose among the groups,
+  and over_groups has the minimum, maximum and mean over a series' complete groups.
+
+Options:
+  --provider TEXT              Data provider/organisation. List the provider/network combinations
+                               with: wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea,
+                               eaufrance, nws, geosphere  [required]
+  --network TEXT               Data network of the provider. Examples: observation, mosmix, radar,
+                               ghcn, pegel, hydrology  [required]
+  --parameters TEXT            Parameters as resolution/dataset or resolution/dataset/parameter,
+                               comma-separated. Examples: daily/kl,
+                               daily/climate_summary/precipitation_amount  [required]
+  --periods TEXT               Dataset periods, comma-separated. Inferred from the timestamp when
+                               one is given, else every period the requested datasets publish; one
+                               they are not published under is rejected. Examples: historical,
+                               recent, now
+  --timestamp TEXT             Single date or interval in ISO 8601 format, covering everything it
+                               names: 2020-05-01 is that whole day, 2020-05 the month and 2020 the
+                               year, while a date carrying a time (2020-05-01T12) is that one
+                               instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05
+  --all BOOLEAN                Select all stations. Default: false
+  --stations TEXT              Select stations by id, comma-separated. Example: 01048,04411
+  --region TEXT                Select stations by the region their source lists them under (a state,
+                               province, département), comma-separated, any case: every station of
+                               it, those not on land included. An unknown region is refused and the
+                               regions there are named. Example: Hamburg
+  --name TEXT                  Select stations by fuzzy name match: the best five for `stations`,
+                               which lists candidates, the best one for `values`, unless --rank
+                               says, among the stations with a record in --timestamp if given.
+                               Example: Dresden-Klotzsche
+  --latitude FLOAT             Latitude of the reference point.
+  --longitude FLOAT            Longitude of the reference point.
+  --rank INTEGER               The N stations closest to --latitude/--longitude, or the N best
+                               --name matches, best first.
+  --distance FLOAT             The stations within this many km of --latitude/--longitude.
+  --aggregate TEXT             What to compute per group: one to five of count, mean, sum, min, max,
+                               earliest, latest, comma-separated. count is the values that meet
+                               --filter, earliest and latest the first and last of them in time;
+                               min, max, earliest and latest come with their date (min_at). A
+                               direction or a code has no mean or extreme; sum is for amounts and,
+                               daily or hourly, temperatures (degree days). Example: count or
+                               mean,max  [required]
+  --by TEXT                    The groups, besides the series (a station and a parameter, never
+                               merged): year, month, day, hour (UTC), comma-separated; none is one
+                               group per series. year,month is a group a month, month puts every
+                               January together. Example: year
+  --filter TEXT                Conditions joined by commas: column, operator, number. year, month,
+                               day, hour (UTC) say which values are looked at, value (in its unit)
+                               which of them count. Operators = != < <= > >=; a list a|b with = and
+                               !=. A time condition changes expected, a value condition does not: a
+                               group with values and no match has a count of 0. Example: 'value<0'
+                               or 'month=12|1|2,value>=25' (quote it: < and | are the shell's)
+  --year-start INTEGER RANGE   The month a year begins, 1 to 12 (default 1). The year is named by
+                               the year it ends in: 12 makes the winter 2023/24 the year 2024, in
+                               --by, --filter and --sort. Needs year in --by  [1<=x<=12]
+  --max-missing INTEGER RANGE  How many values a group may lack and still be complete, with a mean
+                               and a sum (default 0: a group with a gap, a year that is not over or
+                               a year the window cuts has none). Keep it 0 to rank; raise it only
+                               for a gap you accept: the warning gaps-allowed counts what it lets in
+                               [0<=x<=10000]
+  --having TEXT                Keep the groups that meet conditions on the results, written as
+                               --filter: the aggregates asked for, searched, expected, complete (the
+                               word alone is complete=1). Example: 'count>=100' or 'searched<360' or
+                               complete
+  --sort TEXT                  Order of the groups: columns joined by commas, - before one for
+                               descending: the aggregates asked for, the columns of --by,
+                               station_id, searched, expected, complete. A null comes last. Example:
+                               --sort=-mean
+  --first INTEGER RANGE        Keep the first N groups of the --sort order, exactly N (a warning
+                               says how many more tie): --sort=-mean --first=5 with --by=year is the
+                               five warmest years. Needs --sort; counts in each series unless --per
+                               says otherwise  [x>=1]
+  --per [station|none]         Over what --first counts: station (each series) or none (the stations
+                               of one parameter together, each group with its rank). Default:
+                               station
+  --max-rows INTEGER RANGE     Return at most this many groups of the whole answer, the first of its
+                               order, after --first  [x>=1]
+  --format [json|csv|ndjson]   Output format: json (with the metadata block), csv (a row per group)
+                               or ndjson (a line per group, then the end). Default: json
+  --pretty BOOLEAN             Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                               Default: false
+  --debug BOOLEAN              Log at debug level. Default: false
+  --quiet BOOLEAN              Log errors and warnings about the answer only: no progress. Not with
+                               --debug. Default: false
+  --help                       Show this message and exit.
+
+  Examples:
+
+  # the frost days of each year at Potsdam, 1961 to 1990, with their mean over the years under over_groups
+  wetterdienst statistics --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_min_2m --stations=03987 --timestamp=1961/1990 \
+      --filter='value<0' --aggregate=count --by=year
+
+  # the five warmest years of the record, the mean of each (a year that is not over has no mean)
+  wetterdienst statistics --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_mean_2m --stations=03987 \
+      --aggregate=mean --by=year --sort=-mean --first=5
+
+  # the coldest winters: December to February, a year named by the year its season ends in
+  wetterdienst statistics --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_mean_2m --stations=03987 \
+      --filter='month=12|1|2' --year-start=12 --aggregate=mean --by=year --sort=mean --first=3
+
+  # the rain of each month as CSV, the wettest first
+  wetterdienst statistics --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/precipitation_amount --stations=03987 \
+      --aggregate=sum --by=year,month --sort=-sum --first=10 --format=csv
 
 
 $ wetterdienst storm-cells --help

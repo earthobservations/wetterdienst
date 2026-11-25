@@ -52,6 +52,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.group_statistics import GroupsOverLimitError
 from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
@@ -69,6 +70,7 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollectionBody,
 )
 from wetterdienst.model.row_selection import (
+    MAX_REPORTED_SERIES,
     MAX_TOOL_SERIES,
     RowSelectionError,
     RowsOverLimitError,
@@ -77,7 +79,14 @@ from wetterdienst.model.row_selection import (
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings, removed_settings
 from wetterdienst.ui import forecast_start
-from wetterdienst.ui.budget import fit_alerts, fit_coverage, fit_station_ids, fit_stations, fit_values
+from wetterdienst.ui.budget import (
+    fit_alerts,
+    fit_coverage,
+    fit_station_ids,
+    fit_stations,
+    fit_statistics,
+    fit_values,
+)
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -106,6 +115,7 @@ from wetterdienst.ui.core import (
     SettingsRequest,
     StationIdsRequest,
     StationsRequest,
+    StatisticsRequest,
     StormCellsRequest,
     SummaryRequest,
     ValuesRequest,
@@ -118,6 +128,7 @@ from wetterdienst.ui.core import (
     get_interpolate,
     get_issues,
     get_stations,
+    get_statistics,
     get_summarize,
     get_values,
     limit_stations_to_rank,
@@ -129,9 +140,11 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.ui.limits import (
     Limits,
+    check_chosen_groups,
     check_chosen_rows,
     check_point_rows,
     check_rows,
+    check_series_count,
     check_station_count,
     check_stations_in_reach,
     estimate_point_rows,
@@ -175,6 +188,7 @@ from wetterdienst.ui.render import (
     render_kostra,
     render_station_ids,
     render_stations,
+    render_statistics,
     render_storm_cells,
 )
 from wetterdienst.ui.response_metadata import (
@@ -182,12 +196,14 @@ from wetterdienst.ui.response_metadata import (
     ResponseMetadata,
     Search,
     StationIdsMetadata,
+    StatisticsMetadata,
     catalogue_headers,
     issues_metadata,
     radar_metadata,
     response_headers,
     response_metadata,
     station_ids_headers,
+    statistics_metadata,
 )
 from wetterdienst.ui.streaming import (
     NDJSON_MEDIA_TYPE,
@@ -211,6 +227,7 @@ if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from wetterdienst.api import StandaloneRequest
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.result import InterpolatedValuesResult, StationsResult, SummarizedValuesResult
 
@@ -275,13 +292,17 @@ app = FastAPI(
             "description": "What the server offers: providers, networks, parameters, and credentials.",
         },
         {"name": TAG_STATIONS, "description": "Find stations and read their history and the runs of a forecast."},
-        {"name": TAG_VALUES, "description": "Measurements of stations, or estimated for a point between them."},
+        {
+            "name": TAG_VALUES,
+            "description": "Measurements of stations, estimated for a point between them, or counted, averaged and "
+            "added up per year, month, day or hour.",
+        },
         {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
         {"name": TAG_STORM_CELLS, "description": "Thunderstorm cells of the DWD, detected in its radar data."},
         {
             "name": TAG_KOSTRA,
-            "description": "Heavy-rainfall statistics of the DWD (KOSTRA-DWD-2020): the depth, intensity and "
-            "uncertainty of a rain by duration and return period, at a point in Germany.",
+            "description": "Design rainfall of the DWD (KOSTRA-DWD-2020, return periods of heavy rain): the depth, "
+            "intensity and uncertainty of a rain by duration and return period, at a point in Germany.",
         },
         {
             "name": TAG_RADAR,
@@ -754,6 +775,43 @@ class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeat
     settings: NotRequired[SummarySettings]
 
 
+class _StatisticsOverGroups(TypedDict):
+    """The statistics over the complete groups of a series that have a value, of one aggregate."""
+
+    groups: int
+    usable: int
+    min: float | None
+    max: float | None
+    mean: float | None
+
+
+class _StatisticsSeries(TypedDict):
+    """One station's series with its report, the statistics over its groups and its groups."""
+
+    station_id: str
+    name: str | None
+    resolution: str
+    dataset: str
+    parameter: str
+    unit: str
+    # the unit of an aggregate where it is not `unit`: the `sum` of a temperature is in degree days (`°Cd`)
+    units: NotRequired[dict[str, str]]
+    first_timestamp: str | None
+    last_timestamp: str | None
+    searched: int
+    expected: int | None
+    gaps: int | None
+    over_groups: dict[str, _StatisticsOverGroups]
+    # `rank` (`per=none`), the columns of `by`, each aggregate (and `<aggregate>_at` for `min`, `max`, `earliest`,
+    # `latest`), then `searched`, `expected` and `complete`
+    groups: list[dict[str, Any]]
+
+
+class _StatisticsWithMetadataDict(TypedDict):
+    metadata: StatisticsMetadata
+    series: list[_StatisticsSeries]
+
+
 class _HistoryWithMetadataDict(TypedDict):
     metadata: ResponseMetadata
     stations: NotRequired[list[_Station]]
@@ -1131,6 +1189,7 @@ class VersionAnswer(BaseModel):
                         "max_stations": 100,
                         "max_rows": 500000,
                         "max_stream_rows": 10000000,
+                        "max_groups": 50000,
                         "timeout": 60.0,
                         "max_concurrent": 32,
                     },
@@ -1167,8 +1226,8 @@ def version() -> VersionAnswer:
 
     `limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`
     and `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or
-    `csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind
-    `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
+    `csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a
+    400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
     """
     return VersionAnswer(
         version=__version__,
@@ -1247,6 +1306,7 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "issues": _DATA_ANSWERS,
     "history": _DATA_ANSWERS,
     "values": _DATA_ANSWERS,
+    "statistics": _DATA_ANSWERS,
     "interpolate": _DATA_ANSWERS,
     "summarize": _DATA_ANSWERS,
     "alerts": _DATA_ANSWERS,
@@ -1348,7 +1408,7 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             },
             "limit": {
                 "type": "string",
-                "enum": ["stations", "rows", "stream_rows"],
+                "enum": ["stations", "rows", "stream_rows", "groups", "series"],
                 "description": "Of `limit-exceeded`: the limit the request passes.",
             },
             "maximum": {"type": "integer", "description": "Of `limit-exceeded`: the value of that limit."},
@@ -2413,10 +2473,115 @@ def values(
     return _answer(content, request.format, metadata)
 
 
+def _check_statistics_limits(stations: StationsResult, limits: Limits) -> None:
+    """Refuse a statistics request that reads too much or names more series than an answer reports, before a download.
+
+    The stations and the readings are held as for a request with `first`: up to the stream limit, whatever the format.
+    """
+    _check_values_limits(stations, limits, streamed=False, chooses=True)
+    check_series_count(selected_station_count(stations) * len(stations.parameters), MAX_REPORTED_SERIES)
+
+
+def _statistics(
+    api: type[TimeseriesRequest],
+    request: StatisticsRequest,
+    settings: Settings,
+    options: Options,
+    limits: Limits,
+) -> StatisticsResult:
+    """Collect the statistics, telling the caller which failures are theirs to fix.
+
+    The sibling of `_values`: the stations are read under the stream limit, as a request that `first` chooses rows of
+    is (a record is searched), and the groups kept are held to the limit of one body (`check_chosen_groups`), as soon
+    as a station makes them more than that, and not after the last.
+    """
+    try:
+        result = get_statistics(
+            api=api,
+            request=request,
+            settings=settings,
+            options=options,
+            check=lambda stations_: _check_statistics_limits(stations_, limits),
+            held_groups_limit=limits.max_groups or None,
+        )
+        check_chosen_groups(sum(series.frame.height for series in result.series), limits)
+    except GroupsOverLimitError as e:
+        check_chosen_groups(e.groups, limits, so_far=True)
+        raise
+    except (AssertionError, HTTPException):
+        raise
+    except Exception as e:
+        raise _failure(e, request, "get statistics") from e
+    return result
+
+
+# response models for the different formats are
+# - _StatisticsWithMetadataDict for json
+# - str for csv and ndjson
+@router.get(
+    "/statistics",
+    response_model=_StatisticsWithMetadataDict | str,
+    tags=[TAG_VALUES],
+)
+def statistics(
+    request: Annotated[StatisticsRequest, Query()],
+    http_request: Request,
+) -> Response:
+    """Count, average, add up or find the extremes of each station's values per year, month, day or hour.
+
+    Stations and `timestamp` as in `values`; the groups are in `series[].groups`. `aggregate`: up to five of `count`,
+    `mean`, `sum`, `min`, `max`, `earliest`, `latest`; `by`: `year`, `month`, `day`, `hour` (UTC). `filter=value<0`
+    counts values below 0. A group says how many values it has (`searched`) and should have (`expected`) and is
+    `complete` or not: a gap, a year the window cuts or that is not over leaves `mean` and `sum` null unless
+    `max_missing` allows it. `having`, `sort`, `first` choose groups (`aggregate=mean&by=year&sort=-mean&first=5`: the
+    five warmest years; `per=none` ranks across stations). `over_groups` is the min, max and mean over the complete
+    groups. For single readings use `values`. A `min` or `max` can be a faulty reading: leave impossible values out
+    with `filter`.
+    """
+    begin_response()
+    _refuse_repeated_row_options(http_request, _STATISTICS_OPTIONS)
+
+    api = _get_timeseries_api(request.provider, request.network)
+
+    # outside the handlers: nothing of the caller's reaches the server's settings
+    settings = Settings()
+    # the shape is always long, whatever the server's default says
+    options = overlay_options(Options(), {"shape": "long"})
+    limits = limits_of(settings)
+
+    result = _statistics(api, request, settings, options, limits)
+    metadata = statistics_metadata(result, provider=request.provider, network=request.network)
+    content, metadata = render_statistics(result, request, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: the first groups that fit, with a note (GH-4022)
+        content, metadata = fit_statistics(
+            result,
+            request.format,
+            content,
+            metadata,
+            lambda cut, block: render_statistics(cut, request, metadata=block),
+        )
+    return _answer(content, request.format, metadata)
+
+
 _ROW_OPTIONS = ("filter", "sort", "first", "by", "max_rows")
+_JOINED_EXAMPLE = {"filter": "filter=value<=-20,month=12", "having": "having=count>=100,searched<360"}
+#: the options of `statistics` that are given once, as the row options are
+_STATISTICS_OPTIONS = (
+    "aggregate",
+    "by",
+    "filter",
+    "year_start",
+    "max_missing",
+    "having",
+    "sort",
+    "first",
+    "per",
+    "max_rows",
+)
 
 
-def _refuse_repeated_row_options(http_request: Request) -> None:
+def _refuse_repeated_row_options(http_request: Request, names: tuple[str, ...] = _ROW_OPTIONS) -> None:
     """Refuse a row option given more than once: the query would keep one of them and the answer would not say which.
 
     `filter=value<0&filter=month=1` is the conditions `value<0,month=1` in the grammar, which joins them by a comma;
@@ -2429,16 +2594,16 @@ def _refuse_repeated_row_options(http_request: Request) -> None:
             "msg": (
                 f"`{name}` is given {len(values)} times and a request takes it once: "
                 + (
-                    "join the conditions of `filter` with a comma, as in filter=value<=-20,month=12"
-                    if name == "filter"
+                    f"join the conditions of `{name}` with a comma, as in {_JOINED_EXAMPLE[name]}"
+                    if name in {"filter", "having"}
                     else f"give one number to `{name}`"
-                    if name in {"first", "max_rows"}
+                    if name in {"first", "max_rows", "year_start", "max_missing"}
                     else f"give one value of `{name}`, columns joined by commas where it takes several"
                 )
             ),
             "input": values,
         }
-        for name in _ROW_OPTIONS
+        for name in names
         if len(values := http_request.query_params.getlist(name)) > 1
     ]
     if entries:
@@ -3103,14 +3268,14 @@ def storm_cells(
 def kostra(
     request: Annotated[KostraRequest, Query()],
 ) -> Response:
-    """Provide DWD's heavy-rainfall statistics (KOSTRA-DWD-2020) of a point via restapi.
+    """Provide DWD's design rainfall (KOSTRA-DWD-2020: the rain of a duration that returns every N years) of a point.
 
     Returns the table of the cell of DWD's 5 km grid that holds the point: for each duration of a rain (5 minutes to
     7 days) and each return period (1 to 100 years) its depth in mm (``depth_mm``), its intensity in l/(s ha)
     (``intensity_l_s_ha``) and DWD's uncertainty in plus-minus percent (``uncertainty_percent``, a tolerance of both),
     with the cell's ``index_rc`` and the position of its centre. Engineers size drains and retention basins with these
     values. Pass ``duration`` (and ``return_period``) for the one value you need: a duration reads one table of DWD,
-    without it all 22 are read (2 s the first time, then from the cache). The values are DWD's statistics for the cell,
+    without it all 22 are read (2 s the first time, then from the cache). The values are DWD's estimates for the cell,
     not measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is refused.
     """
     from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415

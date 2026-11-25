@@ -64,7 +64,7 @@ wetterdienst stations --provider dwd --network observation --parameters daily/kl
 wetterdienst values --provider dwd --network observation --parameters daily/kl --periods recent --stations 00011
 ```
 
-CLI commands (`ui/cli.py`, as `wetterdienst --help` prints them): `alerts`, `auth`, `cache`, `coverage`, `fields`, `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `station-ids`, `stations`, `storm-cells`, `summarize`, `values`.
+CLI commands (`ui/cli.py`, as `wetterdienst --help` prints them): `alerts`, `auth`, `cache`, `coverage`, `fields`, `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `station-ids`, `stations`, `statistics`, `storm-cells`, `summarize`, `values`.
 
 ## Architecture
 
@@ -76,6 +76,7 @@ Layered flow: `Request → StationsResult → ValuesResult`.
 - **`TimeseriesRequest`** (`model/request.py`): abstract base dataclass all provider request classes extend — parameter parsing, date validation, station filtering.
 - **`TimeseriesValues`** (`model/values.py`): abstract base for fetching observation data, bound to a `StationsResult`.
 - **`StationsResult` / `ValuesResult`** (`model/result.py`): wrap polars DataFrames; provide `to_dict/to_json/to_ogc_feature_collection/to_file/to_target`, DuckDB SQL filtering, and plotting.
+- **`statistics`** (`model/group_statistics.py`, `TimeseriesValues.statistics`, `ValuesResult.statistics`, route `/api/statistics`, the tool, the command; GH-4412): counts, averages, adds up or takes the extremes of a station's values per year, month, day or hour. The walk of `TimeseriesValues` hands each station's frame to a `StatisticsRun` and lets it go, so what is held is the groups (limited by `GroupsOverLimitError`); the grammar (`filter`, `having`, `sort`, `by`, `aggregate`) is that of `model/option_grammar.py`, which `row_selection.py` shares, and the report of a series is `model/series_report.py`. The twelve rules of completeness (a group that is not over is incomplete: `mean` and `sum` null unless `max_missing`; `first=N` is exactly N with a `ties-not-shown` warning) are written in `docs/usage/restapi.md` ("Statistics") and held by `tests/model/test_group_statistics*.py`, which work every case out in plain Python (`statistics_oracle.py`).
 - **`Settings`** (`settings.py`): the host's pydantic settings, process-wide and read by providers; env vars prefixed `WD_` (cache, network client, certifi, BUFR, provider auth via `WD_AUTH__*`). Per-request behaviour is not here.
 - **`Options`** (`options.py`): frozen pydantic settings per request, passed as `options=` (an `Options` or a dict); how values come back (shape, units, skipping) and the interpolation distances. Env vars prefixed `WD_TS_`. The old `Settings` `ts_*` paths are gone: `Settings` refuses them with an error that names the option to pass instead (`refuse_removed_ts_settings` in `settings.py`).
 

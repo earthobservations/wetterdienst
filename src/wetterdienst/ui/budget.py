@@ -40,8 +40,10 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.model.row_selection import MAX_TOOL_SERIES
 from wetterdienst.ui.mcp import structured_size
 from wetterdienst.ui.response_metadata import (
+    Counts,
     response_headers,
     response_metadata,
     station_ids_headers,
@@ -49,13 +51,14 @@ from wetterdienst.ui.response_metadata import (
 from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, record_response_warning
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Mapping, Sequence
 
     from wetterdienst.core.station_search import StationIdSearchResult
+    from wetterdienst.model.group_statistics import SeriesStatistics, StatisticsPlan, StatisticsResult
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
     from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
-    from wetterdienst.ui.response_metadata import ResponseMetadata, StationIdsMetadata
+    from wetterdienst.ui.response_metadata import ResponseMetadata, StationIdsMetadata, StatisticsMetadata
 
     _SeriesResult = ValuesResult | InterpolatedValuesResult | SummarizedValuesResult
     _SeriesRequest = ValuesRequest | InterpolationRequest | SummaryRequest
@@ -712,6 +715,188 @@ def fit_station_ids(
         best = 1
     body, block, _ = tried[best]
     log.info(f"Cut a station_ids answer of {total} rows to {best} to stay within the budget.")
+    return body, block
+
+
+# --- statistics ---------------------------------------------------------------------------------------------------
+
+
+def _cut_statistics(result: StatisticsResult, groups: int) -> tuple[StatisticsResult, int, int]:
+    """Keep the first `groups` groups of the answer (by rank under `per=none`), and the series that hold them.
+
+    A series left with no group is left out (the totals still count it). Gives the cut result, the groups it holds and
+    the series it lists.
+    """
+    cut = result.head(groups, drop_empty=True)
+    return cut, sum(s.frame.height for s in cut.series), len(cut.series)
+
+
+def _first_series(result: StatisticsResult, count: int) -> list[SeriesStatistics]:
+    """Give the `count` series an answer lists first, in the order the answer has them: those with a group.
+
+    Under `per=none` the series with the best groups, by rank over all parameters (the order `head` cuts groups in), so
+    that the series of one parameter are not all taken before another parameter's best; otherwise the first.
+    """
+    held = [series for series in result.series if series.frame.height]
+    if result.plan.per_station:
+        return held[:count]
+    order = {key: n for n, key in enumerate(dict.fromkeys((s.resolution, s.dataset, s.parameter) for s in held))}
+    ranked = sorted(
+        enumerate(held),
+        key=lambda item: (
+            item[1].frame.get_column("rank").min(),
+            order[(item[1].resolution, item[1].dataset, item[1].parameter)],
+            item[0],
+        ),
+    )
+    chosen = {n for n, _ in ranked[:count]}
+    return [series for n, series in enumerate(held) if n in chosen]
+
+
+def _statistics_note(
+    plan: StatisticsPlan,
+    *,
+    shown: int,
+    total: int,
+    in_base: int,
+    series: int,
+    listed: int,
+    many: bool,
+    where: str,
+    head: str,
+) -> str:
+    """Say what a tool's answer left out: groups cut to the budget, series capped, or series with no group."""
+    if shown < in_base:
+        return (
+            f"{head}the first {shown:,} of {total:,} groups{where} are returned, in the answer's "
+            "order; `metadata.search.totals` and `over_groups` cover all of them. "
+            "Narrow with `having`, `first` or `filter`."
+        )
+    if many and plan.per_station:
+        return (
+            f"The answer lists the first {series:,} of {listed:,} series that have a group, in the order the "
+            "stations were read; `per=none` ranks across the stations. `metadata.search.totals` covers all of "
+            "them. Name fewer stations or parameters for the others."
+        )
+    if many:
+        return (
+            f"The answer lists {series:,} of {listed:,} series that have a group, the series with the best "
+            "groups; `metadata.search.totals` covers all of them. Name fewer stations or parameters for the others."
+        )
+    if plan.having:
+        return (
+            "No group of the series left out met `having`; they are not listed, and `metadata.search.totals` "
+            "counts them."
+        )
+    return (
+        "The series with no group are left out of the answer; `metadata.search.totals` counts them. "
+        "Name fewer stations or parameters to see the others."
+    )
+
+
+def _restated_warnings(
+    plan: StatisticsPlan, cut: StatisticsResult, warnings: Sequence[ResponseWarning]
+) -> list[ResponseWarning]:
+    """Give the warnings of an answer for a cut of it: those that count its groups say how many are still in it."""
+    from wetterdienst.model.group_statistics import (  # noqa: PLC0415
+        GAPS_ALLOWED,
+        INCOMPLETE_GROUPS,
+        gaps_allowed_message,
+        gaps_allowed_of,
+        restate_incomplete,
+    )
+
+    shown_incomplete = sum(int(s.frame.get_column("_incomplete").sum()) for s in cut.series)
+    allowed = gaps_allowed_of(cut.series)
+    restated: list[ResponseWarning] = []
+    for w in warnings:
+        if w["code"] == INCOMPLETE_GROUPS:
+            w = ResponseWarning(**{**w, "message": restate_incomplete(w["message"], shown_incomplete)})
+        elif w["code"] == GAPS_ALLOWED:
+            # the groups that are left in the answer, which may be none of them
+            if not allowed[0]:
+                continue
+            message = gaps_allowed_message(*allowed, plan)
+            w = ResponseWarning(**{**w, "message": message})
+        restated.append(w)
+    return restated
+
+
+def fit_statistics(
+    result: StatisticsResult,
+    fmt: str,
+    content: str | bytes,
+    metadata: StatisticsMetadata,
+    render: Callable[[StatisticsResult, StatisticsMetadata], tuple[str | bytes, StatisticsMetadata]],
+) -> tuple[str | bytes, StatisticsMetadata]:
+    """Cut the answer of a `statistics` tool call to the budget, keeping the first groups in the order of the answer.
+
+    An answer lists at most `MAX_TOOL_SERIES` series that have a group, each with a header of its own (under `per=none`
+    those with the best groups over all parameters); one of more says so, and is not a cut to the budget. Where it fits
+    it is otherwise unchanged. Otherwise the first groups that fit are kept, in the order the answer has them (the order
+    of `sort`, or the columns of `by`, series by series; by rank under `per=none`), and the `answer-truncated` warning
+    of its block says how many of how many are shown. What the block and each series' `over_groups` say covers all the
+    groups: the totals of `metadata.search` (with `groups_returned`, the groups shown) and the statistics over the
+    groups are not cut, only the rows. Where not even one group fits beside them the first is kept and the note says
+    that the answer is still over the budget. `render` writes the answer for a cut result and the block it is given.
+    """
+    size = _size_in(content, fmt, metadata)
+    held = [series for series in result.series if series.frame.height]
+    many = len(held) > MAX_TOOL_SERIES
+    if size <= ANSWER_BUDGET and not many:
+        return content, metadata
+    if many:
+        chosen = _first_series(result, MAX_TOOL_SERIES)
+        base = replace(
+            result,
+            series=chosen,
+            left_out=[*result.left_out, *(s for s in result.series if not any(s is c for c in chosen))],
+        )
+    else:
+        base = result
+    total = sum(series.frame.height for series in result.series)
+    in_base = sum(series.frame.height for series in base.series)
+    tried: dict[int, tuple[str | bytes, StatisticsMetadata, int]] = {}
+
+    def attempt(count: int, *, honest: bool) -> bool:
+        cut, shown, series = _cut_statistics(base, count)
+        where = f" of the first {series:,} of {len(held):,} series" if series < len(held) else ""
+        note = _statistics_note(
+            result.plan,
+            shown=shown,
+            total=total,
+            in_base=in_base,
+            series=series,
+            listed=len(held),
+            many=many,
+            where=where,
+            head=_head(honest=honest),
+        )
+        warnings = _restated_warnings(result.plan, cut, metadata.warnings)
+        search = metadata.search
+        if search is not None:
+            search = search.model_copy(update={"totals": search.totals.model_copy(update={"groups_returned": shown})})
+        block = metadata.model_copy(
+            update={
+                "counts": Counts(stations=len({s.station_id for s in cut.series}), rows=shown),
+                "search": search,
+                "warnings": [*warnings, ResponseWarning(code=ANSWER_TRUNCATED, message=note)],
+            }
+        )
+        body, block = render(cut, block)
+        tried[count] = (body, block, _size_in(body, fmt, block))
+        return tried[count][2] <= ANSWER_BUDGET
+
+    # the groups of the series listed, all of them, where they fit: only the series were cut
+    if attempt(in_base, honest=False):
+        body, block, _ = tried[in_base]
+        return body, block
+    best = _largest(1, in_base - 1, lambda count: attempt(count, honest=False), max(1, in_base * ANSWER_BUDGET // size))
+    if best is None:
+        attempt(1, honest=True)
+        best = 1
+    body, block, _ = tried[best]
+    log.info(f"Cut a statistics answer of {total} groups to {best} to stay within the budget.")
     return body, block
 
 

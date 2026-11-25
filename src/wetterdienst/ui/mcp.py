@@ -272,7 +272,7 @@ cannot serve a place; look at its `kind`, its `extent` and at what `stations` re
 
 ## Choosing a tool
 For "what was/is the weather at <place>" ALWAYS use `stations` then `values` -- that is the only \
-path to measured weather, and the correct default. This holds even when the request names a \
+path to measured weather. This holds even when the request names a \
 specific past date (e.g. "how was the weather in Kiel on 26.12.2025"): find Kiel's nearest station \
 with `stations`, then read its `values` for that date. Do NOT reach for `interpolate` or \
 `summarize` here.
@@ -282,9 +282,14 @@ and nearest-station-with-data respectively); both introduce inaccuracy and are o
 ONLY when the user explicitly asks for an interpolated / between-stations estimate, or when \
 `stations` -> `values` genuinely returns no station with data near the location. They are not a \
 plain-language "summary". `history` is different again: it returns a station's *metadata* history \
-(name/location/sensor changes), not weather. For `alerts` (DWD warnings), pass the place \
-(a point is the reliable way). For design rainfall at a point in Germany (rain depth by duration \
+not weather. For `alerts` (DWD warnings), pass the place \
+(give a point). For design rainfall at a point in Germany (rain depth by duration \
 and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`.
+
+For counts, sums or means per year, month or day (frost days, the coldest winter) use `statistics`; \
+for a record or the hottest days, `values` with `sort` and `first`. `statistics` has no runs (dry spells), \
+moving windows (the wettest 3-day total), percentiles or medians: say so, do not estimate, unless a short \
+window fits in one `values` answer.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -300,11 +305,11 @@ them or none are configured, and null when that could not be told (treat it as u
 rejected). `providers` does not check them and has no `valid`: it says whether they are `configured`.
 
 ## Conventions
-- provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
+- provider/network: use "dwd"/"observation" for German ground observations. Call \
 `providers` to list every provider and its networks.
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \
-measurement. Prefer the single-measurement form to keep responses small. Parameter names are \
+measurement. Parameter names are \
 snake_case; `coverage(provider="dwd", network="observation", datasets="climate_summary")` lists them. \
 Its answer is keyed by resolution, then `datasets`, then each dataset's `parameters`, and every one \
 of those three levels carries a `description` saying what the source means by it. `unit` is what `values` \
@@ -312,14 +317,13 @@ return; `unit_source` only if it differs. Each parameter has `aggregation` \
 (its `instant` is a single reading) and `timestamp_position`; `null` means not stated, not a reading.
 - elevation: for `interpolate` and `summarize` only, the elevation of the point in metres above sea \
 level. Air temperature falls about 0.65 K per 100 m, so a point in a valley and one on the ridge \
-above it get different answers from the same stations; without it the readings are used as they \
-come.
+above it differ; without it the readings are used as they come.
 - periods: leave it out unless the provider splits its record into releases. dwd/observation does \
 -- "recent" is roughly the last 1.5 years, "historical" reaches further back -- as do dwd/derived and \
-dwd/phenology. Most other providers publish everything under a single period, and asking for one \
-their datasets do not have is an error, not a narrower answer.
+dwd/phenology. Most other providers have a single period; asking for one their datasets lack is an \
+error.
 - lists: an argument that takes several (`parameters`, `stations`, `periods`) is plural and takes them \
-comma-separated, e.g. stations="01975,04411". `interpolate` and `summarize` take one reference `station`.
+comma-separated. `interpolate` and `summarize` take one reference `station`.
 - Handy DWD datasets: daily/kl (= climate_summary: temperature, precipitation, wind, sunshine), \
 hourly/air_temperature, hourly/precipitation.
 
@@ -332,7 +336,7 @@ choose the rows). `quality_flags` is null or the \
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
-- Responses are compact (just the `values`). Always give `values` a `timestamp` window and a \
+- Always give `values` a `timestamp` window and a \
 single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters, with an `answer-truncated` \
 warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
 hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \
@@ -345,7 +349,7 @@ rest is answered). Do not retry the same request; widen the `timestamp`, check t
 station. `stations` takes the same `timestamp` as `values` and lists only the stations that have a record \
 in it, so the nearest are not long-closed stations. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
-- The default JSON is machine-readable: do NOT re-request the same data in another format.
+- Do NOT re-request the same data in another format.
 
 ## Example — recent mean air temperature at Hamburg-Fuhlsbüttel
   stations(provider="dwd", network="observation", parameters="daily/kl", name="Hamburg Fuhlsbüttel")
@@ -467,6 +471,7 @@ _TOOL_NAMES = {
     "storm_cells_api_storm_cells_get": "storm_cells",
     "kostra_api_kostra_get": "kostra",
     "station_ids_api_station_ids_get": "station_ids",
+    "statistics_api_statistics_get": "statistics",
 }
 
 # The title of every tool, and whether it reaches a service outside wetterdienst (the ``openWorldHint``).
@@ -490,8 +495,9 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "issues": ("List forecast issues", True),
     "alerts": ("Get weather alerts", True),
     "storm_cells": ("Get thunderstorm cells", True),
-    "kostra": ("Get heavy-rainfall statistics for a point", True),
+    "kostra": ("Get return periods of heavy rain for a point", True),
     "station_ids": ("Find a station by WMO, WIGOS or ICAO id", True),
+    "statistics": ("Count, average or add up values per year, month, day or hour", True),
 }
 
 
@@ -507,6 +513,15 @@ _VALUES_WINDOW_ADVICE = (
 _ALERTS_ADVICE = (
     "An answer over 40,000 characters leaves the polygon and areas out of each warning (`answer-truncated`). A `name` "
     "that matches no area is told by `no-area-matched`: that is no all-clear."
+)
+
+
+# The sentence that ends the description of the `statistics` tool, which only the tool has: its answer is cut to the
+# same budget, keeping the first groups (GH-4412).
+_STATISTICS_ADVICE = (
+    "It cannot find runs (the longest dry spell), moving windows (the wettest 3-day total), percentiles or medians: "
+    "say so, do not estimate them, unless the values of a short window fit in one `values` answer. An answer over "
+    "40,000 characters keeps the first groups (`answer-truncated`)."
 )
 
 
@@ -536,6 +551,8 @@ def _annotate_tool(
         component.description = f"{(component.description or '').rstrip()}\n\n{_VALUES_WINDOW_ADVICE}"
     elif component.name == "alerts":
         component.description = f"{(component.description or '').rstrip()}\n\n{_ALERTS_ADVICE}"
+    elif component.name == "statistics":
+        component.description = f"{(component.description or '').rstrip()}\n\n{_STATISTICS_ADVICE}"
     # keyword arguments, which the type checker holds to the fields; they go out on the wire as
     # `readOnlyHint` and so on
     component.annotations = ToolAnnotations(

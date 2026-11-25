@@ -24,6 +24,15 @@ Types of changes:
   `filter=wind_gust_max>=0&sort=temperature_air_min_2m&first=10` ranks timestamps, so the wind of
   the ten coldest days with a gust comes back. One resolution, names of the request, no `value`
   beside a name; an unknown name is refused with the request's names (GH-4419)
+- `statistics` (REST `/api/v1/statistics`, the MCP tool, `wetterdienst statistics`,
+  `values().statistics()`) counts, averages, adds up or takes the extremes of a station's values
+  per year, month, day or hour on the server: `aggregate=count&by=year&filter=value<0` is the frost
+  days of each year, `aggregate=mean&by=year&sort=-mean&first=5` the five warmest. Every group says
+  how many values it has and should have; a group with a gap, or a year that is not over, has no
+  `mean` or `sum` unless `max_missing` allows it (the warning `gaps-allowed` counts the groups it
+  lets in), and says `complete`. `earliest` and `latest`, `year_start`, `having`, `per=none` (each
+  group with its `rank`) and `max_rows` too; `first` keeps exactly N and warns how many more tie.
+  The groups of an answer are held to `WD_RESTAPI_MAX_GROUPS` (50,000), its series to 100 (GH-4412)
 
 ### Changed
 
@@ -37,6 +46,8 @@ Types of changes:
 - A new `duckdb://` file is written in the storage format of DuckDB 1.0, so that DuckDB 1.5 can read
   what DuckDB 2 wrote, and a column with no value is text, so that a later append of values to it
   works on DuckDB 2 (GH-4348)
+- The `kostra` tool, route and command are described as design rainfall (return periods of heavy
+  rain) and no longer as "heavy-rainfall statistics", which `statistics` now names (GH-4412)
 - **Breaking**: the MCP tools no longer take the options that only the REST API needs: `pretty`
   (every tool but `auth`, `glossary` and `issues`) and the `width`, `height` and `scale` of an image
   (`stations`, `values`, `interpolate`, `summarize`), and `format` no longer offers `html`, `png`,

@@ -18,6 +18,7 @@ from typing_extensions import TypeVar, Unpack
 from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
+from wetterdienst.model.group_statistics import StatisticsResult, StatisticsRun, parse_statistics
 from wetterdienst.model.judge import SOURCE as SOURCE_COLUMN
 from wetterdienst.model.judge import (
     SOURCE_TEXT,
@@ -569,14 +570,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """
         return self._walk(self._row_selection(rows, whole=self._finishing_rows))
 
-    def _walk(self, selection: RowSelection | None) -> Iterator[ValuesResult]:
-        """Walk the stations of the request, each reduced by `selection` where there is one."""
+    def _walk(self, selection: RowSelection | None, statistics: StatisticsRun | None = None) -> Iterator[ValuesResult]:
+        """Walk the stations of the request, each reduced by `selection` or fed to `statistics` where there is one."""
         self._stations_read = 0
         self._names = None
         groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
         ahead = self._fetch_ahead(groups)
         try:
-            yield from self._query_stations(groups, ahead, selection)
+            yield from self._query_stations(groups, ahead, selection, statistics)
         finally:
             # a consumer that stops (a closed generator, an error, a streamed answer whose client has gone) starts
             # nothing more: what is begun ends with its download, and a download never leaves a part of a file in
@@ -585,9 +586,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 ahead.close()
 
     def _query_stations(
-        self, groups: list[tuple[Any, pl.DataFrame]], ahead: FetchAhead | None, selection: RowSelection | None = None
+        self,
+        groups: list[tuple[Any, pl.DataFrame]],
+        ahead: FetchAhead | None,
+        selection: RowSelection | None = None,
+        statistics: StatisticsRun | None = None,
     ) -> Iterator[ValuesResult]:
-        """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
+        """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them.
+
+        With `statistics` each station's rows are handed to it as they are read and let go: the result a station yields
+        has no rows then, and the groups are the run's.
+        """
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
         # an explicit list of ids, `station_id`s or the WMO, WIGOS or ICAO ids of stations, is the one kind of selection
@@ -663,7 +672,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if hpm is not None:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             # what the selection searches, as the answer names it, counted before it chooses
-            searched = self._searched_of(df) if selection is not None else None
+            searched = (
+                self._searched_of(df, stamped_on_the_day=statistics is not None)
+                if selection is not None or statistics is not None
+                else None
+            )
             if not self.sr.options.tidy:
                 df = self._widen_df(df=df)
             # sorted by resolution first in either shape: two resolutions are two series, and
@@ -678,7 +691,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.sort(sort_columns)
             stations_collected += 1
             rows.returned(station_id)
-            df, search = self._choose_rows(selection, searched, df)
+            if statistics is not None and searched is not None:
+                statistics.add_station(df, searched)
+                df, search = df.head(0), None
+            else:
+                df, search = self._choose_rows(selection, searched, df)
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated), search=search)
         # the answer of the request may have been given up while the last station was read: what is made of the stations
         # (the rows, the picture) is not made for nobody (GH-4429)
@@ -686,7 +703,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
 
-    def _searched_of(self, df: pl.DataFrame) -> pl.DataFrame:
+    def _searched_of(self, df: pl.DataFrame, *, stamped_on_the_day: bool = False) -> pl.DataFrame:
         """Count what the rows of a station hold for the report, with the window, the station's name and the kind."""
         if self._names is None:
             self._names = station_names(self.sr.df)
@@ -695,6 +712,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             (self.sr.start, self.sr.end),
             names=self._names,
             forecast=self.sr.request.metadata.kind == "forecast",
+            stamped_on_the_day=stamped_on_the_day,
         )
 
     def _choose_rows(
@@ -1538,6 +1556,64 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         search = search.with_returned(df)
         search.warn_if_capped()
         return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated), search=search)
+
+    def statistics(
+        self,
+        aggregate: str | Sequence[str],
+        *,
+        by: str | Sequence[str] | None = None,
+        filter: str | None = None,  # noqa: A002
+        year_start: int | str | None = None,
+        max_missing: int | str | None = None,
+        having: str | None = None,
+        sort: str | None = None,
+        first: int | str | None = None,
+        per: str | None = None,
+        max_rows: int | str | None = None,
+    ) -> StatisticsResult:
+        """Count, average, add up or take the extremes of each station's values per year, month, day or hour.
+
+        `aggregate` is one to five of `count mean sum min max earliest latest`; `by` the groups besides the series (any
+        of `year month day hour`); `filter` the conditions (`year month day hour` say which values are looked at,
+        `value` which of them count); `year_start` the month a `year` begins; `max_missing` how many missing values a
+        group may have and still get a `mean` and a `sum` (keep it 0 to rank: `gaps-allowed` counts the groups it
+        lets in); `having` and `sort` choose and order the groups by what was calculated, `first` keeps the first N of
+        them (exactly N: `ties-not-shown` says how many more tie) per series or, with `per="none"`, over the stations
+        of a parameter; `max_rows` cuts the answer. See `group_statistics`.
+
+        Each station is reduced to its groups as it is read and its rows let go, so that what is held is the groups
+        and not the readings. A group that is not over yet is incomplete: its `mean` and `sum` are null unless
+        `max_missing` allows it, and `searched` and `expected` say how many values it has and should have. Series are
+        never merged.
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read, before any station is.
+            RowSelectionRefusedError: an option that cannot be applied to this request or to one of its series (a sum
+                of a pressure, `by=hour` of daily values, the wide shape).
+            GroupsOverLimitError: the groups held are more than `_held_rows_limit` allows.
+
+        """
+        plan = parse_statistics(
+            aggregate,
+            by=by,
+            filter=filter,
+            year_start=year_start,
+            max_missing=max_missing,
+            having=having,
+            sort=sort,
+            first=first,
+            per=per,
+            max_rows=max_rows,
+        )
+        run = StatisticsRun.for_stations(
+            self.sr, plan, unit_symbol=self._unit_symbol, held_groups_limit=self._held_rows_limit
+        )
+        updated: list[dt.datetime] = []
+        tqdm_out = TqdmToLogger(log, level=logging.INFO)
+        for result in tqdm(self._walk(None, run), total=len(self.sr.station_id), file=tqdm_out):
+            if result.data_updated_at is not None:
+                updated.append(result.data_updated_at)
+        return run.finish(self.sr, stations_read=self._stations_read, data_updated_at=newest(updated))
 
     #: the cells of the rows chosen that `all` lets pile up before it makes the first rows of the groups that span
     #: stations of them, or fewer where the limit it was given is lower
