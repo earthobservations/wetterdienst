@@ -41,8 +41,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from io import BytesIO
 
+    from typing_extensions import Unpack
+
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.result import ValuesResult
+    from wetterdienst.model.row_selection import RowOptions
     from wetterdienst.settings import Settings
     from wetterdienst.util.network import File
 
@@ -594,7 +597,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     #: is the same at the next station, and a hanging NCEI costs its timeout at each (`query`)
     _ncei_outage: _DailyFile | None = None
 
-    def query(self) -> Iterator[ValuesResult]:
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Query the stations, remembering for as long as the walk runs that NCEI failed (`_read_daily_file`).
 
         Set and cleared here, on the values of this request: a walk is a generator, and the next request asks NCEI
@@ -602,7 +605,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         """
         self._ncei_outage = None
         try:
-            yield from super().query()
+            yield from super().query(**rows)
         finally:
             self._ncei_outage = None
 

@@ -466,6 +466,9 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 # the command line imports what a command uses inside the command, so that `--help`, `--version` and a shell completion
 # load almost nothing (GH-3809); tests/ui/cli/test_cli_imports.py holds what the module imports
 "src/wetterdienst/ui/cli.py" = ["PLC0415"]
+# the parser of the row options builds the message of every refusal where it finds the fault (position, what was found,
+# what is allowed, what to write instead), which is its job; no message is made for a second raise
+"src/wetterdienst/model/row_selection.py" = ["EM101", "EM102", "TRY003"]
 
 [tool.deptry]
 known_first_party = ["wetterdienst"]

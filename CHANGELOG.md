@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- `values` takes `filter`, `sort`, `first`, `by` and `max_rows`, which have the server choose the
+  rows of the answer from the whole series: `sort=value&first=1` is the lowest value of each
+  station in the window, `filter=value<=-20` the days at or below -20, `max_rows=20` keeps the
+  first 20 rows. The same words on REST, in the MCP tool, on the command line and in Python; a
+  text that cannot be read is refused with its position. `metadata.search` says per station and
+  parameter from when to when the series was searched, how many values, of how many the request
+  covers, and how many rows matched and were returned. A request with `first` may read up to the
+  stream limit (GH-4411)
 - `region` selects the stations their provider lists under a region (`stations` and `values`; the
   command line's `--region`, the REST API's and MCP's `region`; Python's `filter_by_region`): one
   region or several, comma-separated, compared as names are (case, accents, `ue` for `ü`, a hyphen
@@ -40,6 +48,14 @@ Types of changes:
   2.0 a condition reads as DuckDB 2 does: `~` matches a part of the text, `1 // 0` is an error and
   `x -> x + 1` is written `lambda x: x + 1`. A `duckdb://` file that DuckDB 2 creates cannot be
   opened by DuckDB 1.5; write it with `duckdb<2` where such a reader remains (GH-4348)
+
+### Fixed
+
+- A streamed wide CSV (`shape=wide`) no longer drops, without a word, the columns that only a later
+  station has: its header came from the first station, so a parameter it lacked lost its values for
+  every other. The header is now the columns of the request, in its order, a station that lacks a
+  parameter having it empty. Other answers are unchanged; name the parameters for a dataset with
+  many (GH-4432)
 
 ## [0.198.0] - 2026-11-24
 

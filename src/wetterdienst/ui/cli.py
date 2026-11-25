@@ -295,6 +295,32 @@ def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
     )
 
 
+#: what to use instead of the options `--limit` and `--offset`, which `values` has not, in the words of its options
+_HINTED_ON_THE_COMMAND_LINE = {
+    "--limit": (
+        "the most rows of an answer are --max-rows; --limits bounds values for the plausibility check, and --first "
+        "keeps the first rows of each group"
+    ),
+    "--offset": (
+        "there is no offset and no paging: --max-rows keeps the first rows of the answer, and --filter, --sort and "
+        "--first choose which they are"
+    ),
+}
+
+
+def _hinted_opt(option: str) -> Callable[[_CommandT], _CommandT]:
+    """Refuse an option that `values` has not, naming what to use instead, where click only says there is none."""
+
+    def refuse(ctx: click.Context, _param: click.Parameter, value: object) -> None:
+        if value is not None:
+            msg = f"{option} is not an option of values: {_HINTED_ON_THE_COMMAND_LINE[option]}"
+            raise click.UsageError(msg, ctx)
+
+    return click.option(
+        option, type=click.STRING, is_flag=False, flag_value="", hidden=True, expose_value=False, callback=refuse
+    )
+
+
 def _bool_opt(
     name: str,
     *,
@@ -501,6 +527,89 @@ limits_opt = click.option(
         "WD_TS_LIMITS if set, else none; a name given here replaces the one of WD_TS_LIMITS"
     ),
 )
+
+
+def _given_once(ctx: click.Context, param: click.Parameter, value: tuple[Any, ...]) -> Any:  # noqa: ANN401
+    """Read an option of the row options that is given once: twice is refused, where click would keep the last."""
+    if len(value) > 1:
+        name = param.opts[0]
+        if name == "--filter":
+            hint = "join the conditions with a comma: --filter='value<=-20,month=12'"
+        elif name in {"--first", "--max-rows"}:
+            hint = f"give one number to {name}"
+        else:
+            hint = f"give one value of {name}, columns joined by commas"
+        msg = f"{name} is given {len(value)} times and a command takes it once: {hint}."
+        raise click.UsageError(msg, ctx)
+    return value[0] if value else None
+
+
+def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Add `--filter`, `--sort`, `--first` and `--by` to a command: the rows of the answer (GH-4411)."""
+    options = (
+        click.option(
+            "--filter",
+            "filter_",
+            type=click.STRING,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "Keep only the rows that meet every condition, joined by commas: column, operator, number. Columns: "
+                "value, year, month, day, hour (UTC; a daily value's own date). Operators: = != < <= > >=; a list a|b "
+                "with = and !=. A missing value never matches. A value condition needs parameters of one unit. "
+                "Example: value<=-20,month=12|1|2 (quote it: < and | are the shell's)"
+            ),
+        ),
+        click.option(
+            "--sort",
+            type=click.STRING,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "Order of the answer: columns joined by commas, - before one for descending. Columns: value, "
+                "timestamp, year, month, day, hour, station_id. Example: --sort=-value (highest first)"
+            ),
+        ),
+        click.option(
+            "--first",
+            type=click.INT,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "Return only the first N rows of each group in the --sort order, the ties of the last one included "
+                "(needs --sort). --sort=value --first=1 is the lowest value of each station in the --timestamp "
+                "window. The whole window is read, and metadata.search says from when to when."
+            ),
+        ),
+        click.option(
+            "--by",
+            type=click.STRING,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "The groups --first counts in: station_id (the default), year, month, day, hour, joined "
+                "by commas, or none for all stations together; a parameter is always its own group (needs --first)"
+            ),
+        ),
+        click.option(
+            "--max-rows",
+            "max_rows",
+            type=click.INT,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "Return at most this many rows of the whole answer, the first of its order (after --filter, --sort "
+                "and --first), over all stations and parameters: for a short answer where many rows tie. What "
+                "matched is still counted in metadata.search, and a rows-capped warning says how many are returned"
+            ),
+        ),
+        _hinted_opt("--limit"),
+        _hinted_opt("--offset"),
+    )
+    for option in reversed(options):
+        func = option(func)
+    return func
+
 
 sql_values_opt = click.option(
     "--sql-values",
@@ -1062,6 +1171,17 @@ VALUES_EXAMPLES = r"""
     wetterdienst values --provider=dwd --network=observation \
         --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_2m \
         --timestamp=2020-06-15T12/2020-06-16T12 --stations=1048,4411 --shape=wide
+
+    # the rows of the whole record that the answer is about: the lowest and the coldest day of every year
+    wetterdienst values --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+        --sort=value --first=1
+    wetterdienst values --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+        --sort=value --first=1 --by=station_id,year
+    wetterdienst values --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+        --filter='value<=-20' --sort=-timestamp
 
     # the days with a wind gust above 20 m/s, one row per value or, filtering on the column, one per day
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
@@ -2346,6 +2466,7 @@ def history(
 @station_window_end_buffer_opt
 @plausibility_opts
 @limits_opt
+@_row_options_opts
 @stream_format_opt
 @width_opt
 @height_opt
@@ -2410,6 +2531,11 @@ def values(
     plausibility_step: Mode,
     plausibility_relations: Mode,
     limits: dict[str, Any] | None,
+    filter_: str | None,
+    sort: str | None,
+    first: int | None,
+    by: str | None,
+    max_rows: int | None,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
     with_stations: bool,  # noqa: FBT001
@@ -2477,6 +2603,11 @@ def values(
             "plausibility_step": plausibility_step,
             "plausibility_relations": plausibility_relations,
             "limits": limits,
+            "filter": filter_,
+            "sort": sort,
+            "first": first,
+            "by": by,
+            "max_rows": max_rows,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,

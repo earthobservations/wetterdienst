@@ -41,7 +41,10 @@ from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from typing_extensions import Unpack
+
     from wetterdienst.model.result import ValuesResult
+    from wetterdienst.model.row_selection import RowOptions
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -359,7 +362,7 @@ class DwdSwsmosValues(TimeseriesValues):
             self._run_frame_cache = frame
         return self._run_frame_cache
 
-    def query(self) -> Iterator[ValuesResult]:
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Answer each station of the request, from one run resolved for this query.
 
         The run is pinned for the length of a query and no longer. The `finally` is what delivers
@@ -376,7 +379,7 @@ class DwdSwsmosValues(TimeseriesValues):
         self._run_frame_cache = None
         self._run_issued = None
         try:
-            yield from super().query()
+            yield from super().query(**rows)
         finally:
             self._run_frame_cache = None
             self._run_issued = None

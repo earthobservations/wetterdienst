@@ -15,6 +15,7 @@ from dataclasses import replace
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast, get_type_hints
 
+import polars as pl
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -67,6 +68,12 @@ from wetterdienst.model.result import (
     _ValuesDictBody,
     _ValuesOgcFeatureCollectionBody,
 )
+from wetterdienst.model.row_selection import (
+    MAX_TOOL_SERIES,
+    RowsOverLimitError,
+    Searched,
+    parse_row_selection,
+)
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings, removed_settings
 from wetterdienst.ui import forecast_start
@@ -117,10 +124,12 @@ from wetterdienst.ui.core import (
     limit_stations_to_window,
     overlay_options,
     resolve_network,
+    row_options_of,
     set_logging_level,
 )
 from wetterdienst.ui.limits import (
     Limits,
+    check_chosen_rows,
     check_point_rows,
     check_rows,
     check_station_count,
@@ -171,6 +180,7 @@ from wetterdienst.ui.render import (
 from wetterdienst.ui.response_metadata import (
     API_VERSION,
     ResponseMetadata,
+    Search,
     StationIdsMetadata,
     catalogue_headers,
     issues_metadata,
@@ -1866,19 +1876,24 @@ _STREAM_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def _check_values_limits(stations: StationsResult, limits: Limits, *, streamed: bool) -> None:
+def _check_values_limits(
+    stations: StationsResult, limits: Limits, *, streamed: bool, chooses: bool = False, holds: bool = False
+) -> None:
     """Refuse a values request that reads too many stations or would return too many rows, before any download.
 
     Counted from the selection of stations, which the server holds already; the rows are an estimate and an upper
-    bound (`ui.limits`).
+    bound (`ui.limits`). A request that `chooses` rows with `first` is held to what it reads, not to what it sends:
+    it may read up to the stream limit, whatever its format, and what is sent is held to the limit of its format after
+    (`check_chosen_rows`). A request that `holds` every row it reads (a `sort`) is told that a stream does not help it.
     """
     check_station_count(
         selected_station_count(stations),
         limits,
         by_region=stations._stations_filter is StationsFilter.BY_REGION,  # noqa: SLF001
     )
-    if limits.max_stream_rows if streamed else limits.max_rows:
-        check_rows(estimate_rows(stations), limits, streamed=streamed)
+    reads_streamed = streamed or chooses
+    if limits.max_stream_rows if reads_streamed else limits.max_rows:
+        check_rows(estimate_rows(stations), limits, streamed=reads_streamed, holds=holds)
 
 
 def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
@@ -1963,9 +1978,15 @@ def _stream_response(
     )
 
 
-def _stream_end(stations: int, rows: int) -> dict[str, Any]:
-    """Give the `end` line of a stream: what was sent, and every warning raised while it was."""
-    return ndjson_end(stations, rows, recorded_warnings())
+def _stream_end(stations: int, rows: int, search: Callable[[], dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Give the `end` line of a stream: what was sent, and every warning raised while it was.
+
+    `search` gives what the row options searched where the stream has them: it is known only at the end, so the line
+    that ends the stream carries it, as it carries the warnings.
+    """
+    # the search first: it may say that `max_rows` cut the answer, a warning the line carries
+    report = search() if search is not None else None
+    return ndjson_end(stations, rows, recorded_warnings(), report)
 
 
 def _stream_stations(
@@ -2004,14 +2025,22 @@ def _stream_values(
     The stations are selected and the limits checked as for the other formats. The first station is read before the
     response begins, so that a failure on it has its status; one on a later station comes as the last line of
     NDJSON, and cuts a CSV.
+
+    A `sort` or a `first` makes the answer of the whole read: the order is that of all the rows and the groups may span
+    stations, so the rows are chosen first, and sent in batches with the report of what was searched in the first line
+    (`_stream_chosen_values`). A `filter` alone is applied to each station as it is read, and the report is the last
+    line's.
     """
+    rows = row_options_of(request)
+    if "sort" in rows or "first" in rows:
+        return _stream_chosen_values(api, request, settings, options, limits)
     try:
         stations = get_stations(
             api=api, request=request, timestamp=request.timestamp, settings=settings, options=options
         )
         _check_values_limits(stations, limits, streamed=True)
         reader = stations.values()
-        results = reader.query()
+        results = reader.query(**rows)
         first = next(results, None)
     except (AssertionError, HTTPException):
         raise
@@ -2023,9 +2052,87 @@ def _stream_values(
     # no `data_updated_at`: the newest date of the stations is not known before the last is read, and a list of
     # stations has none
     metadata = response_metadata(preview, request, rows=0)
-    frames = (result.df for result in results)
+    searched: list[pl.DataFrame] = []
+
+    cap = request.max_rows
+    # the rows the options chose and the rows sent, as frames count them: a wide row counts once, whatever its columns
+    counted = {"sent": 0, "matched": 0}
+
+    def frames_of(read: Iterator[ValuesResult]) -> Iterator[pl.DataFrame]:
+        # `max_rows` cuts the answer over all stations: what is sent stops at it, the walk goes on to count the rest
+        for result in read:
+            frame, search = result.df, result.search
+            if cap is not None:
+                frame = frame.head(max(cap - counted["sent"], 0))
+                search = search.with_returned(frame) if search is not None else None
+            counted["sent"] += frame.height
+            if search is not None:
+                counted["matched"] += search.matched_rows or 0
+                searched.append(search.series)
+            yield frame
+
+    frames = frames_of(results)
     failure = _stream_failure(request, "stream values")
 
+    def search_report() -> dict[str, Any]:
+        selection = parse_row_selection(**rows)
+        assert selection is not None  # noqa: S101 -- search_report is asked for only where row options are given
+        window = (stations.start, stations.end)
+        read = reader._stations_read  # noqa: SLF001
+        report = (
+            Searched(
+                series=pl.concat(searched),
+                selection=selection,
+                window=window,
+                matched_rows=counted["matched"],
+                returned_rows=counted["sent"],
+                stations_read=read,
+            )
+            if searched
+            else Searched.nothing(selection, window, read)
+        )
+        report.warn_if_capped()
+        return Search.model_validate(report.to_dict()).model_dump(mode="json")
+
+    if request.format == "ndjson":
+        settings_ = _applied_settings(ValuesSettings, options) if request.with_metadata else None
+        chunks = ndjson_stream(
+            ndjson_head(metadata, settings_),
+            frames,
+            lambda df: cast("list[dict[str, Any]]", ValuesResult._to_dict(df)),  # noqa: SLF001
+            lambda stations_, rows_: _stream_end(stations_, rows_, search_report if rows else None),
+            failure,
+        )
+        return _stream_response(chunks, NDJSON_MEDIA_TYPE, metadata, ndjson=True)
+    chunks = csv_stream(
+        frames,
+        lambda df, header: ValuesResult(stations=stations, df=df).to_csv(include_header=header),
+        reader._empty_values_df,  # noqa: SLF001
+        failure,
+        # the header is written with the first station, which lacks the parameters only a later one has
+        schema=None if options.tidy else reader._wide_schema(),  # noqa: SLF001
+    )
+    return _stream_response(chunks, "text/csv", metadata, ndjson=False)
+
+
+def _stream_chosen_values(
+    api: type[TimeseriesRequest],
+    request: ValuesRequest,
+    settings: Settings,
+    options: Options,
+    limits: Limits,
+) -> StreamingResponse:
+    """Stream the rows a `sort` or a `first` chose: all of them are held before the first is sent.
+
+    So they are held to the limit of one body (`rows`), as the answer of `json` is, and not to the one of a stream: a
+    stream does not hold its rows, this one does. Read as the other formats are, under the stream limit where `first`
+    is given (a record is searched). The `metadata` block is whole, with the search, as the rows are all known. The
+    timeout of the server holds for the whole read here, as no chunk goes out before the last station is read.
+    """
+    values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
+    metadata = response_metadata(values_, request)
+    frames = frames_in_batches(values_.df)
+    failure = _stream_failure(request, "stream values")
     if request.format == "ndjson":
         settings_ = _applied_settings(ValuesSettings, options) if request.with_metadata else None
         chunks = ndjson_stream(
@@ -2038,8 +2145,8 @@ def _stream_values(
         return _stream_response(chunks, NDJSON_MEDIA_TYPE, metadata, ndjson=True)
     chunks = csv_stream(
         frames,
-        lambda df, header: ValuesResult(stations=stations, df=df).to_csv(include_header=header),
-        reader._empty_values_df,  # noqa: SLF001
+        lambda df, header: ValuesResult(stations=values_.stations, df=df).to_csv(include_header=header),
+        lambda: values_.df,
         failure,
     )
     return _stream_response(chunks, "text/csv", metadata, ndjson=False)
@@ -2251,6 +2358,13 @@ def values(
     dataset of one station (one resolution in the wide shape), so a station can have several. Do not
     re-request in other formats.
 
+    To find a record or a rare value, have the server choose the rows instead of reading the series:
+    `sort=value&first=1` is the lowest value of each station in the window (`sort=-value` the highest),
+    `filter=value<=-20,month=12` the readings at or below -20 in a December. An extreme can be a faulty reading:
+    read its `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows
+    (every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when
+    and how many values were searched, so that a record the data lacks is told from one not looked for.
+
     With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
     relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
     (where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in
@@ -2258,6 +2372,7 @@ def values(
     """
     begin_response()
     _refuse_oversized_chart(request)
+    _refuse_repeated_row_options(http_request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -2272,6 +2387,9 @@ def values(
         return _stream_values(api, request, settings, options, limits)
     values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
     tool = is_tool_request(http_request.scope)
+    if tool and values_.search is not None:
+        # an assistant reads the report inside the budget of its answer: the first series, the totals of all
+        values_ = replace(values_, search=replace(values_.search, listed=MAX_TOOL_SERIES))
     if tool and forecast_start.applies(api, request):
         # a forecast without a window, or with one of days around now, starts at now, before the budget counts (GH-4025)
         values_ = forecast_start.forecast_from_now(values_, floor=forecast_start.lower_bound(request))
@@ -2291,6 +2409,38 @@ def values(
         )
 
     return _answer(content, request.format, metadata)
+
+
+_ROW_OPTIONS = ("filter", "sort", "first", "by", "max_rows")
+
+
+def _refuse_repeated_row_options(http_request: Request) -> None:
+    """Refuse a row option given more than once: the query would keep one of them and the answer would not say which.
+
+    `filter=value<0&filter=month=1` is the conditions `value<0,month=1` in the grammar, which joins them by a comma;
+    a second `sort` or `by` has no such reading. A 422 located at the option, as an option that cannot be read is.
+    """
+    entries: list[dict[str, Any]] = [
+        {
+            "type": "repeated",
+            "loc": ["query", name],
+            "msg": (
+                f"`{name}` is given {len(values)} times and a request takes it once: "
+                + (
+                    "join the conditions of `filter` with a comma, as in filter=value<=-20,month=12"
+                    if name == "filter"
+                    else f"give one number to `{name}`"
+                    if name in {"first", "max_rows"}
+                    else f"give one value of `{name}`, columns joined by commas where it takes several"
+                )
+            ),
+            "input": values,
+        }
+        for name in _ROW_OPTIONS
+        if len(values := http_request.query_params.getlist(name)) > 1
+    ]
+    if entries:
+        raise ProblemError(422, str(entries[0]["msg"]), ProblemKind.INVALID_PARAMETERS, extra={"errors": entries})
 
 
 def _request_options(
@@ -2356,7 +2506,7 @@ def _geo_options(
     return _request_options(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
 
 
-def _refusal_detail(e: Exception, what: str) -> str:
+def _refusal_detail(e: Exception, what: str, request: BaseModel | None = None) -> str:
     """Word a refusal for a caller of this API, who passes the window as one `timestamp`.
 
     A request refuses a window that is missing or ends before it starts in terms of its `start` and
@@ -2366,7 +2516,11 @@ def _refusal_detail(e: Exception, what: str) -> str:
     if isinstance(e, ReversedTimeIntervalError):
         return "the interval in timestamp ends before it starts"
     if isinstance(e, DateRequiredError):
-        return "timestamp is required for this dataset"
+        detail = "timestamp is required for this dataset"
+        if any(getattr(request, name, None) is not None for name in ("filter", "sort", "first", "by")):
+            # a search of the record asks for a window that spans it, which is the only way to say "everything"
+            detail += ": give a window that spans the record, such as timestamp=1883/2026 (a later end is fine)"
+        return detail
     if isinstance(e, MissingTimeIntervalError):
         return f"timestamp is required to {what}"
     return str(e)
@@ -2532,7 +2686,7 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
     """
     status = _caller_refusal_status(e, request)
     if status is not None:
-        detail = _refusal_detail(e, what)
+        detail = _refusal_detail(e, what, request)
         log.info(f"Failed to {what}: {detail}")
         if isinstance(e, NoStationPositionsError):
             return _unplaceable_format(detail, getattr(request, "format", None))
@@ -2566,20 +2720,32 @@ def _values(
     the same reason: which failure earns which status is a decision of its own, and the endpoint --
     which also assembles a response format, a target and a set of kwargs -- is not where it belongs.
     """
+    chooses = request.first is not None
+    holds = chooses or request.sort is not None
     try:
-        return get_values(
+        values_ = get_values(
             api=api,
             request=request,
             settings=settings,
             options=options,
-            check=lambda stations_: _check_values_limits(stations_, limits, streamed=False),
+            check=lambda stations_: _check_values_limits(
+                stations_, limits, streamed=False, chooses=chooses, holds=holds
+            ),
+            held_rows_limit=limits.max_rows if chooses else None,
         )
+        if chooses:
+            # read under the stream limit, so that a record can be searched; sent under the limit of one body
+            check_chosen_rows(values_.df.height, limits)
+    except RowsOverLimitError as e:
+        check_chosen_rows(e.rows, limits, so_far=True)
+        raise
     except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix; and a limit that refused the request, which is its 400
         raise
     except Exception as e:
         raise _failure(e, request, "get values") from e
+    return values_
 
 
 def _geo_values(

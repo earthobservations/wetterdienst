@@ -36,7 +36,10 @@ from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from typing_extensions import Unpack
+
     from wetterdienst.model.result import ValuesResult
+    from wetterdienst.model.row_selection import RowOptions
 
 log = logging.getLogger(__name__)
 
@@ -145,7 +148,7 @@ class KnmiObservationValues(TimeseriesValues):
         self._edr: edr.EdrReader | None = None
         self._edr_reads: dict[tuple[str, str], dict[str, edr.Reading]] = {}
 
-    def query(self) -> Iterator[ValuesResult]:
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Answer each station of the request; what the EDR API gave is kept for the walk and no longer.
 
         A query that cannot be read within the quota of the key for an hour is refused before the walk (`_check_quota`).
@@ -154,7 +157,7 @@ class KnmiObservationValues(TimeseriesValues):
         self._edr_reads.clear()
         self._check_quota()
         try:
-            yield from super().query()
+            yield from super().query(**rows)
         finally:
             # a result keeps the values object, and so what is held here, for as long as its caller keeps it
             self._edr = None
