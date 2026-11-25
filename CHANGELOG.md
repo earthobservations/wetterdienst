@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
+  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `webp`, `svg` or
+  `pdf` on `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
+  `charts-disabled`, before anything is read, that names the formats the server answers. Every
+  image starts a Chrome on the server. On your own server set the variable to keep the charts, or
+  ask for `json`, `geojson` or `csv`. The library, the command line, the MCP tools and the web app
+  are unchanged (GH-4461)
+
+## [0.200.0] - 2026-11-25
+
 ### Added
 
 - A parameter's name is a column of `filter` and `sort` (REST, MCP, command line, Python):
@@ -62,18 +74,14 @@ Types of changes:
   `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, or a `null` size option, is
   answered as one without; a size with a value and a `format` the tool does not offer are tool
   errors that say what the tool answers: charts through the tools are gone.
-  The input schemas shrink by 3,441 of 54,314 characters. REST, the command line and Python are
-  unchanged: ask the REST API for a chart (GH-4318)
-- **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
-  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `webp`, `svg` or
-  `pdf` on `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
-  `charts-disabled`, before anything is read, that names the formats the server answers. Every
-  image starts a Chrome on the server. On your own server set the variable to keep the charts, or
-  ask for `json`, `geojson` or `csv`. The library, the command line, the MCP tools and the web app
-  are unchanged (GH-4461)
+  The input schemas of the tools of 0.199.0 are 3,173 of 54,101 characters shorter (the options'
+  share is 3,441). REST, the command line and Python are unchanged: ask the REST API for a chart
+  (GH-4318)
 
 ### Fixed
 
+- Exports to a `duckdb://` file from several threads of a process run one after the other: on DuckDB 2
+  they could fail with `Table Function with name python_arrow_scan does not exist!` (GH-4457)
 - An MCP tool refuses an object (or a list that holds one) for an argument that takes no object,
   naming the argument: `values(shape={"format": "png"})` was sent to the route as `format=png`,
   past the refusal of the chart formats, and answered an image, a PDF or markup of any size. A tool
@@ -8658,7 +8666,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.200.0...HEAD
+[0.200.0]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...v0.200.0
 [0.199.0]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...v0.199.0
 [0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
