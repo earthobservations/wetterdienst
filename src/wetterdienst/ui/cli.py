@@ -3678,7 +3678,8 @@ def kostra(
     type=click.IntRange(0, 10000),
     help=(
         "How many values a group may lack and still be complete, with a mean and a sum (default 0: a group with a "
-        "gap, a year that is not over or a year the window cuts has none). complete says which groups are"
+        "gap, a year that is not over or a year the window cuts has none). Keep it 0 to rank; raise it only for a gap "
+        "you accept: the warning gaps-allowed counts what it lets in"
     ),
 )
 @click.option(

@@ -678,3 +678,100 @@ def test_a_monthly_value_dated_0600_is_for_values_as_it_was(monkeypatch: pytest.
     result = request.values().all(filter="value>=0")
     assert result.search is not None
     assert result.search.series.get_column("expected").to_list() == [None]
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# `gaps-allowed`: a group that lacks values is in the answer because `max_missing` says so
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def test_a_group_with_gaps_that_max_missing_lets_in_is_warned_of_with_its_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2020 lacks 66 days (300 of 366): `max_missing=66` ranks it, and the warning says how many and why."""
+    request = _gappy(monkeypatch)
+    result = request.values().statistics("mean", by="year", sort="-mean", max_missing=66)
+    assert [row["complete"] for row in _rows(result)] == [True, True]
+    message = _codes()["gaps-allowed"]
+    assert message.startswith("1 group lacks 66 values and is ranked because `max_missing` is 66")
+    assert "`complete` is true, which says no more than `max_missing` lack" in message
+    assert "Keep `max_missing` at 0" in message
+
+
+def test_without_a_ranking_the_group_is_in_the_answer_not_ranked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No `sort`: nothing is ranked, and the warning says the group is in the answer."""
+    request = _gappy(monkeypatch)
+    request.values().statistics("mean", by="year", max_missing=66)
+    assert "is in the answer because `max_missing` is 66" in _codes()["gaps-allowed"]
+
+
+def test_several_groups_are_counted_with_the_most_and_all_they_lack(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two years of 200 days lack 165 and 166 values: '2 groups lack up to 166 values (331 in all)'."""
+    request = _two_short_years(monkeypatch)
+    request.values().statistics("sum", by="year", sort="-sum", max_missing=400)
+    message = _codes()["gaps-allowed"]
+    assert message.startswith("2 groups lack up to 166 values (331 in all) and are ranked because `max_missing` is 400")
+    assert "their `mean` and `sum`" in message
+
+
+def test_a_year_that_is_not_over_is_a_group_that_lacks_its_days_to_come(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The running year, 182 days short on 1 July, is let in by `max_missing=400`: the warning counts it."""
+    _serve(monkeypatch, daily(dt.date(2020, 1, 1), [1.0] * 182), now=dt.datetime(2020, 7, 1, 12, tzinfo=UTC))
+    request = _request(at(2020, 1, 1), at(2020, 6, 30, 23))
+    request.values().statistics("mean", by="year", sort="-mean", max_missing=400)
+    assert _codes()["gaps-allowed"].startswith("1 group lacks 184 values and is ranked")
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"max_missing": 0},
+        {"max_missing": 400, "having": "searched>=365"},
+        {"max_missing": 400, "filter": "year=2019"},
+    ],
+)
+def test_no_group_that_lacks_values_in_the_answer_is_no_warning(
+    monkeypatch: pytest.MonkeyPatch, options: dict[str, int | str]
+) -> None:
+    """Quiet with `max_missing` 0, and quiet where the groups that remain have every value, whatever it is."""
+    request = _gappy(monkeypatch)
+    request.values().statistics("mean", by="year", sort="-mean", **options)
+    assert "gaps-allowed" not in _codes()
+
+
+def test_a_group_with_no_value_at_all_is_not_one_that_is_ranked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A month inside the record with no value has no mean to rank: it lacks values, but is none the warning counts."""
+    readings = {**{at(2020, 1, d): 1.0 for d in range(1, 32)}, **{at(2020, 3, d): 1.0 for d in range(1, 32)}}
+    _serve(monkeypatch, readings)
+    request = _request(None, None)
+    rows = _rows(request.values().statistics("mean", by="month", max_missing=400))
+    assert [(r["month"], r["searched"], r["mean"]) for r in rows] == [(1, 31, 1.0), (2, 0, None), (3, 31, 1.0)]
+    assert "gaps-allowed" not in _codes()
+
+
+def test_a_group_whose_expected_is_not_known_is_not_one_that_lacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """More values than cells makes `expected` null: nothing is known to lack, so there is no warning."""
+    readings: dict[dt.datetime, float | None] = {at(2020, 1, d): 1.0 for d in range(1, 32)}
+    readings[at(2020, 1, 1, 18)] = 2.0
+    readings.update({at(2020, 2, d): 1.0 for d in range(1, 11)})
+    _serve(monkeypatch, readings)
+    request = _request(None, None)
+    request.values().statistics("count", by="month", max_missing=0, having="searched>=32")
+    assert "gaps-allowed" not in _codes()
+
+
+def test_the_warnings_of_a_cut_are_restated_or_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cut that keeps 2019 only holds no group that lacks values: `gaps-allowed` goes, `incomplete-groups` says 0."""
+    from wetterdienst.ui.budget import _restated_warnings  # noqa: PLC0415
+
+    request = _gappy(monkeypatch)
+    result = request.values().statistics("mean", by="year", max_missing=66)
+    warnings = recorded_warnings()
+    assert {"gaps-allowed"} <= {w["code"] for w in warnings}
+    whole = _restated_warnings(result.plan, result, warnings)
+    assert [w["message"] for w in whole if w["code"] == "gaps-allowed"] == [_codes()["gaps-allowed"]]
+    cut = result.head(1)
+    assert [row["year"] for row in _rows(cut)] == [2019]
+    restated = _restated_warnings(result.plan, cut, warnings)
+    assert "gaps-allowed" not in {w["code"] for w in restated}
+    assert len(restated) == len(warnings) - 1

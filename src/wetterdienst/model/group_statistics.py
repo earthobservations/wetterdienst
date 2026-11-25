@@ -142,6 +142,7 @@ _SUMMABLE: Final = frozenset({"sum", "count", "occurrence"})
 
 #: the codes of the warnings of an answer of `statistics`
 INCOMPLETE_GROUPS = "incomplete-groups"
+GAPS_ALLOWED = "gaps-allowed"
 
 
 def incomplete_groups_message(total: int, shown: int, maximum: int) -> str:
@@ -162,6 +163,26 @@ def incomplete_groups_message(total: int, shown: int, maximum: int) -> str:
         f"({shown:,} of them in this answer): their `mean` and `sum` are null (`max_missing` is {maximum}); their "
         "`count`, `min`, `max`, `earliest` and `latest` are of the values there are, `complete` is false, and "
         "`searched` and `expected` beside them say how many."
+    )
+
+
+def gaps_allowed_message(groups: int, most: int, lacking: int, maximum: int, *, ranked: bool) -> str:
+    """Write the warning about groups that lack values and are in the answer because `max_missing` allows it.
+
+    `groups` of them, `most` the values the worst lacks, `lacking` what all lack. Never called for none.
+    """
+    verb = "ranked" if ranked else "in the answer"
+    if groups == 1:
+        return (
+            f"1 group lacks {most:,} values and is {verb} because `max_missing` is {maximum}: its `mean` and `sum` are "
+            "of the values there are, and `complete` is true, which says no more than `max_missing` lack (`searched` "
+            "and `expected` beside it say how many). Keep `max_missing` at 0 to rank only groups that have every value."
+        )
+    return (
+        f"{groups:,} groups lack up to {most:,} values ({lacking:,} in all) and are {verb} because `max_missing` is "
+        f"{maximum}: their `mean` and `sum` are of the values there are, and `complete` is true, which says no more "
+        "than `max_missing` lack (`searched` and `expected` beside them say how many). Keep `max_missing` at 0 to rank "
+        "only groups that have every value."
     )
 
 
@@ -1601,6 +1622,37 @@ class StatisticsRun:
         return listed, left_out
 
 
+def gaps_allowed_of(series: Sequence[SeriesStatistics]) -> tuple[int, int, int]:
+    """Count the groups of an answer that lack values and are complete only because `max_missing` allows it.
+
+    Gives how many, the most values one lacks, and how many all lack: a running year is among them as it lacks the
+    days to come. A group with no `expected` is not (nothing is known to lack), nor is one with every value.
+    """
+    import polars as pl  # noqa: PLC0415
+
+    groups = most = lacking = 0
+    for s in series:
+        if s.frame.is_empty():
+            continue
+        lacks = (
+            s.frame.filter(
+                pl.col("expected").is_not_null()
+                & ~pl.col("_incomplete")
+                & (pl.col("searched") > 0)
+                & (pl.col("expected") > pl.col("searched"))
+            )
+            .select((pl.col("expected") - pl.col("searched")).alias("lacks"))
+            .get_column("lacks")
+            .to_list()
+        )
+        if not lacks:
+            continue
+        groups += len(lacks)
+        most = max(most, *lacks)
+        lacking += sum(lacks)
+    return groups, most, lacking
+
+
 def _best_rank(series: SeriesStatistics) -> int:
     """Give the rank of the best group a series kept, which a series of `per=none` that is listed has."""
     best = series.frame.get_column("rank").min()
@@ -1714,6 +1766,13 @@ class StatisticsResult:
             return
         self.warnings_made = True
         plan = self.plan
+        groups, most, lacking = gaps_allowed_of(self.series)
+        if groups:
+            count_response_warning(
+                GAPS_ALLOWED,
+                groups,
+                gaps_allowed_message(groups, most, lacking, plan.max_missing, ranked=bool(plan.sort)),
+            )
         every = [*self.series, *self.left_out]
         in_answer = sum(int(s.frame.get_column("_incomplete").sum()) for s in self.series)
         message = incomplete_groups_message(sum(s.incomplete for s in every), in_answer, plan.max_missing)

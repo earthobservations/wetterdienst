@@ -51,7 +51,7 @@ from wetterdienst.ui.response_metadata import (
 from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, record_response_warning
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Mapping, Sequence
 
     from wetterdienst.core.station_search import StationIdSearchResult
     from wetterdienst.model.group_statistics import SeriesStatistics, StatisticsPlan, StatisticsResult
@@ -794,6 +794,34 @@ def _statistics_note(
     )
 
 
+def _restated_warnings(
+    plan: StatisticsPlan, cut: StatisticsResult, warnings: Sequence[ResponseWarning]
+) -> list[ResponseWarning]:
+    """Give the warnings of an answer for a cut of it: those that count its groups say how many are still in it."""
+    from wetterdienst.model.group_statistics import (  # noqa: PLC0415
+        GAPS_ALLOWED,
+        INCOMPLETE_GROUPS,
+        gaps_allowed_message,
+        gaps_allowed_of,
+        restate_incomplete,
+    )
+
+    shown_incomplete = sum(int(s.frame.get_column("_incomplete").sum()) for s in cut.series)
+    allowed = gaps_allowed_of(cut.series)
+    restated: list[ResponseWarning] = []
+    for w in warnings:
+        if w["code"] == INCOMPLETE_GROUPS:
+            w = ResponseWarning(**{**w, "message": restate_incomplete(w["message"], shown_incomplete)})
+        elif w["code"] == GAPS_ALLOWED:
+            # the groups that are left in the answer, which may be none of them
+            if not allowed[0]:
+                continue
+            message = gaps_allowed_message(*allowed, plan.max_missing, ranked=bool(plan.sort))
+            w = ResponseWarning(**{**w, "message": message})
+        restated.append(w)
+    return restated
+
+
 def fit_statistics(
     result: StatisticsResult,
     fmt: str,
@@ -812,8 +840,6 @@ def fit_statistics(
     groups are not cut, only the rows. Where not even one group fits beside them the first is kept and the note says
     that the answer is still over the budget. `render` writes the answer for a cut result and the block it is given.
     """
-    from wetterdienst.model.group_statistics import INCOMPLETE_GROUPS, restate_incomplete  # noqa: PLC0415
-
     size = _size_in(content, fmt, metadata)
     held = [series for series in result.series if series.frame.height]
     many = len(held) > MAX_TOOL_SERIES
@@ -846,13 +872,7 @@ def fit_statistics(
             where=where,
             head=_head(honest=honest),
         )
-        shown_incomplete = sum(int(s.frame.get_column("_incomplete").sum()) for s in cut.series)
-        warnings = [
-            ResponseWarning(**{**w, "message": restate_incomplete(w["message"], shown_incomplete)})
-            if w["code"] == INCOMPLETE_GROUPS
-            else w
-            for w in metadata.warnings
-        ]
+        warnings = _restated_warnings(result.plan, cut, metadata.warnings)
         search = metadata.search
         if search is not None:
             search = search.model_copy(update={"totals": search.totals.model_copy(update={"groups_returned": shown})})

@@ -333,3 +333,100 @@ def test_empty_year_start_and_max_missing_are_not_given(monkeypatch: pytest.Monk
     assert (plain.status_code, empty.status_code) == (200, 200)
     assert empty.json()["series"] == plain.json()["series"]
     assert empty.json()["metadata"]["search"]["options"] == plain.json()["metadata"]["search"]["options"]
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# the pilot: what the tool says it cannot do, and `max_missing` kept at 0 to rank
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def _statistics_tool() -> Any:  # noqa: ANN401
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def read() -> Any:  # noqa: ANN401
+        tools = await build_mcp_server(app).list_tools()
+        return next(tool for tool in tools if tool.name == "statistics")
+
+    return asyncio.run(read())
+
+
+def test_the_tool_says_what_statistics_cannot_do_and_not_to_estimate_it() -> None:
+    """Runs, moving windows, percentiles and medians are not in `statistics`: the description says so, briefly."""
+    description = _statistics_tool().description
+    assert (
+        "cannot find runs (the longest dry spell), moving windows (the wettest 3 days), percentiles or medians"
+        in description
+    )
+    assert "do not estimate" in description
+    assert len(description) < 1_300
+
+
+def test_the_instructions_say_it_too_within_the_cap() -> None:
+    """One sentence of the server's instructions, which stay under 7,800 characters."""
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui.mcp import INSTRUCTIONS  # noqa: PLC0415
+
+    assert (
+        "`statistics` has no runs (dry spells), moving windows, percentiles or medians: say so, do not estimate."
+        in INSTRUCTIONS
+    )
+    assert len(INSTRUCTIONS) < 7_800
+
+
+def test_max_missing_says_to_keep_it_0_to_rank_on_every_surface() -> None:
+    """The option's text, in the tool's schema and the REST document: keep it 0 to rank."""
+    schema = _statistics_tool().parameters["properties"]["max_missing"]
+    text = schema["description"]
+    assert "Keep it 0 to rank; raise it only for a gap you accept" in text
+    assert "gaps-allowed" in text
+    document = TestClient(app).get("/openapi.json").json()
+    route = next(p for p in document["paths"].values() if "statistics" in p.get("get", {}).get("operationId", ""))
+    option = next(q for q in route["get"]["parameters"] if q["name"] == "max_missing")
+    assert option["description"] == text
+
+
+def test_a_group_with_gaps_is_warned_of_on_rest_and_in_the_tool_and_not_at_the_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`max_missing=400` lets every incomplete year of the stub in: REST and the tool say so; the default does not."""
+    serve(monkeypatch, count=3)
+    options = {"aggregate": "mean", "by": "year", "sort": "-mean"}
+    quiet = _rest(**options).json()
+    assert _warning(quiet, "gaps-allowed") is None
+    answer = _rest(**options, max_missing=400).json()
+    message = _warning(answer, "gaps-allowed") or ""
+    lacking = sum(
+        g["expected"] - g["searched"] for s in answer["series"] for g in s["groups"] if g["expected"] > g["searched"]
+    )
+    assert message.startswith("9 groups lack up to ")
+    assert f"({lacking:,} in all) and are ranked because `max_missing` is 400" in message
+    assert _warning(_tool({**options, "max_missing": 400}), "gaps-allowed") == message
+    assert _warning(_tool(options), "gaps-allowed") is None
+
+
+def test_the_warning_of_a_cut_tool_answer_counts_the_groups_it_still_holds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cut to the budget, the answer's `gaps-allowed` counts the groups left in it that lack values and have some."""
+    serve(monkeypatch, count=6)
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 20_000)
+    answer = _tool({"aggregate": "mean", "by": "year,month", "max_missing": 400})
+    held = [
+        g["expected"] - g["searched"]
+        for s in answer["series"]
+        for g in s["groups"]
+        if g["searched"] and g["expected"] > g["searched"]
+    ]
+    message = _warning(answer, "gaps-allowed") or ""
+    assert held
+    assert message.startswith(f"{len(held):,} groups lack up to {max(held):,} values ({sum(held):,} in all)")
+    assert sum(len(s["groups"]) for s in answer["series"]) < answer["metadata"]["search"]["totals"]["groups"]
+
+
+def test_the_warning_is_dropped_from_a_cut_that_holds_no_such_group(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only the first groups of the cut are kept: where none lacks a value the warning is not told."""
+    serve(monkeypatch, count=6)
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 6_000)
+    answer = _tool({"aggregate": "mean", "by": "year,month,day", "max_missing": 400, "having": "searched=1"})
+    assert all(g["expected"] == g["searched"] for s in answer["series"] for g in s["groups"])
+    assert _warning(answer, "gaps-allowed") is None
+    assert _warning(answer, "answer-truncated") is not None

@@ -820,7 +820,8 @@ Options:
                                --by, --filter and --sort. Needs year in --by  [1<=x<=12]
   --max-missing INTEGER RANGE  How many values a group may lack and still be complete, with a mean
                                and a sum (default 0: a group with a gap, a year that is not over or
-                               a year the window cuts has none). complete says which groups are
+                               a year the window cuts has none). Keep it 0 to rank; raise it only
+                               for a gap you accept: the warning gaps-allowed counts what it lets in
                                [0<=x<=10000]
   --having TEXT                Keep the groups that meet conditions on the results, written as
                                --filter: the aggregates asked for, searched, expected, complete (the

@@ -1517,6 +1517,11 @@ follow these twelve rules, each held by a test that works the case out by hand (
    yearly frost days is over complete years, and a running year's lower bound does not move it.
 10. **`max_missing`.** `max_missing=40` accepts a year with 328 of 365 days as complete: it then has its `mean` and
     `sum`, with `searched` and `expected` shown beside it. It counts for every aggregate, since it decides `complete`.
+    **Keep it 0 to rank**; raise it only for a gap you accept. A group that `max_missing` lets in with values lacking,
+    or a year that is not over, is `complete: true` (the flag says that no more than `max_missing` values lack, not
+    that none does) and competes in `sort` and `first` with its `mean` of the values there are; the warning
+    `gaps-allowed` counts such groups of the answer and what they lack, and is not told where none is in it. A model
+    that sets `max_missing=400` out of habit ranks half-years with whole ones: read `searched` and `expected`.
 11. **`year_start` and `year`.** `year` means the year a season ends in, in `by`, `filter` and `sort`: with
     `year_start=12` the winter 2023/24 is 2024 and `filter=year=2024` selects December 2023 to November 2024. A season
     the record or the window covers only in part is incomplete by rule 3.
@@ -1593,6 +1598,7 @@ warnings and the series without their groups. Both are one body and are not stre
 | --- | --- |
 | `incomplete-groups` | how many groups have fewer values than expected, by station, whatever is asked, and how many of them are in the answer: `complete` is false, and their `mean` and `sum` are null |
 | `no-values-in-groups` | how many groups lie before the first or after the last value and are not listed |
+| `gaps-allowed` | how many groups of the answer lack values and are `complete` only because `max_missing` allows it, the most one lacks and what all lack; not told where there is none |
 | `completeness-unknown` | for how many series how many values a group should have is not known |
 | `ties-not-shown` | how many more groups tie with the last one `first` shows |
 | `rows-capped` | `max_rows` cut the answer: how many of how many groups are returned |
@@ -1655,7 +1661,8 @@ http localhost:7890/api/statistics provider==dwd network==observation parameters
 # 10. How complete is a station: Hamburg-Kirchwerder lacks 4,169 days, in 13 years (1976 to 1988), whose mean is null.
 http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==01979 timestamp==1951/2006 aggregate==count,mean by==year having=='searched<360'
 
-# The same station with a gap of 40 days allowed: 1976 (31 days short) has a mean now, 1988 (121 short) has none.
+# The same station with a gap of 40 days allowed: 1976 (31 days short) has a mean now, 1988 (121 short) has none, and
+# the warning `gaps-allowed` says which group `max_missing` let in. Keep it 0 to rank.
 http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==01979 timestamp==1951/2006 aggregate==count,mean by==year having=='searched<360' max_missing==40
 
 # The three warmest years of all the stations of a list together (per=none), each with its rank, as CSV.

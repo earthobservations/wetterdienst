@@ -1559,8 +1559,8 @@ _MaxMissingField = Annotated[
     Field(
         ge=0,
         le=MAX_MISSING,
-        description="How many values a group may lack and still be `complete` and get a `mean` and a `sum` (default "
-        "0).",
+        description="How many values a group may lack and still be `complete`, with a `mean` and a `sum` (default 0). "
+        "Keep it 0 to rank; raise it only for a gap you accept (`gaps-allowed` counts what it lets in).",
     ),
 ]
 _HavingField = Annotated[

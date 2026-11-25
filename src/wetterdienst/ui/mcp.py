@@ -281,12 +281,13 @@ and nearest-station-with-data respectively); both introduce inaccuracy and are o
 ONLY when the user explicitly asks for an interpolated / between-stations estimate, or when \
 `stations` -> `values` genuinely returns no station with data near the location. They are not a \
 plain-language "summary". `history` is different again: it returns a station's *metadata* history \
-(name/location/sensor changes), not weather. For `alerts` (DWD warnings), pass the place \
-(a point is the reliable way). For design rainfall at a point in Germany (rain depth by duration \
+not weather. For `alerts` (DWD warnings), pass the place \
+(give a point). For design rainfall at a point in Germany (rain depth by duration \
 and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`.
 
 For counts, sums or means per year, month or day (frost days, the coldest winter) use `statistics`; \
-for a record or the hottest days, `values` with `sort` and `first`.
+for a record or the hottest days, `values` with `sort` and `first`. `statistics` has no runs (dry spells), \
+moving windows, percentiles or medians: say so, do not estimate.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -320,7 +321,7 @@ above it differ; without it the readings are used as they come.
 dwd/phenology. Most other providers have a single period; asking for one their datasets lack is an \
 error.
 - lists: an argument that takes several (`parameters`, `stations`, `periods`) is plural and takes them \
-comma-separated, e.g. stations="01975,04411". `interpolate` and `summarize` take one reference `station`.
+comma-separated. `interpolate` and `summarize` take one reference `station`.
 - Handy DWD datasets: daily/kl (= climate_summary: temperature, precipitation, wind, sunshine), \
 hourly/air_temperature, hourly/precipitation.
 
@@ -346,7 +347,7 @@ rest is answered). Do not retry the same request; widen the `timestamp`, check t
 station. `stations` takes the same `timestamp` as `values` and lists only the stations that have a record \
 in it, so the nearest are not long-closed stations. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
-- The default JSON is machine-readable: do NOT re-request the same data in another format.
+- Do NOT re-request the same data in another format.
 
 ## Example — recent mean air temperature at Hamburg-Fuhlsbüttel
   stations(provider="dwd", network="observation", parameters="daily/kl", name="Hamburg Fuhlsbüttel")
@@ -515,7 +516,10 @@ _ALERTS_ADVICE = (
 
 # The sentence that ends the description of the `statistics` tool, which only the tool has: its answer is cut to the
 # same budget, keeping the first groups (GH-4412).
-_STATISTICS_ADVICE = "An answer over 40,000 characters keeps the first groups (`answer-truncated`)."
+_STATISTICS_ADVICE = (
+    "It cannot find runs (the longest dry spell), moving windows (the wettest 3 days), percentiles or medians: say so, "
+    "do not estimate them. An answer over 40,000 characters keeps the first groups (`answer-truncated`)."
+)
 
 
 def _annotate_tool(

@@ -1573,12 +1573,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     ) -> StatisticsResult:
         """Count, average, add up or take the extremes of each station's values per year, month, day or hour.
 
-        `aggregate` is one to five of `count mean sum min max first last`; `by` the groups besides the series (any of
-        `year month day hour`); `filter` the conditions (`year month day hour` say which values are looked at, `value`
-        which of them count); `year_start` the month a `year` begins; `max_missing` how many missing values a group
-        may have and still get a `mean` and a `sum`; `having` and `sort` choose and order the groups by what was
-        calculated, `first` keeps the first N of them (exactly N: `ties-not-shown` says how many more tie) per series
-        or, with `per="none"`, over the stations of a parameter; `max_rows` cuts the answer. See `group_statistics`.
+        `aggregate` is one to five of `count mean sum min max earliest latest`; `by` the groups besides the series (any
+        of `year month day hour`); `filter` the conditions (`year month day hour` say which values are looked at,
+        `value` which of them count); `year_start` the month a `year` begins; `max_missing` how many missing values a
+        group may have and still get a `mean` and a `sum` (keep it 0 to rank: `gaps-allowed` counts the groups it
+        lets in); `having` and `sort` choose and order the groups by what was calculated, `first` keeps the first N of
+        them (exactly N: `ties-not-shown` says how many more tie) per series or, with `per="none"`, over the stations
+        of a parameter; `max_rows` cuts the answer. See `group_statistics`.
 
         Each station is reduced to its groups as it is read and its rows let go, so that what is held is the groups
         and not the readings. A group that is not over yet is incomplete: its `mean` and `sum` are null unless
