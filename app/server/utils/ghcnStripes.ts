@@ -152,7 +152,7 @@ function passedOn(warnings: NonNullable<ValuesAnswer['metadata']>['warnings']): 
       code: warning.code,
       message: warning.message,
       ...(typeof warning.parameter === 'string' ? { parameter: warning.parameter } : {}),
-      ...(Array.isArray(warning.stations) ? { stations: warning.stations } : {}),
+      ...(Array.isArray(warning.stations) ? { stations: warning.stations.filter((id): id is string => typeof id === 'string') } : {}),
     })
   }
   return kept

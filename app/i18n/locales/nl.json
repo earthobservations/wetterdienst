@@ -961,7 +961,7 @@
     "methodMidrange": "Berekend uit het midden van het dagelijkse maximum en minimum, niet uit een gemiddelde over 24 uur. Eén methode voor de hele reeks, zodat er geen sprong ontstaat waar het daggemiddelde van een station begint of ophoudt, en een constante afwijking wegvalt in de anomalieën.",
     "methodTavg": "Berekend uit het daggemiddelde van het station (TAVG): het heeft geen dag met een maximum en een minimum waarvan het midden te nemen is.",
     "mirrorNote": "Gelezen van de mirror van de NOAA-gegevens op AWS; de meest recente dagen kunnen ontbreken.",
-    "mirrorNoteEnds": "Gelezen van de mirror van de NOAA-gegevens op AWS; de meest recente dagen kunnen ontbreken. De getoonde reeks eindigt in {year}.",
+    "mirrorNoteEnds": "Gelezen van de mirror van de NOAA-gegevens op AWS; de meest recente dagen kunnen ontbreken. De daar gelezen reeks eindigt in {year}.",
     "plotMethodMidrange": "Temperatuur: midden van dagelijks maximum en minimum (GHCN)",
     "plotMethodTavg": "Temperatuur: daggemiddelde (TAVG, GHCN)",
     "plotReference": "Kleuren: gemiddelde van {centre}, ±{sigma} σ van {spread}",

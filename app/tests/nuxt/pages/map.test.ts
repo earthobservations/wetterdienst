@@ -124,6 +124,8 @@ const GHCN_NEIGHBOUR = station('GM000099999', 'HAMBURG NEBENAN', 53.6301, 10.000
 /** How many stations of no consequence the list has beside the five of the tests: over the 10,000 from which a layer is always grouped */
 let ghcnFiller = 0
 let stripesStatus = 200
+/** Whether the app's server says the days of a station of GHCN daily were read from the mirror of NOAA's data on AWS (GH-4390) */
+let ghcnMirror = false
 /** The stations that have stripes: the annual record's, which the map asks of the generic API */
 let stripesStations: Array<typeof STRIPES_STATIONS[number]> = STRIPES_STATIONS
 
@@ -189,9 +191,9 @@ function stripesValuesOf(ghcn: boolean) {
     const years = Array.from({ length: 20 }, (_, index) => ({ year: 2000 + index, value: 8 + index * 0.05 }))
     // a station of GHCN daily with too few years with data for a scale of its own: the app refuses it
     if (ghcn && stationId === GHCN_REFUSED.station_id)
-      return ghcnAnnualAnswer(years.slice(0, 5), { stationId, method: 'midrange' })
+      return ghcnAnnualAnswer(years.slice(0, 5), { stationId, method: 'midrange', mirror: ghcnMirror })
     return ghcn
-      ? ghcnAnnualAnswer(years, { stationId, method: 'midrange' })
+      ? ghcnAnnualAnswer(years, { stationId, method: 'midrange', mirror: ghcnMirror })
       : valuesAnswer(years, { stationId })
   }
 }
@@ -304,6 +306,7 @@ afterEach(async () => {
   ghcnDetailGate = null
   ghcnNeighbour = false
   stripesStatus = 200
+  ghcnMirror = false
   valuesStatus = 200
   removeCollision()
   solarStations = [FELDBERG, FREIBURG, NO_END]
@@ -2744,6 +2747,16 @@ describe('the GHCN daily layer (GH-4078, GH-4267)', () => {
     await vi.waitFor(() => expect(stripes.findAll('a')).toHaveLength(0))
     expect(stripes.find('[role="alert"]').exists()).toBe(false)
     expect(stripes.text()).not.toContain('Retry')
+  })
+
+  it('says beside the "no stripes" of a record that is too short that it was read from the mirror of NOAA\'s data on AWS (GH-4390)', async () => {
+    ghcnMirror = true
+    const wrapper = await mountGhcn()
+    await pickFromList(wrapper, 'GME00122482')
+    const stripes = wrapper.find('[data-testid="map-card-stripes"]')
+    await vi.waitFor(() => expect(stripes.find('[data-testid="map-stripes-none"]').exists()).toBe(true))
+    // the record of the test is 5 years, 2000 to 2004
+    await vi.waitFor(() => expect(stripes.find('[data-testid="map-stripes-none-mirror"]').text()).toBe('Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record read there ends in 2004.'))
   })
 
   it('keeps the station picked where the map moves away, and lets it go on Back', async () => {

@@ -59,7 +59,7 @@ export function valuesAnswer(record: Record_, options: ValuesOptions = {}) {
 }
 
 /**
- * The warning the backend gives where NCEI did not answer and the days of a station were read from the mirror of NOAA's data on AWS
+ * The warning the backend gives where NCEI did not give a station's file and the days of a station were read from the mirror of NOAA's data on AWS
  * (GH-4230), as the answer of its generic API carries it
  */
 export const SOURCE_FALLBACK_WARNING = {

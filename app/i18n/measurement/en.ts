@@ -929,7 +929,7 @@ export const measurement: MeasurementTexts = {
         WMO_III,
       ),
       dwdFiles(
-        'Its page on radar products describes its radar network and its scan strategy, and each composite has a sheet that says what it holds, in German. Its English page still gave the range of the precipitation scan as 150 km on 25 November 2026, which is the range until 24 November 2026.',
+        'Its page on radar products describes its radar network and its scan strategy, and each composite has a sheet that says what it holds, in German. Its English page still gave the range of the precipitation scan as 150 km on 25 November 2026, which was the range until 24 November 2026.',
         'DWD. Radar products, dwd.de/EN/ourservices/radar_products/radar_products.html; the product sheets "Radarkomposit" RV, WN, HX, DMAX, RS, VII and HymecNG, linked from dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, read on 22 November 2026, and the English page read again on 25 November 2026.',
         DWD_RADAR_PRODUCTS,
       ),

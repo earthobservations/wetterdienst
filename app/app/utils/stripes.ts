@@ -80,7 +80,7 @@ export function stripesMethodNote(
 }
 
 /**
- * The line that says a station of GHCN daily was read from the mirror of NOAA's data on AWS (GH-4390): NCEI did not answer, so the
+ * The line that says a station of GHCN daily was read from the mirror of NOAA's data on AWS (GH-4390): NCEI did not give the station's file (it was down, or answered a 404 for that station), so the
  * backend took the days from the mirror, whose file may end earlier, and the most recent days may be missing. Where the record ends
  * before the last complete year the line says in which year it ends. An empty text for stripes made of NOAA's own file, and for DWD's.
  *

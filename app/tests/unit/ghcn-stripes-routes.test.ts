@@ -191,6 +191,11 @@ describe('the annual values route', () => {
       expect(mirrored.series).toEqual({ ...plain.series, station_id: 'USW00000002' })
     })
 
+    it('keeps of a warning\'s stations the ones that are text', async () => {
+      withWarnings({ ...FALLBACK, stations: ['USW00000001', 7, null, 'USW00000002'] })
+      expect((await raw(ANNUAL)).json().metadata.warnings[0].stations).toEqual(['USW00000001', 'USW00000002'])
+    })
+
     it('has no `warnings` member where the backend gave none', async () => {
       const body = (await raw(ANNUAL)).json()
       expect(body.metadata).not.toHaveProperty('warnings')

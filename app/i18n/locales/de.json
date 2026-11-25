@@ -961,7 +961,7 @@
     "methodMidrange": "Aus der Mitte von Tageshöchst- und Tagestiefstwert gebildet, nicht aus einem 24-Stunden-Mittel. Dieselbe Methode für die ganze Zeitreihe, damit kein Sprung entsteht, wo das Tagesmittel einer Station beginnt oder endet; ein gleichbleibender Fehler hebt sich in den Anomalien auf.",
     "methodTavg": "Aus dem Tagesmittel (TAVG) der Station gebildet: Die Station hat keinen Tag mit Höchst- und Tiefstwert, aus dem sich die Mitte bilden ließe.",
     "mirrorNote": "Vom Spiegelserver der NOAA-Daten bei AWS gelesen; die jüngsten Tage können fehlen.",
-    "mirrorNoteEnds": "Vom Spiegelserver der NOAA-Daten bei AWS gelesen; die jüngsten Tage können fehlen. Die gezeigte Zeitreihe endet im Jahr {year}.",
+    "mirrorNoteEnds": "Vom Spiegelserver der NOAA-Daten bei AWS gelesen; die jüngsten Tage können fehlen. Die dort gelesene Zeitreihe endet im Jahr {year}.",
     "plotMethodMidrange": "Temperatur: Mitte aus Tageshöchst- und -tiefstwert (GHCN)",
     "plotMethodTavg": "Temperatur: Tagesmittel (TAVG, GHCN)",
     "plotReference": "Farben: Mittel von {centre}, ±{sigma} σ von {spread}",

@@ -961,7 +961,7 @@
     "methodMidrange": "Built from the midrange of the daily maximum and minimum, not a 24-hour mean. One method for the whole record, so no step appears where a station's own daily mean starts or stops, and a constant bias cancels in the anomalies.",
     "methodTavg": "Built from the station's daily mean (TAVG): it has no day with both a maximum and a minimum to take the midrange of.",
     "mirrorNote": "Read from the mirror of NOAA's data on AWS; the most recent days may be missing.",
-    "mirrorNoteEnds": "Read from the mirror of NOAA's data on AWS; the most recent days may be missing. The record shown ends in {year}.",
+    "mirrorNoteEnds": "Read from the mirror of NOAA's data on AWS; the most recent days may be missing. The record read there ends in {year}.",
     "plotMethodMidrange": "Temperature: midpoint of daily max and min (GHCN)",
     "plotMethodTavg": "Temperature: daily mean (TAVG, GHCN)",
     "plotReference": "Colours: mean of {centre}, ±{sigma} σ of {spread}",

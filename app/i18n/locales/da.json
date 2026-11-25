@@ -961,7 +961,7 @@
     "methodMidrange": "Opbygget af midtpunktet mellem døgnets højeste og laveste temperatur, ikke af et 24-timers gennemsnit. Samme metode for hele rækken, så der ikke opstår et spring, hvor stationens døgnmiddel begynder eller holder op, og en fast skævhed udlignes i afvigelserne.",
     "methodTavg": "Opbygget af stationens døgnmiddel (TAVG): Den har ingen dag med både højeste og laveste temperatur, som midtpunktet kunne tages af.",
     "mirrorNote": "Læst fra spejlet af NOAA's data på AWS; de seneste dage kan mangle.",
-    "mirrorNoteEnds": "Læst fra spejlet af NOAA's data på AWS; de seneste dage kan mangle. Den viste dataserie slutter i {year}.",
+    "mirrorNoteEnds": "Læst fra spejlet af NOAA's data på AWS; de seneste dage kan mangle. Den dataserie, der blev læst derfra, slutter i {year}.",
     "plotMethodMidrange": "Temperatur: midtpunkt af døgnets højeste og laveste (GHCN)",
     "plotMethodTavg": "Temperatur: døgnmiddel (TAVG, GHCN)",
     "plotReference": "Farver: gennemsnit af {centre}, ±{sigma} σ af {spread}",

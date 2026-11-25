@@ -220,7 +220,7 @@ describe('the climate stripes of a station of GHCN daily (GH-4078)', () => {
     expect(wrapper.find('[data-testid="map-stripes-method"]').text()).toBe(en.stripes.methodTavg)
   })
 
-  it('says under the stripes that the days were read from the mirror on AWS, and where the record ends, where NCEI did not answer (GH-4390)', async () => {
+  it('says under the stripes that the days were read from the mirror on AWS, and where the record ends, where NCEI did not give the station\'s file (GH-4390)', async () => {
     years = twelve(8, 12, 9)
     mirror = true
     const wrapper = await mountStripes('GM000010147', true)
@@ -228,12 +228,30 @@ describe('the climate stripes of a station of GHCN daily (GH-4078)', () => {
     // the record of the test ends in 2011, long before the last complete year
     const note = wrapper.find('[data-testid="map-stripes-mirror"]')
     expect(note.text()).toBe(en.stripes.mirrorNoteEnds.replace('{year}', '2011'))
-    expect(note.text()).toBe('Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record shown ends in 2011.')
+    expect(note.text()).toBe('Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record read there ends in 2011.')
     // the stripes themselves are the same: the numbers are kept as they are
     expect(colours(wrapper)).toHaveLength(12)
     // the note is in the sentence's place under it, before the credit
     const html = wrapper.html()
     expect(html.indexOf('map-stripes-mirror')).toBeLessThan(html.indexOf('map-stripes-credit'))
+  })
+
+  it('says beside the refusal of a record that is too short that it was read from the mirror, and hands the line to the card that takes the stripes away (GH-4390)', async () => {
+    years = [8, 9, 10]
+    mirror = true
+    const wrapper = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-stripes-refused"]').exists()).toBe(true))
+    const line = en.stripes.mirrorNoteEnds.replace('{year}', '2002')
+    expect(wrapper.find('[data-testid="map-stripes-refused-mirror"]').text()).toBe(line)
+    expect(wrapper.emitted('none')).toEqual([[line]])
+    wrapper.unmount()
+    clearNuxtData()
+    // the same refusal of a record NCEI gave has no line
+    mirror = false
+    const plain = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(plain.find('[data-testid="map-stripes-refused"]').exists()).toBe(true))
+    expect(plain.find('[data-testid="map-stripes-refused-mirror"]').exists()).toBe(false)
+    expect(plain.emitted('none')).toEqual([['']])
   })
 
   it('says nothing of a mirror where NCEI answered, or for a station of DWD', async () => {

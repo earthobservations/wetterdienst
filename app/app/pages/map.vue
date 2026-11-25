@@ -910,6 +910,13 @@ function ghcnStripesPossible(station: Station) {
 }
 /** The station whose stripes the backend refused, which the card says it has none of (and offers no link to) */
 const noStripes = ref<string | null>(null)
+/** What a refusal says of the mirror of NOAA's data on AWS where the record it refused was read from it (GH-4390), else an empty text */
+const noStripesMirrorNote = ref('')
+/** The stripes of the station were refused: the card says it has none, and what the refusal says of the mirror */
+function onNoStripes(stationId: string, mirrorNote: string) {
+  noStripes.value = stationId
+  noStripesMirrorNote.value = mirrorNote
+}
 function stationName(station: Station) {
   return station.name ?? station.station_id
 }
@@ -1080,11 +1087,14 @@ function takeAddress(query: Record<string, unknown>) {
                 <!-- a station of GHCN daily: its own stripes, built from its days -->
                 <template v-if="layer === 'ghcn'">
                   <template v-if="ghcnStripesPossible(selected) && noStripes !== selected.station_id">
-                    <MapStripes :station-id="selected.station_id" :station-name="stationName(selected)" ghcn @none="noStripes = selected.station_id" />
+                    <MapStripes :station-id="selected.station_id" :station-name="stationName(selected)" ghcn @none="onNoStripes(selected.station_id, $event)" />
                     <UButton :to="stripesLink(selected.station_id, true)" :label="t('mapTool.openStripes')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
                   </template>
                   <p v-else class="map-card-note" data-testid="map-stripes-none">
                     {{ t('mapTool.stripesNone') }}
+                  </p>
+                  <p v-if="noStripes === selected.station_id && noStripesMirrorNote" class="map-card-note" data-testid="map-stripes-none-mirror">
+                    {{ noStripesMirrorNote }}
                   </p>
                 </template>
                 <template v-else-if="stripesPoint">

@@ -961,7 +961,7 @@
     "methodMidrange": "Sestaveno ze středu denního maxima a minima, nikoli z 24hodinového průměru. Pro celý záznam platí jedna metoda, takže nevzniká skok tam, kde denní průměr stanice začíná nebo končí, a stálá odchylka se v anomáliích vyruší.",
     "methodTavg": "Sestaveno z denního průměru stanice (TAVG): nemá žádný den s maximem i minimem, z nichž by se dal vzít střed.",
     "mirrorNote": "Načteno ze zrcadla dat NOAA na AWS; nejnovější dny mohou chybět.",
-    "mirrorNoteEnds": "Načteno ze zrcadla dat NOAA na AWS; nejnovější dny mohou chybět. Zobrazený záznam končí v roce {year}.",
+    "mirrorNoteEnds": "Načteno ze zrcadla dat NOAA na AWS; nejnovější dny mohou chybět. Záznam načtený odtud končí v roce {year}.",
     "plotMethodMidrange": "Teplota: střed denního maxima a minima (GHCN)",
     "plotMethodTavg": "Teplota: denní průměr (TAVG, GHCN)",
     "plotReference": "Barvy: průměr z {centre}, ±{sigma} σ z {spread}",

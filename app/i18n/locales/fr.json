@@ -961,7 +961,7 @@
     "methodMidrange": "Calcul à partir du milieu du maximum et du minimum quotidiens, et non d'une moyenne sur 24 heures. Une seule méthode pour tout l'enregistrement : aucun saut n'apparaît là où la moyenne quotidienne d'une station commence ou s'arrête, et un biais constant s'annule dans les anomalies.",
     "methodTavg": "Calcul à partir de la moyenne quotidienne de la station (TAVG) : elle n'a aucun jour avec un maximum et un minimum dont prendre le milieu.",
     "mirrorNote": "Lu depuis le miroir des données de la NOAA sur AWS ; les jours les plus récents peuvent manquer.",
-    "mirrorNoteEnds": "Lu depuis le miroir des données de la NOAA sur AWS ; les jours les plus récents peuvent manquer. La série affichée se termine en {year}.",
+    "mirrorNoteEnds": "Lu depuis le miroir des données de la NOAA sur AWS ; les jours les plus récents peuvent manquer. La série lue sur ce miroir se termine en {year}.",
     "plotMethodMidrange": "Température : milieu du maximum et du minimum quotidiens (GHCN)",
     "plotMethodTavg": "Température : moyenne quotidienne (TAVG, GHCN)",
     "plotReference": "Couleurs : moyenne de {centre}, ±{sigma} σ de {spread}",

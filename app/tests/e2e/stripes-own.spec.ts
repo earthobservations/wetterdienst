@@ -153,14 +153,14 @@ test.describe('the stripes of NOAA\'s GHCN daily, calculated from the days by th
     expect(body.values.length).toBeGreaterThan(100)
     // a few kilobytes where the days are megabytes
     expect((await first.body()).length).toBeLessThan(60_000)
-    // the year that is running is no year with a value until it is complete. While NCEI is down the backend reads the AWS mirror,
+    // the year that is running is no year with a value until it is complete. Where NCEI does not give the file (down, or a 404 for the station) the backend reads the AWS mirror,
     // whose file may end in an earlier year; the app's answer says so in its `metadata.warnings` (GH-4390), and the running year is
     // then not asked for (GH-4387). Where NCEI answered it still is.
     const mirror = readFromMirror(body)
     const { checked, problem } = checkRunningYear(body.values, new Date().getUTCFullYear(), mirror)
     expect(problem).toBeNull()
     if (!checked)
-      testInfo.annotations.push({ type: 'running-year-not-checked', description: 'NCEI did not answer (source-fallback): the file is the AWS mirror\'s, which may end before the running year (GH-4387)' })
+      testInfo.annotations.push({ type: 'running-year-not-checked', description: 'NCEI did not give the file (source-fallback): the file is the AWS mirror\'s, which may end before the running year (GH-4387)' })
     // an answer read from the mirror is kept for 5 minutes, not an hour, so that the full record is back when NCEI is (GH-4390)
     expect(first.headers()['cache-control']).toBe(mirror ? 'public, max-age=300' : 'public, max-age=3600')
 
@@ -207,7 +207,7 @@ test.describe('the map\'s GHCN layer and its stripes', () => {
 })
 
 test.describe('stripes of GHCN daily read from the mirror of NOAA\'s data on AWS (a stubbed answer, GH-4390)', () => {
-  // NCEI is down at the time of the test, whatever the real one is: the app's server's answer is the stub's, and says the days came from the mirror
+  // NCEI does not give the file at the time of the test, whatever the real one does: the app's server's answer is the stub's, and says the days came from the mirror
   const NOTICE = 'Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing.'
 
   /** Every request to the API and the app's own server is answered by the stub; `/_ghcn/annual` carries the mirror's warning */
@@ -224,18 +224,18 @@ test.describe('stripes of GHCN daily read from the mirror of NOAA\'s data on AWS
     await page.getByRole('button', { name: 'Show', exact: true }).click()
     await expect(chartSvg(page)).toBeVisible({ timeout: 60_000 })
     // the stub's record ends in 2024, before the last complete year
-    await expect(page.getByTestId('stripes-mirror')).toHaveText(`${NOTICE} The record shown ends in 2024.`)
+    await expect(page.getByTestId('stripes-mirror')).toHaveText(`${NOTICE} The record read there ends in 2024.`)
 
     const svg = await saveFrom(page, 'Download image', 'Download as SVG')
     // the image breaks a long line, so the lines of text are read as one text
     const lines = [...readFileSync((await svg.path())!, 'utf8').matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!.replaceAll('&#39;', '\''))
-    expect(lines.join(' ')).toContain(`${NOTICE} The record shown ends in 2024.`)
+    expect(lines.join(' ')).toContain(`${NOTICE} The record read there ends in 2024.`)
 
     await page.getByRole('radio', { name: 'Table', exact: true }).click()
     await expect(page.getByTestId('stripes-mirror')).toBeVisible()
     const table = await saveFrom(page, 'Download table', 'Download as CSV')
     const csv = readFileSync((await table.path())!, 'utf8')
-    expect(csv).toContain(`# ${NOTICE} The record shown ends in 2024.`)
+    expect(csv).toContain(`# ${NOTICE} The record read there ends in 2024.`)
     expect(csv).toContain('NOAA National Centers for Environmental Information')
   })
 
@@ -244,7 +244,7 @@ test.describe('stripes of GHCN daily read from the mirror of NOAA\'s data on AWS
     await mirrorStub(page, baseURL)
     await page.goto('/map?layer=ghcn&station=USW00094728&lat=40.7789&lon=-73.9692')
     await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible({ timeout: 60_000 })
-    await expect(page.getByTestId('map-stripes-mirror')).toHaveText(`${NOTICE} The record shown ends in 2024.`)
+    await expect(page.getByTestId('map-stripes-mirror')).toHaveText(`${NOTICE} The record read there ends in 2024.`)
   })
 
   // every language of the app: the line is in the reader's own, and it fits a phone's width (WCAG 1.4.10 Reflow) on the page and in the map's panel
