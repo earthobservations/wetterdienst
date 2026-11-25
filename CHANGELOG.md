@@ -62,6 +62,14 @@ Types of changes:
   parameter having it empty. Other answers are unchanged; name the parameters for a dataset with
   many (GH-4432)
 
+### Security
+
+- The lock holds filelock 4.3.0, which fixes advisories of 4.2.12 that its own repository lists (a lock
+  can remove empty directories of another account, and others of low severity); wetterdienst uses
+  its `FileLock` only, which none of them names, and the range `filelock>=3.30,<5` is unchanged.
+  `anyio`'s advisory GHSA-g36m-r6gw-cj73 has no fixed release yet: nothing here passes it a path to
+  run (GH-4378)
+
 ## [0.198.0] - 2026-11-24
 
 ### Changed
