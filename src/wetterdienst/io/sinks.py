@@ -16,7 +16,9 @@ from __future__ import annotations
 import functools
 import logging
 import re
-from collections.abc import Callable, Mapping
+import threading
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from copy import copy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, get_args
@@ -432,6 +434,26 @@ def _connect_duckdb(duckdb: ModuleType, database: str) -> DuckDBPyConnection:
         return duckdb.connect(database=database, read_only=False, config=configs[1])
 
 
+#: held from the connection to its close, so that two exports of this process never share a DuckDB instance
+_duckdb_lock = threading.Lock()
+
+
+@contextmanager
+def _duckdb_connection(duckdb: ModuleType, database: str) -> Iterator[DuckDBPyConnection]:
+    """Open the database for writing and close it, one export of this process at a time.
+
+    Connections to one file in one process share a DuckDB instance. On DuckDB 2 a thread can get that instance before
+    the first connection has registered the functions that read a frame: "Table Function with name python_arrow_scan
+    does not exist!" (GH-4457). A connection of the caller's own, and other processes, are not held back.
+    """
+    with _duckdb_lock:
+        connection = _connect_duckdb(duckdb, database)
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+
 def _write_duckdb(result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists) -> None:  # noqa: ARG001
     """Write the frame to a DuckDB database."""
     database = connspec.database
@@ -465,8 +487,7 @@ def _write_duckdb(result: ExportMixin, target: str, connspec: ConnectionString, 
     # a later append of values into it fails; as text it takes any value later, as the INTEGER of DuckDB 1.x did
     df = df.with_columns(pl.col(name).cast(pl.String) for name, dtype in df.schema.items() if dtype == pl.Null)
 
-    connection = _connect_duckdb(duckdb, database)
-    try:
+    with _duckdb_connection(duckdb, database) as connection:
         connection.register("origin", df)
         if if_exists == "replace":
             connection.execute(f"DROP TABLE IF EXISTS {tablename};")
@@ -507,8 +528,6 @@ def _write_duckdb(result: ExportMixin, target: str, connspec: ConnectionString, 
                 connection.execute(f"CREATE TABLE {tablename} AS SELECT * FROM origin;")  # noqa: S608
             else:
                 log.info(f"Table {tablename} exists, skipping write due to if_exists='skip'.")
-    finally:
-        connection.close()
     log.info("Writing to DuckDB finished")
 
 
