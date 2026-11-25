@@ -19,8 +19,9 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
 - an answer in a format that is not JSON (csv, ndjson) as content of the tool result: FastMCP answers a text body
-  without structured content, which the output schema of the tool refuses (GH-3464). No tool offers a chart (GH-4318),
-  so no answer is an image, a pdf or markup, and none is carried as one (GH-4450),
+  without structured content, which the output schema of the tool refuses (GH-3464). No tool offers a chart (GH-4318)
+  and a call cannot ask a route for one (GH-4453), so no answer is an image, a pdf or markup: a 2xx of any other
+  media type is an error of the tool, never content (GH-4450),
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
   not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
 - exclusion of the non-data endpoints (index, robots, health, ready, version, settings) so the tool
@@ -94,7 +95,8 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
 
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
         # a chart as html carries plotly.js from the CDN, not inline: 4.8 MB less for an assistant to read (GH-3464).
-        # No tool offers html since GH-4318; a route that did again would not answer 4.8 MB to an assistant
+        # A call cannot ask for html (`_refuse_unknown_arguments`, GH-4318, GH-4453) and the transport answers an error
+        # for it (`_carry_bodies_as_json`); the CDN is what a chart that reached the route would cost, the last line
         token = HTML_PLOTLYJS.set("cdn")
         try:
             await app(scope, receive, send)
@@ -806,9 +808,13 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
     `_return_bodies_as_content` takes apart again into the content block of the result (GH-3464). A failure (not a
     2xx) is left as it is.
 
-    Every answer that is not JSON is text: a tool offers the data formats only (a chart format is refused before the
-    route is called, GH-4318), and the data formats that are not JSON are csv and ndjson. A test holds the formats of
-    every tool to that (`tests/ui/test_mcp_formats.py`).
+    What it carries is text: csv and ndjson, the data formats of a tool that are not JSON. A 2xx of any other media
+    type is no answer of a tool (a chart, or what a route answered to an argument it should not have been given): it is
+    an error, a 502 that names the media type, and its body is not read (GH-4453). That is the last line, not the
+    first: a chart format and an object for an argument that takes none are refused before the route is called
+    (`_refuse_unknown_arguments`, GH-4318, GH-4453), and `tests/ui/test_mcp_formats.py` holds what a tool offers (every
+    `format` an enum of the data formats, and no route of the OpenAPI document that a tool is made from declaring
+    another media type for a 2xx, which says nothing of what a route answers without declaring it).
     """
     import httpx2  # noqa: PLC0415
 
