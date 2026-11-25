@@ -1,6 +1,8 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""A request with `first` stops its work when its answer has timed out, and holds no rows after it (GH-4411, GH-4429).
+"""A request that chooses rows (`first`, `filter`) stops its work when its answer has timed out (GH-4411, GH-4429).
+
+It holds no rows after it either.
 
 `test_work_stops_at_timeout.py` holds the walk of a plain `values` to the timeout. A request that chooses rows
 holds more than the walk: each station's rows, the rows chosen again while the groups span stations, and the last
@@ -43,6 +45,10 @@ CHOICES = [
     pytest.param({"sort": "value", "first": "2"}, id="per station"),
     pytest.param({"sort": "-value", "first": "2", "by": "year"}, id="spanning"),
     pytest.param({"sort": "value", "first": "2", "max_rows": "3"}, id="cut"),
+    # a filter alone is read to the stream limit and held, bounded, as the rows matched (GH-4436); all of them match
+    pytest.param({"filter": "value>=0"}, id="filter"),
+    pytest.param({"filter": "value>=0", "sort": "-value"}, id="filter and sort"),
+    pytest.param({"filter": "value>=0", "sort": "-value", "max_rows": "3"}, id="filter, sort and cut"),
 ]
 
 

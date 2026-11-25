@@ -1942,9 +1942,10 @@ def _check_values_limits(
     """Refuse a values request that reads too many stations or would return too many rows, before any download.
 
     Counted from the selection of stations, which the server holds already; the rows are an estimate and an upper
-    bound (`ui.limits`). A request that `chooses` rows with `first` is held to what it reads, not to what it sends:
-    it may read up to the stream limit, whatever its format, and what is sent is held to the limit of its format after
-    (`check_chosen_rows`). A request that `holds` every row it reads (a `sort`) is told that a stream does not help it.
+    bound (`ui.limits`). A request that `chooses` rows with `first` or a `filter` is held to what it reads, not to what
+    it sends: it may read up to the stream limit, whatever its format, and what is sent is held to the limit of its
+    format after (`check_chosen_rows`). A request that `holds` every row it reads (a `sort` with neither) is told that a
+    stream does not help it.
     """
     check_station_count(
         selected_station_count(stations),
@@ -1953,7 +1954,7 @@ def _check_values_limits(
     )
     reads_streamed = streamed or chooses
     if limits.max_stream_rows if reads_streamed else limits.max_rows:
-        check_rows(estimate_rows(stations), limits, streamed=reads_streamed, holds=holds)
+        check_rows(estimate_rows(stations), limits, streamed=reads_streamed, holds=holds, reads=chooses)
 
 
 def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
@@ -2098,7 +2099,7 @@ def _stream_values(
         stations = get_stations(
             api=api, request=request, timestamp=request.timestamp, settings=settings, options=options
         )
-        _check_values_limits(stations, limits, streamed=True)
+        _check_values_limits(stations, limits, streamed=True, chooses="filter" in rows)
         reader = stations.values()
         results = reader.query(**rows)
         first = next(results, None)
@@ -2906,7 +2907,9 @@ def _values(
     the same reason: which failure earns which status is a decision of its own, and the endpoint --
     which also assembles a response format, a target and a set of kwargs -- is not where it belongs.
     """
-    chooses = request.first is not None
+    # a `first` or a `filter` chooses rows from the whole record: read up to the stream limit, held to `rows`. A `sort`
+    # alone holds all it reads, so it is held to `rows` for what it reads too (GH-4436)
+    chooses = request.first is not None or request.filter is not None
     holds = chooses or request.sort is not None
     try:
         values_ = get_values(
@@ -2921,9 +2924,9 @@ def _values(
         )
         if chooses:
             # read under the stream limit, so that a record can be searched; sent under the limit of one body
-            check_chosen_rows(values_.df.height, limits)
+            check_chosen_rows(values_.df.height, limits, first=request.first is not None)
     except RowsOverLimitError as e:
-        check_chosen_rows(e.rows, limits, so_far=True)
+        check_chosen_rows(e.rows, limits, so_far=True, first=request.first is not None)
         raise
     except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers

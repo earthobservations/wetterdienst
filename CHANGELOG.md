@@ -36,6 +36,11 @@ Types of changes:
 
 ### Changed
 
+- A `filter` without `first` reads up to the stream limit (`WD_RESTAPI_MAX_STREAM_ROWS`), as a
+  `first` does, and the rows that match are held to `WD_RESTAPI_MAX_ROWS` and refused as soon as a
+  station makes them more ("N rows so far"): `filter=value>=35&sort=-value` on a record of 680,000
+  readings is answered where it was a 400. A `sort` alone keeps its limit. The refusals name
+  `filter` and `max_rows`, and a read says "would read" and not "would return" (GH-4436)
 - **Breaking**: the `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock),
   which a new install takes. A condition of `filter_by_sql` and `--sql` reads as DuckDB 2 does:
   `~` matches a part of the text, `NaN` is greater than every number, `1 // 0` is an error,

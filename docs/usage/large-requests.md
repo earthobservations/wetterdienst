@@ -33,8 +33,9 @@ record of each station, so the first thing to add to a refused request is a wind
 
 Where the answer wanted is one row, or a few, of a long series (the lowest value in a window, the days at or below a
 limit, the coldest day of every year), do not read the series: have the server
-[choose the rows](restapi.md#choose-the-rows) (`sort=value&first=1`). A request with `first` may read up to the
-`stream_rows` limit, whatever its format, and holds the rows it chooses to the `rows` limit.
+[choose the rows](restapi.md#choose-the-rows) (`sort=value&first=1`, `filter=value>=35`). A request with `first` or a
+`filter` may read up to the `stream_rows` limit, whatever its format, and holds the rows it chooses to the `rows` limit;
+a `sort` alone holds everything it reads, so it keeps the `rows` limit for what it reads.
 
 The defaults, read from the settings, show what one parameter of one station comes to:
 

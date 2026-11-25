@@ -1265,7 +1265,7 @@ before the options choose the rows.
   returned and nothing that is counted: `metadata.search` still holds what was searched, expected and matched over
   everything, and `returned` beside `matched`, and a `rows-capped` warning says "20 of 25,311 matched rows are returned".
   With sort it keeps the first of the whole order (the lowest, the highest), without it the first rows as they are read
-  (by station, by series, by time). It does not raise what may be read (only `first` does, below), and what the server
+  (by station, by series, by time). It does not raise what may be read (only `first` and `filter` do, below), and what the server
   holds for it is bounded by it: a station is cut to it as it is read. In the wide shape the rows are those of the wide
   frame, a timestamp of a station and resolution, since that is what `counts.rows` counts there. A tool's answer may be
   cut once more to fit its budget: the note of `answer-truncated` then says how many of the rows `max_rows` returned
@@ -1318,7 +1318,7 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 | `sort` and `first` | `sort=temperature_air_min_2m&first=10` ranks the **timestamps** of each station by that parameter and keeps the ten lowest with the ties of the tenth (11 at Potsdam, where two days share the tenth value): `first` counts timestamps, never rows, and `by` groups them by the station and the calendar as before. A `sort` by a name and calendar columns together is fine; `value` is not. |
 | `max_rows` | Counts rows of the answer, as it always did: `max_rows=10` over three parameters is three timestamps and a row of the fourth. The answer is cut exactly, and so are the rows of a station that `query` yields. The rows `all` holds for a later step are never cut inside a timestamp (their sort value is in one of them), so while it reads it may hold up to the number of parameters less one rows more than `max_rows` for a station. |
 | `metadata.search` | Unchanged: a series is a station and a parameter, and `matched` is its rows in the answer. For a parameter that a condition names it is the number of timestamps that held (319 for both at Potsdam), for another it is its rows at those timestamps (fewer if it lacks a value there). `searched` and `expected` are of the whole series, as without names. |
-| Limits and streaming | As for the same options without names: a name reads what the request reads, under the same limits, and a `filter` alone still streams station by station. A station's timestamps are made one row each for the names the options use only (a join of those parameters on the stamps, never the whole request's width), so the memory of a station is its own frame and a column or two a name. |
+| Limits and streaming | As for the same options without names: a name reads what the request reads, under the same limits, and a `filter` alone still streams station by station, read up to `stream_rows` like the others. A station's timestamps are made one row each for the names the options use only (a join of those parameters on the stamps, never the whole request's width), so the memory of a station is its own frame and a column or two a name. |
 
 An unknown name is refused like this (a 422 located at the option over REST, a tool error, a usage error, `RowSelectionError` in Python):
 
@@ -1394,10 +1394,12 @@ the rows chosen before `max_rows`; a tool's answer that is cut to its budget kee
 
 ### Limits and streaming
 
-A request with `first` may read up to the limit of a stream (`stream_rows`, 10,000,000 rows estimated), whatever its
-format, so that a long record can be searched; in the wide shape that is counted in cells, a reading for each parameter,
-as the memory is. The series is read station by station and only the rows chosen are kept. The rows it chooses are held
-until they are sent, so they are held to the limit of one body (`rows`, 500,000) in every format, a stream included:
+A request with `first` or a `filter` may read up to the limit of a stream (`stream_rows`, 10,000,000 rows estimated),
+whatever its format, so that a long record can be searched; the estimate counts rows of the frame, a wide row once. The
+series is read station by station and only the rows chosen are kept: the readings that do not match a `filter` are let
+go as each station is read. The rows it chooses are held until they are sent, so they are held to the limit of one body
+(`rows`, 500,000) in every format (a `filter` alone that is streamed, below, is the exception), and the refusal of a
+walk that holds more says "N rows so far", where it stopped and not at the start:
 
 - a choice whose groups stay in a station (the default) is the answer as it is read, and the walk is refused the moment
   it holds more, "N rows so far";
@@ -1410,9 +1412,21 @@ until they are sent, so they are held to the limit of one body (`rows`, 500,000)
   so the refusal is of an answer that would be very large, not a proof that it is;
 - the rows are checked once more when the answer is whole, as an answer to be sent.
 
-A request with `sort` and no `first` holds every row it reads, so it is held to `rows` for what it reads, and a stream
-does not help it (the refusal says: add `first`, or drop `sort`). A request with a `filter` alone reads and sends as it
-did: `rows` for a body, `stream_rows` for a stream, which it does not hold. The number of stations and the timeout hold
+A `filter` alone, or with a `sort`, is a choice that stays in a station, so the first case holds:
+`filter=value>=35&sort=-value` over the 682,507 hourly readings of Hamburg-Fuhlsbüttel reads them all and holds the 30
+that match. The refusal of a
+filter that matches more than `rows` says to tighten it, to add `sort` and `first` (the first rows of each station), to
+cut the answer with `max_rows`, which keeps what is held to the rows of the answer (a filter that matches everything is
+then answered with its first rows, and `metadata.search` still counts all that matched), or to ask for a shorter window.
+A filter that matches everything holds no more than the plain request does, and is refused at the station that makes
+the rows more than `rows`, the walk stopped there.
+
+A request with `sort` and neither `first` nor `filter` holds every row it reads, and nothing it holds can be let go, so
+it is held to `rows` for what it reads, as it was, and a stream does not help it (the refusal says: add `first` or a
+`filter`, or drop `sort`). A request with a `filter` alone that is streamed (`format=ndjson`, `format=csv`) is the other
+exception: it sends the rows as they are read and holds none, so it may match as many rows as `stream_rows` allows; add a
+`sort` and it is held to `rows` like the body of `json`. `max_rows` alone does not raise what may be read: the request
+is read as it was. The number of stations and the timeout hold
 as they do for every request: a request the timeout ends is a 504 and its walk stops at the station in hand, the rows
 it held are freed and its place of the cap is free again (the rows chosen are not made for nobody). The estimate of
 rows, and the stations, are those of the request without options.
