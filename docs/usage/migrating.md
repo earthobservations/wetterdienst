@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.198.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.198.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.199.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.199.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,14 +13,14 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.60.0` is the app of 0.198.0, where the stripes routes are
-gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number, WIGOS identifier or ICAO code, draws the
-stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
+The web app is released as a pair with the backend: `app-v0.60.0` is the app of 0.198.0 and works with
+0.199.0, where the stripes routes are gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number,
+WIGOS identifier or ICAO code, draws the stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
 per-element lists of `noaa/ghcn` of 0.194.0 for the stripes' station list, the `provider` and `network` of the stripes
 of 0.192.0, the stripes' `reference`, `stripe_class` and `anomaly` and the stations' `wmo_id` of 0.191.0, the dataset
 `hourly/snow` of `dwd/mosmix` for the snow panel of the forecast, and otherwise no more of the backend than
 `app-v0.47.0`, the app of 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads the separate
-`providers` and `coverage`; `app-v0.59.0` went with 0.196.0 and works with 0.198.0, `app-v0.58.0` with 0.195.0 and works
+`providers` and `coverage`; `app-v0.59.0` went with 0.196.0 and works with 0.199.0, `app-v0.58.0` with 0.195.0 and works
 with 0.196.0, `app-v0.57.0` with 0.194.0 and works with 0.195.0, `app-v0.56.0` with 0.193.0 and works with 0.194.0,
 `app-v0.55.0` and `app-v0.54.0` with 0.192.0, `app-v0.53.0` with 0.191.0, `app-v0.52.0` with 0.190.0, `app-v0.51.1` with
 0.189.1, `app-v0.51.0` with 0.189.0, `app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1, `app-v0.48.0` with 0.187.0
@@ -100,7 +100,7 @@ Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than ann
 | the REST API and MCP accepted `sql` and `sql_values` | a 403 unless the server runs with `WD_RESTAPI_SQL=true` | 0.140.0, GHSA-rpwr-qmm5-m9wp |
 | the setting `restapi_sql` (`WD_RESTAPI_SQL`), which let REST and MCP clients filter with `sql` and `sql_values` | removed with them: `Settings(restapi_sql=...)` is refused with the reason; a server with `WD_RESTAPI_SQL=true` warns once as it starts and runs without SQL; `false` or empty is ignored. Remove the variable | 0.198.0, GHSA-332g-7w2w-4w59 |
 | `filter_by_sql`, `filtered_by_sql` and the CLI's `--sql` ran on any DuckDB | they need DuckDB 1.5.3 or newer and refuse an older one with `UnsupportedDependencyError`: `pip install --upgrade "duckdb>=1.5.3"`. Their restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust; the time a condition runs, memory outside DuckDB's limit and the process are not protected | 0.198.0, GHSA-332g-7w2w-4w59 |
-| a condition of `filter_by_sql`, `filtered_by_sql` or `--sql` read by DuckDB 1.5; `con.execute(...).pl()` or `.arrow()` on the connection to an exported `duckdb://` file | the `sql` and `duckdb` extras allow DuckDB 2, which a new install takes, and a condition is read as DuckDB 2.0 reads it: `~` matches a part of the text (`regexp_full_match` is the old `~`), a `NaN` is greater than every number, `sqrt` and `ln` of a number out of range are `NaN` or `-inf`, `//` and `divide` by zero are an error and `x -> x + 1` is written `lambda x: x + 1` (the list is in [Python API](python-api.md#sql)); read an exported file with `con.sql(...).pl()`, which DuckDB 1.5 reads too, and a result of `con.execute(...)` to its end with `fetchall()` before the next query. `pip install "duckdb<2"` keeps DuckDB 1.5 | Unreleased, GH-4348 |
+| a condition of `filter_by_sql`, `filtered_by_sql` or `--sql` read by DuckDB 1.5; `con.execute(...).pl()` or `.arrow()` on the connection to an exported `duckdb://` file | the `sql` and `duckdb` extras allow DuckDB 2, which a new install takes, and a condition is read as DuckDB 2.0 reads it: `~` matches a part of the text (`regexp_full_match` is the old `~`), a `NaN` is greater than every number, `sqrt` and `ln` of a number out of range are `NaN` or `-inf`, `//` and `divide` by zero are an error and `x -> x + 1` is written `lambda x: x + 1` (the list is in [Python API](python-api.md#sql)); read an exported file with `con.sql(...).pl()`, which DuckDB 1.5 reads too, and a result of `con.execute(...)` to its end with `fetchall()` before the next query. `pip install "duckdb<2"` keeps DuckDB 1.5 | 0.200.0, GH-4348 |
 
 ### Export targets
 
@@ -166,9 +166,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.198.0 renames by network, resolution and dataset.
+0.199.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.198.0.
+Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.199.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major

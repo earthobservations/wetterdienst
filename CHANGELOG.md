@@ -16,6 +16,21 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock),
+  which a new install takes. A condition of `filter_by_sql` and `--sql` reads as DuckDB 2 does:
+  `~` matches a part of the text, `NaN` is greater than every number, `1 // 0` is an error,
+  `x -> x + 1` is written `lambda x: x + 1` (the list is in the Python API docs). Code that reads
+  an exported `duckdb://` file with `con.execute(...).pl()` or `.arrow()` takes `con.sql(...).pl()`,
+  and runs the next query only after a finished result (`fetchall()`, not `fetchone()`): DuckDB's
+  own change. `pip install "duckdb<2"` keeps 1.5 (GH-4348)
+- A new `duckdb://` file is written in the storage format of DuckDB 1.0, so that DuckDB 1.5 can read
+  what DuckDB 2 wrote, and a column with no value is text, so that a later append of values to it
+  works on DuckDB 2 (GH-4348)
+
+## [0.199.0] - 2026-11-25
+
 ### Added
 
 - `values` takes `filter`, `sort`, `first`, `by` and `max_rows`, which have the server choose the
@@ -43,16 +58,12 @@ Types of changes:
   in hand and nothing more is downloaded for it. A stream whose client has gone stops too. A request
   that ends in time is unchanged; Python and the command line have no timeout and are not affected
   (GH-4429)
-- **Breaking**: the `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock),
-  which a new install takes. A condition of `filter_by_sql` and `--sql` reads as DuckDB 2 does:
-  `~` matches a part of the text, `NaN` is greater than every number, `1 // 0` is an error,
-  `x -> x + 1` is written `lambda x: x + 1` (the list is in the Python API docs). Code that reads
-  an exported `duckdb://` file with `con.execute(...).pl()` or `.arrow()` takes `con.sql(...).pl()`,
-  and runs the next query only after a finished result (`fetchall()`, not `fetchone()`): DuckDB's
-  own change. `pip install "duckdb<2"` keeps 1.5 (GH-4348)
-- A new `duckdb://` file is written in the storage format of DuckDB 1.0, so that DuckDB 1.5 can read
-  what DuckDB 2 wrote, and a column with no value is text, so that a later append of values to it
-  works on DuckDB 2 (GH-4348)
+- The warnings `missing-value-marker`, `calm-wind-direction` and `rejected-by-plausibility` say
+  at which stations their count is: the total, then the first five stations with their name and
+  count (`at 01975 Hamburg-Fuhlsbüttel (18)`) and `and N more stations`, and `stations` lists the
+  ones named. Before, a count of one station read as the answer's. The text is the same in every
+  answer with a `warnings` block and on the command line's stderr; what is counted is unchanged, so
+  a named station may have no row left in the answer (GH-4424)
 
 ### Fixed
 
@@ -64,11 +75,12 @@ Types of changes:
 
 ### Security
 
-- The lock holds filelock 4.3.0, which fixes advisories of 4.2.12 that its own repository lists (a lock
-  can remove empty directories of another account, and others of low severity); wetterdienst uses
-  its `FileLock` only, which none of them names, and the range `filelock>=3.30,<5` is unchanged.
-  `anyio`'s advisory GHSA-g36m-r6gw-cj73 has no fixed release yet: nothing here passes it a path to
-  run (GH-4378)
+- The lock holds filelock 4.3.0, which fixes the 30 advisories (5 medium, 25 low) that its own
+  repository lists for 4.2.12 (a lock can remove empty directories of another account, and others
+  of low severity). wetterdienst uses its native `FileLock` only, and one low advisory names it:
+  on Windows another local account can delay a short acquisition (GHSA-57mc-wxv7-332q). The range
+  `filelock>=3.30,<5` is unchanged. `anyio`'s advisory GHSA-g36m-r6gw-cj73 has no fixed release
+  yet: nothing here passes it a path to run (GH-4378)
 
 ## [0.198.0] - 2026-11-24
 
@@ -8594,7 +8606,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...HEAD
+[0.199.0]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...v0.199.0
 [0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
 [0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0

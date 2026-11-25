@@ -835,6 +835,19 @@
             }
           ]
         },
+        "region": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "name": {
           "anyOf": [
             {
@@ -1521,6 +1534,19 @@
             }
           ]
         },
+        "region": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "name": {
           "anyOf": [
             {
@@ -1889,6 +1915,60 @@
               "type": "null"
             }
           ]
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 10000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_rows": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 10000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1898,5 +1978,5 @@
       ]
     }
   },
-  "x-release": "0.198.0"
+  "x-release": "0.199.0"
 }
