@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.199.0] - 2026-11-25
+
 ### Added
 
 - `values` takes `filter`, `sort`, `first`, `by` and `max_rows`, which have the server choose the
@@ -60,11 +62,12 @@ Types of changes:
 
 ### Security
 
-- The lock holds filelock 4.3.0, which fixes advisories of 4.2.12 that its own repository lists (a lock
-  can remove empty directories of another account, and others of low severity); wetterdienst uses
-  its `FileLock` only, which none of them names, and the range `filelock>=3.30,<5` is unchanged.
-  `anyio`'s advisory GHSA-g36m-r6gw-cj73 has no fixed release yet: nothing here passes it a path to
-  run (GH-4378)
+- The lock holds filelock 4.3.0, which fixes the 30 advisories (5 medium, 25 low) that its own
+  repository lists for 4.2.12 (a lock can remove empty directories of another account, and others
+  of low severity). wetterdienst uses its native `FileLock` only, and one low advisory names it:
+  on Windows another local account can delay a short acquisition (GHSA-57mc-wxv7-332q). The range
+  `filelock>=3.30,<5` is unchanged. `anyio`'s advisory GHSA-g36m-r6gw-cj73 has no fixed release
+  yet: nothing here passes it a path to run (GH-4378)
 
 ## [0.198.0] - 2026-11-24
 
@@ -8590,7 +8593,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...HEAD
+[0.199.0]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...v0.199.0
 [0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
 [0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0
