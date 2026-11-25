@@ -36,6 +36,16 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock),
+  which a new install takes. A condition of `filter_by_sql` and `--sql` reads as DuckDB 2 does:
+  `~` matches a part of the text, `NaN` is greater than every number, `1 // 0` is an error,
+  `x -> x + 1` is written `lambda x: x + 1` (the list is in the Python API docs). Code that reads
+  an exported `duckdb://` file with `con.execute(...).pl()` or `.arrow()` takes `con.sql(...).pl()`,
+  and runs the next query only after a finished result (`fetchall()`, not `fetchone()`): DuckDB's
+  own change. `pip install "duckdb<2"` keeps 1.5 (GH-4348)
+- A new `duckdb://` file is written in the storage format of DuckDB 1.0, so that DuckDB 1.5 can read
+  what DuckDB 2 wrote, and a column with no value is text, so that a later append of values to it
+  works on DuckDB 2 (GH-4348)
 - The `kostra` tool, route and command are described as design rainfall (return periods of heavy
   rain) and no longer as "heavy-rainfall statistics", which `statistics` now names (GH-4412)
 

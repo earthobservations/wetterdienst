@@ -152,8 +152,9 @@ cratedb = [
     "sqlalchemy-cratedb>=0.40,<1",
 ]
 duckdb = [
-    # >=1.5.3: the same release as the `sql` extra, so that one install holds both
-    "duckdb>=1.5.3,<2",
+    # >=1.5.3: the same release as the `sql` extra, so that one install holds both; <3: the export is
+    # tested on 1.5 and 2.0 (GH-4348)
+    "duckdb>=1.5.3,<3",
     "pandas>=2.2.2,<4",
 ]
 # kept for the installs that name it; `bufr` carries this and the reader both. The floor is the
@@ -239,8 +240,9 @@ restapi = [
     "uvicorn[standard]>=0.30,<1",
 ]
 sql = [
-    # >=1.5.3: the filter refuses an older DuckDB (`wetterdienst.io.sql_filter.MINIMUM_DUCKDB`)
-    "duckdb>=1.5.3,<2",
+    # >=1.5.3: the filter refuses an older DuckDB (`wetterdienst.io.sql_filter.MINIMUM_DUCKDB`); <3: the
+    # filter's restrictions are held by tests/test_sql_filter_connection.py on 1.5.3, 1.5.6 and 2.0 (GH-4348)
+    "duckdb>=1.5.3,<3",
 ]
 mcp = [
     "wetterdienst[restapi]",
