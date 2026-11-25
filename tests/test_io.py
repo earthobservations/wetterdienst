@@ -2067,6 +2067,66 @@ def test_export_duckdb_if_exists_append(
     ]
 
 
+def _duckdb_storage_version(path: Path) -> int:
+    """Read the storage version number from the header of a DuckDB file (DuckDB 1.0 to 1.5 write 64)."""
+    head = path.read_bytes()[:20]
+    assert head[8:12] == b"DUCK", head
+    return int.from_bytes(head[12:20], "little")
+
+
+def test_export_duckdb_writes_a_new_file_that_duckdb_1_can_read(tmp_path: Path) -> None:
+    """A file that the sink creates has the storage version of DuckDB 1.0 to 1.5, whichever DuckDB wrote it.
+
+    DuckDB 2.0 writes a newer format by default, which DuckDB 1.x cannot open (`IOException`: version number).
+    """
+    pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+    _one_row().to_target(f"duckdb:///{filename}?table=testdrive")
+    assert _duckdb_storage_version(filename) == 64
+
+
+def test_export_duckdb_keeps_the_storage_version_of_a_file_that_exists(tmp_path: Path) -> None:
+    """A file that exists keeps its format when the sink appends to it, and holds both rows."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+    connection = duckdb.connect(str(filename))
+    connection.execute("CREATE TABLE testdrive AS SELECT 'x' AS station_id")
+    connection.close()
+    before = _duckdb_storage_version(filename)
+
+    ExportMixin(df=pl.DataFrame({"station_id": ["01048"]})).to_target(
+        f"duckdb:///{filename}?table=testdrive",
+        if_exists="append",
+    )
+
+    assert _duckdb_storage_version(filename) == before
+    connection = duckdb.connect(str(filename), read_only=True)
+    assert connection.execute("SELECT station_id FROM testdrive ORDER BY 1").fetchall() == [("01048",), ("x",)]
+    connection.close()
+
+
+def test_export_duckdb_appends_values_to_a_column_that_was_written_with_none(tmp_path: Path) -> None:
+    """A column without a value in the first write takes the values of a later append, as text.
+
+    polars' `Null` column was the type "NULL" of a new table on DuckDB 2.0, which a later append could not fill.
+    """
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+    target = f"duckdb:///{filename}?table=testdrive"
+    ExportMixin(df=pl.DataFrame({"station_id": ["01048"], "value": [None]})).to_target(target)
+    ExportMixin(df=pl.DataFrame({"station_id": ["01050"], "value": [3.5]})).to_target(target, if_exists="append")
+
+    connection = duckdb.connect(str(filename), read_only=True)
+    assert connection.execute("SELECT station_id, value FROM testdrive ORDER BY 1").fetchall() == [
+        ("01048", None),
+        ("01050", "3.5"),
+    ]
+    connection.close()
+
+
 def test_export_duckdb_if_exists_skip(
     tmp_path: Path,
 ) -> None:

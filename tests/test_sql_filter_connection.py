@@ -71,6 +71,11 @@ FILE_FUNCTIONS = [
     "read_blob",
     "glob",
     "sniff_csv",
+    # of DuckDB 2.0 and later: skipped where the release has no such function
+    "read_single_csv_file",
+    "read_single_json_file",
+    "read_single_parquet_file",
+    "parquet_page_index",
 ]
 
 
@@ -618,9 +623,10 @@ def test_the_connection_makes_no_connection(
     _left_untouched(host)
 
 
-#: statements the parser keeps out of a condition, run on the connection itself: each is refused there too, with the
-#: class that DuckDB refuses it with. Where DuckDB 1.x does not know the statement it is a `ParserException`, and a
-#: statement of DuckDB 2.0 is run, and refused, as one of the others
+#: statements the parser keeps out of a condition, run on the connection itself: each must be refused there too, with
+#: the class that DuckDB of the release refuses it with. `COPY`, `ATTACH` and `EXPORT` are a `PermissionException` on
+#: every release that is tested (file system operations are disabled); a statement that 1.5 does not know is a
+#: `ParserException` there
 _PERMISSION = (duckdb.PermissionException,)
 
 
@@ -672,6 +678,62 @@ def test_the_connection_refuses_what_the_parser_keeps_out(
     with pytest.raises(duckdb.PermissionException):
         connection.execute(f"SELECT * FROM read_text('{host.txt}')")
     assert loopback.hits() == 0
+    _left_untouched(host)
+
+
+#: functions and statements of DuckDB's own that take a path, a name or a setting, tried with a path of the host: what
+#: each answers differs between the releases, one that a release does not have is a `CatalogException`
+NOTHING_READ_NOTHING_WRITTEN = [
+    "SELECT * FROM duckdb_extension_repositories()",
+    "SELECT * FROM destroy_external_resource('x')",
+    "SELECT * FROM destroy_external_resource('{csv}')",
+    "SELECT * FROM create_external_resource('x', '{csv}')",
+    "SELECT * FROM register_external_resource_type('x')",
+    "SELECT * FROM add_grammar_extension('{csv}')",
+    "SELECT * FROM enable_logging()",
+    "SELECT * FROM enable_logging(storage = 'file', storage_path = 'logs')",
+    "SELECT * FROM enable_logging(storage = 'file', storage_path = '{dir}/logs')",
+    "SELECT * FROM enable_profiling()",
+    "SELECT * FROM enable_profiling(coverage = 'all')",
+    "SELECT * FROM query('COPY df TO ''out.csv''')",
+    "SELECT * FROM query('COPY (SELECT 1) TO ''out.parquet'' (FORMAT parquet)')",
+    "SELECT * FROM query('COPY (SELECT 1) TO ''{dir}/out.csv''')",
+    "SELECT * FROM read_single_csv_file('{csv}')",
+    "SELECT * FROM parquet_page_index('{csv}')",
+]
+
+
+@pytest.mark.parametrize("statement", NOTHING_READ_NOTHING_WRITTEN)
+def test_what_the_connection_must_refuse_reads_nothing_and_writes_nothing(
+    host: SimpleNamespace, connection: duckdb.DuckDBPyConnection, loopback: _Loopback, statement: str
+) -> None:
+    """Restriction: whatever a release answers to these, nothing of the host was read and nothing was written.
+
+    The answer is the release's own: an error of one class on one, no such function on another, an empty result of
+    a setting that the release leaves alone. What must hold on every release is that no answer carries what is in
+    the host's file, that no file or directory appeared in the working directory or in the home directory, and that
+    nothing was connected to (the listener counts).
+    """
+    try:
+        rows = connection.execute(statement.format(csv=host.csv, dir=host.work.as_posix())).fetchall()
+    except duckdb.Error:
+        rows = []
+    assert CANARY not in str(rows)
+    assert loopback.hits() == 0
+    _left_untouched(host)
+
+
+@pytest.mark.parametrize(
+    "clause",
+    [
+        "elevation > (SELECT count(*) FROM query('COPY df TO ''out.csv'''))",
+        "elevation > (SELECT count(*) FROM query('COPY (SELECT 1) TO ''{dir}/out.csv'''))",
+    ],
+)
+def test_a_copy_inside_a_condition_writes_nothing(host: SimpleNamespace, clause: str) -> None:
+    """Restriction: a condition that holds a `COPY` is an error of DuckDB, and nothing is written."""
+    with pytest.raises(duckdb.Error):
+        filter_by_sql(_frame(), clause.format(dir=host.work.as_posix()))
     _left_untouched(host)
 
 

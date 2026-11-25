@@ -434,8 +434,20 @@ def _write_duckdb(result: ExportMixin, target: str, connspec: ConnectionString, 
     df = copy(result.df)
 
     df = df.with_columns(cs.datetime().dt.replace_time_zone(None))
+    # a column with no value is polars' `Null`, which DuckDB 2 makes a column of the type "NULL" in a new table, and
+    # a later append of values into it fails; as text it takes any value later, as the INTEGER of DuckDB 1.x did
+    df = df.with_columns(pl.col(name).cast(pl.String) for name, dtype in df.schema.items() if dtype == pl.Null)
 
-    connection = duckdb.connect(database=database, read_only=False)
+    # a new file is written in the storage format of DuckDB 1.0 (`v1.0.0`, which 1.5 wrote as well), so that DuckDB 1.5
+    # can read it: DuckDB 2 writes a format that 1.x cannot open by default. A file that exists keeps its own format and
+    # is opened as it was, since DuckDB refuses a second connection to a file in this process that has another
+    # configuration than the first, which a caller that holds one open (a notebook, a test) would meet
+    new_file = not Path(database).exists()
+    connection = duckdb.connect(
+        database=database,
+        read_only=False,
+        config={"storage_compatibility_version": "v1.0.0"} if new_file else {},
+    )
     try:
         connection.register("origin", df)
         if if_exists == "replace":

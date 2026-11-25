@@ -43,19 +43,15 @@ Types of changes:
   in hand and nothing more is downloaded for it. A stream whose client has gone stops too. A request
   that ends in time is unchanged; Python and the command line have no timeout and are not affected
   (GH-4429)
-- The `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock). The SQL
-  filter's limits (no files, network or extensions, one condition) hold on 1.5.3, 1.5.6 and 2.0. On
-  2.0 a condition reads as DuckDB 2 does: `~` matches a part of the text, `1 // 0` is an error and
-  `x -> x + 1` is written `lambda x: x + 1`. A `duckdb://` file that DuckDB 2 creates cannot be
-  opened by DuckDB 1.5; write it with `duckdb<2` where such a reader remains (GH-4348)
-
-### Fixed
-
-- A streamed wide CSV (`shape=wide`) no longer drops, without a word, the columns that only a later
-  station has: its header came from the first station, so a parameter it lacked lost its values for
-  every other. The header is now the columns of the request, in its order, a station that lacks a
-  parameter having it empty. Other answers are unchanged; name the parameters for a dataset with
-  many (GH-4432)
+- **Breaking**: the `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock),
+  which a new install takes. A condition of `filter_by_sql` and `--sql` reads as DuckDB 2 does:
+  `~` matches a part of the text, `NaN` is greater than every number, `1 // 0` is an error,
+  `x -> x + 1` is written `lambda x: x + 1` (the list is in the Python API docs). Code that reads
+  an exported `duckdb://` file with `con.execute(...).pl()` or `.arrow()` takes `con.sql(...).pl()`
+  (DuckDB's own change). `pip install "duckdb<2"` keeps 1.5 (GH-4348)
+- A new `duckdb://` file is written in the storage format of DuckDB 1.0, so that DuckDB 1.5 can read
+  what DuckDB 2 wrote, and a column with no value is text, so that a later append of values to it
+  works on DuckDB 2 (GH-4348)
 
 ## [0.198.0] - 2026-11-24
 

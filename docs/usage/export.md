@@ -121,10 +121,11 @@ wetterdienst values --provider=dwd --network=observation \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
-A database file that DuckDB 2.0 creates, which is what `duckdb://` writes when the file is new and DuckDB 2 is
-installed, cannot be opened by DuckDB 1.5 or older (`IOException`: the file has a newer version number). A file that
-DuckDB 1.x wrote stays readable by it when a later run appends with DuckDB 2.0. Where a reader still runs DuckDB
-1.5, install `duckdb<2` for the writer too, or write Parquet.
+A `duckdb://` file that does not exist yet is created in the storage format of DuckDB 1.0 to 1.5, also by DuckDB 2.0,
+so DuckDB 1.5 can read it and append to it. A file that exists keeps the format it has: a database that DuckDB 2.0
+created with its own defaults (not through this target) cannot be opened by DuckDB 1.5, neither to read nor to append
+(`IOException`: the file has a newer version number). Read an exported file with `con.sql(...).pl()`; DuckDB 2.0 has no
+`con.execute(...).pl()` or `.arrow()`.
 
 ## Licence, credit and date in a file
 
