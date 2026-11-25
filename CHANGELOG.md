@@ -46,8 +46,9 @@ Types of changes:
 - The warnings `missing-value-marker`, `calm-wind-direction` and `rejected-by-plausibility` say
   at which stations their count is: the total, then the first five stations with their name and
   count (`at 01975 Hamburg-Fuhlsbüttel (18)`) and `and N more stations`, and `stations` lists the
-  ones named. Before, a count of one station read as the answer's, whatever the number of stations.
-  Text and members are the same on every surface; what is counted is unchanged (GH-4424)
+  ones named. Before, a count of one station read as the answer's. The text is the same in every
+  answer with a `warnings` block and on the command line's stderr; what is counted is unchanged, so
+  a named station may have no row left in the answer (GH-4424)
 
 ### Fixed
 

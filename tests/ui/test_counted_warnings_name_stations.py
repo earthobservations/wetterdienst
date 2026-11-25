@@ -27,6 +27,7 @@ from tests.ui.test_surface_parity import (  # noqa: F401
     _rest,
     _serve_dwd,
 )
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
@@ -401,3 +402,81 @@ def test_a_hundred_stations_make_a_short_warning_and_the_budget_still_cuts_the_a
     # the cut to the budget works as before, with the warning in the block that is counted
     assert "answer-truncated" in warnings
     assert len(json.dumps(response.json(), separators=(",", ":"), ensure_ascii=False)) <= ANSWER_BUDGET
+
+
+# the name is the source's text: one line, bounded, the same in the message, the log line and the JSON
+
+_NASTY = "Ham\nburg\x1b[31m\u202eevil\u2028" + "x" * 5000
+
+
+def _renaming(monkeypatch: pytest.MonkeyPatch, station_id: str, name: str) -> None:
+    """Have the station list write `name` for the station."""
+    original = DwdObservationRequest._all  # noqa: SLF001
+
+    def listing(self: DwdObservationRequest) -> pl.LazyFrame:
+        return original(self).with_columns(
+            pl.when(pl.col("station_id") == station_id).then(pl.lit(name)).otherwise(pl.col("name")).alias("name")
+        )
+
+    monkeypatch.setattr(DwdObservationRequest, "_all", listing)
+
+
+def _is_clean(text: str) -> bool:
+    return not any(char in text for char in ("\n", "\r", "\x1b", "\u202e", "\u2028"))
+
+
+def test_a_name_with_control_characters_is_cleaned_and_cut_where_it_enters() -> None:
+    """A newline, an escape, a bidi override and 5,000 characters leave a one-line name of at most 60 characters."""
+    begin_response()
+    count_response_warning(MISSING_VALUE_MARKER, 3, "{count} markers{where}.", station="01975", station_name=_NASTY)
+
+    (warning,) = recorded_warnings()
+
+    assert _is_clean(warning["message"])
+    name = warning["message"].removeprefix("3 markers, at 01975 ").removesuffix(" (3).")
+    assert len(name) == 60
+    assert name.startswith("Ham\ufffdburg\ufffd[31m\ufffdevil\ufffdxxx")
+    assert name.endswith("x\u2026")
+    assert warning["stations"] == ["01975"]
+
+
+def test_a_name_of_the_list_is_one_clean_text_in_the_answer_and_the_log_line(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Through the walk: the library's message, REST's, and the command line's stderr line are one clean text."""
+    _renaming(monkeypatch, "00001", _NASTY)
+    _marking(monkeypatch, {"00001": 2})
+
+    library = _told(["00001"])["message"]
+    rest = _rest("/api/values", stations="00001", timestamp="2020-05").json()["metadata"]["warnings"][0]["message"]
+    with caplog.at_level(logging.INFO):
+        result = CliRunner().invoke(
+            cli,
+            [
+                "values",
+                "--provider=dwd",
+                "--network=observation",
+                f"--parameters={PARAMETER}",
+                "--stations=00001",
+                "--timestamp=2020-05",
+                "--format=csv",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    (line,) = _response_warnings(caplog)[MISSING_VALUE_MARKER]
+    assert library == rest == line
+    assert _is_clean(library)
+    assert len(library) < 500
+
+
+def test_the_name_of_a_station_is_the_first_row_trimmed_and_none_where_it_has_none() -> None:
+    """`_name_of` reads the first row of the station's rows, trimmed; a blank, a null or no column is no name."""
+    name_of = TimeseriesValues._name_of  # noqa: SLF001
+
+    assert name_of(pl.DataFrame({"name": [" Hamburg ", "Second"]})) == "Hamburg"
+    assert name_of(pl.DataFrame({"name": ["Hamburg", "  "]})) == "Hamburg"
+    assert name_of(pl.DataFrame({"name": ["   ", "Second"]})) is None
+    assert name_of(pl.DataFrame({"name": [None, "Second"]}, schema={"name": pl.String})) is None
+    assert name_of(pl.DataFrame({"station_id": ["01975"]})) is None
+    assert name_of(pl.DataFrame({"name": []}, schema={"name": pl.String})) is None

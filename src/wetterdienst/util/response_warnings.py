@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING, NotRequired
 
 from typing_extensions import TypedDict
 
+from wetterdienst.util.ui import shown_text
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
     from datetime import datetime
@@ -443,9 +445,9 @@ def count_response_warning(
     For what happens many times in a request, once for each station: the answer tells it once, with the sum.
     `details` splits the count by a reason (the check that rejected a value), summed the same way, and a `message`
     with `{details}` tells it, largest first. `station` is the station the count is of, and `station_name` its name
-    where it is at hand: a `message` with `{where}` tells the first stations with their counts (`, at 01975 Hamburg
-    (18), 01048 (3) and 95 more stations`, GH-4424), which the answer's `stations` lists too. Nothing is recorded
-    outside a request.
+    where it is at hand, which is the source's text and is cleaned of control characters and cut here (`shown_text`):
+    a `message` with `{where}` tells the first stations with their counts (`, at 01975 Hamburg (18), 01048 (3) and 95
+    more stations`, GH-4424), which the answer's `stations` lists too. Nothing is recorded outside a request.
     """
     counted = _COUNTED.get()
     if counted is None or count <= 0:
@@ -456,7 +458,7 @@ def count_response_warning(
         entry.details[detail] = entry.details.get(detail, 0) + number
     if station is not None:
         known_name, known = entry.stations.get(station, (None, 0))
-        entry.stations[station] = (station_name or known_name, known + count)
+        entry.stations[station] = (shown_text(station_name) if station_name else known_name, known + count)
 
 
 def warn_response(

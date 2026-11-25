@@ -333,12 +333,8 @@ what the answer is missing:
   `calm-wind-direction` (wind directions that are `null` because the source wrote 0 for a calm, which has no
   direction: no reading is missing. Counted apart from the markers, with the same `raw:0` token in `quality_flags`
   and the same `drop_nulls` behaviour; a 0 that is a code for no direction or the direction of a gust that was
-  not reported stays a `missing-value-marker`). These three count over the whole request, and say at which
-  stations: the message gives the total, then the first five stations that have a count, with their name where the
-  list has one and the count at each, and `and N more stations` for the rest (`, at 01975 Hamburg-Fuhlsbüttel (18),
-  01048 Dresden-Klotzsche (3) and 95 more stations;`), and `stations` lists the ones named. The text is the same on
-  every surface, and the command line's line on stderr for a CSV, which has no `warnings`, is the same message. The
-  other codes are `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
+  not reported stays a `missing-value-marker`),
+  `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
   the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them),
   `position-unplaced` (a station whose position the source writes where no swap of latitude and
   longitude puts it in the network's country, listed with a null position: `eaufrance/hubeau`; the
@@ -509,6 +505,18 @@ what the answer is missing:
   `interpolate` and `summarize`, for which a station without a parameter is the ordinary case. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
   than it asked for are, and `wetterdienst.util.response_warnings.recorded_warnings` gives it after
   `begin_response()`, as the REST API and the command line do.
+
+  The three counts, `missing-value-marker`, `calm-wind-direction` and `rejected-by-plausibility`, are for the whole
+  request and say at which stations: the message gives the total, then the first five stations that have a count, with
+  their name where the list has one (cleaned of control characters and cut at 60 characters) and the count at each,
+  and `and N more stations` for the rest: `1400 readings ... are null, at 01975 Hamburg-Fuhlsbüttel (18), 01048
+  Dresden-Klotzsche (3), 04271 Rostock-Warnemünde (2), 03987 Potsdam (2), 00183 Arkona (1) and 92 more stations;
+  ...`. `stations` lists the five. The text is the same in every answer that has a `warnings` block (the library after
+  `begin_response()`, the command line's JSON, REST and MCP in `json` and `ndjson`) and on the command line's
+  stderr, where a CSV has its line; a REST or MCP CSV carries the code in its header and not the message. A count is of
+  what was read, so a station it names may have no row in the answer (a `filter` or `first` cut it, or `drop_nulls`
+  emptied it), and in a streamed answer the `metadata` line holds the count of the stations read by then, which the
+  `end` line replaces: a head that names one station is not "all at that station".
 
   `station-without-rows` says that stations the request named by id (`stations=`; `filter_by_station_id` in Python,
   the same on the command line, in REST and in the MCP tool) returned no rows while other named stations returned
