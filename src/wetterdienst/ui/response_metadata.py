@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.core.station_search import StationIdSearchResult
     from wetterdienst.metadata.period import Period
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.result import _ProviderTerms, _ValuesResult
     from wetterdienst.options import Options
@@ -464,6 +465,66 @@ class Search(BaseModel):
     totals: SearchTotals
 
 
+class StatisticsOptions(BaseModel):
+    """The options of a `statistics` request as they were read, with their defaults."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    aggregate: list[str] = Field(description="What was computed per group, in the order asked.")
+    filter: str | None = Field(description="The conditions, as read: `value<0,month=12|1|2`.")
+    by: list[str] = Field(description="The columns the groups are made of besides the series, in calendar order.")
+    per: str = Field(description="Over what `first` counted: `station` or `none`.")
+    having: str | None = Field(description="The conditions on the results, as read.")
+    sort: str | None = Field(description="The sort keys, as read.")
+    first: int | None = Field(description="How many groups were kept, exactly, in the `sort` order.")
+    year_start: int = Field(description="The month a `year` began: 1 is the calendar year.")
+    max_missing: int = Field(description="How many values a group could lack and still get a `mean` and a `sum`.")
+    max_rows: int | None = Field(description="The most groups the answer was cut to, as the last step.")
+
+
+class StatisticsTotals(BaseModel):
+    """What the whole answer searched and made, summed over its series."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stations_read: int | None = Field(
+        description="How many stations the walk read, those with no value in the window included; null for a result "
+        "that did not walk. `stations_with_values` of them have a series.",
+    )
+    stations_with_values: int = Field(description="How many stations have at least one value searched.")
+    series: int = Field(description="How many stations and parameters were searched (also those that are not listed).")
+    searched: int = Field(description="The values searched in all, before any condition of `filter`.")
+    expected: int | None = Field(
+        description="The values the request covers, in all (see `series[].expected`); null where one series has none "
+        "to give.",
+    )
+    gaps: int | None = Field(
+        description="The values the series lack inside their own span, in all; null where one series has none to give.",
+    )
+    groups: int = Field(
+        description="All the groups of the series: those that are rows and those that are not (`groups_not_listed`).",
+    )
+    groups_not_listed: int = Field(
+        description="The groups wholly before the first or after the last value of their series that have none: "
+        "counted, no rows. A hole inside the record is a row.",
+    )
+    groups_incomplete: int = Field(description="The rows that lack more values than `max_missing` allows.")
+    groups_matched: int = Field(description="The rows left after `having`, before `sort`, `first` and `max_rows`.")
+    groups_returned: int = Field(description="The groups of the answer, as `counts.rows` has them.")
+
+
+class StatisticsSearch(BaseModel):
+    """What `statistics` looked at: the options as read, the window and the totals."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    options: StatisticsOptions
+    window: SearchWindow = Field(
+        description="The window the request read; where there is none every value of the stations was searched.",
+    )
+    totals: StatisticsTotals
+
+
 class ResponseMetadata(BaseModel):
     """The `metadata` block of an answer."""
 
@@ -512,6 +573,17 @@ class ResponseMetadata(BaseModel):
     )
     parameters: list[ParameterInfo] | None = Field(default=None, description="With `with_metadata` only.")
     quality: Quality | None = Field(default=None, description="With `with_metadata` only.")
+
+
+class StatisticsMetadata(ResponseMetadata):
+    """The `metadata` block of the answer of `statistics`: that of `values`, with the search of the groups."""
+
+    search: StatisticsSearch | None = Field(
+        default=None,
+        description="What the options looked at and made: the options as read (with their defaults), the window, and "
+        "the totals of the values searched and the groups made, found and returned. The series themselves, with "
+        "what was searched of each and the statistics over their groups, are the `series` of the answer.",
+    )
 
 
 # the parts that only `with_metadata` asks for
@@ -634,6 +706,38 @@ def result_metadata(
             ],
         )
     return block
+
+
+def statistics_metadata(result: StatisticsResult, *, provider: str, network: str) -> StatisticsMetadata:
+    """Build the block of the answer of `statistics` (`/api/statistics`): that of `values` and the groups' search."""
+    from wetterdienst.model.processing_note import STATISTICS_NOTE  # noqa: PLC0415
+
+    stations = result.stations
+    ids = _unique(series.station_id for series in result.series)
+    search = StatisticsSearch.model_validate(result.search())
+    return StatisticsMetadata(
+        api_version=API_VERSION,
+        schema_version=SCHEMA_VERSION,
+        retrieved_at=_retrieved_at(),
+        **describe_provider(stations.request.metadata, result.data_updated_at, calculated=STATISTICS_NOTE),
+        request=ResolvedRequest(
+            provider=provider.lower(),
+            network=network.lower(),
+            parameters=_unique(f"{p.dataset.resolution.name}/{p.dataset.name}/{p.name}" for p in stations.parameters),
+            periods=[period.value for period in sorted(cast("Iterable[Period]", stations.request.periods or ()))],
+            start=format_timestamp(stations.start) if stations.start else None,
+            end=format_timestamp(stations.end) if stations.end else None,
+            stations=StationsSelected(
+                filter=stations._stations_filter.value,  # noqa: SLF001
+                count=len(ids),
+                ids=ids if len(ids) <= MAX_LISTED_STATION_IDS else None,
+            ),
+        ),
+        counts=Counts(stations=len(ids), rows=search.totals.groups_returned),
+        crs=Crs(),
+        warnings=recorded_warnings(),
+        search=search,
+    )
 
 
 def catalogue_metadata(*, providers: int, networks: int, parameters: int) -> CatalogueMetadata:
@@ -913,7 +1017,10 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
         headers["X-Wetterdienst-Values-Searched"] = str(totals.searched)
         if totals.expected is not None:
             headers["X-Wetterdienst-Values-Expected"] = str(totals.expected)
-        headers["X-Wetterdienst-Rows-Matched"] = str(totals.matched)
+        if isinstance(totals, StatisticsTotals):
+            headers["X-Wetterdienst-Groups-Matched"] = str(totals.groups_matched)
+        else:
+            headers["X-Wetterdienst-Rows-Matched"] = str(totals.matched)
     if (license_ := provider["license"]) is not None:
         headers["X-Wetterdienst-License"] = _header_text(_license_label(license_))
         headers["Link"] = f'<{license_["url"]}>; rel="license"'

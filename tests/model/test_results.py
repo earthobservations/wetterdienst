@@ -299,7 +299,7 @@ def test_the_public_methods_of_the_results_are_the_ones_the_library_promises() -
         "values",
     ]
     # `search` and `selected_rows` are the row options of the values alone (GH-4411): an estimate has no rows to choose
-    assert _public(ValuesResult) == sorted([*_VALUES_SURFACE, "search", "selected_rows"])
+    assert _public(ValuesResult) == sorted([*_VALUES_SURFACE, "search", "selected_rows", "statistics"])
     assert _public(InterpolatedValuesResult) == sorted([*_VALUES_SURFACE, "elevation"])
     assert _public(SummarizedValuesResult) == sorted([*_VALUES_SURFACE, "elevation"])
     assert _public(HistoryResult) == ["to_dict", "to_format", "to_json"]

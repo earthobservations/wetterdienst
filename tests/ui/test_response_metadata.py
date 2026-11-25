@@ -538,6 +538,12 @@ def _read_values_of(endpoint: str) -> Callable[[pytest.MonkeyPatch], None]:
     return read
 
 
+def _read_statistics(monkeypatch: pytest.MonkeyPatch) -> None:
+    result = _values_result_of_shape("long").statistics("count", by="year")
+    monkeypatch.setattr(restapi, "get_statistics", lambda **_kwargs: result)
+    _warn_first(monkeypatch, restapi, "get_statistics")
+
+
 #: every route of the API that answers with a `metadata` block (or the headers of one), with a request that is answered
 #: and how to have its read raise a warning
 _ROUTES_WITH_WARNINGS = [
@@ -554,6 +560,12 @@ _ROUTES_WITH_WARNINGS = [
         "/api/interpolate", _params("/api/interpolate"), _read_values_of("/api/interpolate"), id="interpolate"
     ),
     pytest.param("/api/summarize", _params("/api/summarize"), _read_values_of("/api/summarize"), id="summarize"),
+    pytest.param(
+        "/api/statistics",
+        {**_OBSERVATION, "stations": "01048", "timestamp": "2026-01-01", "aggregate": "count", "by": "year"},
+        _read_statistics,
+        id="statistics",
+    ),
     pytest.param("/api/history", {**_OBSERVATION, "stations": "02564"}, _read_history, id="history"),
     pytest.param("/api/alerts", {}, _read_alerts, id="alerts"),
     pytest.param("/api/storm-cells", {}, _read_storm_cells, id="storm-cells"),

@@ -70,6 +70,23 @@ wetterdienst values --provider=dwd --network=observation --parameters=daily/clim
     --stations=01975 --timestamp=1900/2024 --filter='value<=-20' --sort=-timestamp
 ```
 
+`wetterdienst statistics` counts, averages, adds up or takes the extremes of each station's values per year, month, day
+or hour (`--aggregate`, `--by`, `--filter`, `--year-start`, `--max-missing`, `--having`, `--sort`, `--first`, `--per`,
+`--max-rows`), on the words of [Statistics](restapi.md#statistics), where the rules of the completeness are written: a
+group that is not over, or has a gap, has no mean or sum unless `--max-missing` allows it, and `searched` and `expected`
+say how many values each group has and should have. It selects the stations with `--all`, `--stations`, `--region`,
+`--name` or a point (`--latitude` and `--longitude` with `--rank` or `--distance`), and writes JSON, CSV or NDJSON.
+
+```bash
+# the frost days of each year at Potsdam, 1961 to 1990, with their mean over the years under over_groups
+wetterdienst statistics --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
+    --stations=03987 --timestamp=1961/1990 --filter='value<0' --aggregate=count --by=year
+
+# the five warmest years of the record
+wetterdienst statistics --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_mean_2m \
+    --stations=03987 --aggregate=mean --by=year --sort=-mean --first=5
+```
+
 The command line has none of the limits of the REST API on the rows or stations of a request. A long record or a
 whole network is written with `--target` to a file or a database, see
 [Getting more than the limit](large-requests.md#leave-the-server).

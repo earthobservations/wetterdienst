@@ -25,11 +25,13 @@ from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: 
 from wetterdienst.ui.response_metadata import (
     ResponseMetadata,
     StationIdsMetadata,
+    StatisticsMetadata,
     alerts_metadata,
     kostra_metadata,
     metadata_to_dict,
     response_metadata,
     station_ids_metadata,
+    statistics_metadata,
     storm_cells_metadata,
 )
 from wetterdienst.util.json_util import dumps_json
@@ -40,6 +42,7 @@ if TYPE_CHECKING:
     import polars as pl
 
     from wetterdienst.core.station_search import StationIdSearchResult
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.result import (
         InterpolatedValuesResult,
@@ -55,6 +58,7 @@ if TYPE_CHECKING:
         HistoryRequest,
         InterpolationRequest,
         StationsRequest,
+        StatisticsRequest,
         SummaryRequest,
         ValuesRequest,
     )
@@ -473,6 +477,34 @@ def render_kostra(result: DwdKostraResult, fmt: str, *, pretty: bool = False) ->
         return result.to_csv(), metadata
     answer = {"metadata": metadata_to_dict(metadata), **result.to_dict()}
     return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
+
+
+def render_statistics(
+    result: StatisticsResult, request: StatisticsRequest, *, metadata: StatisticsMetadata | None = None
+) -> tuple[str, StatisticsMetadata]:
+    """Write the statistics in the format the request names, JSON with the `metadata` block, which is given back too.
+
+    JSON is `{"metadata": ..., "series": [...]}`, each series with its report, the statistics over its groups and its
+    groups; CSV is one row per group with the identity of its series in front, with no place for the block, so it
+    travels in the headers (`response_headers`); NDJSON is the block, a line for each group, then the `end` line with
+    the counts, the warnings and the series without their groups. `metadata` is the block, where the caller has built
+    it (a tool's answer cut to the budget carries its note).
+    """
+    metadata = metadata or statistics_metadata(result, provider=request.provider, network=request.network)
+    if request.format == "csv":
+        return result.to_csv(), metadata
+    series = result.series_dicts()
+    if request.format == "ndjson":
+        lines = [ndjson_line({"metadata": metadata_to_dict(metadata)})]
+        for entry in series:
+            head = {key: entry[key] for key in ("station_id", "resolution", "dataset", "parameter")}
+            lines.extend(ndjson_line({**head, **group}) for group in entry["groups"])
+        end = ndjson_end(metadata.counts.stations, metadata.counts.rows, metadata.warnings)
+        end["series"] = [{key: value for key, value in entry.items() if key != "groups"} for entry in series]
+        lines.append(ndjson_line({"end": end}))
+        return b"".join(lines).decode(), metadata
+    answer = {"metadata": metadata_to_dict(metadata), "series": series}
+    return dumps_json(answer, indent=4 if request.pretty else None, ensure_ascii=False), metadata
 
 
 def render_station_ids(

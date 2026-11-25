@@ -41,37 +41,56 @@ and a usage error without its cost.
 
 from __future__ import annotations
 
-import datetime as dt
 import difflib
-import math
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Final, Literal, TypedDict
+from typing import TYPE_CHECKING, Final, TypedDict
 
 from wetterdienst.exceptions import RequestError
 
+# the grammar and the report of a series are shared with `statistics` (`model/group_statistics.py`): they live in
+# `option_grammar` and `series_report`, and are read from here as they always were
+from wetterdienst.model.option_grammar import (  # noqa: F401
+    _CALENDAR_RANGE,
+    _OPERATOR_HINTS,
+    _WORD,
+    MAX_CONDITIONS,
+    MAX_FILTER_LENGTH,
+    MAX_FIRST,
+    MAX_LIST_ITEMS,
+    MAX_MAX_ROWS,
+    MAX_NUMBER_LENGTH,
+    MAX_ORDER_LENGTH,
+    Condition,
+    Operator,
+    RowSelectionError,
+    RowSelectionRefusedError,
+    SortKey,
+    _check_text,
+    _read_count,
+    _read_number,
+    _read_operator,
+    _refusal,
+    _Scanner,
+    _show,
+    _split,
+    parse_conditions,
+)
+from wetterdienst.model.series_report import (  # noqa: F401
+    _usual_step,
+    latest_complete,
+    searched_of,
+    station_names,
+    wide_value_columns,
+)
+
 if TYPE_CHECKING:
+    import datetime as dt
     from collections.abc import Callable, Iterable, Mapping, Sequence
 
     import polars as pl
 
-    from wetterdienst.metadata.resolution import Resolution
     from wetterdienst.model.metadata import ParameterModel
 
-#: the longest `filter` text, in characters: far more than any condition list a person or a model writes (8 conditions
-#: of 30 characters), and little enough that the parse is of no cost
-MAX_FILTER_LENGTH: Final = 400
-#: the most conditions a `filter` joins
-MAX_CONDITIONS: Final = 8
-#: the most numbers one list `a|b|c` holds
-MAX_LIST_ITEMS: Final = 32
-#: the longest number, in characters
-MAX_NUMBER_LENGTH: Final = 24
-#: the longest `sort` and `by` text, in characters
-MAX_ORDER_LENGTH: Final = 100
-#: the largest `first`: the rows of a group are the readings of a station, and more than this are no answer to read
-MAX_FIRST: Final = 10_000
-#: the largest `max_rows`: an answer to read is not larger, and what is held for it in memory is bounded by it
-MAX_MAX_ROWS: Final = 10_000
 #: the series a report names one by one (`Searched.to_dict`); the totals count all of them
 MAX_REPORTED_SERIES: Final = 100
 #: the same in the answer of an MCP tool, whose answer is held to a budget the report would otherwise take (100 stations
@@ -89,19 +108,9 @@ BY_COLUMNS: Final = ("station_id", "year", "month", "day", "hour")
 #: the group `first` counts in when `by` is not given
 DEFAULT_BY: Final = ("station_id",)
 
-#: the whole numbers a calendar column may be compared with: a number outside is a mistake (`month=0`, `hour=24`)
-_CALENDAR_RANGE: Final = {"year": (1, 9999), "month": (1, 12), "day": (1, 31), "hour": (0, 23)}
-#: the largest magnitude of a `value` number: more is no reading
-_MAX_VALUE: Final = 1e15
 
 #: the columns that make a timestamp of a station and a resolution one row of a long frame
 _STAMP_KEYS: Final = ("station_id", "resolution", "timestamp")
-
-_OPERATORS: Final = ("<=", ">=", "!=", "<", ">", "=")
-_WORD = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
-_DIGITS = frozenset("0123456789")
-
-Operator = Literal["=", "!=", "<", "<=", ">", ">="]
 
 
 class RowOptions(TypedDict, total=False):
@@ -147,14 +156,6 @@ _COLUMN_HINTS: Final = {
     "sum": "counting and aggregating are not in the row options; `first` and `filter` choose rows",
     "asc": "write `-` before a column for descending, nothing for ascending: sort=-value",
     "desc": "write `-` before a column for descending, nothing for ascending: sort=-value",
-}
-
-_OPERATOR_HINTS: Final = {
-    "==": "write a single `=`",
-    "=<": "write `<=`",
-    "=>": "write `>=`",
-    "<>": "write `!=`",
-    "~": "regular expressions and pattern matching are not available",
 }
 
 
@@ -292,46 +293,6 @@ class ParameterNames:
         return ", ".join(shown) + (f" and {more} more" if more > 0 else "")
 
 
-class RowSelectionError(RequestError):
-    """A `filter`, `sort`, `first` or `by` that cannot be read, as the one error of the parser.
-
-    A `RequestError` (a `ValueError`), so a Python caller catches it as the other refusals of a request, the REST API
-    and the MCP tools answer it as a 422 located at the option and the command line as a usage error. `option` names
-    the option, `position` is the 1-based character of its text where the text goes wrong (None for a refusal that is
-    not about one character), `found` what is there and `expected` what is allowed there. It is raised for the text
-    alone, and for a name that is none of the request's parameters or is the name of several of them, once the request
-    is known: the REST API answers that one as a 422 too, located at the option.
-    """
-
-    def __init__(
-        self,
-        option: str,
-        problem: str,
-        *,
-        position: int | None = None,
-        found: str | None = None,
-        expected: str | None = None,
-        hint: str | None = None,
-    ) -> None:
-        """Build the message from the parts, which stay on the exception as attributes."""
-        self.option = option
-        self.position = position
-        self.found = found
-        self.expected = expected
-        self.hint = hint
-        where = f" at position {position}" if position is not None else ""
-        parts = [f"Invalid `{option}`{where}: {problem}"]
-        if found is not None:
-            parts[0] += f"; found {found}"
-        if expected is not None:
-            parts[0] += f", expected {expected}"
-        parts[0] += "."
-        if hint:
-            hint = hint[0].upper() + hint[1:]
-            parts.append(hint if hint.endswith((".", ")")) else f"{hint}.")
-        super().__init__(" ".join(parts))
-
-
 class RowsOverLimitError(RequestError):
     """The rows chosen so far are more than the reader may hold, and the groups say none of them will go.
 
@@ -345,144 +306,6 @@ class RowsOverLimitError(RequestError):
         self.rows = rows
         self.maximum = maximum
         super().__init__(f"The options chose {rows:,} rows so far, more than the {maximum:,} that may be held.")
-
-
-def _refusal(
-    option: str,
-    problem: str,
-    *,
-    position: int | None = None,
-    found: str | None = None,
-    expected: str | None = None,
-    hint: str | None = None,
-) -> RowSelectionError:
-    """Build the error of an option, to be raised: the text of each is written where it is raised."""
-    return RowSelectionError(option, problem, position=position, found=found, expected=expected, hint=hint)
-
-
-class RowSelectionRefusedError(RequestError):
-    """A selection that is well written and cannot be applied to this request: say what to change.
-
-    The text is not at fault but the request it goes with: `value` over parameters in different units, `value` in the
-    wide shape, a grouping `query` cannot give. A `RequestError`, answered as a 400 (the options are fine, the request
-    as a whole is not).
-    """
-
-
-def _show(text: str, position: int) -> str:
-    """Quote what is at a 1-based position of a text for a message: the character, or the end of the text."""
-    return repr(text[position - 1]) if position <= len(text) else "the end of the text"
-
-
-def _check_text(option: str, text: str, maximum: int) -> None:
-    """Refuse a text that is empty, too long or has a character outside printable ASCII, before it is scanned."""
-    if not text.strip():
-        raise _refusal(option, "the text is empty", hint="leave the option out for none")
-    if len(text) > maximum:
-        raise _refusal(
-            option,
-            f"the text has {len(text):,} characters, more than the {maximum} allowed",
-            hint="shorten it; a list `a|b|c` of numbers or fewer conditions does the same",
-        )
-    for index, char in enumerate(text, start=1):
-        if not (" " <= char <= "~" or char == "\t"):
-            raise _refusal(
-                option,
-                "a character that is not plain ASCII",
-                position=index,
-                found=repr(char),
-                expected="letters, digits and the signs `, | < > = ! - .`",
-                hint="write numbers with a point and no unit or thousands separator",
-            )
-
-
-@dataclass(frozen=True)
-class Condition:
-    """One condition of a `filter`: a column, an operator and the number or the list of numbers it is compared with."""
-
-    column: str
-    operator: Operator
-    values: tuple[int | float, ...]
-
-    def text(self) -> str:
-        """Write the condition as the parser reads it."""
-        return f"{self.column}{self.operator}{'|'.join(_number_text(number) for number in self.values)}"
-
-
-def _number_text(number: float) -> str:
-    """Write a number as the parser reads it: a whole one without a point (`-20`), another as its shortest text."""
-    if isinstance(number, float) and number.is_integer() and abs(number) < 1e15:
-        return str(int(number))
-    return str(number) if isinstance(number, int) else repr(number)
-
-
-@dataclass(frozen=True)
-class SortKey:
-    """One key of a `sort`: a column and the direction."""
-
-    column: str
-    descending: bool
-
-    def text(self) -> str:
-        """Write the key as the parser reads it."""
-        return f"-{self.column}" if self.descending else self.column
-
-
-class _Scanner:
-    """Read a text by hand, one character at a time: no regular expression, no backtracking, linear."""
-
-    def __init__(self, option: str, text: str) -> None:
-        self.option = option
-        self.text = text
-        self.index = 0
-
-    @property
-    def position(self) -> int:
-        """The 1-based position of the next character."""
-        return self.index + 1
-
-    def peek(self) -> str:
-        """Give the next character, an empty string at the end."""
-        return self.text[self.index] if self.index < len(self.text) else ""
-
-    def skip_blanks(self) -> None:
-        """Pass spaces and tabs."""
-        while self.index < len(self.text) and self.text[self.index] in " \t":
-            self.index += 1
-
-    def digits(self) -> int:
-        """Pass ASCII digits and give how many there were."""
-        start = self.index
-        while self.index < len(self.text) and self.text[self.index] in _DIGITS:
-            self.index += 1
-        return self.index - start
-
-    def word(self) -> str:
-        """Read letters, digits and underscores."""
-        start = self.index
-        while self.index < len(self.text) and self.text[self.index] in _WORD:
-            self.index += 1
-        return self.text[start : self.index]
-
-    def fail(
-        self,
-        problem: str,
-        *,
-        expected: str,
-        hint: str | None = None,
-        at: int | None = None,
-        found: str | None = None,
-    ) -> RowSelectionError:
-        """Build the error for the text at `at` (the next character by default), `found` where that is a token."""
-        position = at if at is not None else self.position
-        return RowSelectionError(
-            self.option,
-            problem,
-            position=position,
-            found=found if found is not None else _show(self.text, position),
-            expected=expected,
-            hint=hint,
-        )
 
 
 def _unknown_column(
@@ -568,71 +391,6 @@ def _name_column(
     )
 
 
-def _read_number(scanner: _Scanner, column: str) -> int | float:  # noqa: C901
-    """Read one number of a condition: `-20`, `0.5`, `1e3`, `2e-3`; a whole number for a calendar column."""
-    start = scanner.position
-    begin = scanner.index
-    if scanner.peek() == "+":
-        raise scanner.fail(
-            "a plus sign",
-            expected="a number without a sign or with a minus",
-            hint="write 5, not +5 (a `+` in a URL is read as a space)",
-        )
-    if scanner.peek() == "-":
-        scanner.index += 1
-    if not scanner.digits():
-        raise scanner.fail(
-            "no number",
-            expected="a number such as -20, 0.5 or 1e3",
-            hint="Not numbers: nan, inf, names and units. Write the number alone, in the unit of the values",
-        )
-    fraction = False
-    if scanner.peek() == ".":
-        scanner.index += 1
-        if not scanner.digits():
-            raise scanner.fail("a point with no digits after it", expected="digits, as in 0.5")
-        fraction = True
-    if scanner.peek() in ("e", "E"):
-        scanner.index += 1
-        fraction = True
-        if scanner.peek() == "-":
-            scanner.index += 1
-        if not scanner.digits():
-            raise scanner.fail("an exponent with no digits", expected="digits, as in 1e3 or 2e-3")
-    token = scanner.text[begin : scanner.index]
-    if len(token) > MAX_NUMBER_LENGTH:
-        raise scanner.fail(
-            f"the number has {len(token)} characters, more than the {MAX_NUMBER_LENGTH} allowed",
-            expected="a shorter number",
-            at=start,
-        )
-    if column in _CALENDAR_RANGE:
-        if fraction:
-            raise scanner.fail(
-                f"`{column}` is a whole number",
-                expected="a whole number",
-                hint=f"write {column}=7, not {token}",
-                at=start,
-                found=repr(token),
-            )
-        number = int(token)
-        low, high = _CALENDAR_RANGE[column]
-        if not low <= number <= high:
-            raise scanner.fail(
-                f"{token} is outside the range of `{column}`",
-                expected=f"a number from {low} to {high}",
-                at=start,
-                found=repr(token),
-            )
-        return number
-    value = float(token)
-    if not math.isfinite(value) or abs(value) > _MAX_VALUE:
-        raise scanner.fail(
-            f"{token} is too large", expected=f"a magnitude of at most {_MAX_VALUE:g}", at=start, found=repr(token)
-        )
-    return value
-
-
 def parse_filter(text: str, names: ParameterNames | None = None) -> tuple[Condition, ...]:
     """Read a `filter` text into its conditions, joined by `,`, or raise `RowSelectionError`.
 
@@ -641,97 +399,13 @@ def parse_filter(text: str, names: ParameterNames | None = None) -> tuple[Condit
     A word that is no column of the option is a parameter's name: `names` are the request's, which it must be one of;
     without them it is accepted if it can be a name (see `_name_column`).
     """
-    _check_text("filter", text, MAX_FILTER_LENGTH)
-    scanner = _Scanner("filter", text)
-    conditions: list[Condition] = []
-    while True:
-        if len(conditions) >= MAX_CONDITIONS:
-            raise scanner.fail(
-                f"more than {MAX_CONDITIONS} conditions",
-                expected="at most 8 conditions; a list `a|b` joins values of one column",
-                at=min(scanner.position, len(text) + 1),
-            )
-        scanner.skip_blanks()
-        start = scanner.position
-        word = scanner.word()
-        column = word.lower()
-        if column not in FILTER_COLUMNS:
-            column = _name_column(scanner, word, FILTER_COLUMNS, start, _FILTER_EXAMPLE, names)
-        scanner.skip_blanks()
-        operator = _read_operator(scanner)
-        scanner.skip_blanks()
-        values = [_read_number(scanner, column)]
-        scanner.skip_blanks()
-        while scanner.peek() == "|":
-            if operator not in ("=", "!="):
-                raise scanner.fail(
-                    f"a list `|` after `{operator}`",
-                    expected="`,` or the end of the text",
-                    hint="a list goes with `=` and `!=` only; for a range write two conditions: value>=-20,value<=-10",
-                )
-            scanner.index += 1
-            scanner.skip_blanks()
-            if len(values) >= MAX_LIST_ITEMS:
-                raise scanner.fail(
-                    f"a list of more than {MAX_LIST_ITEMS} numbers",
-                    expected="at most 32 numbers in a list",
-                )
-            values.append(_read_number(scanner, column))
-            scanner.skip_blanks()
-        conditions.append(Condition(column, operator, tuple(values)))
-        if scanner.peek() == ",":
-            scanner.index += 1
-            scanner.skip_blanks()
-            if not scanner.peek():
-                raise scanner.fail("a comma with no condition after it", expected="a condition", hint=_FILTER_EXAMPLE)
-            continue
-        if scanner.peek():
-            raise scanner.fail(
-                "something after the number",
-                expected="`,` for the next condition, `|` for another number, or the end of the text",
-                hint=("a unit or a word after the number is not read; " if scanner.peek().isalpha() else "")
-                + _FILTER_EXAMPLE,
-            )
-        return tuple(conditions)
-
-
-def _read_operator(scanner: _Scanner) -> Operator:
-    """Read the operator of a condition: the longest of `<= >= != < > =`, or refuse what is written instead."""
-    for operator in _OPERATORS:
-        if scanner.text.startswith(operator, scanner.index):
-            scanner.index += len(operator)
-            following = scanner.text[scanner.index : scanner.index + 1]
-            if following in ("=", "<", ">"):
-                pair = operator + following
-                raise scanner.fail(
-                    f"`{pair}` is not an operator",
-                    expected="one of = != < <= > >=",
-                    hint=_OPERATOR_HINTS.get(pair, "write one operator"),
-                    at=scanner.position - len(operator),
-                )
-            return operator
-    char = scanner.peek()
-    raise scanner.fail(
-        "no operator after the column" if char else "the condition ends after the column",
-        expected="one of = != < <= > >=",
-        hint=_OPERATOR_HINTS.get(
-            char,
-            "a condition is a column, an operator and a number: temperature_air_min_2m<0 or value<=-20. "
-            "No arithmetic: a difference of two parameters cannot be filtered",
-        ),
+    return parse_conditions(
+        "filter",
+        text,
+        FILTER_COLUMNS,
+        _FILTER_EXAMPLE,
+        lambda scanner, word, start: _name_column(scanner, word, FILTER_COLUMNS, start, _FILTER_EXAMPLE, names),
     )
-
-
-def _split(option: str, text: str, maximum: int) -> list[tuple[str, int]]:
-    """Cut a `sort` or `by` text at its commas, each part with the 1-based position of its first character."""
-    _check_text(option, text, maximum)
-    parts: list[tuple[str, int]] = []
-    start = 0
-    for index, char in enumerate([*text, ","]):
-        if char == ",":
-            parts.append((text[start:index], start + 1))
-            start = index + 1
-    return parts
 
 
 def parse_sort(text: str, names: ParameterNames | None = None) -> tuple[SortKey, ...]:
@@ -783,33 +457,6 @@ def parse_by(text: str) -> tuple[str, ...]:
             raise scanner.fail(f"`{column}` is named twice", expected="each column once", hint=_BY_EXAMPLE, at=offset)
         columns.append(column)
     return tuple(columns)
-
-
-def _read_count(option: str, value: object, maximum: int, hint: str, large: str) -> int:
-    """Read a count option: a whole number from 1 to `maximum`; a text of digits is read as the number it writes."""
-    if isinstance(value, bool) or not isinstance(value, (int, str)):
-        raise _refusal(option, "not a whole number", found=repr(value), expected="a whole number from 1")
-    if isinstance(value, str):
-        text = value.strip(" \t")
-        if not text.isascii() or not text.isdigit():
-            raise _refusal(
-                option,
-                "not a whole number",
-                found=repr(value)[:40],
-                expected=f"a whole number from 1 to {maximum}",
-                hint=f"Example: {option}=1",
-            )
-        if len(text) > 12:
-            raise _refusal(option, "too large", expected=f"a whole number from 1 to {maximum}")
-        value = int(text)
-    if not 1 <= value <= maximum:
-        raise _refusal(
-            option,
-            f"{value} is outside the range allowed",
-            expected=f"a whole number from 1 to {maximum}",
-            hint=hint if value > maximum else large,
-        )
-    return value
 
 
 def read_first(first: object) -> int:
@@ -1504,167 +1151,3 @@ class Searched:
                 "returned": self.returned_total,
             },
         }
-
-
-def latest_complete(resolution: Resolution, now: dt.datetime) -> dt.datetime | None:
-    """Give the stamp of the last reading of a resolution that is complete at `now`, None where it has no fixed step.
-
-    The reading of the day, the hour or the month that is still running does not exist yet: for daily data the stamp of
-    yesterday, for hourly data that of the hour before this one, for monthly data the first of last month and for annual
-    data the first of January of last year. What lies after it is the future, which a window may reach into and no
-    series can be missing.
-    """
-    from wetterdienst.metadata.resolution import Resolution, reading_step  # noqa: PLC0415
-
-    now = now.astimezone(dt.UTC)
-    if resolution == Resolution.MONTHLY:
-        year, month = (now.year - 1, 12) if now.month == 1 else (now.year, now.month - 1)
-        return dt.datetime(year, month, 1, tzinfo=dt.UTC)
-    if resolution == Resolution.ANNUAL:
-        return dt.datetime(now.year - 1, 1, 1, tzinfo=dt.UTC)
-    step = reading_step(resolution)
-    if step is None:
-        return None
-    epoch = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
-    return now - (now - epoch) % step - step
-
-
-def station_names(stations: pl.DataFrame) -> dict[str, str | None]:
-    """Give the name of each station of a stations frame by its id, for the report; none where the frame has none."""
-    if "name" not in stations.columns or "station_id" not in stations.columns:
-        return {}
-    rows = stations.select("station_id", "name").unique(subset="station_id", keep="first", maintain_order=True)
-    return dict(rows.iter_rows())
-
-
-def wide_value_columns(frame: pl.DataFrame) -> list[str]:
-    """Name the columns of a wide frame that hold a parameter's values: not the keys, not the columns of the flags."""
-    keys = {"station_id", "resolution", "dataset", "timestamp"}
-    return [c for c in frame.columns if c not in keys and not c.endswith("_quality_flags")]
-
-
-def _usual_step(resolution: Resolution) -> dt.timedelta | None:
-    """Give how far apart the readings of a resolution usually are, for the comparison with a series' own step."""
-    from wetterdienst.metadata.resolution import Resolution, reading_step  # noqa: PLC0415
-
-    if resolution == Resolution.MONTHLY:
-        return dt.timedelta(days=30)
-    if resolution == Resolution.ANNUAL:
-        return dt.timedelta(days=365)
-    return reading_step(resolution)
-
-
-def searched_of(
-    frame: pl.DataFrame,
-    window: tuple[dt.datetime | None, dt.datetime | None] = (None, None),
-    now: dt.datetime | None = None,
-    *,
-    names: Mapping[str, str | None] | None = None,
-    forecast: bool = False,
-) -> pl.DataFrame:
-    """Count what a frame of values holds per station and series, before any selection: the report's raw rows.
-
-    The frame is long (a row a value) or wide (a column a parameter, whose `parameter` is then the name of the column).
-    `searched` counts the readings with a value; `first` and `last` are the stamps of the first and the last of them;
-    `name` is the station's, from `names`. `expected` is what the request covers, counted in the steps of the
-    resolution (calendar months and years for the monthly and annual data), null where the resolution has none or more
-    readings were found than the step allows (a source with a finer step than its resolution says):
-
-    - with a window, from its start to its end or to the last complete reading at `now`, whichever is earlier, so that
-      a window that begins before the data, a series that ended before the window does, and a year that is not over
-      are incomplete, as they are; never narrower than the values found. A window that begins after the last complete
-      reading (a forecast's) has no past to be missing: the span of the values is counted. A series with no value is
-      counted over the window too, so that it reads as all missing;
-    - without one, from the first value to the last.
-
-    `gaps` is what the series lacks inside its own span, from its first value to its last, whatever the window says.
-
-    Both are null for a `forecast` and where the series is coarser than its resolution: almost none of its steps is as
-    short as the resolution's (the 5 % quantile of the steps is above one and a half times it). A maximum of the last
-    12 hours in an hourly dataset has a value every 12 hours, so 11 of 12 hours are no gap; a series that misses half
-    its hours, or that was read at 7, 14 and 21 h for twenty years and then every hour, is not coarser: its gaps
-    count. A series with no value has no gaps to count, and its `expected` is the window.
-    """
-    import polars as pl  # noqa: PLC0415
-
-    from wetterdienst.metadata.resolution import Resolution, count_readings  # noqa: PLC0415
-
-    now = now or dt.datetime.now(dt.UTC)
-    keys = ["station_id", "resolution", "dataset", "parameter"]
-    if "parameter" in frame.columns:
-        valued = pl.col("value").is_not_null()
-        grouped = frame.group_by(keys, maintain_order=True).agg(
-            valued.sum().alias("searched"),
-            pl.col("timestamp").filter(valued).min().alias("first"),
-            pl.col("timestamp").filter(valued).max().alias("last"),
-            pl.col("timestamp").filter(valued).sort().diff().quantile(0.05, interpolation="lower").alias("usual"),
-        )
-    else:
-        parts = [
-            frame.group_by(keys[:3], maintain_order=True)
-            .agg(
-                pl.col(column).is_not_null().sum().alias("searched"),
-                pl.col("timestamp").filter(pl.col(column).is_not_null()).min().alias("first"),
-                pl.col("timestamp").filter(pl.col(column).is_not_null()).max().alias("last"),
-                pl.col("timestamp")
-                .filter(pl.col(column).is_not_null())
-                .sort()
-                .diff()
-                .quantile(0.05, interpolation="lower")
-                .alias("usual"),
-            )
-            .with_columns(pl.lit(column).alias("parameter"))
-            for column in wide_value_columns(frame)
-        ]
-        grouped = (
-            pl.concat(parts).select([*keys, "searched", "first", "last", "usual"])
-            if parts
-            else pl.DataFrame(
-                schema={
-                    **dict.fromkeys(keys, pl.String),
-                    "searched": pl.UInt32,
-                    "first": pl.Datetime("us", "UTC"),
-                    "last": pl.Datetime("us", "UTC"),
-                    "usual": pl.Duration("us"),
-                }
-            )
-        )
-    known = {resolution.value for resolution in Resolution}
-    start, end = window
-    expected: list[int | None] = []
-    gaps: list[int | None] = []
-    for row in grouped.iter_rows(named=True):
-        span = covered = None
-        if row["resolution"] in known and not forecast:
-            resolution = Resolution(row["resolution"])
-            nominal = _usual_step(resolution)
-            coarser = row["usual"] is not None and nominal is not None and row["usual"] > nominal * 1.5
-            latest = latest_complete(resolution, now)
-            has_window = start is not None and latest is not None and start <= latest
-            if coarser:
-                pass
-            elif row["first"] is not None:
-                span = count_readings(resolution, row["first"], row["last"])
-                covered = span
-                if has_window:
-                    until = min(end or latest, latest)
-                    covered = count_readings(resolution, min(start, row["first"]), max(until, row["last"]))
-            elif has_window:
-                covered = count_readings(resolution, start, min(end or latest, latest))
-            if span is not None and row["searched"] > span:
-                span = covered = None
-            if covered is not None and row["searched"] > covered:
-                covered = None
-        expected.append(covered)
-        gaps.append(None if span is None else span - row["searched"])
-    name = (
-        pl.col("station_id").replace_strict(dict(names), default=None, return_dtype=pl.String)
-        if names
-        else pl.lit(None, pl.String)
-    )
-    return grouped.with_columns(
-        name.alias("name"),
-        pl.Series("expected", expected, dtype=pl.UInt32),
-        pl.Series("gaps", gaps, dtype=pl.UInt32),
-        pl.col("searched").cast(pl.UInt32),
-    ).select(["station_id", "name", *keys[1:], "searched", "expected", "gaps", "first", "last"])

@@ -1330,6 +1330,28 @@ KOSTRA_EXAMPLES = r"""
     wetterdienst kostra --latitude=53.55 --longitude=9.99
 """
 
+STATISTICS_EXAMPLES = r"""
+    # the frost days of each year at Potsdam, 1961 to 1990, with their mean over the years under over_groups
+    wetterdienst statistics --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_min_2m --stations=03987 --timestamp=1961/1990 \
+        --filter='value<0' --aggregate=count --by=year
+
+    # the five warmest years of the record, the mean of each (a year that is not over has no mean)
+    wetterdienst statistics --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_mean_2m --stations=03987 \
+        --aggregate=mean --by=year --sort=-mean --first=5
+
+    # the coldest winters: December to February, a year named by the year its season ends in
+    wetterdienst statistics --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_mean_2m --stations=03987 \
+        --filter='month=12|1|2' --year-start=12 --aggregate=mean --by=year --sort=mean --first=3
+
+    # the rain of each month as CSV, the wettest first
+    wetterdienst statistics --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/precipitation_amount --stations=03987 \
+        --aggregate=sum --by=year,month --sort=-sum --first=10 --format=csv
+"""
+
 
 def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     """Raise a failure caught from a request as a usage error if it is the caller's own mistake.
@@ -3545,7 +3567,7 @@ def kostra(
     pretty: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """Acquire DWD's heavy-rainfall statistics (KOSTRA) at a point.
+    """Acquire DWD's design rainfall (KOSTRA: return periods of heavy rain) at a point.
 
     Reads KOSTRA-DWD-2020 and returns the table of the cell of DWD's 5 km grid that holds the point: for each
     duration of a rain (5 minutes to 7 days) and each return period (1 to 100 years), its depth in mm, its intensity
@@ -3593,6 +3615,210 @@ def kostra(
 
     output, _ = render_kostra(result, fmt, pretty=pretty)
     print(output)  # noqa: T201
+
+
+@cli.command("statistics", epilog=_examples(STATISTICS_EXAMPLES))
+@provider_opt
+@network_opt
+@parameters_opt
+@periods_opt
+@timestamp_opt
+@all_opt
+@stations_opt
+@region_opt
+@name_opt
+@latitude_opt
+@longitude_opt
+@rank_opt
+@distance_opt
+@click.option(
+    "--aggregate",
+    type=click.STRING,
+    required=True,
+    help=(
+        "What to compute per group: one to five of count, mean, sum, min, max, first, last, comma-separated. count is "
+        "the values that meet --filter, first and last the first and last of them in time; min, max, first and last "
+        "come with their date (min_at). A direction or a code has no mean or extreme; sum is for amounts and, daily "
+        "or hourly, temperatures (degree days). Example: count or mean,max"
+    ),
+)
+@click.option(
+    "--by",
+    type=click.STRING,
+    help=(
+        "The groups, besides the series (a station and a parameter, never merged): year, month, day, hour (UTC), "
+        "comma-separated; none is one group per series. year,month is a group a month, month puts every January "
+        "together. Example: year"
+    ),
+)
+@click.option(
+    "--filter",
+    "filter_",
+    type=click.STRING,
+    help=(
+        "Conditions joined by commas: column, operator, number. year, month, day, hour (UTC) say which values are "
+        "looked at, value (in its unit) which of them count. Operators = != < <= > >=; a list a|b with = and !=. A "
+        "time condition changes expected, a value condition does not: a group with values and no match has a count "
+        "of 0. Example: 'value<0' or 'month=12|1|2,value>=25' (quote it: < and | are the shell's)"
+    ),
+)
+@click.option(
+    "--year-start",
+    "year_start",
+    type=click.IntRange(1, 12),
+    help=(
+        "The month a year begins, 1 to 12 (default 1). The year is named by the year it ends in: 12 makes the winter "
+        "2023/24 the year 2024, in --by, --filter and --sort. Needs year in --by"
+    ),
+)
+@click.option(
+    "--max-missing",
+    "max_missing",
+    type=click.IntRange(0, 10000),
+    help=(
+        "How many values a group may lack and still get a mean and a sum (default 0: a group with a gap, and a year "
+        "that is not over, has none). searched and expected say how many it has and should have"
+    ),
+)
+@click.option(
+    "--having",
+    type=click.STRING,
+    help=(
+        "Keep the groups that meet conditions on the results, written as --filter: the aggregates asked for, "
+        "searched, expected. Example: 'count>=100' or 'searched<360'"
+    ),
+)
+@click.option(
+    "--sort",
+    type=click.STRING,
+    help=(
+        "Order of the groups: columns joined by commas, - before one for descending: the aggregates asked for, the "
+        "columns of --by, station_id, searched, expected. A null comes last. Example: --sort=-mean"
+    ),
+)
+@click.option(
+    "--first",
+    type=click.IntRange(min=1),
+    help=(
+        "Keep the first N groups of the --sort order, exactly N (a warning says how many more tie): --sort=-mean "
+        "--first=5 with --by=year is the five warmest years. Needs --sort; counts in each series unless --per says "
+        "otherwise"
+    ),
+)
+@click.option(
+    "--per",
+    type=click.Choice(["station", "none"]),
+    default="station",
+    help=(
+        "Over what --first counts: station (each series) or none (the stations of one parameter together). "
+        "Default: station"
+    ),
+)
+@click.option(
+    "--max-rows",
+    "max_rows",
+    type=click.IntRange(min=1),
+    help="Return at most this many groups of the whole answer, the first of its order, after --first",
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "csv", "ndjson"], case_sensitive=False),
+    default="json",
+    help=(
+        "Output format: json (with the metadata block), csv (a row per group) or ndjson (a line per group, then the "
+        "end). Default: json"
+    ),
+)
+@pretty_opt
+@debug_opt
+def statistics(
+    provider: str,
+    network: str,
+    parameters: str,
+    periods: str | None,
+    timestamp: str | None,
+    all_: bool,  # noqa: FBT001
+    stations: str | None,
+    region: str | None,
+    name: str | None,
+    latitude: float | None,
+    longitude: float | None,
+    rank: int | None,
+    distance: float | None,
+    aggregate: str,
+    by: str | None,
+    filter_: str | None,
+    year_start: int | None,
+    max_missing: int | None,
+    having: str | None,
+    sort: str | None,
+    first: int | None,
+    per: str,
+    max_rows: int | None,
+    fmt: str,
+    pretty: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Count, average, add up or take the extremes of each station's values per year, month, day or hour.
+
+    Select the stations with exactly one of --all, --stations, --region, --name, or --latitude/--longitude with --rank
+    or --distance. Each group says how many values it has (searched) and should have (expected): a group with a gap,
+    and a year that is not over, has no mean or sum unless --max-missing allows it. --having, --sort and --first choose
+    among the groups, and over_groups has the minimum, maximum and mean over a series' complete groups.
+    """
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import StatisticsRequest, get_statistics
+    from wetterdienst.ui.render import render_statistics
+
+    request = _validate_request(
+        StatisticsRequest,
+        {
+            "provider": provider,
+            "network": network,
+            "parameters": parameters,
+            "periods": periods,
+            "timestamp": timestamp,
+            "all": all_,
+            "stations": stations,
+            "region": region,
+            "name": name,
+            "latitude": latitude,
+            "longitude": longitude,
+            "rank": rank,
+            "distance": distance,
+            "aggregate": aggregate,
+            "by": by,
+            "filter": filter_,
+            "year_start": year_start,
+            "max_missing": max_missing,
+            "having": having,
+            "sort": sort,
+            "first": first,
+            "per": per,
+            "max_rows": max_rows,
+            "format": fmt.lower(),
+            "pretty": pretty,
+        },
+    )
+    _apply_log_level(debug=debug)
+    begin_response()
+
+    api = get_timeseries_api(request.provider, request.network)
+
+    # built first: a malformed host setting is not the command line's to fix, whatever the options say
+    settings = Settings()
+    # the shape is always long
+    options = _build_options({"shape": ("shape", "long")})
+
+    result = _collect_or_exit(
+        get_statistics, api=api, request=request, settings=settings, options=options, what="statistics"
+    )
+    log_counted_warnings(log)
+    if not result.series:
+        log.warning(NO_DATA)
+    output, _ = render_statistics(result, request)
+    _echo(output)
 
 
 if __name__ == "__main__":

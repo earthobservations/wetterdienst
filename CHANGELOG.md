@@ -24,6 +24,18 @@ Types of changes:
   `filter=wind_gust_max>=0&sort=temperature_air_min_2m&first=10` ranks timestamps, so the wind of
   the ten coldest days with a gust comes back. One resolution, names of the request, no `value`
   beside a name; an unknown name is refused with the request's names (GH-4419)
+- `statistics` (REST `/api/v1/statistics`, the MCP tool, `wetterdienst statistics`,
+  `values().statistics()`) counts, averages, adds up or takes the extremes of a station's values
+  per year, month, day or hour on the server: `aggregate=count&by=year&filter=value<0` is the frost
+  days of each year, `aggregate=mean&by=year&sort=-mean&first=5` the five warmest. Every group says
+  how many values it has and should have; a group with a gap, or a year that is not over, has no
+  `mean` or `sum` unless `max_missing` allows it. `year_start`, `having`, `per` and `max_rows` too;
+  `first` keeps exactly N and warns how many more tie (GH-4412)
+
+### Changed
+
+- The `kostra` tool, route and command are described as design rainfall (return periods of heavy
+  rain) and no longer as "heavy-rainfall statistics", which `statistics` now names (GH-4412)
 
 ## [0.199.0] - 2026-11-25
 

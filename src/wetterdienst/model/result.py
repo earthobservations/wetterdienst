@@ -50,13 +50,14 @@ from wetterdienst.util.extras import import_optional
 from wetterdienst.util.json_util import dumps_json, json_indent
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping, Sequence
     from collections.abc import Set as AbstractSet
     from types import FunctionType
 
     import plotly.graph_objects as go
 
     from wetterdienst import Settings
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.history import History, TimeseriesHistory
     from wetterdienst.model.metadata import LicenseModel, ParameterModel, ProviderTerms
     from wetterdienst.model.request import TimeseriesRequest
@@ -1132,6 +1133,65 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         report = report.with_matched(matching).with_returned(df)
         report.warn_if_capped()
         return replace(self, df=df, search=report)
+
+    def statistics(
+        self,
+        aggregate: str | Sequence[str],
+        *,
+        by: str | Sequence[str] | None = None,
+        filter: str | None = None,  # noqa: A002
+        year_start: int | str | None = None,
+        max_missing: int | str | None = None,
+        having: str | None = None,
+        sort: str | None = None,
+        first: int | str | None = None,
+        per: str | None = None,
+        max_rows: int | str | None = None,
+    ) -> StatisticsResult:
+        """Count, average, add up or take the extremes of the values this result holds per year, month, day or hour.
+
+        The same function as `stations.values().statistics(...)` makes (`model/group_statistics.py`, which has the
+        options and the rules), over the rows this result holds, station by station: asked of the reader it is done as
+        the values arrive and only the groups are held, asked of the result the rows are held already. This result is
+        left as it is. The rows must be in the long shape.
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read.
+            RowSelectionRefusedError: an option that cannot be applied to a series of this result, or rows in the wide
+                shape.
+
+        """
+        from wetterdienst.model.group_statistics import parse_statistics, statistics_of_frame  # noqa: PLC0415
+        from wetterdienst.model.row_selection import RowSelectionRefusedError  # noqa: PLC0415
+
+        plan = parse_statistics(
+            aggregate,
+            by=by,
+            filter=filter,
+            year_start=year_start,
+            max_missing=max_missing,
+            having=having,
+            sort=sort,
+            first=first,
+            per=per,
+            max_rows=max_rows,
+        )
+        if "parameter" not in self.df.columns:
+            msg = (
+                "`statistics` needs the long shape, where a row is one value of one parameter; this result is wide. "
+                "Read the values with shape=long."
+            )
+            raise RowSelectionRefusedError(msg)
+        options = self.stations.options
+        converter = UnitConverter()
+        converter.update_targets(options.unit_targets)
+
+        def symbol(parameter: ParameterModel) -> str:
+            if options.convert_units:
+                return converter.targets[parameter.unit_type].symbol
+            return converter.get_unit(parameter.unit, parameter.unit_type).symbol
+
+        return statistics_of_frame(self.stations, self.df, plan, unit_symbol=symbol)
 
     def filtered_by_date(self, date: str) -> Self:
         """Filter values by date or date interval as `_ValuesResult.filtered_by_date` does, without the report.

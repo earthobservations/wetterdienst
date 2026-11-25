@@ -47,6 +47,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
+from wetterdienst.model.group_statistics import MAX_MISSING, parse_statistics
 from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_aliases_resolved, with_normal_names
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
 from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means
@@ -79,6 +80,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
 
     from wetterdienst.api import StandaloneRequest
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.result import (
         InterpolatedValuesResult,
         StationsResult,
@@ -1509,6 +1511,228 @@ class ValuesRequest(_RefusesRenamedParameters):
         return self
 
 
+#: the stations of `statistics`: fewer selections than `values` (no bounding box, no WMO, WIGOS or ICAO list), which
+#: can be added later without a change of what is there
+STATISTICS_SELECTION = Selection(
+    exactly_one_of=(("all",), ("stations",), ("name",), ("region",), _POINT),
+    then=((_POINT, _POINT_MEASURES),),
+    requires=(("distance", (_POINT,)), ("rank", (_POINT, ("name",)))),
+)
+
+_AggregateField = Annotated[
+    str,
+    Field(
+        description="What to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `first`, `last`, "
+        "comma-separated. `count` is the values that meet `filter`; `min`, `max`, `first` and `last` come with their "
+        "date (`min_at`). A direction or a code has no mean or extreme; `sum` is for amounts and, daily or hourly, "
+        "temperatures (degree days). Example: `count`, `mean,max`.",
+    ),
+]
+_StatisticsByField = Annotated[
+    str | None,
+    Field(
+        description="The groups besides the series (a station and a parameter, never merged): `year`, `month`, `day`, "
+        "`hour` (UTC), comma-separated; none is one group per series. `month` puts every January together. "
+        "Example: `year`, `year,month`.",
+    ),
+]
+_StatisticsFilterField = Annotated[
+    str | None,
+    Field(
+        description="Conditions joined by commas: column, operator, number. `year`, `month`, `day`, `hour` (UTC) say "
+        "which values are looked at, `value` (in its unit) which of them count; a group with values and no match has "
+        "a `count` of 0. Operators = != < <= > >=; a list `a|b` with = and !=. Example: `value<0`, "
+        "`month=12|1|2,value>=25`.",
+    ),
+]
+_YearStartField = Annotated[
+    int | None,
+    Field(
+        ge=1,
+        le=12,
+        description="The month a `year` begins (default 1). The year is named by the year it ends in: 12 makes the "
+        "winter 2023/24 the year 2024, in `by`, `filter` and `sort`. Needs `year` in `by`.",
+    ),
+]
+_MaxMissingField = Annotated[
+    int | None,
+    Field(
+        ge=0,
+        le=MAX_MISSING,
+        description="How many values a group may lack and still get a `mean` and a `sum` (default 0: a gap, or a year "
+        "that is not over, leaves them null).",
+    ),
+]
+_HavingField = Annotated[
+    str | None,
+    Field(
+        description="Keep the groups that meet conditions on the results, written as `filter`: the aggregates asked "
+        "for, `searched`, `expected`. Example: `count>=100`, `searched<360`.",
+    ),
+]
+_StatisticsSortField = Annotated[
+    str | None,
+    Field(
+        description="Order of the groups: columns joined by commas, `-` before one for descending: the aggregates "
+        "asked for, the columns of `by`, `station_id`, `searched`, `expected`. Example: `-mean`.",
+    ),
+]
+_StatisticsFirstField = Annotated[
+    int | None,
+    Field(
+        description="Keep the first N groups of the `sort` order, exactly N (a warning says how many more tie); needs "
+        "`sort`. `sort=-mean&first=5` with `by=year` is the five warmest years.",
+        ge=1,
+        le=MAX_FIRST,
+    ),
+]
+_PerField = Annotated[
+    Literal["station", "none"],
+    Field(
+        description="Over what `first` counts: `station` (each series) or `none` (the stations of one parameter "
+        "together). Needs `first`.",
+    ),
+]
+_StatisticsMaxRowsField = Annotated[
+    int | None,
+    Field(
+        description="Return at most this many groups of the whole answer, the first of its order, after `first`.",
+        ge=1,
+        le=MAX_MAX_ROWS,
+    ),
+]
+_StatisticsFormatField = Annotated[
+    Literal["json", "csv", "ndjson"],
+    Field(
+        description="Output format: json (with the metadata block), csv (a row per group) or ndjson (a line per group)."
+    ),
+]
+
+
+class StatisticsRequest(_RefusesRenamedParameters):
+    """Statistics request: count, average, add up or take the extremes of the values per year, month, day or hour.
+
+    The selection of stations and the window are those of `values`, less the bounding box and the WMO, WIGOS and ICAO
+    lists; the shape is always long, the units those of `values`.
+    """
+
+    route: ClassVar[str] = "statistics"
+
+    model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = STATISTICS_SELECTION
+
+    provider: _ProviderField
+    network: _NetworkField
+    parameters: _ParametersField
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v: str | list) -> list[str]:
+        """Validate parameters."""
+        if isinstance(v, str):
+            return read_list(v)
+        parameters = []
+        for item in v:
+            if "," in item:
+                parameters.extend(read_list(item, separator=","))
+            else:
+                parameters.append(item)
+        return parameters
+
+    periods: _PeriodsField = None
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v: str | list | None) -> list[str] | None:
+        """Validate periods."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v, separator=",")
+        periods = []
+        for item in v:
+            if "," in item:
+                periods.extend(read_list(item, separator=","))
+            else:
+                periods.append(item)
+        return periods
+
+    # the stations
+    all: _AllField = False
+    stations: _StationsField = None
+
+    @field_validator("stations", mode="before")
+    @classmethod
+    def validate_stations(cls, v: str | list | None) -> list[str] | None:
+        """Validate stations."""
+        return _read_items(v)
+
+    region: _RegionField = None
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def validate_region(cls, v: str | list | None) -> list[str] | None:
+        """Read the regions as station ids are read: comma-separated or a list, a blank one selecting nothing."""
+        return _read_items(v)
+
+    name: _NameField = None
+    latitude: _LatitudeField = None
+    longitude: _LongitudeField = None
+    rank: _RankField = None
+    distance: _DistanceField = None
+
+    # the window
+    timestamp: _TimestampOptField = None
+
+    # the statistics
+    aggregate: _AggregateField
+    by: _StatisticsByField = None
+    filter: _StatisticsFilterField = None
+    year_start: _YearStartField = None
+    max_missing: _MaxMissingField = None
+    having: _HavingField = None
+    sort: _StatisticsSortField = None
+    first: _StatisticsFirstField = None
+    per: _PerField = "station"
+    max_rows: _StatisticsMaxRowsField = None
+
+    format: _StatisticsFormatField = "json"
+    pretty: _PrettyField = False
+
+    @field_validator("by", "filter", "having", "sort", mode="before")
+    @classmethod
+    def validate_option_is_given(cls, v: object) -> object:
+        """Read an option left empty as none given, as an empty query parameter is."""
+        return None if isinstance(v, str) and not v else v
+
+    @model_validator(mode="after")
+    def check_statistics_options(self) -> StatisticsRequest:
+        """Read the options in full, and refuse one that cannot be read, located at the option it is in."""
+        try:
+            parse_statistics(
+                self.aggregate,
+                by=self.by,
+                filter=self.filter,
+                year_start=self.year_start,
+                max_missing=self.max_missing,
+                having=self.having,
+                sort=self.sort,
+                first=self.first,
+                per=self.per,
+                max_rows=self.max_rows,
+            )
+        except RowSelectionError as e:
+            value = getattr(self, e.option)
+            _raise_rule_errors(self, [_rule_error("row_selection", str(e), (e.option,), value)])
+        return self
+
+    @model_validator(mode="after")
+    def check_station_selection(self) -> StatisticsRequest:
+        """Check that exactly one station selection is made."""
+        _raise_rule_errors(self, _check_selection(self, self.selection))
+        return self
+
+
 class InterpolationRequest(_RefusesRenamedParameters):
     """Interpolation request with validated parameters."""
 
@@ -2248,7 +2472,7 @@ class StationIdsRequest(_RefusesRenamedParameters):
 
 
 class KostraRequest(_RefusesRenamedParameters):
-    """Request model for the KOSTRA-DWD-2020 heavy-rainfall statistics of DWD at a point."""
+    """Request model for the KOSTRA-DWD-2020 design rainfall (return periods of heavy rain) of DWD at a point."""
 
     route: ClassVar[str] = "kostra"
 
@@ -2814,7 +3038,12 @@ def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
 
 def _get_stations_request(
     api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
+    request: StationsRequest
+    | ValuesRequest
+    | InterpolationRequest
+    | SummaryRequest
+    | HistoryRequest
+    | StatisticsRequest,
     timestamp: str | None,
     settings: Settings,
     options: Options | None = None,
@@ -2882,7 +3111,7 @@ def _get_stations_request(
 
 
 def _filter_by_station_code(
-    r: TimeseriesRequest, request: StationsRequest | ValuesRequest | HistoryRequest
+    r: TimeseriesRequest, request: StationsRequest | ValuesRequest | HistoryRequest | StatisticsRequest
 ) -> StationsResult | None:
     """Select the stations by the WMO number, WIGOS identifier or ICAO code the request names, None if it names none."""
     if wmo_id := getattr(request, "wmo_id", None):
@@ -2896,7 +3125,7 @@ def _filter_by_station_code(
 
 def get_stations(
     api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | HistoryRequest,
+    request: StationsRequest | ValuesRequest | HistoryRequest | StatisticsRequest,
     timestamp: str | None,
     settings: Settings,
     options: Options | None = None,
@@ -3062,6 +3291,49 @@ def get_values(
         values_ = values_.filtered_by_sql(sql_values)
 
     return values_
+
+
+def statistics_options_of(request: StatisticsRequest) -> dict[str, Any]:
+    """Give the options a statistics request names, as the keywords of `TimeseriesValues.statistics`."""
+    return {
+        "by": request.by,
+        "filter": request.filter,
+        "year_start": request.year_start,
+        "max_missing": request.max_missing,
+        "having": request.having,
+        "sort": request.sort,
+        "first": request.first,
+        "per": request.per,
+        "max_rows": request.max_rows,
+    }
+
+
+def get_statistics(
+    api: type[TimeseriesRequest],
+    request: StatisticsRequest,
+    settings: Settings,
+    options: Options | None = None,
+    check: Callable[[StationsResult], None] | None = None,
+    held_groups_limit: int | None = None,
+) -> StatisticsResult:
+    """Get the statistics a request names: the stations are selected, read one at a time and reduced to their groups.
+
+    `check` is given the stations selected before any value is downloaded, and refuses the request by raising: the
+    limits of the REST API are applied there. `held_groups_limit` is the most groups that may pile up as the stations
+    are read (`GroupsOverLimitError`).
+    """
+    stations_ = get_stations(
+        api=api,
+        request=request,
+        timestamp=request.timestamp,
+        settings=settings,
+        options=options,
+    )
+    if check is not None:
+        check(stations_)
+    reader = stations_.values()
+    reader._held_rows_limit = held_groups_limit  # noqa: SLF001
+    return reader.statistics(request.aggregate, **statistics_options_of(request))
 
 
 def get_interpolate(

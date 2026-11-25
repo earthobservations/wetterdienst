@@ -467,6 +467,8 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 # the parser of the row options builds the message of every refusal where it finds the fault (position, what was found,
 # what is allowed, what to write instead), which is its job; no message is made for a second raise
 "src/wetterdienst/model/row_selection.py" = ["EM101", "EM102", "TRY003"]
+"src/wetterdienst/model/option_grammar.py" = ["EM101", "EM102", "TRY003"]
+"src/wetterdienst/model/group_statistics.py" = ["EM101", "EM102", "TRY003"]
 
 [tool.deptry]
 known_first_party = ["wetterdienst"]

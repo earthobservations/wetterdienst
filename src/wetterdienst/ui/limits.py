@@ -195,6 +195,27 @@ def check_chosen_rows(rows: int, limits: Limits, *, so_far: bool = False) -> Non
     raise error
 
 
+def check_chosen_groups(groups: int, limits: Limits, *, so_far: bool = False) -> None:
+    """Refuse a `statistics` answer whose groups are more than the limit of one body, saying what to change.
+
+    The groups are held as the stations are read, and an answer is one body, so they are held to `rows`, the limit of an
+    answer sent as one body, in every format (the same number `check_chosen_rows` holds the rows `first` chose to).
+    They are known only as the values are read, so this is told then. `so_far` is for a walk stopped at the limit: the
+    groups are those held when it was stopped.
+    """
+    maximum = limits.max_rows
+    if not maximum or groups <= maximum:
+        return
+    count = f"{groups:,} groups so far" if so_far else f"{groups:,} groups"
+    head = f"The statistics made {count}, more than the {maximum:,} this server holds and sends as one answer."
+    message = (
+        f"{head} Drop a column of `by`, add `having`, or `sort` with `first`, or narrow the request with `filter`, a "
+        "shorter `timestamp` window, or fewer parameters and stations."
+    )
+    error = _refuse("rows", maximum, groups, message)
+    raise error
+
+
 def check_point_rows(rows: int, limits: Limits) -> None:
     """Refuse an `interpolate` or `summarize` answer of more rows than `rows`, saying what to change.
 

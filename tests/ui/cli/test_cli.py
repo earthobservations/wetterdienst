@@ -46,12 +46,13 @@ def test_cli_help() -> None:
           info         Display project information.
           interpolate  Interpolate data for a point from the stations around it.
           issues       List available issue (model-run) datetimes for a station.
-          kostra       Acquire DWD's heavy-rainfall statistics (KOSTRA) at a point.
+          kostra       Acquire DWD's design rainfall (KOSTRA: return periods of...
           providers    List the providers and their networks, and describe what...
           radar        List radar stations.
           restapi      Start the Wetterdienst REST API web service.
           station-ids  Find one WMO number, WIGOS identifier or ICAO code at every...
           stations     Acquire stations.
+          statistics   Count, average, add up or take the extremes of each...
           storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
           summarize    Summarize data for a point: the nearest station's value.
           values       Acquire data.
@@ -1755,7 +1756,7 @@ def test_the_moved_commands_are_top_level_commands_and_about_is_none() -> None:
     assert set(_MOVED_FROM_ABOUT) <= set(cli.commands)
     assert "about" not in cli.commands
     assert "about" not in cli.list_commands(click.Context(cli))
-    assert len(cli.commands) == 19
+    assert len(cli.commands) == 20
 
     help_text = CliRunner().invoke(cli, ["--help"]).output
     assert "about" not in help_text.split("Commands:", 1)[1]

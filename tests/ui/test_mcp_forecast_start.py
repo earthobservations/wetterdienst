@@ -629,7 +629,7 @@ def test_a_note_holds_no_coordinates(monkeypatch: pytest.MonkeyPatch, caplog: py
 
 
 def test_the_instructions_stay_under_their_limit() -> None:
-    """A sentence about the start of a forecast, if there is one, fits the 7,800 characters the instructions keep to."""
+    """A sentence about the start of a forecast, if there is one, fits the 8,000 characters the instructions keep to."""
     from wetterdienst.ui.mcp import INSTRUCTIONS  # noqa: PLC0415
 
-    assert len(INSTRUCTIONS) < 7800
+    assert len(INSTRUCTIONS) < 8000

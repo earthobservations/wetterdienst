@@ -278,6 +278,9 @@ plain-language "summary". `history` is different again: it returns a station's *
 (a point is the reliable way). For design rainfall at a point in Germany (rain depth by duration \
 and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`.
 
+For counts, sums or means per year, month or day (frost days a year, the coldest winter) use `statistics`; \
+for a record or the hottest days, `values` with `sort` and `first`.
+
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
 knows nothing about providers or stations, so `coverage` (one network) remains the tool for "which \
@@ -375,6 +378,7 @@ _TOOL_NAMES = {
     "storm_cells_api_storm_cells_get": "storm_cells",
     "kostra_api_kostra_get": "kostra",
     "station_ids_api_station_ids_get": "station_ids",
+    "statistics_api_statistics_get": "statistics",
 }
 
 # The title of every tool, and whether it reaches a service outside wetterdienst (the ``openWorldHint``).
@@ -398,8 +402,9 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "issues": ("List forecast issues", True),
     "alerts": ("Get weather alerts", True),
     "storm_cells": ("Get thunderstorm cells", True),
-    "kostra": ("Get heavy-rainfall statistics for a point", True),
+    "kostra": ("Get return periods of heavy rain for a point", True),
     "station_ids": ("Find a station by WMO, WIGOS or ICAO id", True),
+    "statistics": ("Count, average or add up values per year, month, day or hour", True),
 }
 
 
@@ -415,6 +420,14 @@ _VALUES_WINDOW_ADVICE = (
 _ALERTS_ADVICE = (
     "An answer over 40,000 characters leaves the polygon and areas out of each warning (`answer-truncated`). A `name` "
     "that matches no area is told by `no-area-matched`: that is no all-clear."
+)
+
+
+# The sentence that ends the description of the `statistics` tool, which only the tool has: its answer is cut to the
+# same budget, keeping the first groups (GH-4412).
+_STATISTICS_ADVICE = (
+    "An answer over 40,000 characters keeps the first groups in its order (`answer-truncated`); `over_groups` and "
+    "`metadata.search.totals` cover all of them."
 )
 
 
@@ -444,6 +457,8 @@ def _annotate_tool(
         component.description = f"{(component.description or '').rstrip()}\n\n{_VALUES_WINDOW_ADVICE}"
     elif component.name == "alerts":
         component.description = f"{(component.description or '').rstrip()}\n\n{_ALERTS_ADVICE}"
+    elif component.name == "statistics":
+        component.description = f"{(component.description or '').rstrip()}\n\n{_STATISTICS_ADVICE}"
     # keyword arguments, which the type checker holds to the fields; they go out on the wire as
     # `readOnlyHint` and so on
     component.annotations = ToolAnnotations(

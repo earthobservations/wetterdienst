@@ -162,7 +162,7 @@ The command line is a client of the same functions as the REST API: it renders a
 same request gives the same output, and the options are the parameters of the REST API.
 
 - **Commands and options**: `alerts`, `auth`, `cache`, `coverage`, `fields`,
-  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `station-ids`, `stations`, `storm-cells`, `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
+  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `station-ids`, `stations`, `statistics`, `storm-cells`, `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
   is the `--help` of every command; `uv run poe cli:snapshot` writes it anew after an intended change.
   `tests/baselines/cli.baseline.json` is every command and every spelling of every option as the last release offered
   it (see below).
@@ -226,6 +226,18 @@ Frozen:
   provider is given the name of a column or of a reserved word, and `tests/model/test_row_selection_names.py` holds
   every parameter of every provider to it. The grammar is
   held by `tests/model/test_row_selection.py`, what it chooses by `tests/model/test_row_selection_semantics.py`.
+- the **statistics route** (`/api/v1/statistics`, the tool `statistics`, `wetterdienst statistics`,
+  `values().statistics()`; [Statistics](restapi.md#statistics)): the names of its options and the grammar of their text
+  (`aggregate`, `by`, `filter`, `year_start`, `max_missing`, `having`, `sort`, `first`, `per`, `max_rows`), the set of
+  `aggregate` names (one may be added in a minor release, none is removed or renamed), the meaning of null and of
+  `searched`, `expected` and `usable` (the twelve rules of the completeness), the keys of the answer (`series`,
+  `over_groups`, `groups`, each aggregate and its `<aggregate>_at`, `metadata.search.totals.groups*`), the codes of its
+  warnings (`incomplete-groups`, `no-values-in-groups`, `completeness-unknown`, `ties-not-shown`, and `rows-capped` and
+  `answer-truncated` as for `values`) and the status of each refusal (422 for a text, 400 for a request that does not fit
+  its series). The texts of its messages, the limits (settings) and the 40,000 characters of a tool's answer are not
+  frozen. `longest_run`, `window`, percentiles, `by=decade`, `by=season` and `timezone` are kept for later options and
+  are added without a change of what is here. `tests/model/test_group_statistics.py` and
+  `tests/model/test_group_statistics_rules.py` hold the rules.
 
 `tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed, without its `info.version`
 (`uv run poe openapi:snapshot` writes it anew), so that every change shows in a diff, and a release leaves it as it is.

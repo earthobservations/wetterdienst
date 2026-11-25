@@ -239,6 +239,7 @@ def test_the_mcp_tools_are_the_endpoints_under_their_names() -> None:
             "providers",
             "station_ids",
             "stations",
+            "statistics",
             "storm_cells",
             "summarize",
             "values",
