@@ -265,6 +265,16 @@ class ParameterNames:
                 seen.setdefault(column, written)
         return list(seen.values())[:_CLOSEST]
 
+    def without_spelling(self, hits: Sequence[tuple[str, ParameterColumn]]) -> list[ParameterColumn]:
+        """Give the parameters a name may mean that no spelling of the request tells apart from the others."""
+        unique = {
+            column
+            for _, column in hits
+            for spelling in (f"{column.dataset}_{column.parameter}", column.parameter)
+            if len(self.lookup.get(spelling.lower(), ())) == 1
+        }
+        return [column for _, column in hits if column not in unique]
+
     def distinct_spellings(self, hits: Sequence[tuple[str, ParameterColumn]]) -> list[str]:
         """Give for each parameter a name may mean a spelling that means that one only: with its dataset, else bare."""
         spellings = []
@@ -543,11 +553,16 @@ def _name_column(
     where = ", ".join(list(datasets)[:_LISTED_NAMES]) + (
         f" and {len(datasets) - _LISTED_NAMES} more" if len(datasets) > _LISTED_NAMES else ""
     )
+    alone = names.without_spelling(hits)
+    alone_text = "; ".join(
+        f"request `{column.dataset}` alone for its `{column.parameter}`" for column in alone[:_CLOSEST]
+    ) + (" and so on" if len(alone) > _CLOSEST else "")
     raise scanner.fail(
         f"`{word}` is the name of {len(hits)} parameters of this request",
         expected="a name that says which, as the wide shape writes it after the dataset: "
         + (shown or "none is unique"),
-        hint=f"the datasets are {where}",
+        hint=f"the datasets are {where}"
+        + (f"; no spelling says which of the others is meant: {alone_text}" if alone else ""),
         at=start,
         found=repr(word),
     )
@@ -1090,9 +1105,11 @@ class RowSelection:
     def reduce_station(self, frame: pl.DataFrame) -> pl.DataFrame:
         """Apply the selection to the rows of one station (or to any frame): `filter`, then `first` within the groups.
 
-        The rows come back in the order they had, but those of `first`, which come back in the `sort` order. What
-        remains to do for a frame of several stations is `finish`: the groups of `by` that span stations, and the
-        order of the answer.
+        The rows come back in the order they had, but those of `first` in a frame without a parameter's name, which
+        come back in the `sort` order; with a name (a row is a timestamp) the rows of `first` come in the frame's order
+        and only `finish` (what `all` does) and `ordered` put them in the order of `sort`. A filter of names without
+        `sort` orders a long frame by time (`_by_timestamp`). What remains to do for a frame of several stations is
+        `finish`: the groups of `by` that span stations, and the order of the answer.
         """
         frame = self.filtered(frame)
         if self.first is not None:

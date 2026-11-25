@@ -425,3 +425,14 @@ def test_the_report_of_a_stream_echoes_the_options_with_the_names_of_the_request
     assert response.status_code == 200, response.text
     lines = [json.loads(x) for x in response.text.splitlines()]
     assert lines[-1]["end"]["search"]["options"]["filter"] == "TNK<0,fx>=10"
+
+
+def test_a_ranked_walk_keeps_its_station_order_in_a_filter_of_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stations of a rank come nearest first, not by id; a filter of names leaves that order as it is."""
+    serve(monkeypatch, 3)
+    request = DwdObservationRequest(parameters=_THREE, start="2018-01-01", end="2020-12-31")
+    plain = request.filter_by_rank((53.5, 10.0), 3).values().all()
+    order = list(dict.fromkeys(plain.df.get_column("station_id")))
+    assert order == ["00003", "00002", "00001"]
+    chosen = request.filter_by_rank((53.5, 10.0), 3).values().all(filter="temperature_air_min_2m<0,wind_gust_max>=10")
+    assert list(dict.fromkeys(chosen.df.get_column("station_id"))) == order

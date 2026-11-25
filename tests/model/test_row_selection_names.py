@@ -692,3 +692,35 @@ def test_a_name_of_two_datasets_is_judged_on_the_rows_of_its_own_dataset() -> No
         selection = parse_row_selection(filter=text, parameters=names)
         assert selection is not None
         assert set(selection.apply(frame).get_column("timestamp")) == {STAMP + dt.timedelta(hours=hour)}, text
+
+
+def test_where_no_spelling_tells_a_parameter_apart_the_refusal_says_to_request_its_dataset_alone() -> None:
+    """`snow_depth` is in `water_equivalent` and in `climate_summary`: no spelling names the first of them."""
+    names = _names("daily/water_equivalent", "daily/climate_summary")
+    with pytest.raises(RowSelectionError) as caught:
+        parse_row_selection(filter="water_equivalent_snow_depth<1", parameters=names)
+    message = str(caught.value)
+    assert "request `water_equivalent` alone for its `snow_depth`" in message
+    hits = names.lookup["water_equivalent_snow_depth"]
+    assert [c.parameter for c in names.without_spelling(hits)] == ["snow_depth"]
+    # the spellings offered are those that are unique, and the parameter without one is not offered
+    spellings = names.distinct_spellings(hits)
+    assert spellings == ["water_equivalent_water_equivalent_snow_depth"]
+    assert all(len(names.lookup[spelling.lower()]) == 1 for spelling in spellings)
+    # a parameter with a unique spelling is not told to be requested alone
+    alone = _names("daily/water_equivalent", "daily/climate_summary/wind_gust_max")
+    with pytest.raises(RowSelectionError) as caught:
+        parse_row_selection(filter="water_equivalent_snow_depth<1", parameters=alone)
+    assert "request `" not in str(caught.value)
+
+
+def test_the_stations_of_a_filter_of_names_keep_the_order_they_came_in() -> None:
+    """Without `sort` the rows of the stations stay in the order of the frame: not sorted by station id."""
+    frame = _frame()
+    backwards = pl.concat(
+        [frame.filter(pl.col("station_id") == "00002"), frame.filter(pl.col("station_id") == "00001")]
+    )
+    answer = _choose(backwards, filter="temperature_air_min_2m<0,wind_gust_max>=17.2")
+    stations = answer.get_column("station_id").to_list()
+    assert stations == ["00002"] * 6 + ["00001"] * 6
+    assert answer.filter(pl.col("station_id") == "00002").get_column("timestamp").is_sorted()

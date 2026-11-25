@@ -2348,10 +2348,10 @@ def values(
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
     other one. In the JSON of shape="long", the default unless the server's WD_TS_SHAPE says
     otherwise, the `values` items are grouped by station, then by
-    resolution, dataset and parameter, in timestamp order within each group: a parameter's latest
-    timestamp is the last item of its group, not of the array. With shape="wide" an item is one
-    timestamp of a station and resolution, with a key per parameter (prefixed with the full dataset
-    name, e.g. "climate_summary_", when datasets of more than one name are requested), its
+    resolution, dataset and parameter, in timestamp order within each group (unless `filter`, `sort` or `first`
+    choose the rows): a parameter's latest timestamp is the last item of its group, not of the array. With
+    shape="wide" an item is one timestamp of a station and resolution, with a key per parameter (prefixed with the
+    full dataset name, e.g. "climate_summary_", when datasets of more than one name are requested), its
     `_quality_flags` key, no `parameter` key, and a null `dataset` where
     several datasets of its resolution are requested. With format="geojson" the items sit under each
     feature's `values`, keeping their order but not `station_id`; a feature is one resolution and

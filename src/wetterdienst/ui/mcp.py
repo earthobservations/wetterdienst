@@ -319,7 +319,8 @@ hourly/air_temperature, hourly/precipitation.
 - By default (shape="long" unless the server is configured otherwise, format="json") `values` \
 returns JSON with a `values` array of \
 {station_id, resolution, dataset, parameter, timestamp, value, quality_flags}, grouped by station, then by \
-resolution, dataset and parameter, in timestamp order within each group. `quality_flags` is null or the \
+resolution, dataset and parameter, in timestamp order within each group (unless `filter`, `sort` or `first` \
+choose the rows). `quality_flags` is null or the \
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
