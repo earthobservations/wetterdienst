@@ -535,6 +535,25 @@ describe('what the texts say about which provider has which parameter', () => {
     }
   })
 
+  it('gives the range of the precipitation scan as 180 km since 24 November 2026, and names what that rests on (GH-4404)', () => {
+    // DWD extended it from 150 km on that day (its Open Data news of 3 November, its German page and the sheet of the scan say 180 km); its English
+    // page still says 150 km, so the entry rests on the other three and says why the English page is not followed
+    const scan = (text: typeof en) => text.radar.parts.flatMap(part => part.paragraphs).find(paragraph => /150 km/.test(paragraph) && /180 km/.test(paragraph))!
+    expect(scan(en)).toContain('the antenna follows the terrain (range 180 km, extended from 150 km on 24 November 2026)')
+    expect(scan(de)).toContain('bei dem die Antenne dem Gelände folgt (Reichweite 180 km, am 24. November 2026 von 150 km erweitert)')
+    for (const text of [en, de]) {
+      const body = JSON.stringify(text.radar.parts)
+      // the 150 km of the entry is the one before the change, and the entry has no other
+      expect(body.match(/150 km/g)).toHaveLength(1)
+      expect(body).not.toMatch(/(?:range|Reichweite) 150 km/)
+      const sources = JSON.stringify(text.radar.sources)
+      expect(sources).toContain('opendata_november2026_1.html')
+      expect(sources).toContain('standortprodukt_sweep_niederschlagsscan.pdf')
+      expect(sources).toMatch(/25\.? November 2026/)
+    }
+    expect(JSON.stringify(en.radar.sources)).toContain('English page still gave the range of the precipitation scan as 150 km')
+  })
+
   it('names the pages of the services and of DWD that the entries on radar and on water level rest on', () => {
     expect(JSON.stringify(en.radar.sources)).toContain('radar_products/radar_products.html')
     expect(JSON.stringify(de.radar.sources)).toContain('radarprodukte/radarprodukte.html')

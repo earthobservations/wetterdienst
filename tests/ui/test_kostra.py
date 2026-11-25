@@ -247,7 +247,8 @@ def test_the_mcp_tool_takes_the_point_and_says_to_pass_a_duration() -> None:
     tool = asyncio.run(read())
 
     assert set(tool.parameters["required"]) == {"latitude", "longitude"}
-    assert {"duration", "return_period", "format", "pretty"} <= set(tool.parameters["properties"])
+    assert {"duration", "return_period", "format"} <= set(tool.parameters["properties"])
+    assert "pretty" not in tool.parameters["properties"]
     assert tool.title == "Get return periods of heavy rain for a point"
     assert tool.annotations.read_only_hint is True
     assert tool.annotations.open_world_hint is True

@@ -48,6 +48,14 @@ Types of changes:
   works on DuckDB 2 (GH-4348)
 - The `kostra` tool, route and command are described as design rainfall (return periods of heavy
   rain) and no longer as "heavy-rainfall statistics", which `statistics` now names (GH-4412)
+- **Breaking**: the MCP tools no longer take the options that only the REST API needs: `pretty`
+  (every tool but `auth`, `glossary` and `issues`) and the `width`, `height` and `scale` of an image
+  (`stations`, `values`, `interpolate`, `summarize`), and `format` no longer offers `html`, `png`,
+  `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, or a `null` size option, is
+  answered as one without; a size with a value and a `format` the tool does not offer are tool
+  errors that say what the tool answers: charts through the tools are gone.
+  The input schemas shrink by 3,441 of 54,314 characters. REST, the command line and Python are
+  unchanged: ask the REST API for a chart (GH-4318)
 
 ## [0.199.0] - 2026-11-25
 

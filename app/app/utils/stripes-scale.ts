@@ -192,6 +192,11 @@ export class StripesRefusedError extends Error {
   data: { type: string, title: string, status: number, detail: string, errors?: RefusalEntry[] }
   /** Why a 400 is one: the record has too few years for a scale of its own (`record-too-short`), or the window holds fewer than two (`window-too-short`) */
   reason?: 'record-too-short' | 'window-too-short'
+  /**
+   * Set where the record the refusal is about was read from the mirror of NOAA's data on AWS (GH-4390), whose file may end early and so be the
+   * reason it is too short: the last year of the whole record that has a value (null if none). The page says so beside the refusal
+   */
+  mirror?: { last_year: number | null }
 
   constructor(statusCode: 400 | 404 | 422 | 502, detail: string, errors?: RefusalEntry[], reason?: 'record-too-short' | 'window-too-short') {
     super(detail)

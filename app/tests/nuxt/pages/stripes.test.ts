@@ -1784,6 +1784,10 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
   const ghcnValuesQueries: Array<Record<string, string>> = []
   const stationQueries: Array<Record<string, string>> = []
   let method: 'midrange' | 'tavg' | null = 'midrange'
+  /** Whether the answer of the app's server says the days were read from the mirror of NOAA's data on AWS (GH-4390) */
+  let mirror = false
+  /** Whether the answer's record is too short for stripes: 3 years, 2008 to 2010 */
+  let shortRecord = false
   /** How many requests for a station by its id fail with a 500 before one is answered */
   let stationFailures = 0
   /** How long a request for a station by its id is held before it is answered, in milliseconds */
@@ -1819,7 +1823,8 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
       const station = byId[query.station!] ?? ghcnStation
       return {
         series: { station, unit: 'degree_celsius', method },
-        ...answerOf(TWO_YEARS),
+        mirror,
+        ...answerOf(shortRecord ? TWO_YEARS.slice(0, 3) : TWO_YEARS),
       }
     }))
     registerEndpoint('/api/values', asValues((event) => {
@@ -1834,6 +1839,8 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
     clearNuxtData()
     register()
     method = 'midrange'
+    mirror = false
+    shortRecord = false
     stationFailures = 0
     stationDelay = 0
   })
@@ -1905,6 +1912,72 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
     method = null
     await show(LINK)
     expect(wrapper!.find('[data-testid="stripes-method"]').exists()).toBe(false)
+  })
+
+  it('says under the stripes that the days were read from the mirror of NOAA\'s data on AWS and where the record ends, where NCEI did not give the station\'s file (GH-4390)', async () => {
+    mirror = true
+    await show(LINK)
+    // the record of the test ends in 2020, before the last complete year
+    const note = wrapper!.find('[data-testid="stripes-mirror"]')
+    expect(note.text()).toBe('Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record read there ends in 2020.')
+    expect(note.text()).toBe(en.stripes.mirrorNoteEnds.replace('{year}', '2020'))
+    // the chart is handed the same line for the image it saves, and the numbers are what they were
+    expect(wrapper!.findComponent(StripesChart).props('noticeLine')).toBe(note.text())
+  })
+
+  it('says beside the refusal of a record that is too short that it was read from the mirror (GH-4390)', async () => {
+    mirror = true
+    shortRecord = true
+    const vm = await open(LINK)
+    await vi.waitFor(() => expect(vm.selectedStation).not.toBeNull())
+    await vm.fetchAndPlotStripes()
+    await vi.waitFor(() => expect(wrapper!.find('[data-testid="stripes-no-record"]').exists()).toBe(true))
+    // the short record of the test ends in 2010
+    expect(wrapper!.find('[data-testid="stripes-no-record-mirror"]').text()).toBe(en.stripes.mirrorNoteEnds.replace('{year}', '2010'))
+    // NCEI's own short record is refused with no such line
+    wrapper!.unmount()
+    clearNuxtData()
+    mirror = false
+    const second = await open(LINK)
+    await vi.waitFor(() => expect(second.selectedStation).not.toBeNull())
+    await second.fetchAndPlotStripes()
+    await vi.waitFor(() => expect(wrapper!.find('[data-testid="stripes-no-record"]').exists()).toBe(true))
+    expect(wrapper!.find('[data-testid="stripes-no-record-mirror"]').exists()).toBe(false)
+  })
+
+  it('says it in the table view as well, and in the file of the table, with the credit', async () => {
+    mirror = true
+    const vm = await show(`${LINK}&variant=table`)
+    expect(wrapper!.find('[data-testid="stripes-mirror"]').exists()).toBe(true)
+    image.downloadBlob.mockClear()
+    vm.downloadTable()
+    const csv = await image.downloadBlob.mock.calls[0]![0].text()
+    expect(csv).toContain('# Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record read there ends in 2020.')
+    expect(csv).toContain('NOAA National Centers for Environmental Information (NCEI)')
+    // before the credit, with the other notes of the file
+    expect(csv.indexOf('mirror of NOAA')).toBeLessThan(csv.indexOf('NOAA National Centers'))
+  })
+
+  it('says it in the language of the page', async () => {
+    mirror = true
+    const harness = await mountSuspended(defineComponent({ setup: () => ({ setLocale: useI18n().setLocale }), render: () => h('div') }))
+    await (harness.vm as any).setLocale('de')
+    try {
+      await show(LINK)
+      expect(wrapper!.find('[data-testid="stripes-mirror"]').text()).toBe('Vom Spiegelserver der NOAA-Daten bei AWS gelesen; die jüngsten Tage können fehlen. Die dort gelesene Zeitreihe endet im Jahr 2020.')
+    }
+    finally {
+      await (harness.vm as any).setLocale('en')
+      harness.unmount()
+    }
+  })
+
+  it('says nothing of a mirror where NCEI answered, and the file of the table has no such line', async () => {
+    const vm = await show(`${LINK}&variant=table`)
+    expect(wrapper!.find('[data-testid="stripes-mirror"]').exists()).toBe(false)
+    image.downloadBlob.mockClear()
+    vm.downloadTable()
+    expect(await image.downloadBlob.mock.calls[0]![0].text()).not.toContain('mirror')
   })
 
   /** The stripes of a station of the list, chosen as the reader does and shown */

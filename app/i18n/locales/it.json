@@ -960,6 +960,8 @@
     "plotSourceGhcn": "Fonte: NOAA NCEI, GHCN-Daily",
     "methodMidrange": "Calcolo dal punto medio tra massimo e minimo giornalieri, non da una media di 24 ore. Un unico metodo per tutta la serie: così non compare un salto dove la media giornaliera di una stazione inizia o finisce, e una distorsione costante si annulla nelle anomalie.",
     "methodTavg": "Calcolo dalla media giornaliera della stazione (TAVG): non ha alcun giorno con massimo e minimo di cui prendere il punto medio.",
+    "mirrorNote": "Letto dallo specchio dei dati NOAA su AWS; i giorni più recenti potrebbero mancare.",
+    "mirrorNoteEnds": "Letto dallo specchio dei dati NOAA su AWS; i giorni più recenti potrebbero mancare. La serie letta lì termina nel {year}.",
     "plotMethodMidrange": "Temperatura: punto medio tra massimo e minimo giornalieri (GHCN)",
     "plotMethodTavg": "Temperatura: media giornaliera (TAVG, GHCN)",
     "plotReference": "Colori: media di {centre}, ±{sigma} σ di {spread}",

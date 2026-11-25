@@ -960,6 +960,8 @@
     "plotSourceGhcn": "Quell: NOAA NCEI, GHCN-Daily",
     "methodMidrange": "Aus der Mëtt vum Deeshéichst- an Deesminimum gemaach, net aus engem 24-Stonne-Duerchschnëtt. Déi selwecht Method fir déi ganz Reih, sou datt kee Sprong entsteet, wou den Deeschduerchschnëtt vun enger Statioun ufänkt oder ophält, an e konstante Feeler sech an den Anomalien ausgläicht.",
     "methodTavg": "Aus dem Deeschduerchschnëtt (TAVG) vun der Statioun gemaach: Si huet keen Dag mat Héchst- a Minimumwert, aus deenen sech d'Mëtt huele léisst.",
+    "mirrorNote": "Vum Spigel vun den NOAA-Daten bei AWS gelies; déi lescht Deeg kënne feelen.",
+    "mirrorNoteEnds": "Vum Spigel vun den NOAA-Daten bei AWS gelies; déi lescht Deeg kënne feelen. Déi do gelies Zäitrei endet am Joer {year}.",
     "plotMethodMidrange": "Temperatur: Mëtt aus Deeshéichst- an Deesminimum (GHCN)",
     "plotMethodTavg": "Temperatur: Deeschduerchschnëtt (TAVG, GHCN)",
     "plotReference": "Faarwen: Duerchschnëtt vun {centre}, ±{sigma} σ vun {spread}",
