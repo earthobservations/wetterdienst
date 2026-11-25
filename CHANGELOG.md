@@ -43,7 +43,7 @@ Types of changes:
   `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, or a `null` size option, is
   answered as one without; a size with a value and a `format` the tool does not offer are tool
   errors that say what the tool answers: charts through the tools are gone.
-  The input schemas shrink by 3,441 of 54,046 characters. REST, the command line and Python are
+  The input schemas shrink by 3,441 of 54,314 characters. REST, the command line and Python are
   unchanged: ask the REST API for a chart (GH-4318)
 
 ## [0.199.0] - 2026-11-25
