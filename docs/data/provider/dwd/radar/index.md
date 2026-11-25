@@ -66,6 +66,8 @@ those two and for any folder other than `unfiltered`, as the polarimetric moment
 for each sweep. The vertical files are those of `..._REFLECTIVITY_H` all the same: the `_H` of the product names is unchanged.
 
 ```python
+import datetime as dt
+
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataSubset,
     DwdRadarParameter,
@@ -79,7 +81,8 @@ request = DwdRadarValues(
     site=DwdRadarSite.BOO,
     subset=DwdRadarDataSubset.UNFILTERED,
     polarization=DwdRadarPolarization.VERTICAL,  # only the ..._tv_NN-... files; leave it out for TH and TV
-    start="2026-10-22 13:10",
+    # a time of the last hours: DWD keeps about two days
+    start=dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=30),
 )
 ```
 
@@ -127,8 +130,111 @@ the sheets say). Where the sheet says nothing, the file's attribute is given as 
 | `MESOCYCLONE_DETECTION` | "xml-Dateien mit sämtlichen Mesozyklonenerkennungen eines Referenzzeitpunktes" ([Dokumentation Mesozyklonenerkennung](https://www.dwd.de/DE/leistungen/radarprodukte/dokumentation_mcd.pdf?__blob=publicationFile), 07.2022), the volume scans of the 17 sites, a run every 5 minutes | an XML document, root `nowcast-data`, with the `radar-stations` and an `event` for each detected mesocyclone (its time, a `location` ellipse and `nowcast-parameters` such as `mesocyclone_shear_max` and `mesocyclone_diameter`, each with its `units`); a run without a mesocyclone is the station list alone (173 bytes) |
 
 The sweeps are the polar data of one site (`site=DwdRadarSite.BOO`): 360 rays of 250 m bins, as many bins as the
-elevation has. The volume scan has ten elevations, which are ten files a run (`elevation=0` to `9` picks one of them,
-for the polarimetric moments as for the velocity and the reflectivity), the precipitation scan one file. The unfiltered
-reflectivity has two files for each sweep, TH and TV, and `elevation` picks the pair. The unfiltered
+elevation has (`nbins`, `rscale` and `how/range` of the file say how many and how long). The volume scan has ten
+elevations, which are ten files a run (`elevation=0` to `9` picks one of them, for the polarimetric moments as for the
+velocity and the reflectivity), the precipitation scan one file. DWD extended the range of the precipitation scan
+(`SWEEP_PCP_*`) from 150 km (600 bins) to 180 km (720 bins) on 24 November 2026 (the first file with 720 bins is the
+scan of 09:20 UTC at the five sites checked; [announcement of 3 November 2026](https://www.dwd.de/DE/leistungen/opendata/neuigkeiten/opendata_november2026_1.html)):
+a file of an earlier time has 600 bins, so a request across that time returns both. The volume scan did not change.
+The unfiltered reflectivity has two files for each sweep, TH and TV, and `elevation` picks the pair. The unfiltered
 polarimetric moments have no folder of a filter, as the velocity and the reflectivity sweeps do (`hdf5/filter_simple`
 and `hdf5/filter_polarimetric`).
+
+## Radar frames on the REST API
+
+`GET /api/v1/radar/frames` and `GET /api/v1/radar/frame` (`/api/radar/...` is the same) serve the RV composite as
+map images, for a viewer that plays the last hours and DWD's forecast of the next two (GH-3788). The server decodes
+the HDF5 files; a browser never gets one. The answers carry DWD's licence and credit line like every answer that holds
+provider data (`metadata` of the list, `X-Wetterdienst-License` and `X-Wetterdienst-Attribution` of an image), and a
+`processing_note` that says what wetterdienst did: the sums became rates in classes, and the grid was warped. Neither
+route is an MCP tool: an overlay is nothing a model can read.
+
+```bash
+http localhost:7890/api/radar/frames                      # the loop and its forecast
+http localhost:7890/api/radar/frames past==30 forecast==false
+# time and run are those of a frame of /radar/frames (DWD keeps about two days)
+http localhost:7890/api/radar/frame time==2026-11-19T21:10:00Z run==2026-11-19T21:10:00Z > frame.png
+```
+
+**The frames.** `/radar/frames` lists the analysis of every run of the last `past` minutes (120 by default, at most
+360: a frame every 5 minutes) and, with `forecast=true` (the default), the 24 frames of DWD's forecast of the newest
+run, 5 to 120 minutes after it. Every frame is `{time, run, lead_minutes, kind}`: `time` is the UTC time the 5 minutes
+of the frame end at, `run` the run of DWD it is read from, and `kind` is `observation` (the radar analysis) or
+`forecast`. The forecast is DWD's extrapolation of the recent movement of the rain (RADVOR),
+not a weather model, and a frame of it is the same product as an analysis frame, a lead time later. A run that DWD did
+not publish is a frame that is not in the list. The times are UTC with a `Z`, which a query takes as it is. The
+answer also says where the images lie (`image`) and what the colours mean (`legend`):
+
+```json
+{
+  "run": "2026-11-19T21:25:00Z",
+  "image": {
+    "crs": "EPSG:3857",
+    "bounds": {"west": 1.4633, "south": 45.6823, "east": 18.7316, "north": 56.2194},
+    "width": 1200, "height": 1169, "media_type": "image/png"
+  },
+  "legend": {
+    "unit": "mm/h", "transparent_below": 0.1,
+    "classes": [{"lower": 0.1, "upper": 0.5, "color": "#c7e9b4", "label": "0.1 to under 0.5 mm/h"}, "..."]
+  },
+  "frames": [{"time": "2026-11-19T20:55:00Z", "run": "2026-11-19T20:55:00Z", "lead_minutes": 0, "kind": "observation"}, "..."]
+}
+```
+
+The newest run is 3 to 8 minutes old when it appears on DWD's server and the server holds the list of runs for a
+minute, so the last frame of the loop is some 5 to 15 minutes in the past. A newest run older than 20 minutes is a
+`radar-stale` warning in `metadata` (DWD's feed has stopped: the loop ends at that run and the forecast starts from
+it), and that list is sent without a `Cache-Control`; one without a warning has `public, max-age=60` and an `ETag`.
+
+**One image.** `/radar/frame` takes the `time` and the `run` of a frame and answers an indexed PNG, 1200 x 1169 pixels,
+some 35 KB, with `X-Wetterdienst-Radar-Time` and `X-Wetterdienst-Radar-Run` saying which frame it is. Where there is no
+rain, and where the composite has no data (outside its coverage, or where a radar is missing), it is transparent. A
+`time` up to the newest run is the analysis, a later one the forecast of the newest run, so `run` may be left out; the
+image is then of whichever run is newest, and may be reused for a minute. With `run` it is the same for as long as DWD
+keeps the run (about 48 hours, a run DWD does not list is a 404, and so is the forecast of a run that is not one of the newest three), and may be reused for an hour. A `time` that is no
+multiple of 5 minutes, or is not 0 to 120 minutes after the run, is a 400; a file DWD sends that the decoder is not
+written for (it changed the grid, the quantity or the projection) is a 502 that says what changed, and a missing `radar`
+extra on the server a 501.
+
+**What the colours are.** The RV composite holds the precipitation of the 5 minutes that end at the time of the frame
+(ODIM `ACRR`, a `uint32` of 0.001 mm per count). It is turned into a rate in mm/h from the length of time the file
+states it is of (300 s, so x 12) and sorted into seven classes: 0.1 to under 0.5, 0.5 to 1, 1 to 2.5, 2.5 to 5, 5 to 10,
+10 to 25 and 25 mm/h and more. The colours are ColorBrewer's YlGnBu from its third step on, one ramp whose lightness
+falls from each class to the next by more than 6 (CIE L\*, held by a test), so the order reads in grey and for every
+kind of colour vision and does not depend on telling hues apart; the legend gives the numbers as well, for a page to
+write them out. A pixel is a class and no reading: a rate under 0.1 mm/h is as transparent as no rain, and the class
+of a cell is the class of its 5-minute sum, which is no hourly intensity.
+
+**Where the image lies.** The grid of the composite (DE1200: 1100 x 1200 cells of 1 km) is in a polar stereographic
+projection, in which a row is not a parallel, so it is not drawn as it is. The image is warped to Web Mercator
+(EPSG:3857): its pixels are square there, it is 1200 pixels wide over the longitudes of the grid, and `bounds` are its
+outer edges in WGS84, which a Leaflet `ImageOverlay` stretches the image over (linearly in longitude and in Mercator
+`y`, which is what makes it right); a map in another projection must warp it again. Each pixel takes the cell that
+contains its centre, so classes are never blended. The projection is DWD's `projdef` of every file (`+proj=stere +lat_ts=60
++lat_0=90 +lon_0=10`, on the WGS 84 ellipsoid), written in this package so that no PROJ is needed. It is held to DWD's own
+numbers: the four outer corners a file states in degrees (`UL` 55.8621 N 1.4633 E, `UR` 55.8454 N 18.7316 E, `LL`
+45.6964 N 3.5670 E, `LR` 45.6846 N 16.5809 E) are where the projection puts the corners of the grid, to within 10⁻⁶ degrees
+(10 cm); it agrees with PROJ's to a micrometre over Germany; and the cell a pixel takes is within 1.2 km of the city it
+is the pixel of, for seven cities from Kiel to Freiburg. The grid is anchored at the corner a file states: the
+corner values are the outer corners and not the cell centres (half a cell, 500 m, which a reader taking them for
+centres would be off by). A file of another grid is refused.
+
+**What it costs.** Measured on a developer laptop (Apple silicon, Python 3.13, a home connection to opendata.dwd.de on
+2026-11-19), and not on the server, which no one here has access to:
+
+| | one frame | the loop of 2 hours: 25 analysis frames and 24 forecast frames |
+| --- | --- | --- |
+| transfer | analysis: one range request of 400 KB (the file is about 320 KB); the `.tar` of a run is 7.7 MB (the analysis and 24 forecasts) | 25 x 400 KB = 10 MB for the analysis (the whole `.tar` of each would be 190 MB), and 7.7 MB once for the forecast |
+| time on the network | 0.3 to 0.9 s; the 7.7 MB `.tar` 1.5 to 16 s (DWD's server, its speed varies a lot) | 15 s one after the other for the analysis (a page asks 4 to 6 at a time, see below), once per run for the forecast |
+| CPU (decode, classify, warp, PNG) | 10 to 60 ms to read the file, 25 to 50 ms to draw it | about 2.5 s for 49 frames; each is drawn once, whoever asks |
+| memory | about 32 MB above what is held while a frame is drawn, at most two at a time; 18 MB for the warp, made once | 49 PNGs of 35 KB (1.7 MB) and up to four `.tar` files held (31 MB: the three runs whose forecast is served and the next, so a run's tar is read once however the frames of the runs are asked for); the cap is 400 frames (14 MB) |
+| size | PNG 34 KB | 1.7 MB |
+
+Steady state is a new run every 5 minutes: one analysis frame (400 KB, 0.1 s of CPU) and, the first time anyone asks for
+the forecast of it, 24 frames of 30 ms each. The frames are held in the process (by run and lead time, which never
+change, so there is no expiry: the oldest are dropped), a frame that two readers ask for at the same time is drawn once,
+and at most two are drawn at a time. The forecast is served for the newest three runs DWD lists only (a request for the forecast of an older run is a 404, so no request makes the server read the 7.7 MB tar of any of the 576 runs of two days), and no file is asked of DWD for a run it does not list. The tar of a forecast is downloaded before the frame's lock is taken, so a cold analysis frame does not wait behind it. The whole tar of a run is read for its analysis only where the first file of the tar is not the analysis (or the server ignores `Range`), and then for the newest three runs only. A body that DWD answers for a tar and that is none (an outage page, an empty body) is a 502 and is held for no frame. A server holds at most 32 requests at once by default (`WD_RESTAPI_MAX_CONCURRENT`, a 33rd is a 503): a page should load its frames 4 to 6 at a time, not the 49 at once. With several worker processes each holds its own, and a worker whose list of runs is older than a run that has just appeared answers a 404 for it until it lists again (at most 10 seconds). Decoding needs `h5py` and
+`numpy`, which the `radar` extra installs and the image of the server (`docker/Dockerfile`) already has; wradlib,
+xradar and PROJ are not used. h5py reads the grid by its own filters in a build that leaks about the size of the grid on
+every read (h5py 3.16 with HDF5 2.0 on macOS grew by 5.7 MB per read, to 220 MB after 25 frames), so the one chunk of
+DWD's grid is inflated from its stored bytes by zlib, which does not, and is faster; any other layout is read by h5py.

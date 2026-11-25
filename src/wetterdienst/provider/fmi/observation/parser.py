@@ -73,7 +73,7 @@ def _parse_facility(facility: _Element) -> dict[str, str | None] | None:
 
     Returns ``None`` for a facility without a resolvable fmisid.
     """
-    station_id = name = region = latitude = longitude = None
+    station_id = name = region = latitude = longitude = wmo_id = icao_id = None
     for el in facility.iter():
         tag = _local_name(el.tag)
         code_space = el.get("codeSpace", "")
@@ -84,6 +84,10 @@ def _parse_facility(facility: _Element) -> dict[str, str | None] | None:
             name = text or None
         elif tag == "name" and code_space.endswith("/location/region") and region is None:
             region = text or None
+        elif tag == "name" and code_space.endswith("/locationcode/wmo") and wmo_id is None:
+            wmo_id = text or None
+        elif tag == "name" and code_space.endswith("/locationcode/icao") and icao_id is None:
+            icao_id = text or None
         elif tag == "pos" and latitude is None:
             parts = text.split()
             if len(parts) >= 2:
@@ -95,6 +99,8 @@ def _parse_facility(facility: _Element) -> dict[str, str | None] | None:
         "station_id": station_id,
         "name": name,
         "region": region,
+        "wmo_id": wmo_id,
+        "icao_id": icao_id,
         "latitude": latitude,
         "longitude": longitude,
         "start_timestamp": start,
@@ -108,11 +114,12 @@ def parse_fmi_stations(content: bytes) -> pl.DataFrame:
     Each ``EnvironmentalMonitoringFacility`` carries its FMI station id (fmisid) as a
     ``gml:identifier`` in the ``.../stationcode/fmisid`` code space, human-readable name and
     region as ``gml:name`` entries in the ``.../locationcode/name`` and ``.../location/region``
-    code spaces, its position as a ``gml:pos`` (``lat lon``), and its operational period as a
-    ``gml:beginPosition``/``gml:endPosition`` pair. Elevation is not exposed by this catalogue,
-    so ``elevation`` is left for the core to fill with null. The coordinates are the text of the catalogue and
-    the stamps are naive: the core reads them as numbers and as UTC (``shape_stations_frame``). A catalogue without
-    a facility is a frame without a row.
+    code spaces, its WMO number (``.../locationcode/wmo``, five digits with the leading zero, on 183 of 437 facilities)
+    and ICAO code (``.../locationcode/icao``, on 24) as ``gml:name`` entries too (GH-4070), its position as a
+    ``gml:pos`` (``lat lon``), and its operational period as a ``gml:beginPosition``/``gml:endPosition`` pair.
+    Elevation is not exposed by this catalogue, so ``elevation`` is left for the core to fill with null. The
+    coordinates are the text of the catalogue and the stamps are naive: the core reads them as numbers and as UTC
+    (``shape_stations_frame``). A catalogue without a facility is a frame without a row.
     """
     root = parse_xml(content)
     rows = [

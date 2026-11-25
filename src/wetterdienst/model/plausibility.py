@@ -222,8 +222,10 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
         "dwd/observation": ("*",),
         "dwd/phenology": ("*",),
         "dwd/poi": ("*",),
+        "dwd/pollen": ("*",),
         "dwd/road": ("*",),
         "dwd/swsmos": ("*",),
+        "dwd/uvi": ("*",),
         "eccc/observation": ("*",),
         "fmi/observation": ("*",),
         "geosphere/observation": ("*",),
@@ -341,6 +343,7 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "floor": {
         "dwd/dmo": ("hourly/icon", "hourly/icon_eu"),
+        "dwd/mosmix": ("hourly/small", "hourly/large", "hourly/snow"),
     },
     # the networks whose source marks a value as erroneous or doubtful in a quality flag the reader returns, and the
     # datasets that flag is in: derived from the map of the codes (`model/source_flags.py`, GH-3677)
@@ -351,7 +354,7 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
 def leave_out_suspect(df: pl.DataFrame) -> pl.DataFrame:
     """Null the value of every reading a soft plausibility check flagged ``suspect:`` (GH-3676).
 
-    An interpolation, a summary, climate stripes and the coverage of ``skip_empty`` read what a station measured, and a
+    An interpolation, a summary and the coverage of ``skip_empty`` read what a station measured, and a
     number that a check finds implausible has no place in them, whatever mode the request gave the check: the mode
     changes what a station's own values show, not what is made of them. The reading stays a row, as a rejected one
     does, with no value.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coerceSettings, seedFromServer, SETTINGS_DEFAULTS, SETTINGS_VERSION, settingsFromServer, wdSettingsSchema } from '../../app/composables/useSettings'
+import { coerceSettings, SEARCH_STATIONS_DEFAULTS, seedFromServer, SETTINGS_DEFAULTS, SETTINGS_VERSION, settingsFromServer, wdSettingsSchema } from '../../app/composables/useSettings'
 import { DEFAULT_TOOL_ORDER } from '../../app/utils/tab-bar'
 
 describe('settings schema', () => {
@@ -51,6 +51,56 @@ describe('settings schema', () => {
     const result = coerceSettings(stored)
     expect(result.units.temperature).toBe('degree_fahrenheit')
     expect(result.units.duration).toBe('hour')
+  })
+
+  describe('the lists of stations the search looks in by name (GH-3790)', () => {
+    it('are the forecast\'s points and GHCN daily on and DWD\'s measuring stations off, which the defaults and an empty blob say', () => {
+      expect(SEARCH_STATIONS_DEFAULTS).toEqual({ forecast: true, measured: false, ghcn: true })
+      expect(SETTINGS_DEFAULTS.searchStations).toEqual(SEARCH_STATIONS_DEFAULTS)
+      expect(coerceSettings({}).searchStations).toEqual(SEARCH_STATIONS_DEFAULTS)
+    })
+
+    it('are read from what an earlier version stored, which has none, with the other settings kept', () => {
+      const { searchStations: _none, ...earlier } = structuredClone(SETTINGS_DEFAULTS)
+      const result = coerceSettings({ ...earlier, friendlyLabels: false })
+      expect(result.searchStations).toEqual(SEARCH_STATIONS_DEFAULTS)
+      expect(result.friendlyLabels).toBe(false)
+    })
+
+    it('keep a choice, and a field that is no choice is the default for that list alone', () => {
+      expect(coerceSettings({ ...structuredClone(SETTINGS_DEFAULTS), searchStations: { forecast: false, measured: true, ghcn: false } }).searchStations).toEqual({ forecast: false, measured: true, ghcn: false })
+      expect(coerceSettings({ ...structuredClone(SETTINGS_DEFAULTS), searchStations: { forecast: 'no', measured: true } }).searchStations).toEqual(SEARCH_STATIONS_DEFAULTS)
+      // an outdated version is salvaged field by field
+      expect(coerceSettings({ version: 1, searchStations: { forecast: false, measured: false, ghcn: true } }).searchStations).toEqual({ forecast: false, measured: false, ghcn: true })
+    })
+  })
+
+  describe('the stripes\' time series and trend line, which are no options any more (GH-4170)', () => {
+    // what a browser that visited before the change holds: the two choices beside the four that stay
+    const stored = (version: number) => ({
+      ...structuredClone(SETTINGS_DEFAULTS),
+      version,
+      friendlyLabels: false,
+      stripes: { showTitle: false, showYears: true, showSource: false, showDataAvailability: true, showTimeseries: true, showTrendline: true },
+    })
+
+    it('has neither choice in the defaults', () => {
+      expect(SETTINGS_DEFAULTS.stripes).toEqual({ showTitle: true, showYears: true, showSource: true, showDataAvailability: true })
+    })
+
+    it.each([SETTINGS_VERSION, 1, 99])('reads settings of version %i that still hold them, drops the two and keeps every other choice', (version) => {
+      const result = coerceSettings(stored(version))
+      expect(result.stripes).toEqual({ showTitle: false, showYears: true, showSource: false, showDataAvailability: true })
+      expect(Object.keys(result.stripes)).not.toContain('showTimeseries')
+      expect(Object.keys(result.stripes)).not.toContain('showTrendline')
+      expect(result.friendlyLabels).toBe(false)
+      expect(result.version).toBe(SETTINGS_VERSION)
+    })
+
+    it('does not reset the stripes\' other choices for the two it no longer has', () => {
+      expect(coerceSettings(stored(SETTINGS_VERSION)).stripes.showTitle).toBe(false)
+      expect(wdSettingsSchema.safeParse(stored(SETTINGS_VERSION)).success).toBe(true)
+    })
   })
 
   it('names the backend\'s default of the unit types whose default changed (GH-3702)', () => {
@@ -159,8 +209,8 @@ describe('settings schema', () => {
   describe('the tools of the phone bar (GH-3846)', () => {
     const withBar = (tabBar: unknown) => ({ ...structuredClone(SETTINGS_DEFAULTS), tabBar })
 
-    it('is the default order, Forecast, Explorer, Stripes and History in the bar', () => {
-      expect(SETTINGS_DEFAULTS.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+    it('is the default order, Forecast, Explorer, Stripes and Radar in the bar', () => {
+      expect(SETTINGS_DEFAULTS.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
       expect(SETTINGS_DEFAULTS.tabBar).toEqual([...DEFAULT_TOOL_ORDER])
     })
 
@@ -174,17 +224,21 @@ describe('settings schema', () => {
     })
 
     it('keeps a valid choice', () => {
-      expect(coerceSettings(withBar(['map', 'history', 'explorer', 'forecast', 'stripes'])).tabBar).toEqual(['map', 'history', 'explorer', 'forecast', 'stripes'])
+      expect(coerceSettings(withBar(['map', 'history', 'radar', 'explorer', 'forecast', 'stripes'])).tabBar).toEqual(['map', 'history', 'radar', 'explorer', 'forecast', 'stripes'])
+    })
+
+    it('puts a tool that a choice saved before it existed does not name below the line: the Map of GH-3788', () => {
+      expect(coerceSettings(withBar(['history', 'radar', 'explorer', 'forecast', 'stripes'])).tabBar).toEqual(['history', 'radar', 'explorer', 'forecast', 'stripes', 'map'])
     })
 
     it('ignores a tool that does not exist, and fills a short list from the default, with no error', () => {
-      expect(coerceSettings(withBar(['map', 'radar', 'forecast', 'explorer', 'stripes'])).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
-      expect(coerceSettings(withBar(['map'])).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+      expect(coerceSettings(withBar(['history', 'satellite', 'forecast', 'explorer', 'stripes'])).tabBar).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map'])
+      expect(coerceSettings(withBar(['history'])).tabBar).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map'])
       expect(coerceSettings(withBar([])).tabBar).toEqual(SETTINGS_DEFAULTS.tabBar)
     })
 
     it('repairs a list of the wrong kind to the default, and keeps the other fields it can read', () => {
-      for (const bad of ['map', 3, null, { 0: 'map' }, [1, 2, 3], [['map']]]) {
+      for (const bad of ['history', 3, null, { 0: 'history' }, [1, 2, 3], [['history']]]) {
         const result = coerceSettings({ ...withBar(bad), friendlyLabels: false })
         expect(result.tabBar, JSON.stringify(bad)).toEqual(SETTINGS_DEFAULTS.tabBar)
         expect(result.friendlyLabels).toBe(false)
@@ -192,12 +246,12 @@ describe('settings schema', () => {
     })
 
     it('repairs it also in a payload of another version', () => {
-      expect(coerceSettings({ ...withBar(['map', 'nope']), version: 99 }).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+      expect(coerceSettings({ ...withBar(['history', 'nope']), version: 99 }).tabBar).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map'])
     })
 
     it('repairs a repeated tool, and the list never holds a tool twice', () => {
-      const result = coerceSettings(withBar(['map', 'map', 'map', 'map', 'map'])).tabBar
-      expect(result).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+      const result = coerceSettings(withBar(['history', 'history', 'history', 'history', 'history'])).tabBar
+      expect(result).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map'])
       expect(new Set(result).size).toBe(result.length)
     })
   })

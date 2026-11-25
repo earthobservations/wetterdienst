@@ -42,7 +42,7 @@ from wetterdienst.provider.dwd.alerts.metadata import (
     DwdWeatherAlertLanguage,
 )
 from wetterdienst.provider.dwd.alerts.parser import parse_cap_alert
-from wetterdienst.provider.dwd.alerts.place import check_point, is_for_place
+from wetterdienst.provider.dwd.alerts.place import check_name, check_point, is_for_place, names_match
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import check_zip, read_unpacked
@@ -62,6 +62,31 @@ log = logging.getLogger(__name__)
 #: the code of the warning that tells a request for a place that no warning of the snapshot is for it: an answer, not
 #: a failure, which a caller who reads `alerts: []` alone would take for the one or the other
 NO_ALERTS_FOR_PLACE = "no-alerts-for-place"
+#: the code of the warning an MCP tool's answer carries when `name` matches no area of any warning in force
+#: (GH-4338): a name that found nothing to filter by, which is no all-clear for the place. Told by the tool's request
+#: only, as `answer-truncated` is; the REST API, the command line and the library tell `no-alerts-for-place` alone
+NO_AREA_MATCHED = "no-area-matched"
+
+
+def no_area_matched_message(name: str, *, point: bool = False) -> str:
+    """Say that no area of any warning in force is named `name`, which is no all-clear for the place.
+
+    With a `point` the advice is to drop the name, the point alone giving the warnings for the place; without one it is
+    to ask by point.
+    """
+    advice = (
+        "The point alone gives the warnings for the place: ask again without the name."
+        if point
+        else "Ask by point (`latitude` and `longitude`) to be sure."
+    )
+    return (
+        f'No area of any warning in force is named {name!r}, so the name matched nothing. That is not "no warning" '
+        "for the place: a place without a warning is in none of the lists, and a name that is not DWD's German "
+        "('München', not 'Munich'; 'Stadt Kiel' is found by 'Kiel' or 'Stadt Kiel', not 'Kiel, Stadt') is in none "
+        f"either. {advice}"
+    )
+
+
 #: what the log says of it, with nothing of the place asked for (the point is a location of the requester)
 _NO_ALERTS_FOR_PLACE_LOG = "no warning of the snapshot is for the requested place"
 
@@ -122,6 +147,7 @@ class DwdWeatherAlertResult:
         language: DwdWeatherAlertLanguage,
         snapshot: dt.datetime | None = None,
         snapshot_updated_at: dt.datetime | None = None,
+        name_matched: bool | None = None,  # noqa: FBT001
     ) -> None:
         """Initialize the result.
 
@@ -133,9 +159,13 @@ class DwdWeatherAlertResult:
             snapshot_updated_at: the newest ``sent`` of every warning of the snapshot, which a request for a place
                 gives because ``df`` holds only the warnings for it; ``None`` (the default) for ``df`` being the
                 whole snapshot, whose own newest ``sent`` it is.
+            name_matched: whether any warning of the whole snapshot has an area of the ``name`` asked for, which ``df``
+                (the warnings for the place) cannot tell; ``None`` (the default) for a request without a name, and for
+                a snapshot without a warning, where nothing could match.
 
         """
         self.snapshot_updated_at = snapshot_updated_at
+        self.name_matched = name_matched
         self.df = df
         self.granularity = granularity
         self.language = language
@@ -374,7 +404,8 @@ class DwdWeatherAlertRequest:
             longitude: the longitude of the point; it is given with ``latitude``, or not at all.
             name: keep the warnings with an area of this name (the words of it, in any case: ``Kiel`` is ``Stadt
                 Kiel``, not ``Kielstau``) or of this warn cell id (``101002000``, or its 8-digit key ``01002000``). With
-                a point, a warning must be for both.
+                a point, a warning must be for both. An empty name is none; one of only whitespace is a
+                ``RequestError``.
             kwargs: none is taken; ``date``, the old name of ``timestamp`` (GH-2438), is refused
                 with an error naming it.
 
@@ -396,8 +427,9 @@ class DwdWeatherAlertRequest:
         check_point(latitude, longitude)
         self.latitude = latitude
         self.longitude = longitude
-        # an empty name (a query parameter that is present and empty) is no filter, as an empty timestamp is none
-        self.name = name.strip() or None if isinstance(name, str) else name
+        # an empty name (a query parameter that is present and empty) is no filter, as an empty timestamp is none; one
+        # of only whitespace is refused, as it is neither every warning nor no name
+        self.name = check_name(name)
 
     def __repr__(self) -> str:
         """Return a string representation of the request."""
@@ -540,14 +572,20 @@ class DwdWeatherAlertRequest:
         the directory listing; the filename timestamps are UTC. Raises ``InvalidTimeIntervalError``
         (a ``ValueError``) if ``timestamp`` falls before DWD's rolling window (no snapshot at or
         before it is available), and ``MetaFileNotFoundError`` (a ``FileNotFoundError`` too) if the
-        listing holds no snapshot at all, which is no date's doing.
+        listing holds no snapshot at all, which is no date's doing, or if the directory is not there.
         """
         if self.timestamp is None:
             return self.url, None
 
         pattern = self._filename_pattern
         snapshots: list[tuple[dt.datetime, str]] = []
-        for entry in list_remote_directory_fsspec(self._directory_url, settings=self.settings):
+        try:
+            entries = list_remote_directory_fsspec(self._directory_url, settings=self.settings)
+        except FileNotFoundError as e:
+            # a directory that is not there is DWD's to answer for (a 502), no defect of ours (GH-4203)
+            msg = f"no weather-alerts directory at {self._directory_url}"
+            raise MetaFileNotFoundError(msg) from e
+        for entry in entries:
             match = pattern.search(entry["name"].rsplit("/", 1)[-1])
             if match:
                 timestamp = dt.datetime.strptime(match.group(1), "%Y%m%d%H%M%S").replace(tzinfo=ZoneInfo("UTC"))
@@ -596,6 +634,7 @@ class DwdWeatherAlertRequest:
             alerts = self._parse_archive(content, url)
             sent = [alert["sent"] for alert in alerts if alert.get("sent") is not None]
             snapshot_updated_at = max(sent) if sent else None
+            name_matched = self._name_is_among(alerts)
             alerts = self._keep_place(alerts)
             df = self._build_dataframe(alerts)
         except zipfile.BadZipFile as e:
@@ -613,6 +652,20 @@ class DwdWeatherAlertRequest:
             language=self.language,
             snapshot=snapshot,
             snapshot_updated_at=snapshot_updated_at,
+            name_matched=name_matched,
+        )
+
+    def _name_is_among(self, alerts: list[dict[str, Any]]) -> bool | None:
+        """Tell whether any warning of the snapshot has an area of the name asked for; `None` where there is no telling.
+
+        There is none for a request without a name, or a snapshot without a warning (nothing is in force, so a name
+        matches nothing and that is the all-clear `_none_for_place` says).
+        """
+        if self.name is None or not alerts:
+            return None
+        name = self.name
+        return any(
+            names_match(alert.get("area_names") or [], alert.get("warncell_ids") or [], name) for alert in alerts
         )
 
     def _keep_place(self, alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:

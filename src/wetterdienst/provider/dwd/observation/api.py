@@ -32,6 +32,7 @@ from wetterdienst.model.history import (
 )
 from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
+from wetterdienst.model.oscar import with_oscar_wigos_id
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw_column
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -76,6 +77,8 @@ from wetterdienst.provider.dwd.observation.parser import (
     mez_md_column,
     parse_climate_observations_data,
 )
+from wetterdienst.provider.dwd.observation.stationslexikon import with_wmo_id
+from wetterdienst.provider.dwd.observation.wigos import DWD_WIGOS_SCHEME
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -87,8 +90,10 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from fsspec.implementations.zip import ZipFileSystem
+    from typing_extensions import Unpack
 
     from wetterdienst.model.result import HistoryResult, StationsResult, ValuesResult
+    from wetterdienst.model.row_selection import RowOptions
 log = logging.getLogger(__name__)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
@@ -150,9 +155,9 @@ class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
     @remembering_empty_directories
-    def query(self) -> Iterator[ValuesResult]:
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
-        yield from super().query()
+        yield from super().query(**rows)
 
     def _zero_direction_is_no_bearing(self) -> pl.Expr:
         """Have the hourly directions of 0 that are no calm alone stay with `missing-value-marker` (GH-3696).
@@ -1127,4 +1132,7 @@ class DwdObservationRequest(TimeseriesRequest):
         stations_df = stations_df.unique(
             subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
         )
-        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        stations_df = stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        # the WMO number is in none of the descriptions: DWD's Stationslexikon has it (GH-4073); the WIGOS id is in none
+        # either: WMO's OSCAR/Surface has it for the stations whose Stations_ID is the local part of one (GH-4074)
+        return with_oscar_wigos_id(with_wmo_id(stations_df, settings), settings, DWD_WIGOS_SCHEME)

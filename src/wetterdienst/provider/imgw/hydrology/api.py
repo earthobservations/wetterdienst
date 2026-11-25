@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, ClassVar
 
 import polars as pl
 import portion
-from dateutil.relativedelta import relativedelta
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
@@ -23,14 +22,17 @@ from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import (
     archive_expiries,
     download_archives,
+    forget_listings_of_archives,
     keep_files_overlapping,
     list_files_for_interval,
 )
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.archive import open_zip
+from wetterdienst.util.datetime import add_months
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.polars_util import read_csv_without_header
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -258,12 +260,22 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
 
         settings = cast("Settings", self.sr.request.settings)
         # an archive of a period that has ended is kept 12 hours, that of the period under way 5 minutes (GH-3931)
-        files = download_archives(self._get_archives(parameter_or_dataset), settings)
-        # a 404 is a file that is not there, and is dropped; any other failure -- a timeout, a 5xx
+        folders_gone: list[str] = []
+        files = download_archives(self._get_archives(parameter_or_dataset, folders_gone), settings)
+        if folders_gone:
+            note_skipped_download(SkipCause.EMPTY_DIRECTORY)
+        # a 404 is a file that is not there, and is dropped and told; any other failure -- a timeout, a 5xx
         # after the retries -- is an outage, which dropped would read as a station without data
+        withdrawn = []
         for file in files:
             if file.status != 404:
                 file.raise_if_exception()
+            else:
+                note_skipped_download(SkipCause.WITHDRAWN)
+                withdrawn.append(file.url)
+        if withdrawn:
+            # it may have been consolidated into another folder, which the cached listings do not name yet
+            forget_listings_of_archives(withdrawn, settings)
         files = [file for file in files if isinstance(file.content, BytesIO)]
         data = []
         file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]
@@ -372,7 +384,7 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
             )
         return df
 
-    def _get_archives(self, dataset: DatasetModel) -> dict[str, CacheExpiry]:
+    def _get_archives(self, dataset: DatasetModel, skipped: list[str] | None = None) -> dict[str, CacheExpiry]:
         """Get the url of each archive of the dataset the request reads, with the expiry it is downloaded with.
 
         The expiry follows the period of the archive (`archive_expiries`), which is read from its name once, by the
@@ -381,17 +393,17 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         interval = None
         folder_interval = None
-        if self.sr.start:
+        if self.sr.start and self.sr.end:
             interval = portion.closed(self.sr.start, self.sr.end)
             # widen by 2 months on each side when pruning folders: IMGW files use "hydrological years"
             # (shifted by 2 months, see __parse_file below) internally, so e.g. a file living in the "2023"
             # folder can contain data as early as 2022-11. The exact per-file filtering below is unaffected.
             folder_interval = portion.closed(
-                self.sr.start - relativedelta(months=2),
-                self.sr.end + relativedelta(months=2),
+                add_months(self.sr.start, -2),
+                add_months(self.sr.end, 2),
             )
-        files = list_files_for_interval(url, self.sr.settings, folder_interval)
-        df_files = pl.DataFrame({"url": files})
+        files = list_files_for_interval(url, self.sr.settings, folder_interval, skipped=skipped)
+        df_files = pl.DataFrame({"url": files}, schema={"url": pl.String})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
         if dataset.resolution.value == Resolution.DAILY:

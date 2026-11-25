@@ -108,7 +108,12 @@ def test_the_old_name_of_the_request_fails_with_the_new_one() -> None:
 
 def test_the_values_of_a_result_do_not_hold_the_reader_that_produced_them() -> None:
     """A values result is the stations and the frame, so that a kept result keeps no downloader alive."""
-    assert [field.name for field in dataclasses.fields(ValuesResult)] == ["df", "stations", "data_updated_at"]
+    assert [field.name for field in dataclasses.fields(ValuesResult)] == [
+        "df",
+        "stations",
+        "data_updated_at",
+        "search",
+    ]
     stations = _stations()
     with pytest.raises(AttributeError, match=r"ValuesResult\.values is gone.*stations\.values\(\)"):
         _ = ValuesResult(stations=stations, df=_values_frame()).values  # ty: ignore[unresolved-attribute]
@@ -260,7 +265,7 @@ def test_the_fields_of_the_results_are_the_ones_the_library_promises() -> None:
     fields = {cls.__name__: [field.name for field in dataclasses.fields(cls)] for cls in _RESULTS}
     assert fields == {
         "StationsResult": ["df", "request", "_df_all", "_stations_filter", "_rank"],
-        "ValuesResult": ["df", "stations", "data_updated_at"],
+        "ValuesResult": ["df", "stations", "data_updated_at", "search"],
         "InterpolatedValuesResult": ["df", "stations", "data_updated_at", "latlon", "elevation"],
         "SummarizedValuesResult": ["df", "stations", "data_updated_at", "latlon", "elevation"],
         "HistoryResult": ["stations", "history"],
@@ -293,7 +298,8 @@ def test_the_public_methods_of_the_results_are_the_ones_the_library_promises() -
         "to_target",
         "values",
     ]
-    assert _public(ValuesResult) == _VALUES_SURFACE
+    # `search` and `selected_rows` are the row options of the values alone (GH-4411): an estimate has no rows to choose
+    assert _public(ValuesResult) == sorted([*_VALUES_SURFACE, "search", "selected_rows", "statistics"])
     assert _public(InterpolatedValuesResult) == sorted([*_VALUES_SURFACE, "elevation"])
     assert _public(SummarizedValuesResult) == sorted([*_VALUES_SURFACE, "elevation"])
     assert _public(HistoryResult) == ["to_dict", "to_format", "to_json"]
@@ -306,6 +312,7 @@ def test_the_signatures_the_documentation_shows_are_the_ones_the_results_have() 
         "StationsResult.history": inspect.signature(StationsResult.history),
         "ValuesResult.filtered_by_date": inspect.signature(ValuesResult.filtered_by_date),
         "ValuesResult.filtered_by_sql": inspect.signature(ValuesResult.filtered_by_sql),
+        "ValuesResult.selected_rows": inspect.signature(ValuesResult.selected_rows),
         "ValuesResult.to_dict": inspect.signature(ValuesResult.to_dict),
         "ValuesResult.to_json": inspect.signature(ValuesResult.to_json),
     }
@@ -314,6 +321,10 @@ def test_the_signatures_the_documentation_shows_are_the_ones_the_results_have() 
         "StationsResult.history": "(self) -> 'TimeseriesHistory'",
         "ValuesResult.filtered_by_date": "(self, date: 'str') -> 'Self'",
         "ValuesResult.filtered_by_sql": "(self, sql: 'str') -> 'Self'",
+        "ValuesResult.selected_rows": (
+            "(self, *, filter: 'str | None' = None, sort: 'str | None' = None, first: 'int | str | None' = None, "
+            "by: 'str | None' = None, max_rows: 'int | str | None' = None) -> 'Self'"
+        ),
         "ValuesResult.to_dict": "(self, *, with_metadata: 'bool' = False, with_stations: 'bool' = False) -> '_DictT'",
         "ValuesResult.to_json": (
             "(self, *, with_metadata: 'bool' = False, with_stations: 'bool' = False, "

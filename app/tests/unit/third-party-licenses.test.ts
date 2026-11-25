@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
-  bundledLicenseComment,
   collectNotices,
   commentAround,
   exactText,
@@ -106,28 +105,6 @@ describe('the notice of a package', () => {
     const shipped = readNotice(makePackage(join(root, 'vaul-vue-2'), { name: 'vaul-vue', version: '9', license: 'ISC' }, { LICENSE: 'Their own text' }))
     expect(shipped.license).toBe('ISC')
     expect(shipped.texts.map(entry => entry.text)).toEqual(['Their own text', expect.stringContaining('Emil Kowalski')])
-  })
-
-  it('adds the licence comments a bundled file ends with', () => {
-    const file = '/*! plotly */\nvar a=1;\n/*! Bundled license information:\n\nleft-pad/index.js:\n  (* MIT *)\n*/\n\nreturn a;'
-    expect(bundledLicenseComment(file)).toBe('Bundled license information:\n\nleft-pad/index.js:\n  (* MIT *)')
-    expect(bundledLicenseComment('var a=1')).toBeNull()
-
-    const notice = readNotice(makePackage(join(root, 'plotly'), { name: 'plotly.js-basic-dist-min', version: '3', license: 'MIT' }, { 'LICENSE': 'Plotly MIT', 'plotly-basic.min.js': file }))
-    // its LICENSE, the libraries of the fallback with what it does not reproduce, and the comment the file ends with
-    expect(notice.texts.map(entry => entry.text)).toEqual(['Plotly MIT', expect.stringContaining('are listed here'), expect.stringContaining('left-pad/index.js')])
-    // every package of the unminified bundle's "// node_modules/" comments, at the version of plotly.js v3.7.0's lock
-    const plotly = notice.texts[1]!.text
-    const packages = ['@plotly/d3', 'base64-arraybuffer', 'd3-format', 'd3-time', 'd3-time-format', 'events', 'fast-isnumeric', 'gl-mat4', 'has-hover', 'has-passive-events', 'is-browser', 'is-mobile', 'is-string-blank', 'maplibre-gl', 'mouse-event-offset', 'native-promise-only', 'object-assign', 'parse-svg-path', 'point-in-polygon', 'polybooljs', 'tinycolor2', 'world-calendars']
-    expect(packages).toHaveLength(22)
-    for (const name of packages)
-      // the name, a space and its version: some place where the name is followed by a space and a digit
-      expect(plotly.split(`${name} `).slice(1).some(rest => /^\d/.test(rest)), name).toBe(true)
-    expect(plotly).toContain('maplibre-gl@4.7.1 LICENSE')
-    // the one for which no text could be obtained is named in the header, and the ones that were dropped are not there
-    expect(plotly).toContain('native-promise-only 0.8.1 has no licence text of its own below')
-    for (const name of ['color-normalize', 'color-rgba', 'topojson-client'])
-      expect(plotly, name).not.toContain(name)
   })
 
   it('adds the notice a package embeds for code that is not its own, and keeps the indentation of a text', () => {

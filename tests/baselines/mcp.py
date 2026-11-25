@@ -34,17 +34,37 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 #: the packages whose version shapes the input schemas
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
-#: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-_WEBP = (
-    "`webp` is dropped with Plotly and Kaleido, which wrote it: the images are drawn by vl-convert, which has "
-    "png, jpg, svg and pdf (GH-3238, decision of 2026-11-14). Ask for `png` and convert it where webp is needed."
+_REST_ONLY = (
+    "the MCP tools took out the options that only the REST API needs (GH-4318): a call that sends `pretty`, or "
+    "`width`, `height` or `scale` as `null`, is let go and answered as one without, since they change nothing of a "
+    "data answer, a size with a value and a format the tool does not offer are refused with what the tool answers; "
+    "the REST API keeps all of them"
+)
+_CHART_MEMBERS = '"html", "jpg", "pdf", "png", "svg", "webp"'
+_TOOLS_WITH_CHARTS = ("interpolate", "stations", "summarize", "values")
+_TOOLS_WITH_PRETTY = (
+    "alerts",
+    "coverage",
+    "history",
+    "kostra",
+    "providers",
+    "station_ids",
+    "storm_cells",
+    *_TOOLS_WITH_CHARTS,
 )
 
+#: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
 ACCEPTED_BREAKS: dict[str, str] = {
-    'tool interpolate: argument format: enum members "webp" were removed': _WEBP,
-    'tool stations: argument format: enum members "webp" were removed': _WEBP,
-    'tool summarize: argument format: enum members "webp" were removed': _WEBP,
-    'tool values: argument format: enum members "webp" were removed': _WEBP,
+    **{f"tool {tool}: argument pretty was removed": _REST_ONLY for tool in _TOOLS_WITH_PRETTY},
+    **{
+        f"tool {tool}: argument {name} was removed": _REST_ONLY
+        for tool in _TOOLS_WITH_CHARTS
+        for name in ("height", "scale", "width")
+    },
+    **{
+        f"tool {tool}: argument format: enum members {_CHART_MEMBERS} were removed": _REST_ONLY
+        for tool in _TOOLS_WITH_CHARTS
+    },
 }
 
 #: the keys of a schema that describe it for a reader and promise nothing

@@ -54,7 +54,7 @@ http://localhost:7890/mcp/v1
 The server holds the provider credentials (`WD_AUTH__AEMET`, `WD_AUTH__KNMI_EDR`, `WD_AUTH__METNO_FROST`,
 `WD_AUTH__CEDA`, see [Settings](settings.md)), not the client: a tool for a network that needs one answers a
 [problem](troubleshooting.md#credentials) when the server has none, and the tool `auth` says whether the provider
-accepts them. The `sql` and `sql_values` arguments are refused unless the server runs with `WD_RESTAPI_SQL=true`.
+accepts them. The tools take no `sql` or `sql_values`: they were removed, and a call that gives one is told so, with what to do instead.
 
 ## The tools
 
@@ -74,7 +74,12 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `glossary` | `/api/v1/glossary` | what a parameter means and the unit it comes back in |
 | `auth` | `/api/v1/auth` | whether the credentials the server holds are accepted by one provider |
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD: all of Germany unless given a place (`latitude` and `longitude`, or `name`), so pass it |
-| `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
+| `storm_cells` | `/api/v1/storm-cells` | the thunderstorm cells of DWD, now or within the last 48 hours: all of Germany unless given a point and `distance` (km) or a box (`left`, `bottom`, `right`, `top`), so pass one; `track=false` and `geometry=centroid` keep a long list short. The answer is not cut |
+| `kostra` | `/api/v1/kostra` | the design rainfall of DWD (KOSTRA-DWD-2020: return periods of heavy rain) for a point in Germany: the depth, intensity and uncertainty of a rain by duration and return period. Pass a `duration` (minutes, one of 22) and a `return_period` (years) for the one value you need: without them it reads 22 files and answers 198 rows. A point outside Germany and its border is refused |
+| `station_ids` | `/api/v1/station-ids` | one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it, as a list with the provider, network, `station_id` and which id matched, see [Find a station by id](station_ids.md). It asks the station list of every network that declares id columns at once: about 9 s the first time, longer on a slow day (the tool's description says so), then about a second. A network that cannot be read, or needs a key the server does not hold, is left out and named in a warning; the answer is cut to the budget like `stations`'s |
+| `statistics` | `/api/v1/statistics` | how many, how much or the mean per year, month, day or hour (frost days a year, the coldest winter, the rainfall of each July), counted on the server: `aggregate` (`count`, `mean`, `sum`, `min`, `max`, `earliest`, `latest`), `by`, `filter`, `sort` and `first`, see [Statistics](restapi.md#statistics). Every group says how many values it has and should have (`searched`, `expected`), and `complete`: a group with a gap, a year that is not over or a year the window cuts has no `mean` or `sum` and is warned of. A tool lists 20 series at most. It cannot find runs (the longest dry spell), moving windows (the wettest 3-day total), percentiles or medians, and says so instead of estimating them, unless the values of a short window fit in one `values` answer. The answer is cut to the budget like `values`'s, keeping the first groups; `over_groups` and `metadata.search.totals` cover all of them |
+
+The routes of the precipitation radar (`/api/v1/radar/frames` and `/radar/frame`, map images for a page to draw) are no tools.
 
 An argument that is a mapping (`unit_targets`, `limits`, `interpolation_station_distance`,
 `summary_station_distance`) is advertised as an object, and an assistant gives it as one:
@@ -108,31 +113,59 @@ does not take is refused with the name of the one it takes where the tool had th
 `debug`: the log level of the server is its operator's, and a call that gives it is refused saying so.
 
 Every `format` a tool offers is answered, as one body held to the `rows` limit. `json` and `geojson` are the
-structured content of the result. The other formats are content blocks: `csv`, `ndjson`, `html` and `svg` are text, as
-the REST API sends them; `png` and `jpg` are image content and `pdf` is an embedded resource. The structured
-content that the output schema of the tool requires is then one sentence about the answer: its media type and size in
-bytes, and the licence, the attribution, the note on what wetterdienst did to the
-data and the warnings that the REST API sends in headers for these formats (the same
-in the `_meta` of the result, under `wetterdienst`). For data (`csv` and `ndjson`) the body follows the sentence in the
-structured content, since a client may hand the model that alone; a chart is not repeated. An `html` chart loads Vega
-from the CDN, so the page is a few kilobytes (a CSV of the rows and the chart's few lines) where the REST API sends
-it inline, about 1 MB, and the page needs the network to draw. The default is `json` (`png` for `stripes_image`, which only draws), which
-the assistant reads without further ado: a chart is for a client that shows it, and a long `csv` goes through the
-context of the assistant.
+structured content of the result. `csv` is a text content block, as the REST API sends it, and so is `ndjson`, which
+only `values` and `stations` offer. The structured content that the output schema of the tool
+requires is then one sentence about the answer: its media type and size in bytes, and the licence, the attribution,
+the note on what wetterdienst did to the data and the warnings that the REST API sends in headers for these formats
+(the same in the `_meta` of the result, under `wetterdienst`), followed by the body itself, since a client may hand the
+model the structured content alone. The default is `json`, which the assistant reads without further ado, and a long
+`csv` goes through the context of the assistant.
+
+### What a tool does not take
+
+A tool is its REST route without the options that only the REST API needs, which a model reading JSON cannot use and
+which were part of the tool list of every session: `pretty`, the `width`, `height` and `scale` of an image, and the
+formats of a chart (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`). Nothing else is dropped (the `left`, `right`, `top` and
+`bottom` of a station box are arguments of the tools as they were). Charts are gone from the tools: a client that needs
+a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`, `/interpolate` and `/summarize` with
+`format=png` and the like, as do the command line and Python, which are unchanged.
+
+A call that still sends one of the options is answered like this, so that a client written for an earlier release
+keeps working where it can. Where the tool's route took the option:
+
+- `pretty` at any value, and `width`, `height` and `scale` as `null` (the default they had), are let go: the call is
+  answered as one without them, since they change nothing of an answer in a data format. A client that sends every
+  option with its default (`pretty=false`) is not refused for it.
+- a `width`, `height` or `scale` with a value is a tool error. The tool draws no image, and a value may mean something
+  else to a model: `interpolate` and `summarize` name `elevation` for a `height`, the height of the point above sea
+  level, which let go would have been ignored.
+- a `format` that the tool does not offer is a tool error that names the formats the tool answers (`format=png is not
+  offered by the tool values, which answers json, geojson, csv or ndjson. Charts are drawn by the REST API:
+  /api/v1/values takes format=png.`), whether it is a chart format (also in capitals, or with spaces round it) or any
+  other, such as `ndjson` for `interpolate`; so is a list of formats with such a one in it. Nothing is requested from
+  the provider.
+- an object (or a list that holds one) for an argument that takes none, such as `shape={"format": "png"}`, is a tool
+  error that names the argument: an object is read as arguments of its own, which would go past the refusal of the
+  format. An empty object is refused too; `limits`, `unit_targets` and the station distances take objects. `pretty`
+  stays let go, whatever it is given.
+
+The option is an unknown argument, refused as above, for a tool whose route never took it (`pretty` for `glossary`).
+All the refusals of a call are one error.
 
 ## A forecast starts at now
 
 A forecast is the rows of a model run, and the latest MOSMIX-L or DMO run begins hours before the request: at 14:28 UTC
 its first row can be at 10:00 (MOSMIX-S and SWSMOS begin at the current or the next hour). An assistant that reads the
 first rows reports an hour that has passed as the forecast. So `values` for a network whose `kind` is `forecast`
-(`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`; `coverage` and `providers` give the kind) leaves out the rows stamped before
+(`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`; `coverage` and `providers` give the kind) leaves out the rows stamped before
 the current hour, in UTC, and the row stamped at the current hour stays. A `forecast-from-now` warning in
 `metadata.warnings` says that the answer starts at now and names the `timestamp` window that asks for the earlier
 hours of the run; for `csv` and `ndjson`, whose headers are in the sentence and the `_meta` of the result, it is the
 `X-Wetterdienst-Forecast-From-Now` header and the sentence of the tool (an `ndjson` answer also has the block as its
 first line). No row is left out, and no note is attached, where the run begins at or after the current
-hour. The cut is made before the size budget below, so that the characters of the budget go to hours that are still to
-come.
+hour. For the daily `dwd/pollen` and `dwd/uvi` the cut is by the day: a value stamped before today is left out and the
+one of today stays. The cut is made before the size budget below, so that the characters of the budget go to hours that
+are still to come.
 
 Which requests are cut:
 
@@ -155,11 +188,11 @@ before now, answers no row and says so. The REST API, the command line and Pytho
 
 An assistant reads the answer of a tool in its context, and Claude Code saves a result of more than 50,000 characters to
 a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
-`interpolate`, `summarize`, `stripes_stations` and `coverage` is held to **40,000 characters** of what the client receives, in
+`interpolate`, `summarize`, `coverage` and `alerts` is held to **40,000 characters** of what the client receives, in
 `json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
 included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the
-licence and the note below, and the body, each newline and quote of it written as the escape it is there. A chart is
-not counted. The budget is a constant of the server and applies to the tools alone: the REST API, the command line and Python answer everything the
+licence and the note below, and the body, each newline and quote of it written as the escape it is there. The budget is
+a constant of the server and applies to the tools alone: the REST API, the command line and Python answer everything the
 [limits](restapi.md#limits) allow, so an app that lists every station of a network is unaffected.
 
 An answer over the budget is cut, not refused, and says so:
@@ -168,21 +201,24 @@ An answer over the budget is cut, not refused, and says so:
   a forecast (which [starts at now](#a-forecast-starts-at-now)), the latest part of a `recent` or `historical` record.
   With a `timestamp` it keeps the start of the window, so the next window continues it. Only where one timestamp alone is more than the budget are its rows cut, and no
   window can split a timestamp: ask for fewer parameters or stations.
+- **`values`** with `filter`, `sort`, `first` or `by` (see [Choose the rows](restapi.md#choose-the-rows)) has the rows of
+  its own order (`max_rows` has cut it already if it was given, and the `rows-capped` warning says so) and is cut in it: the first rows are kept, so with `sort=-value` the highest, and the
+  `answer-truncated` note says how many of how many rows matched and how many values were searched. `metadata.search`
+  stays in the answer. To find a record, ask for it (`sort=value&first=1`) instead of reading a window at a time. To meet
+  two parameters at one time, name them: `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` over the two requested
+  parameters is the days of frost and strong gusts, with the rows of both
+  ([Parameters as columns](restapi.md#parameters-as-columns)).
 - **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
   required, so it is always the start of the window that is kept and the next window continues it. They have no
   `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
 - **`stations`** with `name` is never cut: it asks for a few stations. Otherwise (`all`, a bounding
-  box, `sql`, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
+  box, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
   `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it. A `distance` is cut too, as a wide one lists
   hundreds of stations (983 within 500 km of Berlin): the nearest stations are kept, nearest first, and the note says
   how many lie within the distance and how far the farthest returned is, and suggests a smaller `distance`, or `rank`.
   So is a large `rank` (700 asks for as many): the nearest stations that fit are kept, nearest first, and the note says
   how many the `rank` asked for, how many are returned and how far the farthest of them is, and suggests a smaller
   `rank`. A `rank` that fits is unchanged.
-- **`stripes_stations`** is cut like `stations`: the first stations of the list. It has nothing to select with, so the
-  note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or to find a
-  station with `stations`. The list of the temperature stripes is 144,000 characters, that of the precipitation
-  stripes 640,000.
 - **`coverage`** is not rows but resolutions, datasets and parameters with a description each, and noaa/ghcn (59,000
   characters), dwd/observation (89,000) and dwd/phenology (139,000) are over the budget. It is cut in steps, each only
   where the one before is still over: the answer as it is; the `description` of every parameter null (everything else
@@ -194,6 +230,23 @@ An answer over the budget is cut, not refused, and says so:
   means. The answer keeps its shape. It has no `metadata` block and takes no key beside the resolutions, so the note is
   the start of the `description` of the first resolution; a JSON answer reaches a client as its body alone, so no header
   carries it. `providers` is not cut: it is 20,000 characters for all providers together.
+
+- **`alerts`** is mostly polygons and lists of areas: a warning for a coast is 80,000 characters, and the answer for
+  Kiel (three warnings, REST JSON, live on 2026-11-23) was 184,612 and the 34 of Germany 1,290,282, so no warning can
+  be kept whole and fit. An answer over the budget is cut in steps, each only where the one before is still over; an
+  answer within it is not changed. (1) Every warning without its polygon (`geometry` null) and its lists of areas
+  (`area_names` and `warncell_ids` empty, but for a `name`, where the areas that match it are kept), the rest of each
+  warning as it is (1,000 to 1,600 characters each: the 34 of Germany are 38,000 and the three for Kiel 4,800). (2) For
+  a `name` that matches many areas (1,644 in one warning for a coast), only the first 25 for each warning, which are
+  about 1,000 characters; the note names the warnings that have more. (3) As many warnings as fit, the most severe
+  first, then the most urgent, then the earliest onset. A request for a place holds only the warnings for it, so none
+  goes first for it. The note names the warnings left out as `event (severity)` and how to ask for fewer: a more
+  specific `name`, a `name` added to a point (both must hold), or a place where none was given. The polygon and the
+  areas are not available through the tool: the REST API, the command line and Python give them. A `name` that matches
+  no area of any warning in force is told in a `no-area-matched` warning beside `no-alerts-for-place`: it is no
+  all-clear for the place (a place without a warning is in no list, and a name that is not DWD's German one is in none
+  either), so ask by point, or, for a request that has a point, ask without the name. The REST API, the command line
+  and Python do not add it.
 
 The note (but for `coverage`, above) is a warning, `answer-truncated`, in `metadata.warnings`. A JSON answer reaches a
 client as its body alone, so no header carries it (a `csv` answer has no block; for `csv` and `ndjson` the headers are in
@@ -229,13 +282,17 @@ has the rest.
 ## Stateless
 
 The endpoint keeps no session. The tools hold no state: each is a request to the REST API, so the server does not
-create a session at `initialize`, sends no `mcp-session-id` header and has nothing to expire, and a request needs no
-earlier one: `tools/list` and `tools/call` work without an `initialize`. A request that carries an `mcp-session-id`
-is served as one without. The two requests that belong to a session are answered with a 405, as the specification
-lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
-of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed
+create a session at `initialize` and has nothing to expire, and a request needs no earlier one: `tools/list` and
+`tools/call` work without an `initialize`. The response to `initialize` carries an `mcp-session-id` header, a fresh
+random one each time, for the clients that expect one from a streamable-HTTP server; the server neither stores nor
+checks it. A request that carries it, another, or none is served alike, and none is unknown (no 404). A client of the
+`mcp` package sends the id back with its requests. The id is no credential. The two requests that belong to a session
+are answered with a 405, as the specification lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
+of messages from the server, of which a server of tools has none; the `mcp` client, which opens one once it has an
+id, tries it twice and gives up without an error). A tool's answer is one body and is not streamed
 (`format=ndjson` and `csv` are text content of the result, held to the same `rows` limit as every other format of
-a tool, not the higher `stream_rows` of the REST API). A tool makes its request to the
+a tool, not the higher `stream_rows` of the REST API; what a tool with a `filter` or `first` reads is held to the larger
+of the two, as over REST, and what it holds to `rows`). A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
 [concurrency](restapi.md#concurrency) of the server like any request. A request that a tool is refused for its size is
 asked again for a window or fewer stations (for `interpolate` and `summarize`, which name no stations: a shorter

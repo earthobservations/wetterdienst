@@ -1,6 +1,10 @@
-import type { Download, Page } from '@playwright/test'
+import type { Download, Locator, Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { STRIPE_PALETTES } from '../../app/utils/stripes'
+import { CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, frameOf, STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO, stripesChartHeight } from '../../app/utils/stripes-option'
+import { stripesAnswer } from '../helpers/stripes-answer'
 import { mockBackend } from './accessibility/mock-backend'
 
 // The climate stripes (GH-4068): Apache ECharts, drawn as SVG. Their chrome takes the colours of the page (the title, the
@@ -72,7 +76,7 @@ async function paintOf(page: Page) {
     }
     const svg = chart.querySelector('.sc-canvas svg')!
     const texts = [...svg.querySelectorAll('text')].map(text => ({ text: text.textContent ?? '', fill: getComputedStyle(text).fill, size: Number.parseFloat(getComputedStyle(text).fontSize) }))
-    const stripes = [...svg.querySelectorAll('path')].map(path => path.getAttribute('fill') ?? '').filter(fill => fill.startsWith('rgb('))
+    const stripes = [...svg.querySelectorAll('path')].map(path => path.getAttribute('fill') ?? '').filter(fill => /^#[\da-f]{6}$/i.test(fill) && fill.toLowerCase() !== '#ffd700')
     return { behind: behind || rgb(getComputedStyle(document.body).backgroundColor).text, texts, stripes }
   })
 }
@@ -183,6 +187,18 @@ test.describe('a saved stripes chart', () => {
     await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'dark'))
   })
 
+  // a row of text a saved image has under its source is 20 px: the note of what wetterdienst did to the data (GH-3799), what the
+  // colours are relative to (GH-4157), each in as many rows as the width of the image needs. The rows are counted in the vector the
+  // same chart is saved as, so the expectation is the component's own rule and no number of rows
+  const ROW = 20
+
+  /** The rows of text under the source line of a saved vector: the texts that lie lower than it */
+  function rowsUnderSource(svg: string) {
+    const texts = [...svg.matchAll(/<text[^>]*\sy="([\d.]+)"[^>]*>([^<]*)<\/text>/g)].map(match => ({ y: Number(match[1]), text: match[2]! }))
+    const source = texts.find(text => text.text === 'Source: Deutscher Wetterdienst')!
+    return texts.filter(text => text.y > source.y).length
+  }
+
   async function menu(page: Page, item: string) {
     await page.getByRole('button', { name: 'Download image' }).click()
     const saved = page.waitForEvent('download')
@@ -190,16 +206,19 @@ test.describe('a saved stripes chart', () => {
     return saved
   }
 
-  test('is the light one and the size of the chart on the page times three, from the menu', async ({ page, baseURL }) => {
+  test('is the light one and the size of the chart on the page times three, from the menu (the height the page gives it, GH-4133), and a line higher for what the colours are relative to (GH-4157)', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const shown = (await page.locator('.sc-canvas').boundingBox())!
+    const rows = rowsUnderSource(readFileSync((await (await menu(page, 'Download as SVG')).path())!, 'utf8'))
+    // the note and the reference are two rows at the least
+    expect(rows).toBeGreaterThanOrEqual(2)
     for (const [item, extension] of [['Download as PNG', 'png'], ['Download as JPG', 'jpeg']] as const) {
       const download = await menu(page, item)
       expect(download.suggestedFilename()).toMatch(new RegExp(`^climate_stripes_temperature_00011_.+\\.${extension}$`))
       const image = await imageOf(page, download)
       expect(luminance(image.corner), `the saved image is light (its corner is ${image.corner})`).toBeGreaterThan(0.9)
       expect(image.width).toBe(Math.round(shown.width) * 3)
-      expect(image.height).toBe(600 * 3)
+      expect(image.height).toBe((Math.round(shown.height) + ROW * rows) * 3)
       // the chart on the page is as dark as it was
       await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
     }
@@ -207,11 +226,16 @@ test.describe('a saved stripes chart', () => {
 
   test('is a vector of the size of the chart from the menu, with the light chart\'s colours', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
+    const shown = (await page.locator('.sc-canvas').boundingBox())!
     const download = await menu(page, 'Download as SVG')
     expect(download.suggestedFilename()).toMatch(/^climate_stripes_temperature_00011_.+\.svg$/)
     const svg = readFileSync((await download.path())!, 'utf8')
-    expect(svg).toMatch(/<svg width="\d+" height="600"/)
+    expect(svg).toMatch(new RegExp(`<svg width="\\d+" height="${Math.round(shown.height) + ROW * rowsUnderSource(svg)}"`))
     expect(svg).toContain('Climate stripes')
+    // and says what wetterdienst did to the data directly under the source (GH-3799), and what its colours are relative to under that (GH-4157)
+    expect(svg.indexOf('Processed by wetterdienst')).toBeGreaterThan(svg.indexOf('Source: Deutscher Wetterdienst'))
+    expect(svg.indexOf('Colours: mean of')).toBeGreaterThan(svg.indexOf('Processed by wetterdienst'))
+    expect(svg).toContain('Colours: mean of 1971–2000, ±2.6 σ of 1955–2000')
     // on the light paper: the first thing the vector draws is a rect that is neither empty nor transparent, and it is light
     const paper = /^<svg[^>]*>\s*<rect[^>]*fill="([^"]*)"/.exec(svg)?.[1]
     expect(paper, 'the vector draws its paper').toMatch(/^(rgb|#)/)
@@ -221,7 +245,11 @@ test.describe('a saved stripes chart', () => {
     expect(svg).not.toContain(dark.replaceAll(' ', ''))
   })
 
-  test('is 2800 by 1400 px, and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
+  // at 1400 px the note and the reference are a row each under the source (GH-3799, GH-4157)
+  const CAMERA_ROWS = 2
+  const DISPLAY = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true }
+
+  test('is 2800 px wide and as high as the stripes 16:9 at 1400 px wide, and a row each for the note of what wetterdienst did and the colours\' reference, and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
@@ -229,16 +257,17 @@ test.describe('a saved stripes chart', () => {
     expect(download.suggestedFilename()).toBe('climate_stripes_temperature_00011.png')
     const image = await imageOf(page, download)
     expect(luminance(image.corner)).toBeGreaterThan(0.9)
-    expect([image.width, image.height]).toEqual([2800, 1400])
+    expect([image.width, image.height]).toEqual([CAMERA_WIDTH * CAMERA_SCALE, (stripesChartHeight(DISPLAY, CAMERA_WIDTH, 1, { clamp: false }) + extraLinesHeight(DISPLAY, CAMERA_ROWS)) * CAMERA_SCALE])
     await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
   })
 
-  test('is 1400 by 600 times two without a title', async ({ page, baseURL }) => {
+  test('is 1400 px wide times two without a title, the stripes keeping their height', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!, `${PATH}&show_title=false`)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
     const image = await imageOf(page, await saved)
-    expect([image.width, image.height]).toEqual([2800, 1200])
+    const display = { ...DISPLAY, showTitle: false }
+    expect([image.width, image.height]).toEqual([CAMERA_WIDTH * CAMERA_SCALE, (stripesChartHeight(display, CAMERA_WIDTH, 1, { clamp: false }) + extraLinesHeight(display, CAMERA_ROWS)) * CAMERA_SCALE])
   })
 
   test('is the range the chart is zoomed to', async ({ page, baseURL }) => {
@@ -251,6 +280,82 @@ test.describe('a saved stripes chart', () => {
     expect(years).toHaveLength(2)
     expect(years[0]).toBeGreaterThan(1955)
     expect(years[1]).toBeLessThan(2024)
+  })
+})
+
+// WCAG 2.4.3 (GH-4101): a toolbar button that turns off while it has the focus is off (`aria-disabled`) and keeps the focus; `disabled`
+// would drop it to the page, and a keyboard user would start again from the top. Pressed again, it does nothing.
+test.describe('a toolbar button that turns off while it has the focus', () => {
+  /** The years the axis names, which a zoom or a move changes */
+  const yearsOf = (page: Page) => chartSvg(page).locator('text').filter({ hasText: /^\d{4}$/ }).allTextContents()
+  const focusedLabel = (page: Page) => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName)
+  async function pressUntilOff(page: Page, button: Locator, key: string) {
+    for (let press = 0; press < 40; press++)
+      await page.keyboard.press(key)
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
+  }
+
+  test('Reset zoom keeps the focus on Space, and does nothing when it is pressed again', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    const reset = page.locator('.sc-toolbar button[aria-label="Reset zoom"]')
+    await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
+    await expect(reset).not.toHaveAttribute('aria-disabled', 'true')
+    const zoomed = await yearsOf(page)
+    await reset.focus()
+    await page.keyboard.press('Space')
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    await expect.poll(() => yearsOf(page)).not.toEqual(zoomed)
+    const whole = await yearsOf(page)
+    await expect(reset).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Reset zoom')
+    // still a button in the tab order, not a disabled one
+    expect(await reset.evaluate((button: HTMLButtonElement) => [button.disabled, button.tabIndex])).toEqual([false, 0])
+    await page.keyboard.press('Space')
+    await page.keyboard.press('Enter')
+    await expect(reset).toBeFocused()
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    expect(await yearsOf(page)).toEqual(whole)
+  })
+
+  test('an unavailable Reset zoom does nothing when it is pressed: a readout dismissed by Escape stays closed', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    const readout = page.getByTestId('stripes-readout')
+    // the pointer's readout: one the keyboard put there goes when the focus leaves the chart, the pointer's stays
+    await page.locator('.sc-stage').scrollIntoViewIfNeeded()
+    const box = (await page.locator('.sc-stage').boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5)
+    await expect(readout).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(readout).toHaveCount(0)
+    // a reset of the zoom would show the readout again: the whole chart is shown, so Reset zoom is off and must not
+    const reset = page.locator('.sc-toolbar button[aria-label="Reset zoom"]')
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    await reset.focus()
+    // read at once, not polled for: a readout that came back is drawn by the time the key press has returned (it goes again on its own, so a
+    // polled check would not see it)
+    await page.keyboard.press('Enter')
+    expect(await readout.count()).toBe(0)
+    await page.keyboard.press('Space')
+    expect(await readout.count()).toBe(0)
+    await expect(reset).toBeFocused()
+  })
+
+  test('Zoom in keeps the focus at its limit, and Later at the end of the chart', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    const zoomIn = page.locator('.sc-toolbar button[aria-label="Zoom in"]')
+    await zoomIn.focus()
+    await pressUntilOff(page, zoomIn, 'Enter')
+    await expect(zoomIn).toBeFocused()
+    const atLimit = await yearsOf(page)
+    await page.keyboard.press('Enter')
+    await expect(zoomIn).toBeFocused()
+    expect(await yearsOf(page)).toEqual(atLimit)
+
+    const later = page.locator('.sc-toolbar button[aria-label="Later years"]')
+    await later.focus()
+    await pressUntilOff(page, later, 'Space')
+    await expect(later).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Later years')
   })
 })
 
@@ -433,4 +538,487 @@ test('the readout stays inside the chart on a phone, and is closed by its button
   expect(readoutBox.y + readoutBox.height).toBeLessThanOrEqual(box.y + box.height)
   await readout.getByRole('button', { name: 'Close the values' }).click()
   await expect(readout).toHaveCount(0)
+})
+
+// The stripes keep their shape (GH-4133): as high as they are wide over the ratio, between a least and a most, whatever the
+// window is, so that on a phone the chart, its years and its availability line are no tall narrow block, and on a wide
+// screen it is no flat band. Measured on the drawn stripes (their paths), not on the chart's box, which has the title (of
+// as many lines as the width makes) and the years on top of them.
+async function measureStripes(page: Page) {
+  return page.locator('.sc-canvas svg').first().evaluate((svg) => {
+    const boxes = [...svg.querySelectorAll('path')]
+      .filter(path => /^#[\da-f]{6}$/i.test(path.getAttribute('fill') ?? '') && (path.getAttribute('fill') ?? '').toLowerCase() !== '#ffd700')
+      .map(path => path.getBoundingClientRect())
+    const left = Math.min(...boxes.map(box => box.left))
+    const right = Math.max(...boxes.map(box => box.right))
+    const top = Math.min(...boxes.map(box => box.top))
+    const bottom = Math.max(...boxes.map(box => box.bottom))
+    return { stripes: { width: right - left, height: bottom - top }, chart: svg.getBoundingClientRect().toJSON() }
+  })
+}
+const stripesHeight = async (page: Page) => (await measureStripes(page)).stripes.height
+
+for (const [width, height] of [[320, 700], [390, 844], [768, 900], [1280, 900], [1600, 900]] as const) {
+  test(`the stripes are as high as they are wide over ${STRIPES_RATIO.toFixed(2)}, in a ${width} px window`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height })
+    await showStripes(page, baseURL!)
+    const measured = await measureStripes(page)
+    const expected = Math.min(STRIPES_MAX_HEIGHT, Math.max(STRIPES_MIN_HEIGHT, (measured.chart.width - 40) / STRIPES_RATIO))
+    // the stripes span the plot, which is the chart's width less its 20 px at either side
+    expect(measured.stripes.width).toBeGreaterThan(measured.chart.width - 40 - 3)
+    expect(measured.stripes.width).toBeLessThan(measured.chart.width - 40 + 3)
+    expect(measured.stripes.height, `the stripes' height at ${width} px, of a chart ${measured.chart.width} px wide`).toBeGreaterThan(expected - 3)
+    expect(measured.stripes.height).toBeLessThan(expected + 3)
+    if (width <= 390) {
+      // a phone's stripes are held to the least, not the thinner 16:9 of their width
+      expect(measured.stripes.height, 'the least the stripes are high').toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
+      // the whole chart, its years and its availability line, fits a screen of a phone with room to spare for the page's own bar
+      // (the form is above it, so it is scrolled to): no tall block that the screen cannot hold
+      expect(measured.chart.height, 'the chart is lower than the screen').toBeLessThanOrEqual(height - 200)
+    }
+  })
+}
+
+test('the stripes follow a change of the window: lower in a narrower one, held to the least in the narrowest', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await showStripes(page, baseURL!)
+  const wide = await stripesHeight(page)
+  expect(wide).toBeGreaterThan(STRIPES_MIN_HEIGHT + 100)
+  // measured on the stripes: the chart's own height also depends on how many lines the title is broken into
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => stripesHeight(page)).toBeLessThan(wide - 100)
+  expect(await stripesHeight(page)).toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
+  // the chart is as wide as the window on a phone since GH-4227 (edge to edge), so at 390 px it is a little higher than the least
+  const phone = await stripesHeight(page)
+  await page.setViewportSize({ width: 320, height: 700 })
+  await expect.poll(() => stripesHeight(page)).toBeLessThanOrEqual(phone)
+  expect(await stripesHeight(page)).toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
+})
+
+// The availability line covers exactly the stripes that have a value (GH-4153): a run from the left edge of its first stripe to the
+// right edge of its last, and a year between two gaps is a bar as wide as its stripe. It was a line from the middle of a stripe to the
+// middle of another, half a stripe short at each end and none at all for a lone year.
+const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => from + index)
+for (const [width, height] of [[390, 844], [1280, 900]] as const) {
+  test(`the availability line lies under each stripe that has a value, and a lone year has its own bar, in a ${width} px window`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height })
+    // 1944; a gap (1945); a run to 1950; a gap; a lone year (1952); a gap; a run of two (1954, 1955); a long run; a gap of 2010 to 2012;
+    // a run; a gap; a lone year (2020) and a gap; a run at the end
+    const years = [1944, ...range(1946, 1950), 1952, 1954, 1955, ...range(1957, 2009), ...range(2013, 2018), 2020, 2022, 2023, 2024]
+    const runs = [[1944, 1944], [1946, 1950], [1952, 1952], [1954, 1955], [1957, 2009], [2013, 2018], [2020, 2020], [2022, 2024]]
+    await mockBackend(page, baseURL!, {
+      'stripes/values': () => ({
+        series: { station: { station_id: '00011', name: 'Donaueschingen (Landeplatz)', region: 'Baden-Württemberg', latitude: 47.97, longitude: 8.52, elevation: 680, start_timestamp: '1944-01-01T00:00:00+00:00', end_timestamp: null }, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
+        ...stripesAnswer(years.map(year => ({ year, value: Math.round((8 + (year - 1944) * 0.03 + 0.8 * Math.sin(year / 3)) * 100) / 100 }))),
+      }),
+    })
+    await page.goto(`${PATH}&show_data_availability=true&show_source=true&show_years=true&show_title=true`)
+    await fetchButton(page).click()
+    await expect(chartSvg(page)).toBeVisible()
+    const drawn = await chartSvg(page).evaluate((svg) => {
+      const box = (element: Element) => {
+        const { left, right, top, bottom } = element.getBoundingClientRect()
+        return { left, right, top, bottom }
+      }
+      const paths = [...svg.querySelectorAll('path')]
+      const fill = (element: Element) => (element.getAttribute('fill') ?? '').replaceAll(' ', '').toLowerCase()
+      return {
+        stripes: paths.filter(path => /^#[\da-f]{6}$/.test(fill(path)) && fill(path) !== '#ffd700').map(box),
+        gold: paths.filter(path => fill(path) === '#ffd700').map(box),
+      }
+    })
+    expect(drawn.stripes).toHaveLength(years.length)
+    // the line is one bar for each run, so a run of one year (1944, 1952, 2020) has one too
+    expect(drawn.gold).toHaveLength(runs.length)
+    // 2 px: what the browser measures, not what the option says, and the browsers round the SVG's px a little differently
+    runs.forEach(([first, last], index) => {
+      const bar = drawn.gold[index]!
+      const firstStripe = drawn.stripes[years.indexOf(first!)]!
+      const lastStripe = drawn.stripes[years.indexOf(last!)]!
+      expect(Math.abs(bar.left - firstStripe.left), `${first} to ${last}: left edge`).toBeLessThanOrEqual(2)
+      expect(Math.abs(bar.right - lastStripe.right), `${first} to ${last}: right edge`).toBeLessThanOrEqual(2)
+      // under the stripes, not over them
+      expect(bar.top).toBeGreaterThan(firstStripe.bottom)
+    })
+    // a lone year (1952) is as wide as its stripe, which was no line at all
+    const lone = drawn.gold[2]!
+    const stripe = drawn.stripes[years.indexOf(1952)]!
+    expect(lone.right - lone.left).toBeGreaterThan(0)
+    expect(Math.abs((lone.right - lone.left) - (stripe.right - stripe.left))).toBeLessThanOrEqual(2)
+  })
+}
+
+// The colours follow Ed Hawkins' method (GH-4157): the classes the backend gives each year against the station's whole record,
+// 16 discrete colours from blue to red, with the page saying what they are relative to. The mock backend classes a warming
+// record of 1955 to 2024 as the real one does: the mean of 1971 to 2000 is the centre, and the
+// record has the 46 years of 1955 to 2000 of the 100 of 1901 to 2000 the standard deviation is calculated from (30 are needed).
+const TEMPERATURE_PALETTE = STRIPE_PALETTES.temperature
+for (const [width, height] of [[390, 844], [1280, 900]] as const) {
+  test(`the stripes are discrete colours of the backend's classes, from blue to red, in a ${width} px window`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height })
+    await showStripes(page, baseURL!)
+    const { stripes } = await paintOf(page)
+    const drawn = stripes.map(fill => fill.toLowerCase())
+    expect(drawn).toHaveLength(70)
+    // a discrete scale: only colours of the palette, never one mixed between two of them
+    expect(drawn.filter(fill => !TEMPERATURE_PALETTE.includes(fill))).toEqual([])
+    // the record warms: it starts in the blue half and ends in the red half
+    expect(TEMPERATURE_PALETTE.indexOf(drawn[0]!)).toBeLessThan(8)
+    expect(TEMPERATURE_PALETTE.indexOf(drawn.at(-1)!)).toBeGreaterThanOrEqual(8)
+    // and says what the colours are relative to, in view, in one short line (the method is in the About text, GH-4233)
+    await expect(page.getByTestId('stripes-reference')).toHaveText('Relative to the mean of 1971–2000 (spread from 1955–2000)')
+  })
+}
+
+test('the table of the years has each one\'s anomaly and class', async ({ page, baseURL }) => {
+  await showStripes(page, baseURL!)
+  await page.getByRole('radio', { name: 'Table', exact: true }).click()
+  await expect(page.locator('table thead th')).toHaveText(['Year', 'Value (°C)', 'Anomaly (°C)', 'Class'])
+  const first = page.locator('table tbody tr').first()
+  await expect(first.locator('th')).toHaveText('1955')
+  // the first year is below the mean of 1971 to 2000
+  await expect(first.locator('td').nth(1)).toHaveText(/^-\d/)
+})
+
+// The same years as bars, and as bars with a scale (GH-4156): a switch above the chart, kept in the link; the bars are the year's
+// anomaly in the colour of its class, so a bar and a stripe of a year are one colour.
+const variantSwitch = (page: Page) => page.getByRole('radiogroup', { name: 'Chart style' })
+const variantOption = (page: Page, name: string) => variantSwitch(page).getByRole('radio', { name, exact: true })
+/** The bars of the drawn chart: the rects that are no gold, with their fill, from the browser's own layout */
+function barsOnPage(page: Page) {
+  return chartSvg(page).evaluate((svg) => {
+    const fill = (element: Element) => (element.getAttribute('fill') ?? '').replaceAll(' ', '').toLowerCase()
+    return [...svg.querySelectorAll('path')]
+      .filter(path => /^#[\da-f]{6}$/.test(fill(path)) && fill(path) !== '#ffd700')
+      .map((path) => {
+        const { top, bottom, height } = path.getBoundingClientRect()
+        return { top, bottom, height, fill: fill(path) }
+      })
+  })
+}
+
+test.describe('the stripes as bars', () => {
+  test('are chosen with the switch, which names the three and says the one drawn, and are kept in the link', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    await expect(variantSwitch(page).getByRole('radio')).toHaveText(['Stripes', 'Bars', 'Bars with scale', 'Table'])
+    await expect(variantOption(page, 'Stripes')).toHaveAttribute('aria-checked', 'true')
+    const stripes = await barsOnPage(page)
+    // stripes are as high as each other
+    expect(new Set(stripes.map(stripe => Math.round(stripe.height))).size).toBe(1)
+
+    await variantOption(page, 'Bars').click()
+    await expect(variantOption(page, 'Bars')).toHaveAttribute('aria-checked', 'true')
+    await expect(page).toHaveURL(/[?&]variant=bars(&|$)/)
+    const bars = await barsOnPage(page)
+    expect(bars).toHaveLength(stripes.length)
+    // bars are as high as their anomalies: they differ, and the same year is the same colour in both
+    expect(new Set(bars.map(bar => Math.round(bar.height))).size).toBeGreaterThan(10)
+    expect(bars.map(bar => bar.fill)).toEqual(stripes.map(stripe => stripe.fill))
+
+    await variantOption(page, 'Bars with scale').click()
+    await expect(page).toHaveURL(/[?&]variant=bars_scale(&|$)/)
+    await variantOption(page, 'Stripes').click()
+    await expect(page).toHaveURL(/[?&]variant=stripes(&|$)/)
+  })
+
+  test('are drawn from a link that names them, with the switch on the one named, in a 390 and a 1280 px window', async ({ page, baseURL }) => {
+    for (const [width, height] of [[390, 844], [1280, 900]] as const) {
+      await page.setViewportSize({ width, height })
+      await showStripes(page, baseURL!, `${PATH}&variant=bars_scale`)
+      await expect(variantOption(page, 'Bars with scale')).toHaveAttribute('aria-checked', 'true')
+      const texts = await chartSvg(page).evaluate(svg => [...svg.querySelectorAll('text')].map(text => text.textContent ?? ''))
+      // the subtitle, the y axis (zero and signed ticks) and round years along the x axis
+      expect(texts).toContain('Relative to the mean of 1971–2000 [°C]')
+      expect(texts).toContain('0')
+      expect(texts.some(text => /^[+\-−]\d/.test(text))).toBe(true)
+      const years = texts.filter(text => /^\d{4}$/.test(text)).map(Number)
+      expect(years.length).toBeGreaterThan(2)
+      expect(years.every(year => year % 5 === 0)).toBe(true)
+      // nothing wider than the window: no horizontal scroll on a phone
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+  })
+
+  test('take the unknown variant of a link for the stripes', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!, `${PATH}&variant=pie`)
+    await expect(variantOption(page, 'Stripes')).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('are above and below a zero line: the first years of a warming record are cool (down), the last warm (up)', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!, `${PATH}&variant=bars`)
+    const bars = await barsOnPage(page)
+    const zero = await chartSvg(page).evaluate((svg) => {
+      // the zero line: the one horizontal line over the width of the plot, in the zero line's colour (no grid in the bars)
+      const lines = [...svg.querySelectorAll('path[fill="none"]')].filter(path => /^M[\d.]+ [\d.]+L[\d.]+ [\d.]+$/.test(path.getAttribute('d') ?? ''))
+      return lines.map(line => line.getBoundingClientRect().top)
+    })
+    expect(zero).toHaveLength(1)
+    // within a px of the bar's edge: the line is a row under the bars' base
+    const first = bars[0]!
+    const last = bars.at(-1)!
+    expect(first.top).toBeGreaterThanOrEqual(zero[0]! - 2)
+    expect(last.bottom).toBeLessThanOrEqual(zero[0]! + 2)
+    expect(first.fill).not.toBe(last.fill)
+  })
+
+  test('draw the colours of precipitation as bars: brown for dry, teal for wet, from the classes of the backend', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!, '/stripes?kind=precipitation&station=00011&variant=bars')
+    const fills = (await barsOnPage(page)).map(bar => bar.fill)
+    expect(fills.length).toBeGreaterThan(10)
+    expect(fills.filter(fill => !STRIPE_PALETTES.precipitation.includes(fill))).toEqual([])
+  })
+
+  test('are saved as they are shown: the vector of the menu and the camera, with the axis and the subtitle of the scale', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!, `${PATH}&variant=bars_scale`)
+    await page.getByRole('button', { name: 'Download image' }).click()
+    const saved = page.waitForEvent('download')
+    await page.getByRole('menuitem', { name: 'Download as SVG' }).click()
+    const svg = readFileSync((await (await saved).path())!, 'utf8')
+    const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!)
+    expect(texts).toContain('Relative to the mean of 1971–2000 [°C]')
+    expect(texts).toContain('Source: Deutscher Wetterdienst')
+    expect(texts).toContain('0')
+    expect(svg).toContain('Climate stripes')
+
+    const camera = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
+    const download = await camera
+    expect(download.suggestedFilename()).toBe('climate_stripes_temperature_00011.png')
+    const image = await imageOf(page, download)
+    const frame = frameOf({ variant: 'barsScale', subtitleLines: ['Relative to the mean of 1971–2000 [°C]'] })
+    const display = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true }
+    // the note under the source is a row, and so is what the colours are relative to
+    const high = stripesChartHeight(display, CAMERA_WIDTH, 1, { clamp: false, frame }) + extraLinesHeight(display, 2)
+    expect([image.width, image.height]).toEqual([CAMERA_WIDTH * CAMERA_SCALE, high * CAMERA_SCALE])
+  })
+
+  // GH-4170: Hawkins' design has no line over the years; a link made while the page had them still loads, and draws none
+  for (const variant of ['stripes', 'bars', 'bars_scale']) {
+    for (const scheme of ['light', 'dark'] as const) {
+      test(`draw no time series or trend line, also for a link that asks for them (${variant}, ${scheme})`, async ({ page, baseURL, context }) => {
+        await context.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), scheme)
+        const strokes = (page: Page) => chartSvg(page).evaluate(svg => [...svg.querySelectorAll('path[stroke-width]')].map(path => path.getAttribute('stroke-width')))
+        const dashed = (page: Page) => chartSvg(page).evaluate(svg => svg.querySelectorAll('path[stroke-dasharray]').length)
+        await showStripes(page, baseURL!, `${PATH}&variant=${variant}`)
+        const without = await strokes(page)
+        await showStripes(page, baseURL!, `${PATH}&variant=${variant}&show_timeseries=true&show_trendline=true`)
+        expect(await strokes(page)).toEqual(without)
+        expect(await strokes(page)).not.toContain('4')
+        expect(await dashed(page)).toBe(0)
+      })
+    }
+  }
+
+  test('keep the numbers of their y axis where the chart is zoomed: a zoom changes the years, not the axis', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!, `${PATH}&variant=bars_scale`)
+    // the numbers of the y axis are the texts right-aligned at the plot's edge (the years along the x axis are centred)
+    const ticks = (page: Page) => chartSvg(page).evaluate(svg => [...svg.querySelectorAll('text[text-anchor="end"]')].map(text => text.textContent ?? ''))
+    const before = await ticks(page)
+    // an axis with a zero and ticks of both signs, with or without decimals: the list is not empty
+    expect(before.length).toBeGreaterThan(2)
+    expect(before).toContain('0')
+    await page.getByRole('button', { name: 'Zoom in' }).click()
+    await expect(page.getByRole('button', { name: 'Reset zoom' })).toBeEnabled()
+    await expect.poll(async () => (await ticks(page)).join(',')).toBe(before.join(','))
+  })
+
+  // The switch has the longest labels in French and Czech ("Barres avec échelle", "Sloupce se stupnicí"), and ran 3 to 5 px past the
+  // chart's block on a phone of 320 px
+  for (const language of ['fr', 'cs', 'de', 'nl', 'pl', 'it', 'lb', 'de-hh'] as const) {
+    test(`has a switch that fits the chart's block in ${language}, in a 320 px window`, async ({ page, baseURL, context }) => {
+      const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await mockBackend(page, baseURL!)
+      await page.goto(`${PATH}&variant=bars_scale`)
+      await page.getByRole('button', { name: catalog.common.fetch, exact: true }).click()
+      await expect(chartSvg(page)).toBeVisible()
+      const place = await page.locator('.sc-controls').evaluate((controls) => {
+        const box = controls.getBoundingClientRect()
+        const group = controls.querySelector('[role="radiogroup"]')!.getBoundingClientRect()
+        return { left: box.left, right: box.right, groupLeft: group.left, groupRight: group.right }
+      })
+      // 1 px: what the browser measures, not what the CSS says
+      expect(place.groupRight, 'the switch ends where the chart\'s block does or before').toBeLessThanOrEqual(place.right + 1)
+      expect(place.groupLeft).toBeGreaterThanOrEqual(place.left - 1)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the page does not scroll sideways').toBe(true)
+      // each of the three options is whole: its text is not cut by its own box
+      const cut = await variantSwitch(page).getByRole('radio').evaluateAll(options => options.filter(option => option.scrollWidth > option.clientWidth + 1).map(option => option.textContent))
+      expect(cut).toEqual([])
+    })
+  }
+})
+
+// The table is the fourth view of the same switch (GH-4233): a view of its own, in the link as variant=table, saved as CSV, printed as
+// a table. The forecast's table is the component.
+test.describe('the table as a view', () => {
+  const table = (page: Page) => page.locator('table')
+  async function showTable(page: Page, baseURL: string, path = `${PATH}&variant=table`) {
+    await mockBackend(page, baseURL)
+    await page.goto(path)
+    await fetchButton(page).click()
+    await expect(table(page)).toBeVisible()
+  }
+
+  for (const [width, height, name] of [[390, 844, 'a phone'], [1280, 900, 'a desktop']] as const) {
+    test(`is chosen with the switch and left with it, and the chart is drawn again where it was left, on ${name}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height })
+      await showStripes(page, baseURL!, `${PATH}&variant=bars`)
+      await expect(table(page)).toHaveCount(0)
+
+      await variantOption(page, 'Table').click()
+      await expect(variantOption(page, 'Table')).toHaveAttribute('aria-checked', 'true')
+      await expect(table(page)).toBeVisible()
+      await expect(page).toHaveURL(/[?&]variant=table(&|$)/)
+      // the chart and its buttons are gone: the table is what there is
+      await expect(page.locator('.sc-stage')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Zoom in' })).toHaveCount(0)
+      await expect(table(page).locator('tbody tr')).toHaveCount(70)
+      // the table has a caption, a header a screen reader reads and the unit in the header
+      await expect(table(page).locator('caption')).toHaveText(/Climate stripes \(Temperature\) for /)
+      await expect(table(page).locator('thead th')).toHaveText(['Year', 'Value (°C)', 'Anomaly (°C)', 'Class'])
+      // in the order of the years
+      const years = (await table(page).locator('tbody th').allTextContents()).map(Number)
+      expect(years).toEqual([...years].sort((a, b) => a - b))
+      // nothing wider than the window: no horizontal scroll of the page
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+      // back: the bars, which were chosen last, and not the stripes
+      await variantOption(page, 'Bars').click()
+      await expect(chartSvg(page)).toBeVisible()
+      await expect(table(page)).toHaveCount(0)
+      await expect(page).toHaveURL(/[?&]variant=bars(&|$)/)
+    })
+  }
+
+  test('keeps variant=table in the link, and opens it from the link, also after a reload', async ({ page, baseURL }) => {
+    await showTable(page, baseURL!)
+    await expect(variantOption(page, 'Table')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.locator('.sc-stage')).toHaveCount(0)
+    await expect(page).toHaveURL(/[?&]variant=table(&|$)/)
+    await page.reload()
+    // the values are fetched with Show; what the link says is what they are shown as
+    await fetchButton(page).click()
+    await expect(table(page)).toBeVisible()
+    await expect(variantOption(page, 'Table')).toHaveAttribute('aria-checked', 'true')
+    await expect(page).toHaveURL(/[?&]variant=table(&|$)/)
+  })
+
+  test('is reached from the switch by the keyboard, as the other views are', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!, `${PATH}&variant=bars_scale`)
+    await variantOption(page, 'Bars with scale').focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(variantOption(page, 'Table')).toHaveAttribute('aria-checked', 'true')
+    await expect(variantOption(page, 'Table')).toBeFocused()
+    await expect(table(page)).toBeVisible()
+    await page.keyboard.press('ArrowLeft')
+    await expect(variantOption(page, 'Bars with scale')).toHaveAttribute('aria-checked', 'true')
+    await expect(chartSvg(page)).toBeVisible()
+  })
+
+  test('has the short line above the table and no note, with the method and the columns explained in About', async ({ page, baseURL }) => {
+    await showTable(page, baseURL!)
+    await expect(page.getByTestId('stripes-reference')).toHaveText('Relative to the mean of 1971–2000 (spread from 1955–2000)')
+    // nothing between the short line and the table: the whole sentence is in the file, the columns are explained in About
+    await expect(page.getByText('Class: how far the year lies')).toHaveCount(0)
+    await expect(page.getByText('Ed Hawkins\' method')).toHaveCount(0)
+    await expect(page.locator('.values-table')).toHaveAttribute('aria-label', /^Climate stripes \(Temperature\) for /)
+    await page.getByRole('button', { name: 'About climate stripes' }).first().click()
+    await expect(page.getByTestId('stripes-about-method')).toContainText('a year keeps its colour whatever years are shown')
+    await expect(page.getByTestId('stripes-about-columns')).toContainText('The anomaly is the distance from the mean, in the unit of the value')
+    await expect(page.getByTestId('stripes-about-views')).toContainText('Table lists every year')
+  })
+
+  test('offers the CSV in the download menu, and saves the table with the unit in its header and the reference, credit, licence and processing note as comments', async ({ page, baseURL }) => {
+    await showTable(page, baseURL!)
+    await page.getByRole('button', { name: 'Download table' }).click()
+    await expect(page.getByRole('menuitem')).toHaveText(['Download as CSV'])
+    const saved = page.waitForEvent('download')
+    await page.getByRole('menuitem', { name: 'Download as CSV' }).click()
+    const download = await saved
+    expect(download.suggestedFilename()).toMatch(/^climate_stripes_temperature_00011_.+\.csv$/)
+    const file = readFileSync((await download.path())!)
+    // a UTF-8 byte order mark first, for Excel
+    expect([...file.subarray(0, 3)]).toEqual([0xEF, 0xBB, 0xBF])
+    const lines = file.toString('utf8').replace(/^\uFEFF/, '').trimEnd().split('\n')
+    const comments = lines.filter(line => line.startsWith('# '))
+    expect(comments).toHaveLength(5)
+    expect(comments[0]).toMatch(/^# Climate stripes \(Temperature\) for /)
+    expect(comments[1]).toBe('# Colours: the mean of 1971–2000 is the centre of the scale, which spans ±2.6 standard deviations of 1955–2000 (Ed Hawkins\' method).')
+    expect(comments[2]).toBe('# Source: Deutscher Wetterdienst')
+    expect(comments[3]).toBe('# Licence: Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/)')
+    // what wetterdienst did to the data, after the licence (GH-3799)
+    expect(comments[4]).toBe('# Processed by wetterdienst: the provider\'s data was reshaped into a uniform table, and its units converted where they differ.')
+    const rows = lines.slice(comments.length)
+    expect(rows[0]).toBe('Year,Value (°C),Anomaly (°C),Class')
+    expect(rows).toHaveLength(71)
+    expect(rows[1]).toMatch(/^1955,\d+\.\d{2},-\d+\.\d{2},/)
+    expect(rows.at(-1)).toMatch(/^2024,\d+\.\d{2},-?\d+\.\d{2},/)
+  })
+
+  test('keeps the image downloads in the views that draw', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    await page.getByRole('button', { name: 'Download image' }).click()
+    await expect(page.getByRole('menuitem')).toHaveText(['Download as PNG', 'Download as JPG', 'Download as SVG'])
+  })
+
+  test('prints as a table, whole, and not as the chart', async ({ page, baseURL }) => {
+    await showTable(page, baseURL!)
+    await page.emulateMedia({ media: 'print' })
+    const region = page.locator('.values-table')
+    // not cut off at the height of its scroll box, and nothing of the chart
+    const box = await region.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { overflow: style.overflow, maxHeight: style.maxHeight, fits: element.scrollHeight <= element.clientHeight + 1 }
+    })
+    expect(box).toEqual({ overflow: 'visible', maxHeight: 'none', fits: true })
+    await expect(page.locator('.sc-stage')).toHaveCount(0)
+    await expect(table(page).locator('tbody tr')).toHaveCount(70)
+    // the header text is dark on the paper: the page is printed light, whatever the screen's scheme
+    const colour = await table(page).locator('thead th').first().evaluate(element => getComputedStyle(element).color)
+    expect(luminance(colour)).toBeLessThan(0.2)
+  })
+})
+
+// The switch of the four views on a phone of 320 px (GH-4233): two rows of two segments, as wide as the chart, each 44 px high. In a row of four
+// the labels ("Streifen", "Balken", "Tabelle") ran 3 px past their segments in Firefox, whose text is wider than Chromium's, so the room is held
+// with a margin: the text is made a tenth wider again (letter-spacing) and still has to fit, in every language, in whichever engine runs.
+test.describe('the switch of the four views at 320 px', () => {
+  for (const language of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const) {
+    test(`fits its segments with a margin, and keeps 44 px targets and its keys, in ${language}`, async ({ page, baseURL, context }) => {
+      const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await mockBackend(page, baseURL!)
+      await page.goto(`${PATH}&variant=bars_scale`)
+      await page.getByRole('button', { name: catalog.common.fetch, exact: true }).click()
+      await expect(chartSvg(page)).toBeVisible()
+      await page.addStyleTag({ content: '.sc-controls [role="radio"] { letter-spacing: 0.1em !important; }' })
+      // the group is named in the language of the page: found by its place
+      const radios = page.locator('.sc-controls [role="radiogroup"] [role="radio"]')
+      await expect(radios).toHaveCount(4)
+      const boxes = await radios.evaluateAll(options => options.map((option) => {
+        const box = option.getBoundingClientRect()
+        const group = option.parentElement!.getBoundingClientRect()
+        return { text: option.textContent, width: box.width, height: box.height, left: box.left, right: box.right, groupLeft: group.left, groupRight: group.right, cut: option.scrollWidth > option.clientWidth + 1 }
+      }))
+      for (const box of boxes) {
+        expect(box.cut, `"${box.text}" is whole in its segment`).toBe(false)
+        expect(box.height, `"${box.text}" is 44 px high`).toBeGreaterThanOrEqual(43.99)
+        expect(box.left).toBeGreaterThanOrEqual(box.groupLeft - 1)
+        expect(box.right).toBeLessThanOrEqual(box.groupRight + 1)
+      }
+      // two rows of two: the first and the second segment on one row, the third and the fourth under them
+      expect(Math.abs(boxes[0]!.left - boxes[2]!.left)).toBeLessThan(1)
+      expect(boxes[2]!.height).toBeGreaterThan(0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the page does not scroll sideways').toBe(true)
+      // the keys of the group are the same: the arrow keys go along the four in their order, and End goes to the table
+      await radios.first().focus()
+      await page.keyboard.press('End')
+      await expect(radios.nth(3)).toBeChecked()
+      await expect(radios.nth(3)).toBeFocused()
+      await page.keyboard.press('ArrowLeft')
+      await expect(radios.nth(2)).toBeChecked()
+    })
+  }
 })

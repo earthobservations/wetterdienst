@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from contextvars import ContextVar
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import polars as pl
 import polars.selectors as cs
 
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
@@ -30,16 +33,28 @@ from wetterdienst.provider.noaa.ghcn.metadata import (
     NoaaGhcnMetadata,
 )
 from wetterdienst.util.geo import EARTH_RADIUS_IN_KM
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, drop_cached_file, silence_timeout
 from wetterdienst.util.polars_util import read_fwf_from_df
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download, note_source_fallback
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
+    from io import BytesIO
+
+    from typing_extensions import Unpack
 
     from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.model.result import ValuesResult
+    from wetterdienst.model.row_selection import RowOptions
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
+
+#: whether the daily station list is read without the inventory beside it, which the search for a WMO, WIGOS or ICAO id
+#: does (`NoaaGhcnRequest._stations_for_id_search`, GH-4075): it needs the stations file only, and the inventory is
+#: 36 MB beside the 11 MB of the stations file
+_WITHOUT_INVENTORY: ContextVar[bool] = ContextVar("wetterdienst_ghcn_without_inventory", default=False)
 
 # how far apart the hourly and the daily list may put a station and still be taken to mean one place
 MAX_DISTANCE_KM_SAME_STATION = 5.0
@@ -64,9 +79,32 @@ GHCND_WIND_SPEED_OF_DIRECTION = {
     "wdfi": "wsfi",
     "wdfm": "wsfm",
 }
+# the daily files are NCEI's `pub/data/ghcn/daily/by_station/<id>.csv.gz` (gzipped, NYC Central Park 1.8 MB for 16 MB
+# of text, De Bilt 0.8 MB), current for every station (NYC rewritten 2026-11-18). NCEI's `access/<id>.csv` is no source:
+# it answered 403 on 2026-08-04 and 404 on 2026-11-18, and was read until then (GH-4225, GH-4230). When NCEI fails the
+# AWS Open Data bucket `noaa-ghcn-pds` that NOAA maintains, which already serves the station list and the inventory, is
+# read instead, with the same files in the same layout (`readme-by_station.txt` of the bucket): its block of ids from
+# `USR0000CJUA` to `ZI000067991` has not been written since 2025-02-09, so the answer says it is from the mirror
+GHCND_BY_STATION_URL = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/{station_id}.csv.gz"
+GHCND_BY_STATION_MIRROR_URL = "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
+# NCEI is asked once and gives up after 10 seconds of silence (connecting, or waiting for the next bytes), where the
+# default is 2 attempts of 30 seconds: the REST API answers a request in 60 seconds (`RESTAPI_TIMEOUT`), which a hanging
+# NCEI used up before the mirror was asked, and NCEI's proxy does hang (a 502 after 120 s on a listing, 2026-11-19).
+# The mirror, the last resort, keeps the defaults
+NCEI_TIMEOUT_SECONDS = 10
+GHCND_PRIMARY = "NCEI"
+GHCND_SECONDARY = "the AWS mirror of GHCN daily (noaa-ghcn-pds)"
+GHCND_BY_STATION_COLUMNS = ("id", "date", "element", "data_value", "m_flag", "q_flag", "s_flag", "obs_time")
+# both write a station's file once a day, in the night (UTC), and the list and the inventory beside it are kept as long
+# (`METAINDEX`): a file is the whole record of the station, as big as the 12 hours it stands for are long, where the 5
+# minutes of the hourly files ask for the whole of it again at every request. The cache is keyed by the URL, so the file
+# of the mirror is never served as NCEI's: NCEI is asked first at every request (a failure is not cached), and the
+# mirror's copy is only read while NCEI fails
+GHCND_BY_STATION_EXPIRY = CacheExpiry.TWELVE_HOURS
 # the source flag of Environment Canada, "C" in the readme's list of SFLAG, as `quality_flags` writes it (`source:C`)
 GHCND_ENVIRONMENT_CANADA = r"(^|,)source:C(,|$)"
 GHCNH_PRECIPITATION_MISSING = "-9999"
+GHCND_MISSING = "-9999"
 GHCNH_NONE = "-None"
 # the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
 GHCNH_SPECIAL_REPORT_TYPES = ("FM16", "SAOSP")
@@ -280,6 +318,152 @@ def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+def _with_a_row_for_every_day_and_element(df: pl.DataFrame, elements: list[str]) -> pl.DataFrame:
+    """Give each day the station reported anything on a row for each element it ever reports, null where it did not.
+
+    The per-station files of NCEI, which this reader was written for, were one row for each day with a column for each
+    element, so a day without an element was a null of it and `drop_nulls=False` returned it. The bucket's file has no
+    row for a reading that is missing; the rows are made again here, so that what the core is handed, and what a caller
+    who keeps the nulls is returned, is what it was. For every element of the dataset that the file has (the grouped
+    dataset is collected whole); the core leaves out the ones that were not asked for.
+    """
+    wanted = df.select("parameter").unique().filter(pl.col("parameter").is_in(elements))
+    days = df.select("station_id", "timestamp").unique()
+    return days.join(wanted, how="cross").join(df, on=["station_id", "timestamp", "parameter"], how="left")
+
+
+def _daily_rows(content: BytesIO) -> pl.DataFrame:
+    """Read a by_station file into the rows the reader works on: the station, the day, the element, the text, the flags.
+
+    One row for each reading, `ID,DATE,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with no header line, the DATE
+    as `YYYYMMDD` and the value in the tenths of the readme (read as text: the sentinel and the cells that are no number
+    are settled by the reader). Missing readings have no row. polars reads the gzip itself. A header line, which the
+    documentation of the mirror describes, is no reading and is left out (`ID` is no station). Raises a `PolarsError`
+    for what is no such file (a maintenance page, a body cut short, a day that is no date).
+    """
+    df = pl.read_csv(
+        source=content,
+        separator=",",
+        has_header=False,
+        new_columns=list(GHCND_BY_STATION_COLUMNS),
+        infer_schema_length=0,
+    ).filter(pl.col("id").ne("ID"))
+    # `M_FLAG,Q_FLAG,S_FLAG` are the attributes of readme.txt: the quality flag is a letter naming the check the
+    # value failed, blank where it failed none; the measurement and source flags say how the value was made and
+    # where it came from. They are written `QFLAG,measurement:MFLAG,source:SFLAG` (GH-2018, GH-2758). The
+    # observation time (`OBS_TIME`, set on some elements only: in the NYC file PRCP, TMAX, TMIN and TOBS, not
+    # SNOW) is not returned
+    return df.select(
+        pl.col("id").alias("station_id"),
+        pl.col("date").str.to_date("%Y%m%d").alias("timestamp"),
+        pl.col("element").str.to_lowercase().alias("parameter"),
+        pl.col("data_value").str.strip_chars().alias("value"),
+        join_quality_flags(pl.col("q_flag"), measurement=pl.col("m_flag"), source=pl.col("s_flag")),
+    )
+
+
+@dataclass
+class _DailyFile:
+    """What one source gave for the file of a station: the rows read from it, or why there are none."""
+
+    file: File
+    frame: pl.DataFrame | None = None
+    #: the body arrived (a 200) and is no by_station file: a maintenance page, a body cut short
+    unreadable: bool = False
+
+    @property
+    def gone(self) -> bool:
+        """Whether the source answered that it has no file of the station (a 404)."""
+        return self.frame is None and not self.unreadable and self.file.status == HTTPStatus.NOT_FOUND
+
+    @property
+    def answered(self) -> bool:
+        """Whether the source answered at all, with a status or a body: not a connection that could not be made."""
+        return not isinstance(self.file.content, NoInternetError)
+
+    @property
+    def cause(self) -> SkipCause:
+        """Why the source gave no rows, as `file-skipped` words it."""
+        return SkipCause.MAINTENANCE if self.unreadable else self.file.skip_cause
+
+    def raise_failure(self) -> None:
+        """Raise what went wrong: the `DownloadError` or `NoInternetError` of the download, or of the body."""
+        if self.unreadable:
+            msg = "the file is no table of readings (an error page or a body cut short)"
+            raise DownloadError(self.file.url, msg)
+        self.file.raise_if_exception()
+
+
+def _download_daily_file(url: str, station_id: str, settings: Settings, *, primary: bool) -> _DailyFile:
+    """Download the file of a station from one source and read it. A 429 is raised, never a failure to go round."""
+    client_kwargs = settings.fsspec_client_kwargs
+    if primary:
+        client_kwargs = {**client_kwargs, "timeout": silence_timeout(NCEI_TIMEOUT_SECONDS)}
+    # what the download was made with names the cache it went to, which `drop_cached_file` needs again
+    address = url.format(station_id=station_id)
+    file = download_file(
+        url=address,
+        cache_dir=settings.cache_dir,
+        ttl=GHCND_BY_STATION_EXPIRY,
+        client_kwargs=client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+        attempts=1 if primary else 2,
+    )
+    if isinstance(file.content, Exception):
+        if file.is_rate_limited:
+            file.raise_if_exception()
+        return _DailyFile(file)
+    try:
+        return _DailyFile(file, frame=_daily_rows(file.content))
+    except (pl.exceptions.PolarsError, ValueError):
+        # a 200 that is no file (a maintenance page, a body cut short) was cached for the whole expiry like any
+        # other: dropped, so that the next request asks again instead of reading the failure back for 12 hours
+        drop_cached_file(
+            url=address,
+            cache_dir=settings.cache_dir,
+            ttl=GHCND_BY_STATION_EXPIRY,
+            client_kwargs=client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+        )
+        return _DailyFile(file, unreadable=True)
+
+
+def _failed_of(primary: _DailyFile, mirror: _DailyFile) -> _DailyFile:
+    """Pick the failure to raise where neither source gave the file and not both said it is not there.
+
+    Where NCEI has no file and the mirror fails the mirror's; where the mirror has none and NCEI fails NCEI's; if both
+    failed, the one that answered, NCEI's if both did.
+    """
+    if primary.gone:
+        return mirror
+    if mirror.gone or primary.answered or not mirror.answered:
+        return primary
+    return mirror
+
+
+def daily_file_exists(station_id: str, settings: Settings) -> bool:
+    """Tell whether NCEI or its mirror has the daily file of a station, which the values of the station are read from.
+
+    The file the values reader reads (`NoaaGhcnValues._read_daily_file`: NCEI's `by_station` file, then the AWS
+    mirror's), downloaded through the same cache, so that a read of the values that follows finds it held. There is no
+    cheaper question: the library's network layer has no HEAD, and the file is 0.1 to 2 MB. False only where both
+    sources answer 404; a failure of either (no connection, a 5xx, a body that is no table) is raised as the values
+    reader raises it, and a 429 is the `ProviderRateLimitError`.
+    """
+    primary = _download_daily_file(GHCND_BY_STATION_URL, station_id, settings, primary=True)
+    if primary.frame is not None:
+        return True
+    mirror = _download_daily_file(GHCND_BY_STATION_MIRROR_URL, station_id, settings, primary=False)
+    if mirror.frame is not None:
+        return True
+    if primary.gone and mirror.gone:
+        return False
+    _failed_of(primary, mirror).raise_failure()
+    return False
+
+
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
 
@@ -409,76 +593,68 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
         )
 
+    #: NCEI's failure that the walk in hand met, which has the rest of the walk go straight to the mirror: an outage
+    #: is the same at the next station, and a hanging NCEI costs its timeout at each (`query`)
+    _ncei_outage: _DailyFile | None = None
+
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
+        """Query the stations, remembering for as long as the walk runs that NCEI failed (`_read_daily_file`).
+
+        Set and cleared here, on the values of this request: a walk is a generator, and the next request asks NCEI
+        again. An estimate (`interpolate`, `summarize`) walks through this too.
+        """
+        self._ncei_outage = None
+        try:
+            yield from super().query(**rows)
+        finally:
+            self._ncei_outage = None
+
+    def _download_daily(self, url: str, station_id: str, settings: Settings, *, primary: bool) -> _DailyFile:
+        """Download the file of a station from one source and read it. A 429 is raised, never a failure to go round."""
+        return _download_daily_file(url, station_id, settings, primary=primary)
+
+    def _read_daily_file(self, station_id: str, settings: Settings) -> tuple[pl.DataFrame, File] | None:
+        """Read the file of a station from NCEI, from the AWS mirror when NCEI fails; None for a station neither has.
+
+        NCEI first, asked once and for no more than `NCEI_TIMEOUT_SECONDS` of silence. Any failure of it but a 429 (a
+        404, a 5xx, a reset, a timeout, no connection, a body that is no by_station file) sends the reader to the
+        mirror, and the walk tells it (`source-fallback`, once for the request, with the stations and that the values
+        may be older). A failure that is no 404 stays for the rest of the walk, which goes straight to the mirror. A
+        429 is never a reason to go to the other host: it is raised as the `ProviderRateLimitError` it is, as a 429 of
+        the mirror is.
+
+        Only a 404 of both is a station without a file, let go with a warning as a file withdrawn since the list is.
+        Where the mirror cannot help a failure of NCEI that is no 404 (it has no file, or fails too) that failure is
+        raised, and where NCEI has no file and the mirror fails the mirror's; if both fail, the one that answered,
+        NCEI's if both did.
+        """
+        primary = self._ncei_outage
+        if primary is None:
+            primary = self._download_daily(GHCND_BY_STATION_URL, station_id, settings, primary=True)
+            if primary.frame is not None:
+                return primary.frame, primary.file
+            if not primary.gone:
+                self._ncei_outage = primary
+        mirror = self._download_daily(GHCND_BY_STATION_MIRROR_URL, station_id, settings, primary=False)
+        if mirror.frame is not None:
+            note_source_fallback(station_id, primary.cause, primary=GHCND_PRIMARY, secondary=GHCND_SECONDARY)
+            return mirror.frame, mirror.file
+        if primary.gone and mirror.gone:
+            note_skipped_download(SkipCause.WITHDRAWN)
+            log.warning(f"GHCN daily has no file for station {station_id}: {primary.file.url}, {mirror.file.url}")
+            return None
+        _failed_of(primary, mirror).raise_failure()
+        return None
+
     def _collect_station_parameter_for_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.request.settings)
-        url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
-        file = url.format(station_id=station_id)
-        file = download_file(
-            url=file,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        file.raise_if_exception()
-        if isinstance(file.content, Exception):
+        read = self._read_daily_file(station_id, settings)
+        if read is None:
             return pl.DataFrame()
-        df = pl.read_csv(
-            source=file.content,
-            separator=",",
-            has_header=True,
-        )
-        df = df.rename(str.lower).rename({"date": "timestamp"})
-        df = df.select(
-            cs.exclude(
-                [
-                    pl.col("latitude"),
-                    pl.col("longitude"),
-                    pl.col("elevation"),
-                    pl.col("name"),
-                ],
-            ),
-        )
-        index = ["station", "timestamp"]
-        elements = [column for column in df.columns if column not in index and not column.endswith("_attributes")]
-        # `<element>_attributes` holds "MFLAG,QFLAG,SFLAG", e.g. ",,E" or "H,,S" (readme.txt): the quality flag is a
-        # letter naming the check the value failed, blank where it failed none; the measurement and source flags say
-        # how the value was made and where it came from. They travel with their value through the unpivot as the
-        # field of a struct, and are written `QFLAG,measurement:MFLAG,source:SFLAG` (GH-2018, GH-2758)
-        df = df.select(
-            *index,
-            *(
-                pl.struct(
-                    pl.col(element).cast(pl.String).alias("value"),
-                    (
-                        pl.col(f"{element}_attributes").cast(pl.String)
-                        if f"{element}_attributes" in df.columns
-                        else pl.lit(None, dtype=pl.String)
-                    ).alias("attributes"),
-                ).alias(element)
-                for element in elements
-            ),
-        ).unpivot(index=index, on=elements, variable_name="parameter", value_name="value")
-        attributes = pl.col("value").struct.field("attributes").str.split(",")
-        df = df.with_columns(
-            join_quality_flags(
-                attributes.list.get(1, null_on_oob=True),
-                measurement=attributes.list.get(0, null_on_oob=True),
-                source=attributes.list.get(2, null_on_oob=True),
-            ),
-            pl.col("value").struct.field("value"),
-        )
-        df = df.select(
-            pl.col("station").alias("station_id"),
-            pl.col("timestamp").str.to_date("%Y-%m-%d"),
-            pl.col("parameter").str.to_lowercase(),
-            pl.col("value").str.strip_chars(),
-            "quality_flags",
-        )
+        df, file = read
         # AWDR, the average daily wind direction, is 0 beside an AWND of 0 (a calm day) as much as it is a bearing
         # beside a wind that blows: at USS0054K01S (read 2026-10-30) 2 of its 11 directions of 0 have a speed of 0 and 5
         # have one above, besides the 360 of 2025-06-30. So are the directions of the fastest and peak winds (9 station
@@ -500,8 +676,12 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # (`_GUST_NOT_REPORTED` of eccc/observation, GH-3655); the direction beside it reads the speed as the file
         # wrote it, so it is null by the rule above as well
         df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
+        # The readme gives -9999 for a missing value in the `.dly` files, which the per-station files are made from and
+        # leave out as a row; none of the 1.3 million values of 7 files read (2026-11-18) is -9999, and it is no
+        # reading in any element, so a row that wrote it is null and keeps it as `raw:-9999`
         value, raw = null_sentinels(
             pl.col("value"),
+            Sentinel(GHCND_MISSING),
             Sentinel(
                 "0",
                 where=pl.col("parameter").eq("wsfg") & pl.col("quality_flags").str.contains(GHCND_ENVIRONMENT_CANADA),
@@ -511,11 +691,12 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         df = df.with_columns(value.alias("value"), join_quality_flags(pl.col("quality_flags"), raw=raw)).drop(
             SPEED_BESIDE
         )
+        df = _with_a_row_for_every_day_and_element(df, [parameter.name_original for parameter in dataset])
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in:
         # the date is handed over as it is, which the core reads as midnight UTC. The date is the station's own
         # observing day, which the readme gives no zone for, and a stamp shifted by the station's offset (Tokyo 15:00
         # UTC the day before) was dropped by a request for that one day, whose bounds are 00:00 UTC (GH-2683).
-        # when NCEI last wrote the file of the station travels with its rows (`_note_files_with_rows`, GH-2567)
+        # when the bucket last wrote the file of the station travels with its rows (`_note_files_with_rows`, GH-2567)
         df = self._note_files_with_rows(
             df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
         )
@@ -536,6 +717,68 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         return df.with_columns((pl.col("value").cast(pl.Float64, strict=False) * factor).alias("value"))
 
 
+def read_daily_inventory(settings: Settings) -> pl.DataFrame:
+    """Read `ghcnd-inventory.txt`: one row per station and element with the first and last year of its record.
+
+    The columns are `station_id`, `element` (as the file writes it, `TAVG`, `TMAX`, `TMIN`, `PRCP`, ...),
+    `start_timestamp` and `end_timestamp`, both the year as an integer. A file that cannot be read is raised, as the
+    `NoInternetError` or `DownloadError` of its download: a station list that is filtered by it must never turn into
+    an unfiltered or an empty one (GH-4270).
+    """
+    from typing import cast  # noqa: PLC0415
+
+    inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
+    inventory_file = download_file(
+        url=inventory_url,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.TWELVE_HOURS,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    # a download that failed is raised here, as the `NoInternetError` or `DownloadError` of it
+    inventory_file.raise_if_exception()
+    inventory_df = pl.read_csv(cast("BytesIO", inventory_file.content), has_header=False, truncate_ragged_lines=True)
+    column_specs = ((0, 10), (31, 34), (36, 39), (41, 44))
+    inventory_df = read_fwf_from_df(inventory_df, column_specs)
+    inventory_df.columns = ["station_id", "element", "start_timestamp", "end_timestamp"]
+    return inventory_df.with_columns(
+        pl.col("start_timestamp").cast(pl.Int64),
+        pl.col("end_timestamp").cast(pl.Int64),
+    )
+
+
+def daily_element_spans(inventory: pl.DataFrame, elements: Iterable[str] | None = None) -> pl.DataFrame:
+    """Give the first and last year of the record each station has of `elements`, the stations that have none left out.
+
+    The columns are `station_id`, `first_year` and `last_year`, as integers. A station is listed where it has at least
+    one of the elements (any, where none are named), and its span runs from the earliest first year to the latest last
+    year of those it has. It is the span the record can reach, not the years with a value.
+    """
+    if elements is not None:
+        inventory = inventory.filter(pl.col("element").is_in(sorted(set(elements))))
+    return inventory.group_by("station_id").agg(
+        pl.col("start_timestamp").min().alias("first_year"), pl.col("end_timestamp").max().alias("last_year")
+    )
+
+
+def _years_to_timestamps(df: pl.DataFrame, start: str, end: str) -> pl.DataFrame:
+    """Turn the first and last year of a record into `start_timestamp` and `end_timestamp`.
+
+    The record starts on 1 January of its first year. The inventory gives the year of the last observation, so a
+    station whose last year is this one is still reporting as far as the list can tell: its end is not 31 December,
+    which has not come yet, but empty, as for a station the provider has not closed (GH-2643); any other ends on
+    31 December of its last year.
+    """
+    this_year = dt.datetime.now(dt.UTC).year
+    return df.with_columns(
+        pl.col(start).cast(pl.String).str.to_datetime("%Y").alias("start_timestamp"),
+        pl.when(pl.col(end) < this_year)
+        .then(pl.col(end).add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"))
+        .alias("end_timestamp"),
+    )
+
+
 @dataclass
 class NoaaGhcnRequest(TimeseriesRequest):
     """Request class for NOAA GHCN data provider."""
@@ -547,11 +790,11 @@ class NoaaGhcnRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         data = []
-        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
+        for dataset, parameters in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
             if dataset.resolution.value == Resolution.HOURLY:
                 data.append(self._create_metaindex_for_ghcn_hourly())
             elif dataset.resolution.value == Resolution.DAILY:
-                data.append(self._create_metaindex_for_ghcn_daily())
+                data.append(self._create_metaindex_for_ghcn_daily(parameters, dataset))
             else:
                 msg = f"Resolution {dataset.resolution.value} is not supported."
                 raise ValueError(msg)
@@ -571,6 +814,56 @@ class NoaaGhcnRequest(TimeseriesRequest):
         if "start_timestamp" not in df.collect_schema().names():
             return df
         return df.filter(~(pl.col("resolution").eq("daily") & pl.col("start_timestamp").is_null()))
+
+    def _stations_for_id_search(self) -> pl.DataFrame:
+        """Build the stations of the id search without the inventory, which holds no id (GH-4075).
+
+        The daily list is the file of the stations and the inventory of their elements joined, and the join only gives
+        each station its span. The search reads the stations file alone (11 of the 47 MB), and so lists the 147
+        stations the inventory has no line for, which `all()` leaves out: 146 of them have no data file, so a search
+        may find a station nobody can read values of, and the answer names the list it came from.
+        """
+        token = _WITHOUT_INVENTORY.set(True)
+        try:
+            return super()._stations_for_id_search()
+        finally:
+            _WITHOUT_INVENTORY.reset(token)
+
+    _checks_station_files = True
+
+    def _station_file_exists(self, station_id: str) -> bool:
+        """Tell whether the daily file of a station exists, for the hits of the id search (GH-4075).
+
+        The id search lists GHCN's stations without the inventory, so it lists stations that have no file (146 of the
+        147 that the inventory has no line for): a hit is checked with `daily_file_exists`.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        return daily_file_exists(station_id, cast("Settings", self.settings))
+
+    def _knows_station_outside_parameters(self, station_id: str) -> bool:
+        """Tell whether the inventory has a line for a station that this request's daily list leaves out (GH-4272).
+
+        A request for some of the daily parameters lists the stations that have one of them, so a station with only
+        other elements is not in it, and the caller changes the parameters. A station with no line in the inventory has
+        no element at all (147 of 133,039 stations): no other parameters would find it, so it is not found, as it is
+        for the whole dataset. The hourly list is the same for every parameter, so only a daily dataset is asked.
+
+        The inventory is read once, and only where a daily dataset is requested. `read_daily_inventory` downloads it
+        through the cache, which holds it for twelve hours: with `cache_disable` or an expired entry this is a download
+        of the file again, on the path of a station that was not found only. Where it cannot be read
+        the error is raised, as it is for the list.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        daily = any(
+            dataset.resolution.value == Resolution.DAILY
+            for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters))
+        )
+        if not daily:
+            return False
+        inventory = read_daily_inventory(cast("Settings", self.settings))
+        return inventory.get_column("station_id").is_in([station_id]).any()
 
     @staticmethod
     def _take_daily_elevation(df: pl.LazyFrame) -> pl.LazyFrame:
@@ -639,6 +932,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "STATE",
                 "NAME",
                 "WMO_ID",
+                "ICAO",
             ]
         )
         df = df.rename(
@@ -650,6 +944,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "STATE": "region",
                 "NAME": "name",
                 "WMO_ID": "wmo_id",
+                "ICAO": "icao_id",
             }
         )
         df = df.with_columns(
@@ -657,9 +952,10 @@ class NoaaGhcnRequest(TimeseriesRequest):
             pl.lit("data", dtype=pl.String).alias("dataset"),
             cs.string().str.strip_chars().replace("", None),
         )
-        # a WMO number is five digits, as the daily list writes it. The hourly list also has `400` on 445 Spanish
-        # stations such as SPN00000293 BEGUR (CAP), and `of`, `unkno`, `resol`, `260` and `open` on a dozen more:
-        # not numbers of a station
+        # `ICAO` is on 6505 of 38870 stations, 6181 of them four letters (324 hold a digit and are nulled by the
+        # notation of `icao_id`; GH-4070). A WMO number is five digits, as the daily list writes it. The hourly list
+        # also has `400` on 445 Spanish stations such as SPN00000293 BEGUR (CAP), and `of`, `unkno`, `resol`, `260` and
+        # `open` on a dozen more: not numbers of a station
         df = df.with_columns(
             pl.when(pl.col("wmo_id").str.contains(r"^\d{5}$")).then(pl.col("wmo_id")).alias("wmo_id"),
         )
@@ -695,8 +991,13 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
         return df.lazy()
 
-    def _create_metaindex_for_ghcn_daily(self) -> pl.LazyFrame:
+    def _create_metaindex_for_ghcn_daily(self, parameters: list[ParameterModel], dataset: DatasetModel) -> pl.LazyFrame:
         """Acquire station listing for ghcn daily.
+
+        The whole dataset (every parameter of it) lists every station the inventory has a line for, with the span of all
+        its elements. A request for some of its parameters lists the stations whose inventory has at
+        least one of them, with the span of those (`daily_element_spans`, GH-4270); the inventory is read for it as it
+        is for the whole dataset, and a failure to read it is raised, never an unfiltered list.
 
         station listing
         | Variable     | Columns | Type      | Example     |
@@ -765,40 +1066,21 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
         df = _restore_lost_signs(df)
 
-        inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
-        inventory_file = download_file(
-            url=inventory_url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.TWELVE_HOURS,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
+        if _WITHOUT_INVENTORY.get():
+            # no span, hence no `start_timestamp` and no `end_timestamp` column, which `_all` then does not use to leave
+            # out the stations that have no element
+            return df.with_columns(pl.lit("daily").alias("resolution"), pl.lit("data").alias("dataset")).lazy()
+
+        inventory_df = read_daily_inventory(settings)
+        elements = None
+        if {p.name for p in parameters} != {p.name for p in dataset.parameters}:
+            elements = {p.name_original.upper() for p in parameters}
+        inventory_df = daily_element_spans(inventory_df, elements)
+        inventory_df = _years_to_timestamps(inventory_df, "first_year", "last_year").select(
+            "station_id", "start_timestamp", "end_timestamp"
         )
-        inventory_file.raise_if_exception()
-        if isinstance(inventory_file.content, Exception):
-            return pl.LazyFrame()
-        inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)
-        column_specs = ((0, 10), (36, 39), (41, 44))
-        inventory_df = read_fwf_from_df(inventory_df, column_specs)
-        inventory_df.columns = ["station_id", "start_timestamp", "end_timestamp"]
-        inventory_df = inventory_df.with_columns(
-            pl.col("start_timestamp").cast(pl.Int64),
-            pl.col("end_timestamp").cast(pl.Int64),
-        )
-        inventory_df = inventory_df.group_by(["station_id"]).agg(
-            pl.col("start_timestamp").min(),
-            pl.col("end_timestamp").max(),
-        )
-        # the inventory gives the year of the last observation, so a station whose last year is this one is
-        # still reporting as far as the list can tell: its end is not 31 December, which has not come yet,
-        # but empty, as for a station the provider has not closed (GH-2643)
-        this_year = dt.datetime.now(dt.UTC).year
-        inventory_df = inventory_df.with_columns(
-            pl.col("start_timestamp").cast(pl.String).str.to_datetime("%Y"),
-            pl.when(pl.col("end_timestamp") < this_year)
-            .then(pl.col("end_timestamp").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"))
-            .alias("end_timestamp"),
-        )
+        # always a left join: a station with no element asked for has no span, which `_all` leaves out once the
+        # hourly rows of the same station have been given its elevation (GH-3260)
         df = df.join(other=inventory_df, how="left", on=["station_id"], maintain_order="left").lazy()
         df = df.with_columns(
             pl.lit("daily").alias("resolution"),

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { GlossaryEntry } from '#shared/types/api'
+import { isTopic, measurementPath, parameterPatterns, topicLabelKey, topicOfParameter } from '~/utils/measurement'
+import { matchesQuery } from '~/utils/search-index'
 
 const { t } = useI18n()
 const formatLanguage = useFormatLanguage()
@@ -22,8 +24,21 @@ const collator = computed(() => new Intl.Collator(formatLanguage.value, { numeri
 // route simply showed nothing until the answer arrived.
 const { data: glossary, pending } = useFetch<GlossaryEntry[]>('/api/glossary', API_ANSWER)
 
-const search = ref('')
+// `?q=` is the search the field starts with: the "more" of the search of the header (GH-3790) opens the glossary on what was typed
+const route = useRoute()
+const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
+// the address's `?q=` is followed while the page is open (the search of the header leads here from the glossary itself)
+watch(() => route.query.q, (value) => {
+  search.value = typeof value === 'string' ? value : ''
+})
 const unitType = ref<string | undefined>(undefined)
+
+// The entry of "How weather is measured" (GH-3787) whose parameters are shown: `?topic=wind`, the link of an entry's
+// "Show these fields in the glossary". An id that is no entry, or an entry that explains no parameter (time), is no filter.
+const topic = computed(() => {
+  const value = route.query.topic
+  return isTopic(value) && parameterPatterns(value).length > 0 ? value : undefined
+})
 
 const unitTypes = computed<string[]>(() =>
   [...new Set((glossary.value ?? []).map(entry => entry.unit_type))],
@@ -37,22 +52,45 @@ const unitTypeItems = computed(() => [
 ])
 
 const entries = computed<GlossaryEntry[]>(() => {
-  const term = search.value.trim().toLowerCase()
+  const term = search.value.trim()
   const matching = (glossary.value ?? []).filter((entry) => {
     if (unitType.value && entry.unit_type !== unitType.value)
       return false
+    if (topic.value && topicOfParameter(entry.name) !== topic.value)
+      return false
     if (!term)
       return true
-    // match the id, the friendly label and the description, so searching either
-    // "sunshine" or "Sonnenschein" finds the same entry
-    return entry.name.toLowerCase().includes(term)
-      || parameterLabel(entry.name).toLowerCase().includes(term)
-      || entry.description.toLowerCase().includes(term)
+    // the rule of the search's glossary results (utils/search-index.ts), so that "5 more in Glossary" shows what was counted: every
+    // word of the field, in any order, folded, in the label, the id, the unit's symbol or the description
+    return matchesQuery(term, [parameterLabel(entry.name), entry.name, entry.unit_symbol, entry.description])
   })
   // the API returns them ordered by raw id, which bears no relation to the order of the labels on
   // screen once those are translated
   return matching.sort((a, b) => collator.value.compare(parameterLabel(a.name), parameterLabel(b.name)))
 })
+// An entry the search of the header leads to (`/glossary#temperature_dew_point`, GH-3790): once the list is there the page
+// scrolls to it, shows it as the one the reader came for (the focus is on it, which is its mark) and keeps the list as it is. An
+// entry that the field or the unit hides is shown: the link names it
+const reveal = useRevealHash()
+watch([glossary, () => route.hash], async () => {
+  if (!glossary.value || !route.hash)
+    return
+  let name = route.hash.slice(1)
+  try {
+    name = decodeURIComponent(name)
+  }
+  catch {
+    return
+  }
+  if (!glossary.value.some(entry => entry.name === name))
+    return
+  if (!entries.value.some(entry => entry.name === name)) {
+    search.value = ''
+    unitType.value = undefined
+  }
+  await nextTick()
+  reveal(route.hash)
+}, { immediate: true })
 </script>
 
 <template>
@@ -86,6 +124,13 @@ const entries = computed<GlossaryEntry[]>(() => {
           />
         </div>
 
+        <p v-if="topic" class="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-elevated px-3 py-2 text-sm" data-testid="glossary-topic">
+          <span>{{ t('glossary.topicFilter', { topic: t(topicLabelKey(topic)) }) }}</span>
+          <NuxtLink to="/glossary" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
+            {{ t('glossary.clearTopic') }}
+          </NuxtLink>
+        </p>
+
         <UEmpty v-if="pending" loading :title="t('glossary.loading')" />
         <UEmpty
           v-else-if="!entries.length"
@@ -98,7 +143,9 @@ const entries = computed<GlossaryEntry[]>(() => {
           </p>
           <div
             v-for="entry in entries"
+            :id="entry.name"
             :key="entry.name"
+            tabindex="-1"
             class="border-t border-gray-200 dark:border-gray-800 pt-3 first:border-t-0 first:pt-0"
           >
             <div class="flex items-baseline justify-between gap-3 flex-wrap">
@@ -110,6 +157,11 @@ const entries = computed<GlossaryEntry[]>(() => {
             </p>
             <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1">
               {{ entry.name }}
+            </p>
+            <p v-if="topicOfParameter(entry.name)" class="text-sm mt-1">
+              <NuxtLink :to="measurementPath(topicOfParameter(entry.name)!)" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
+                {{ t('glossary.howMeasured') }}<span class="sr-only">: {{ parameterLabel(entry.name) }}</span>
+              </NuxtLink>
             </p>
           </div>
         </div>

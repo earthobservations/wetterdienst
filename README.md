@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/earthobservations/wetterdienst/actions?workflow=Tests"><img src="https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main" alt="CI status"/></a>
   <a href="https://wetterdienst.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/wetterdienst/badge/?version=latest" alt="Documentation status"/></a>
-  <a href="https://app.codecov.io/gh/earthobservations/wetterdienst"><img src="https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg" alt="Code coverage"/></a>
+  <a href="https://app.codecov.io/gh/earthobservations/wetterdienst"><img src="https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg?flag=offline" alt="Code coverage"/></a>
   <br/>
   <a href="https://pypi.org/project/wetterdienst/"><img src="https://img.shields.io/pypi/v/wetterdienst.svg" alt="PyPI version"/></a>
   <a href="https://anaconda.org/conda-forge/wetterdienst"><img src="https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg" alt="Conda version"/></a>
@@ -23,7 +23,7 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/readme-stripes.png" alt="Warming stripes for Hohenpeißenberg, Germany: one stripe per year from 1781 to 2025, blue for cold years and red for warm ones" width="640" height="80"/>
   <br/>
-  <sub>Hohenpeißenberg, Germany, 1781 to 2025: the mean air temperature of each year, fetched and drawn with wetterdienst.</sub>
+  <sub>Hohenpeißenberg, Germany, 1781 to 2025: the mean air temperature of each year. Draw the stripes of a DWD or NOAA station with the <a href="https://wetterdienst.eobs.org/stripes">climate stripes of the web app</a>.</sub>
   <br/>
   <strong>Global warming is not an opinion.</strong> <em>Erderwärmung ist keine Meinung.</em>
 </p>
@@ -49,6 +49,8 @@ you need is what tells us what to build next. Hand in an issue or a PR.
   by name, id, distance from a point, bounding box or rank
 - Unit conversion, and interpolation and summarization for a point between stations
 - DWD weather alerts (CAP warnings) with GeoJSON geometry, by community or district
+- DWD thunderstorm cells (KONRAD3D) of the radar data, near a place, with outline and forecast track
+- DWD heavy-rainfall statistics (KOSTRA-DWD-2020) for a point in Germany: depth, intensity and uncertainty by duration and return period
 - SQL queries over results, and export to CSV, JSON, Excel, Parquet and Zarr files and to SQLite,
   PostgreSQL, CrateDB, InfluxDB and DuckDB
 - A command line client, a REST API with a public Docker image, and an MCP (Model Context Protocol)
@@ -199,7 +201,7 @@ defaults, where 0 switches one off:
 
 ```bash
 WD_RESTAPI_MAX_STATIONS=100 WD_RESTAPI_MAX_ROWS=500000 WD_RESTAPI_MAX_STREAM_ROWS=10000000 \
-WD_RESTAPI_TIMEOUT=60 WD_RESTAPI_MAX_CONCURRENT=32 WD_RESTAPI_SQL=false \
+WD_RESTAPI_TIMEOUT=60 WD_RESTAPI_MAX_CONCURRENT=32 \
 wetterdienst restapi --listen 127.0.0.1:7890
 ```
 
@@ -325,7 +327,9 @@ Documentation: [wetterdienst.readthedocs.io](https://wetterdienst.readthedocs.io
 - **App**: [wetterdienst.eobs.org](https://wetterdienst.eobs.org/), and
   [how to run your own](https://wetterdienst.readthedocs.io/en/latest/usage/app.html).
 - **The data**: [providers, parameters and licences](https://wetterdienst.readthedocs.io/en/latest/data/index.html),
-  [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html).
+  [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html),
+  [DWD storm cells](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/storm_cells/index.html),
+  [DWD KOSTRA heavy rainfall](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/kostra/index.html).
 - **Upgrade**: [compatibility](https://wetterdienst.readthedocs.io/en/latest/usage/compatibility.html), what
   is stable and how a break is announced, and the
   [migration note from 0.139.0](https://wetterdienst.readthedocs.io/en/latest/usage/migrating.html).

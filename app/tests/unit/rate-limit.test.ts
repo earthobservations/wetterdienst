@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net'
 import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { clientKey, createRateLimiter, isLimited, positiveInteger, RATE_LIMIT_DEFAULTS } from '../../server/utils/rateLimit'
+import { bucketOf, clientKey, createRateLimiter, isLimited, positiveInteger, RATE_LIMIT_DEFAULTS } from '../../server/utils/rateLimit'
 import { requestIdOf } from '../../server/utils/requestId'
 
 // The rate limit of the server (GH-3093): the table of what is counted, the clients told apart, and the
@@ -17,10 +17,19 @@ describe('what is counted', () => {
     '/api/stations',
     '/api/interpolate',
     '/api/summarize',
-    '/api/stripes/values',
-    '/api/stripes/image',
+    // the app's own server's reads of the backend, which the stripes of GHCN daily are made from (GH-4258)
+    '/_ghcn/annual?kind=temperature&station=USW00094728',
+    '/_ghcn/stations',
+    '/_ghcn/stations/',
     '/api/history',
     '/api/issues',
+    // the app's own server's routes for GHCN daily (GH-4267): the first request after a restart costs the backend a 44 MB answer
+    '/_ghcn/map-stations',
+    '/_ghcn/map-stations?x=1',
+    // the stations the search of the header finds by name (GH-3790), matched in the lists the server keeps
+    '/_search/stations?q=hamburg',
+    // the places by name, which the server asks Photon for (GH-3791): counted like the stations
+    '/_search/places?q=bad%20t%C3%B6lz&lang=de',
     '/mcp',
     '/mcp/v1',
     '/mcp/v1/anything',
@@ -152,8 +161,17 @@ describe('the count', () => {
     expect(positiveInteger(value, fallback)).toBe(expected)
   })
 
+  it('counts the images of the radar\'s frames in a bucket of their own, and every other counted route in the shared one (GH-3788)', () => {
+    for (const path of ['/api/radar/frame?product=rv&time=x&run=y', '/api/v1/radar/frame', '/api/radar/frame/'])
+      expect(bucketOf(path), path).toBe('frames')
+    for (const path of ['/api/radar/frames', '/api/values', '/api/radar/frame/../values', '/api/radar/frame/x', '/mcp', '/api/v1/storm-cells'])
+      expect(bucketOf(path), path).toBe('shared')
+    for (const path of ['/api/version', '/', '/explorer', '/_nuxt/entry.js'])
+      expect(bucketOf(path), path).toBeNull()
+  })
+
   it('is 300 requests in 300 seconds unless set', () => {
-    expect(RATE_LIMIT_DEFAULTS).toEqual({ tokens: 300, windowSeconds: 300 })
+    expect(RATE_LIMIT_DEFAULTS).toEqual({ tokens: 300, windowSeconds: 300, frameTokens: 1000 })
   })
 })
 
@@ -162,7 +180,7 @@ const nuxtRequire = createRequire(createRequire(import.meta.url).resolve('nuxt/p
 const h3 = nuxtRequire('h3') as typeof import('h3')
 
 const config = {
-  rateLimit: { enabled: true, tokens: 3, windowSeconds: 300, clientIpHeader: '' as string },
+  rateLimit: { enabled: true, tokens: 3, windowSeconds: 300, frameTokens: 1000, clientIpHeader: '' as string },
 }
 const servers: Server[] = []
 let app: string
@@ -181,6 +199,7 @@ beforeAll(async () => {
     useRuntimeConfig: () => config,
     createRateLimiter,
     isLimited,
+    bucketOf,
     clientKey,
     positiveInteger,
     RATE_LIMIT_DEFAULTS,
@@ -209,6 +228,28 @@ function newClient() {
 }
 
 describe('the middleware', () => {
+  it('counts the radar\'s frames apart from the other routes, with a larger limit of their own (GH-3788)', async () => {
+    const client = newClient()
+    config.rateLimit.frameTokens = 5
+    // the shared bucket is used up: 3 requests, the fourth is refused
+    for (let i = 0; i < 3; i++)
+      expect((await raw('/api/values', client)).status).toBe(200)
+    expect((await raw('/api/values', client)).status).toBe(429)
+    // the frames are not refused for it, and have their own limit and their own headers
+    const first = await raw('/api/radar/frame?product=rv', client)
+    expect(first.status).toBe(200)
+    expect(first.headers.get('x-ratelimit-limit')).toBe('5')
+    expect(first.headers.get('x-ratelimit-remaining')).toBe('4')
+    for (let i = 0; i < 4; i++)
+      expect((await raw('/api/radar/frame?product=rv', client)).status).toBe(200)
+    const refused = await raw('/api/radar/frame?product=rv', client)
+    expect(refused.status).toBe(429)
+    expect((await refused.json()).detail).toContain('radar images')
+    // and the list of the frames is the shared bucket's, which is used up
+    expect((await raw('/api/radar/frames', client)).status).toBe(429)
+    config.rateLimit.frameTokens = 1000
+  })
+
   it('lets a catalogue route and a page through however often they are asked for, while a values route is refused past the limit', async () => {
     const client = newClient()
     for (let i = 0; i < 10; i++) {

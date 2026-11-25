@@ -401,6 +401,7 @@
    "10_minutes/data": [
     "precipitation_intensity",
     "radiation_global_intensity",
+    "temperature_air_mean_0_1m",
     "temperature_air_mean_2m",
     "temperature_dew_point_mean_2m",
     "visibility",

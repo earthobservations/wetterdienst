@@ -98,4 +98,20 @@ describe('about Page', () => {
     expect(html).toContain('pypi.org/project/wetterdienst')
     expect(html).toContain('CONTRIBUTORS.md')
   })
+
+  // GH-3790: the search of the header leads to a card by its anchor
+  it('takes the focus to the heading of the card the address names', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(AboutPage, { attachTo: document.body, route: '/about#about-people' })
+    try {
+      await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#about-people').element))
+      expect(wrapper.find('h2#about-project').exists()).toBe(true)
+    }
+    finally {
+      wrapper.unmount()
+    }
+  })
 })

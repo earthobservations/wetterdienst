@@ -6,7 +6,7 @@
 |---------------|-------------------------------------------------------------------------------------|
 | name          | daily                                                                               |
 | original name | daily                                                                               |
-| url           | [here](https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/) |
+| url           | [here](https://www.ncei.noaa.gov/pub/data/ghcn/daily/)                              |
 
 ## datasets
 
@@ -18,8 +18,8 @@
 |---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | data                                                                                                                                                                                                    |
 | original name | data                                                                                                                                                                                                    |
-| description   | Historical daily weather data from the Global Historical Climatology Network (GHCN) ([details](https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/GHCND_documentation.pdf)) |
-| access        | [here](https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/)                                                                                                                     |
+| description   | Historical daily weather data from the Global Historical Climatology Network (GHCN) ([details](https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt)) |
+| access        | [here](https://www.ncei.noaa.gov/pub/data/ghcn/daily/)                                                                                                                     |
 
 #### parameters
 

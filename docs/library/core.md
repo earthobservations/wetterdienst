@@ -5,6 +5,11 @@ render_plugin = "myst"
 no_index = true
 ```
 
+```{autodoc2-object} wetterdienst.core.station_search
+render_plugin = "myst"
+no_index = true
+```
+
 ```{autodoc2-object} wetterdienst.model.request
 render_plugin = "myst"
 no_index = true

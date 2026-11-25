@@ -10,7 +10,7 @@ import { FORECAST_UNITS, forecastValues } from '../helpers/meteogram-forecast'
 const HOUR = 3_600_000
 const t = (key: string, named?: Record<string, unknown>) => key + (named?.unit ? ` ${named.unit}` : '')
 
-function input(overrides: Partial<ModelInput> & { values?: ReturnType<typeof forecastValues>, units?: Record<string, string> } = {}): ModelInput {
+function input(overrides: Partial<Omit<ModelInput, 'units'>> & { values?: ReturnType<typeof forecastValues>, units?: Record<string, string> } = {}): ModelInput {
   const { values = forecastValues(), units = FORECAST_UNITS, ...rest } = overrides
   return {
     series: buildSeries(values as any),
@@ -44,17 +44,43 @@ describe('what the chart draws', () => {
   })
 
   it('leaves out the panel that is off and the panel whose series the forecast lacks', () => {
-    expect(model({ panels: { temp: true, wind: false, precip: true, cloud: true, pressure: false } }).panels).toEqual(['precip', 'cloud', 'temp'])
+    expect(model({ panels: { temp: true, wind: false, precip: true, snow: false, cloud: true, pressure: false } }).panels).toEqual(['precip', 'cloud', 'temp'])
     expect(model({ values: forecastValues({ without: ['pressure_air_sea_level'] }) }).panels).not.toContain('pressure')
   })
 
-  it('uses the forecast\'s own stamps: every hour of the first five days, every third after', () => {
+  // MOSMIX-L keeps each element's cadence to the last step: there is no "hourly, then 3-hourly" layout, so no hourly series is thinned
+  // after the fifth day (GH-4176)
+  it('uses the forecast\'s own stamps: every hour of the whole run, the days after the fifth as the first', () => {
     const m = model()
     const wind = m.series.find(s => s.id === 'wind')!
-    expect(wind.data).toHaveLength(121 + 40)
+    expect(wind.data).toHaveLength(241)
     const gaps = new Set(wind.data.slice(1).map((p, i) => p[0] - wind.data[i]![0]))
-    expect(gaps).toEqual(new Set([HOUR, 3 * HOUR]))
-    expect(m.stamps).toHaveLength(161)
+    expect(gaps).toEqual(new Set([HOUR]))
+    expect(m.stamps).toHaveLength(241)
+    // every hourly series is as long, and so is the held maximum, which had a point every third hour after the fifth day
+    for (const id of ['temp', 'dew', 'gust', 'cloudTotal', 'pressure'])
+      expect(m.series.find(s => s.id === id)!.data, id).toHaveLength(241)
+    const held = m.series.find(s => s.id === 'tempMax')!.data.filter(p => p[1] !== null)
+    expect(new Set(held.slice(1).map((p, i) => p[0] - held[i]![0])), 'the held maximum').toEqual(new Set([HOUR]))
+  })
+
+  it('breaks a line where the forecast has no values for more than 3 hours, and keeps the stamps and the readout as they are (GH-4100)', () => {
+    const whole = forecastValues()
+    const stamp = (value: { timestamp: string }) => new Date(value.timestamp).getTime()
+    const first = stamp(whole[0]!)
+    // the wind of the hours 20 to 25 is missing: a step of 6 hours between the hours 19 and 26
+    const values = whole.filter(value => !(value.parameter === 'wind_speed' && stamp(value) >= first + 20 * HOUR && stamp(value) <= first + 25 * HOUR))
+    const m = model({ values })
+    const wind = m.series.find(s => s.id === 'wind')!
+    expect(wind.data.filter(p => p[1] === null)).toHaveLength(1)
+    expect(wind.data.findIndex(p => p[1] === null)).toBe(20)
+    // the gust, whose hours are all there, and the days after the fifth, are not broken
+    expect(m.series.find(s => s.id === 'gust')!.data.some(p => p[1] === null)).toBe(false)
+    expect(wind.data.slice(-120).some(p => p[1] === null)).toBe(false)
+    // the readout has the same values as with the whole forecast, less those missing, and none for the hours of the gap
+    const readout = m.readout.find(s => s.id === 'wind')!
+    expect(readout.x).toHaveLength(wind.data.filter(p => p[1] !== null).length)
+    expect(readoutValue(readout, first + 22 * HOUR)).toBeNull()
   })
 
   it('cuts the forecast at the horizon', () => {
@@ -151,14 +177,18 @@ describe('the precipitation panel', () => {
     const m = model()
     const largest = Math.max(...m.series.filter(s => s.panel === 'precip').flatMap(s => s.data.map(p => p[1] ?? 0)))
     expect(m.axes.precip!.range).toEqual([0, Math.max(1, largest * 1.15)])
-    expect(model({ values: forecastValues({ without: ['precipitation_amount_significant_weather_last_1h'] }) }).panels).not.toContain('precip')
+    // no panel where the forecast has no precipitation at all: the hourly amount and the 6, 12 and 24 hour totals are all of it
+    const rain = ['1h', '6h', '12h', '24h'].map(window => `precipitation_amount_significant_weather_last_${window}`)
+    expect(model({ values: forecastValues({ without: rain }) }).panels).not.toContain('precip')
+    // the totals alone draw it, in blocks of their own hours
+    expect(model({ values: forecastValues({ without: rain.slice(0, 1).concat(rain.slice(2)) }) }).panels).toContain('precip')
   })
 })
 
 describe('the wind panel', () => {
   it('has a barb for each stamp, from the direction the wind comes from, with the force in knots of the speed', () => {
     const m = model()
-    expect(m.barbs).toHaveLength(161)
+    expect(m.barbs).toHaveLength(241)
     const first = m.barbs[0]!
     const wind = m.series.find(s => s.id === 'wind')!
     expect(first.dir).toBe(200)
@@ -196,7 +226,8 @@ describe('the wind panel', () => {
   it('has a index to thin by that is aligned to the clock of the station and a cadence of the stamps', () => {
     const m = model()
     expect(m.barbs[0]!.cadence).toBe(1)
-    expect(m.barbs.at(-2)!.cadence).toBe(3)
+    // every barb is an hour from the next, to the last day: nothing is given every third hour any more
+    expect(new Set(m.barbs.map(barb => barb.cadence))).toEqual(new Set([1]))
     // Berlin is UTC+2 in October: 00:00 UTC is 02:00, local hour 2, index 2 of the day's hourly stamps
     expect(m.barbs[0]!.index).toBe(Math.round((Date.UTC(2026, 9, 1) + 2 * HOUR) / HOUR))
   })
@@ -254,6 +285,15 @@ describe('the days', () => {
     expect(day.light).toEqual([day.start + 4 * HOUR, day.start + 20 * HOUR])
   })
 
+  it('has the barbs on the southern side south of the equator only: the equator and an unknown latitude are north', () => {
+    expect(model({ coords: { latitude: 52.5, longitude: 13.4 } }).southern).toBe(false)
+    expect(model({ coords: { latitude: -33.9, longitude: 151.2 } }).southern).toBe(true)
+    expect(model({ coords: { latitude: -0.0001, longitude: 0 } }).southern).toBe(true)
+    expect(model({ coords: { latitude: 0, longitude: 0 } }).southern).toBe(false)
+    expect(model({ coords: { latitude: null, longitude: 13.4 } }).southern).toBe(false)
+    expect(model({ coords: null }).southern).toBe(false)
+  })
+
   it('fades the band by the cloud at noon', () => {
     const clear = model({ values: forecastValues().map(v => v.parameter === 'cloud_cover_total' ? { ...v, value: 0 } : v) }).days[1]!
     const cloudy = model({ values: forecastValues().map(v => v.parameter === 'cloud_cover_total' ? { ...v, value: 100 } : v) }).days[1]!
@@ -302,6 +342,15 @@ describe('the weather of each hour', () => {
     // a clear sky where the cloud cover is under 30 %
     const clearHour = m.symbols.find(s => s.sky === 'clear' && s.precipitationMm === 0)
     expect(clearHour?.kind).toBe('clear')
+  })
+
+  it('is partly cloudy for an hour with no cloud cover, whatever the code 0 to 3 says: they are DWD\'s cloud development, not the sky (GH-4190)', () => {
+    const noCloud = ['cloud_cover_total', 'cloud_cover_below_2km', 'cloud_cover_between_2km_and_7km', 'cloud_cover_above_7km']
+    const withCodes = forecastValues({ without: noCloud }).map(v => v.parameter === 'weather_significant' && v.value !== 95 && v.value !== 61 ? { ...v, value: Number(v.timestamp.slice(11, 13)) % 4 } : v)
+    const m = model({ values: withCodes })
+    const dry = m.symbols.filter(s => s.precipitationMm === 0 && s.kind !== 'thunderstorm')
+    expect(dry.length).toBeGreaterThan(100)
+    expect(new Set(dry.map(s => s.kind))).toEqual(new Set(['partlyCloudy']))
   })
 
   it('is snow, not rain, for the rain of a cold hour, by the wet bulb', () => {

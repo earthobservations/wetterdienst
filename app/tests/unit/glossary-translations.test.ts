@@ -161,11 +161,12 @@ describe.each(records)('%s', (record) => {
   }
 
   it('writes down only the labels that really are the same', () => {
-    for (const [id, { locales: named }] of Object.entries(identical[record])) {
-      expect(ids, `${id} is on the allow list of ${record} but is not served`).toContain(id)
-      for (const locale of named ?? others)
-        expect(glossaries[locale]![record][id], `${locale} ${id} is translated: take it off the allow list`).toBe(glossaries.en![record][id])
-    }
+    // collected, so that a record with nothing on its allow list (the resolutions) passes by asserting that nothing is wrong
+    const entries = Object.entries(identical[record])
+    expect(entries.map(([id]) => id).filter(id => !ids.includes(id)), `ids on the allow list of ${record} that are not served`).toEqual([])
+    const translated = entries.flatMap(([id, { locales: named }]) =>
+      (named ?? others).filter(locale => glossaries[locale]![record][id] !== glossaries.en![record][id]).map(locale => `${locale} ${id}`))
+    expect(translated, `${record} on the allow list that are translated: take them off it`).toEqual([])
   })
 })
 

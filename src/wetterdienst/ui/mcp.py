@@ -13,11 +13,15 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 - a ``title`` and the annotations (read-only, not destructive, idempotent, open world or not) on every
   tool, which the Claude connectors directory requires and clients use to skip a confirmation (GH-3482),
 - the refusal of an argument a tool does not take, which FastMCP would drop,
+- input schemas without the options that make sense on the REST API only: the size and scale of a chart image,
+  `pretty` and the chart formats (html, png, jpg, webp, svg, pdf), which a model reading JSON cannot use and which
+  cost every session part of its tool list (GH-4318),
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
-- an answer in a format that is not JSON (csv, ndjson, html, svg, and the png, jpg and pdf of a chart) as
-  content of the tool result: FastMCP answers a text body without structured content, which the output schema of
-  the tool refuses, and fails on a binary one (GH-3464),
+- an answer in a format that is not JSON (csv, ndjson) as content of the tool result: FastMCP answers a text body
+  without structured content, which the output schema of the tool refuses (GH-3464). No tool offers a chart (GH-4318)
+  and a call cannot ask a route for one (GH-4453), so no answer is an image, a pdf or markup: a 2xx of any other
+  media type is an error of the tool, never content (GH-4450),
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
   not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
 - exclusion of the non-data endpoints (index, robots, health, ready, version, settings) so the tool
@@ -30,8 +34,12 @@ become the parameter descriptions, so those live with the endpoints in ``restapi
 
 from __future__ import annotations
 
-import base64
+import copy
 import json
+import re
+import secrets
+from collections import deque
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
@@ -68,10 +76,10 @@ def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
     The REST app's fastapi telemetry gives these no server span, no `http.server.*` metrics and no
     exception log of their own (GH-2432): their spans would start a trace of their own, cut off from
     the tool call's, and the metrics would count each tool call twice. A tool called over `/mcp/v1`
-    (or its alias `/mcp`) runs in that request's context, so fastapi records the tool request's operation spans, its
-    telemetry data and a validation failure of its parameters as the MCP request's, the spans
-    beneath the tool call's span. The middleware of `opentelemetry-instrumentation-fastapi`, where
-    it runs, does not read fastapi's `exclude` and still records them.
+    (or its alias `/mcp`) runs in that request's context, and fastapi isolates the telemetry of an excluded
+    request, so it records none of the tool request's operation spans, telemetry data or validation failure. The
+    middleware of `opentelemetry-instrumentation-fastapi`, where it runs, does not read fastapi's `exclude` and still
+    records them.
 
     A scope key, not the Host header or `server`, tells them apart, because a client sets its own
     Host header, some ASGI servers build `server` from it, and no client can set a scope key.
@@ -86,7 +94,9 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
         from wetterdienst.io.export import HTML_INLINE  # noqa: PLC0415
 
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
-        # a chart as html carries Vega from the CDN, not inline: 1 MB less for an assistant to read (GH-3464)
+        # a chart as html carries Vega from the CDN, not inline: 1 MB less for an assistant to read (GH-3464).
+        # A call cannot ask for html (`_refuse_unknown_arguments`, GH-4318, GH-4453) and the transport answers an error
+        # for it (`_carry_bodies_as_json`); the CDN is what a chart that reached the route would cost, the last line
         token = HTML_INLINE.set(False)
         try:
             await app(scope, receive, send)
@@ -94,6 +104,151 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
             HTML_INLINE.reset(token)
 
     return marked
+
+
+#: the header that names a session in the streamable-HTTP transport (the specification's `MCP-Session-Id`)
+SESSION_ID_HEADER = "mcp-session-id"
+
+#: how much of a request body `AnnounceSessionId` reads to see the method: an `initialize` is under 1 KB, so a body
+#: past this is no `initialize` for it, and is passed on untouched, with its size left to the SDK's own limit (4 MiB,
+#: `RequestBodyLimitMiddleware`), which the wrapper must not defeat by reading a body of any size first
+_INSPECTED_BODY_BYTES = 64 * 1024
+
+#: how many messages of a body that bring no bytes (`more_body` and nothing else) `AnnounceSessionId` waits for before
+#: it gives up looking: they count toward no cap, and a server may send them without end
+_MAX_EMPTY_MESSAGES = 64
+
+
+def _is_initialize(body: bytes) -> bool:
+    """Tell whether a request body is a JSON-RPC `initialize` request: a message with an `id`, or a batch of one.
+
+    A notification named `initialize` (no `id`) is no request, and gets no session.
+    """
+    # cheap first: most bodies are a `tools/call`, which is not parsed here
+    if b"initialize" not in body:
+        return False
+    from pydantic_core import from_json  # noqa: PLC0415
+
+    try:
+        # the SDK's own parser, whose depth is limited: `json.loads` raises a `RecursionError` on a deeply nested body,
+        # which would be a 500 where the SDK answers 400
+        message = from_json(body)
+    except ValueError:
+        return False
+    messages = message if isinstance(message, list) else [message]
+    return any(isinstance(item, dict) and item.get("method") == "initialize" and "id" in item for item in messages)
+
+
+def _declared_length(scope: Scope) -> int | None:
+    """Give the `Content-Length` a request declares, or None where it declares none (a chunked body) or no number."""
+    for name, value in scope["headers"]:
+        if name.lower() == b"content-length":
+            try:
+                # a number of thousands of digits is refused by `int` itself
+                return int(value) if value.isdigit() else None
+            except ValueError:
+                return None
+    return None
+
+
+async def _read_start_of_body(receive: Receive) -> tuple[deque[MutableMapping[str, Any]], bytes | None]:
+    """Read the start of a body, and give the messages to replay with the body they hold.
+
+    Reads up to `_INSPECTED_BODY_BYTES`, into one buffer, and waits for at most `_MAX_EMPTY_MESSAGES` messages that
+    bring nothing, so that neither a body of many small messages nor a stream of empty ones is held or waited for
+    without end. The body is None where the start is not all there is within those bounds: the messages then end
+    with what was read, and the rest is still to come from `receive`. The messages are the body read as one message
+    (the chunks of a body are no part of what an application may rely on), the message that went past the cap as it
+    came, and a message that is no part of the body (a disconnect) after it.
+    """
+    buffer = bytearray()
+    more_body = False
+    seen_request = False
+    empty = 0
+    messages: deque[MutableMapping[str, Any]] = deque()
+    while True:
+        message = await receive()
+        if message["type"] != "http.request":
+            if seen_request:
+                messages.append({"type": "http.request", "body": bytes(buffer), "more_body": more_body})
+            messages.append(message)
+            return messages, bytes(buffer)
+        seen_request = True
+        chunk = message.get("body", b"")
+        if len(buffer) + len(chunk) > _INSPECTED_BODY_BYTES:
+            messages.append({"type": "http.request", "body": bytes(buffer), "more_body": True})
+            messages.append(message)
+            return messages, None
+        buffer.extend(chunk)
+        more_body = bool(message.get("more_body", False))
+        if not more_body:
+            messages.append({"type": "http.request", "body": bytes(buffer), "more_body": False})
+            return messages, bytes(buffer)
+        if not chunk:
+            empty += 1
+            if empty > _MAX_EMPTY_MESSAGES:
+                messages.append({"type": "http.request", "body": bytes(buffer), "more_body": True})
+                return messages, None
+
+
+class AnnounceSessionId:
+    """Answer an `initialize` request with an `Mcp-Session-Id`, and keep nothing (GH-4341).
+
+    The endpoint is stateless (GH-3088): the transport of the SDK makes a new one for each request, without an id, so
+    no hook sends one. A client that expects the id of a server it talks to over the streamable-HTTP transport
+    (`initialize` is where the specification has a session start) gets a fresh random one here, on an HTTP 2xx answer
+    to a JSON-RPC request named `initialize`, and on no other response. That is the status of the answer, not the
+    outcome of the call: in SSE mode the SDK answers 200 and then sends an error in the stream for invalid params. The
+    server neither stores nor checks the id (it is no credential): a later request is served alike with this id, with
+    another, or with none, and no id is unknown (no 404).
+
+    The start of the body is read to see the method, up to `_INSPECTED_BODY_BYTES`, and replayed to the endpoint, so
+    that the endpoint reads what the client sent and its own limit on the size of a body holds. A request that is no
+    `POST`, one that declares a larger body, and one whose body is no `initialize` pass as they are.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Wrap `app`, the endpoint of the transport."""
+        # `Any`: the endpoint is the `StreamableHTTPASGIApp` of FastMCP, whose `session_manager` is read through this
+        self.app: Any = app
+
+    @property
+    def session_manager(self) -> Any:  # noqa: ANN401
+        """The session manager of the wrapped endpoint, which the app's lifespan starts and a test reads."""
+        return self.app.session_manager
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Serve a request, adding the id to the start of the response to a successful `initialize`."""
+        if scope["type"] != "http" or scope["method"] != "POST":
+            await self.app(scope, receive, send)
+            return
+        declared = _declared_length(scope)
+        if declared is not None and declared > _INSPECTED_BODY_BYTES:
+            await self.app(scope, receive, send)
+            return
+        messages, body = await _read_start_of_body(receive)
+
+        # the messages read first, as they came, then the real `receive`: the SDK's limit sees the rest of a body that
+        # went past the cap as it comes
+        async def replay() -> MutableMapping[str, Any]:
+            return messages.popleft() if messages else await receive()
+
+        if body is None or not _is_initialize(body):
+            await self.app(scope, replay, send)
+            return
+
+        async def announce(message: MutableMapping[str, Any]) -> None:
+            if message["type"] == "http.response.start" and 200 <= message["status"] < 300:
+                headers = [
+                    (name, value)
+                    for name, value in message.get("headers", [])
+                    if name.lower() != SESSION_ID_HEADER.encode()
+                ]
+                headers.append((SESSION_ID_HEADER.encode(), secrets.token_urlsafe(16).encode()))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, replay, announce)
 
 
 INSTRUCTIONS = """\
@@ -117,7 +272,7 @@ cannot serve a place; look at its `kind`, its `extent` and at what `stations` re
 
 ## Choosing a tool
 For "what was/is the weather at <place>" ALWAYS use `stations` then `values` -- that is the only \
-path to measured weather, and the correct default. This holds even when the request names a \
+path to measured weather. This holds even when the request names a \
 specific past date (e.g. "how was the weather in Kiel on 26.12.2025"): find Kiel's nearest station \
 with `stations`, then read its `values` for that date. Do NOT reach for `interpolate` or \
 `summarize` here.
@@ -127,8 +282,14 @@ and nearest-station-with-data respectively); both introduce inaccuracy and are o
 ONLY when the user explicitly asks for an interpolated / between-stations estimate, or when \
 `stations` -> `values` genuinely returns no station with data near the location. They are not a \
 plain-language "summary". `history` is different again: it returns a station's *metadata* history \
-(name/location/sensor changes), not weather. For `alerts` (DWD warnings), pass the place \
-(a point is the reliable way).
+not weather. For `alerts` (DWD warnings), pass the place \
+(give a point). For design rainfall at a point in Germany (rain depth by duration \
+and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`.
+
+For counts, sums or means per year, month or day (frost days, the coldest winter) use `statistics`; \
+for a record or the hottest days, `values` with `sort` and `first`. `statistics` has no runs (dry spells), \
+moving windows (the wettest 3-day total), percentiles or medians: say so, do not estimate, unless a short \
+window fits in one `values` answer.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -144,11 +305,11 @@ them or none are configured, and null when that could not be told (treat it as u
 rejected). `providers` does not check them and has no `valid`: it says whether they are `configured`.
 
 ## Conventions
-- provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
+- provider/network: use "dwd"/"observation" for German ground observations. Call \
 `providers` to list every provider and its networks.
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \
-measurement. Prefer the single-measurement form to keep responses small. Parameter names are \
+measurement. Parameter names are \
 snake_case; `coverage(provider="dwd", network="observation", datasets="climate_summary")` lists them. \
 Its answer is keyed by resolution, then `datasets`, then each dataset's `parameters`, and every one \
 of those three levels carries a `description` saying what the source means by it. `unit` is what `values` \
@@ -156,14 +317,13 @@ return; `unit_source` only if it differs. Each parameter has `aggregation` \
 (its `instant` is a single reading) and `timestamp_position`; `null` means not stated, not a reading.
 - elevation: for `interpolate` and `summarize` only, the elevation of the point in metres above sea \
 level. Air temperature falls about 0.65 K per 100 m, so a point in a valley and one on the ridge \
-above it get different answers from the same stations; without it the readings are used as they \
-come. Naming a station instead of coordinates answers at that station's own altitude.
+above it differ; without it the readings are used as they come.
 - periods: leave it out unless the provider splits its record into releases. dwd/observation does \
 -- "recent" is roughly the last 1.5 years, "historical" reaches further back -- as do dwd/derived and \
-dwd/phenology. Most other providers publish everything under a single period, and asking for one \
-their datasets do not have is an error, not a narrower answer.
+dwd/phenology. Most other providers have a single period; asking for one their datasets lack is an \
+error.
 - lists: an argument that takes several (`parameters`, `stations`, `periods`) is plural and takes them \
-comma-separated, e.g. stations="01975,04411". `interpolate` and `summarize` take one reference `station`.
+comma-separated. `interpolate` and `summarize` take one reference `station`.
 - Handy DWD datasets: daily/kl (= climate_summary: temperature, precipitation, wind, sunshine), \
 hourly/air_temperature, hourly/precipitation.
 
@@ -171,25 +331,25 @@ hourly/air_temperature, hourly/precipitation.
 - By default (shape="long" unless the server is configured otherwise, format="json") `values` \
 returns JSON with a `values` array of \
 {station_id, resolution, dataset, parameter, timestamp, value, quality_flags}, grouped by station, then by \
-resolution, dataset and parameter, in timestamp order within each group. `quality_flags` is null or the \
+resolution, dataset and parameter, in time order within each group (not when `filter`, `sort` or `first` \
+choose the rows). `quality_flags` is null or the \
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
-- Responses are compact (just the `values`). Always give `values` a `timestamp` window and a \
+- Always give `values` a `timestamp` window and a \
 single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters, with an `answer-truncated` \
 warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
 hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \
 (timestamp="2026-07-25T12") for one reading. A station's latest day is its `end_timestamp` from `stations` \
-where it has one; null means the provider gives no end, not that data reaches today. For a long series, \
+where it has one; null means no end given, not data up to today. For a long series, \
 format="csv" with shape="wide" is 5-6x smaller.
 - An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
-matches, or ids in the `stations` argument the network has no station for (they are left out of the list and the \
-rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or look for another \
+matches, or ids in the `stations` argument the network has no station for (left out of the list; the \
+rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or try another \
 station. `stations` takes the same `timestamp` as `values` and lists only the stations that have a record \
-in it, so the nearest ones are not stations that closed long ago. A `name` gives `stations` its best five \
+in it, so the nearest are not long-closed stations. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
-- The default JSON is already machine-readable — do NOT re-request the same data in a different \
-format or with unrelated flags; that just wastes calls.
+- Do NOT re-request the same data in another format.
 
 ## Example — recent mean air temperature at Hamburg-Fuhlsbüttel
   stations(provider="dwd", network="observation", parameters="daily/kl", name="Hamburg Fuhlsbüttel")
@@ -207,7 +367,93 @@ _EXCLUDE_PATTERNS = (
     r"^/ready$",
     r"^/api(/v1)?/version$",
     r"^/api(/v1)?/settings$",
+    # map images for a page to draw: nothing an assistant can read, and a frame of them is no answer to a question
+    r"^/api(/v1)?/radar/",
 )
+
+#: the query parameters of the REST routes that no tool takes (GH-4318): the size and scale of a chart image, which a
+#: model that reads JSON has no use for, and `pretty`, which is whitespace. A call that sends one is let go only
+#: where it means nothing (`pretty` at any value, the others as `null`, the default they had) and only by a tool whose
+#: route took it (`_Route.rest_only`); a `width`, `height` or `scale` with a value is refused, since it may mean
+#: something else to the model (`height` for `elevation`), and a chart format is refused too (`_CHART_FORMATS`). The
+#: set is only a list of names to look for: what a tool drops is what its route has of them, and
+#: `tests/ui/test_mcp_slim_schemas.py` holds the routes that have them, and what they mean, to a table.
+_REST_ONLY_ARGUMENTS = frozenset({"pretty", "width", "height", "scale"})
+
+#: what the three size options of a chart image are, to say what a refused one was
+_IMAGE_OPTIONS = {
+    "width": "the width in pixels",
+    "height": "the height in pixels",
+    "scale": "the scale factor",
+}
+
+#: the formats of a rendered chart, which only the REST API answers (GH-4318): a tool answers data
+_CHART_FORMATS = ("html", "png", "jpg", "svg", "pdf")
+
+#: the tools whose route draws a chart, which the REST API still does (`tests/ui/test_mcp_slim_schemas.py` holds it to
+#: the routes that offer a chart format)
+_CHART_TOOLS = frozenset({"stations", "values", "interpolate", "summarize"})
+
+#: the clause of a `format` description that offers a chart, which the tool no longer does
+_CHART_CLAUSE = re.compile(r" or a rendered chart \([^)]*\)")
+
+
+@dataclass(frozen=True)
+class _Route:
+    """The REST route a tool is made from: its path and the options of `_REST_ONLY_ARGUMENTS` it took (GH-4318)."""
+
+    path: str
+    rest_only: frozenset[str]
+
+
+def _routes_of_tools(spec: dict[str, Any]) -> dict[str, _Route]:
+    """Give the route of each tool, from the OpenAPI document of the REST API as it is, before the tools are slimmed.
+
+    What a tool lets go (`pretty`, a `width` that is `null`) is what its own route took, so that `glossary`, which
+    never took `pretty`, still refuses it, as it did.
+    """
+    routes = {}
+    for path, item in spec.get("paths", {}).items():
+        for operation in item.values():
+            if not isinstance(operation, dict) or (name := _TOOL_NAMES.get(operation.get("operationId"))) is None:
+                continue
+            taken = {
+                parameter["name"]
+                for parameter in operation.get("parameters", [])
+                if parameter.get("in") == "query" and parameter.get("name") in _REST_ONLY_ARGUMENTS
+            }
+            routes[name] = _Route(path, frozenset(taken))
+    return routes
+
+
+def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
+    """Copy the OpenAPI document of the REST API without the query parameters no tool takes (GH-4318).
+
+    The tools are generated from the routes' parameters, and FastMCP sends a route only the ones it has, so a
+    parameter left out here is neither in the input schema of the tool nor sent. `format` keeps its data formats, and
+    its description loses the offer of a chart. The REST app's own document is not touched: this is a copy.
+    """
+    slim = copy.deepcopy(spec)
+    for item in slim.get("paths", {}).values():
+        for operation in item.values():
+            # the `parameters` that a path item may carry is a list: only the operations are dicts
+            if not isinstance(operation, dict) or "parameters" not in operation:
+                continue
+            kept = []
+            for parameter in operation["parameters"]:
+                if parameter.get("in") == "query" and parameter.get("name") in _REST_ONLY_ARGUMENTS:
+                    continue
+                if parameter.get("in") == "query" and parameter.get("name") == "format":
+                    schema = parameter.get("schema", {})
+                    if "enum" in schema:
+                        schema["enum"] = [fmt for fmt in schema["enum"] if fmt not in _CHART_FORMATS]
+                    for holder in (schema, parameter):
+                        if "description" in holder:
+                            holder["description"] = _CHART_CLAUSE.sub("", holder["description"])
+                kept.append(parameter)
+            operation["parameters"] = kept
+    return slim
+
 
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).
 _TOOL_NAMES = {
@@ -222,9 +468,10 @@ _TOOL_NAMES = {
     "history_api_history_get": "history",
     "issues_api_issues_get": "issues",
     "alerts_api_alerts_get": "alerts",
-    "stripes_stations_api_stripes_stations_get": "stripes_stations",
-    "stripes_values_api_stripes_values_get": "stripes_values",
-    "stripes_image_api_stripes_image_get": "stripes_image",
+    "storm_cells_api_storm_cells_get": "storm_cells",
+    "kostra_api_kostra_get": "kostra",
+    "station_ids_api_station_ids_get": "station_ids",
+    "statistics_api_statistics_get": "statistics",
 }
 
 # The title of every tool, and whether it reaches a service outside wetterdienst (the ``openWorldHint``).
@@ -247,9 +494,10 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "history": ("Get a station's metadata history", True),
     "issues": ("List forecast issues", True),
     "alerts": ("Get weather alerts", True),
-    "stripes_stations": ("Find climate stripes stations", True),
-    "stripes_values": ("Get climate stripes values", True),
-    "stripes_image": ("Render climate stripes", True),
+    "storm_cells": ("Get thunderstorm cells", True),
+    "kostra": ("Get return periods of heavy rain for a point", True),
+    "station_ids": ("Find a station by WMO, WIGOS or ICAO id", True),
+    "statistics": ("Count, average or add up values per year, month, day or hour", True),
 }
 
 
@@ -257,7 +505,23 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
 # `ui.budget.ANSWER_BUDGET` characters.
 _VALUES_WINDOW_ADVICE = (
     "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv with "
-    "shape=wide."
+    "shape=wide (not with `value` in `filter` or `sort`)."
+)
+
+# The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same
+# budget, and a name that matches no area is told apart (GH-4338).
+_ALERTS_ADVICE = (
+    "An answer over 40,000 characters leaves the polygon and areas out of each warning (`answer-truncated`). A `name` "
+    "that matches no area is told by `no-area-matched`: that is no all-clear."
+)
+
+
+# The sentence that ends the description of the `statistics` tool, which only the tool has: its answer is cut to the
+# same budget, keeping the first groups (GH-4412).
+_STATISTICS_ADVICE = (
+    "It cannot find runs (the longest dry spell), moving windows (the wettest 3-day total), percentiles or medians: "
+    "say so, do not estimate them, unless the values of a short window fit in one `values` answer. An answer over "
+    "40,000 characters keeps the first groups (`answer-truncated`)."
 )
 
 
@@ -285,6 +549,10 @@ def _annotate_tool(
     if component.name == "values":
         # the tool's own advice, so that the REST document, which these descriptions come from, is not changed (GH-4022)
         component.description = f"{(component.description or '').rstrip()}\n\n{_VALUES_WINDOW_ADVICE}"
+    elif component.name == "alerts":
+        component.description = f"{(component.description or '').rstrip()}\n\n{_ALERTS_ADVICE}"
+    elif component.name == "statistics":
+        component.description = f"{(component.description or '').rstrip()}\n\n{_STATISTICS_ADVICE}"
     # keyword arguments, which the type checker holds to the fields; they go out on the wire as
     # `readOnlyHint` and so on
     component.annotations = ToolAnnotations(
@@ -296,7 +564,61 @@ def _annotate_tool(
     )
 
 
-def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
+def _refused_formats(tool: str, arguments: dict[str, Any], taken: dict[str, Any], path: str) -> list[str]:
+    """Name each `format` of a call that the tool does not offer (GH-4318).
+
+    A value that is no format of the tool is refused here, whatever its route would say: REST's 422 lists the formats
+    of the route, charts among them, which are wrong for a tool. A chart format (compared without case and
+    whitespace, as the route does not, which makes `PNG` one too) also says where charts are drawn, where the route of
+    the tool draws one. A list is checked by each of its elements, as the route reads each one.
+    """
+    from wetterdienst.ui.core import join_names  # noqa: PLC0415
+
+    offered = taken.get("format", {}).get("enum", [])
+    given = arguments.get("format")
+    if not offered or given is None:
+        return []
+    refused = []
+    for value in given if isinstance(given, list) else [given]:
+        if value is None or value in offered:
+            continue
+        text = f"format={value} is not offered by the tool {tool}, which answers {join_names(offered, last='or')}."
+        chart = value.strip().lower() if isinstance(value, str) else None
+        if chart in _CHART_FORMATS and tool in _CHART_TOOLS:
+            text += f" Charts are drawn by the REST API: {path} takes format={chart}."
+        refused.append(text)
+    return refused
+
+
+def _refused_image_options(tool: str, arguments: dict[str, Any], taken: dict[str, Any], route: _Route) -> list[str]:
+    """Name each size option of a chart image that a call gives a value (GH-4318).
+
+    They are let go as `null` (the default they had), since that means nothing. With a value they are refused: the
+    tool draws no image, and `height` is what a model may have meant for `elevation`, which the tool names where it
+    takes it.
+    """
+    refused = []
+    for name in sorted(route.rest_only & _IMAGE_OPTIONS.keys()):
+        if arguments.get(name) is None:
+            continue
+        text = (
+            f"{name} is not an argument of {tool}: it was {_IMAGE_OPTIONS[name]} of a chart image, "
+            f"and the tool answers data only. Charts are drawn by the REST API: {route.path} takes {name}."
+        )
+        if name == "height" and "elevation" in taken:
+            text += " The height of the point above sea level is the argument elevation."
+        refused.append(text)
+    return refused
+
+
+def _holds_object(value: Any) -> bool:  # noqa: ANN401
+    """Tell whether a value of an argument is an object, or a list that holds one at any depth."""
+    if isinstance(value, dict):
+        return True
+    return isinstance(value, list | tuple) and any(_holds_object(item) for item in value)
+
+
+def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Route]) -> Middleware:
     """Build the middleware that refuses a tool argument the tool does not take.
 
     A tool's arguments are its REST endpoint's query parameters, and FastMCP sends the endpoint
@@ -307,16 +629,28 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
 
     The input schemas are left without `additionalProperties: false`: a client checking a call
     against that would refuse a renamed argument itself, without the name it was renamed to.
+
+    The exception is of GH-4318, which took the options that only the REST API needs out of the schemas. `pretty`,
+    `width`, `height` and `scale` are no longer arguments of a tool, and a tool whose route took them lets a call go
+    that sends them at a value that means nothing: `pretty` at any value, the others as `null` (a client that fills in
+    every option with its default does). A `width`, `height` or `scale` with a value is refused, since a model may
+    mean something else by it (`height` for `elevation`), and so is a `format` the tool does not offer (a chart,
+    `html`, `png`, ..., with where the charts are, instead of the REST answer the call would otherwise get).
+
+    So is an object (or a list that holds one) for an argument that is no object (GH-4453): FastMCP sends it as one
+    query parameter for each key, so `shape={"format": "png"}` asked the route for `format=png`, past the refusal of
+    the format, and any key was a parameter the tool does not declare. Every refusal of a call is in one error.
     """
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
 
     from wetterdienst.ui.core import (  # noqa: PLC0415
-        REMOVED_REQUEST_PARAMETERS,
         RENAMED_REQUEST_PARAMETERS,
+        hinted_parameter_message,
         join_names,
         old_names_of_route,
         removed_parameter_message,
+        removed_parameter_names,
     )
 
     class RefuseUnknownArguments(Middleware):
@@ -330,14 +664,29 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
             tool = await provider.get_tool(context.message.name) if arguments else None
             if tool is not None:
                 taken = tool.parameters.get("properties", {})
-                unknown = [name for name in arguments if name not in taken]
+                route = routes.get(tool.name, _Route(f"/api/v1/{tool.name.replace('_', '-')}", frozenset()))
+                refused = _refused_formats(tool.name, arguments, taken, route.path)
+                # the options of GH-4318 are let go as given where the tool's route took them and they mean nothing
+                refused += _refused_image_options(tool.name, arguments, taken, route)
+                # `format` has its refusal; an argument that is an object is sent as its JSON (`_send_objects_as_json`)
+                objects = _object_arguments(tool.parameters)
+                refused += [
+                    f"{name} is not an object argument of {tool.name}: give it a value, not an object, "
+                    "as an object is read as arguments of its own"
+                    for name, value in arguments.items()
+                    if name in taken and name != "format" and name not in objects and _holds_object(value)
+                ]
+                unknown = [name for name in arguments if name not in taken and name not in route.rest_only]
                 # a name the tool's route never had is no old name of one it has (`stations` never took `date`)
                 had = old_names_of_route(tool.name)
                 renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken and name in had]
-                refused = [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
-                removed = [name for name in unknown if name in REMOVED_REQUEST_PARAMETERS]
-                refused += [removed_parameter_message(name) for name in removed]
-                if others := [name for name in unknown if name not in renamed and name not in removed]:
+                refused += [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
+                # a removed name is told only by a tool whose route took it (`glossary` never took `sql`)
+                removed = [name for name in unknown if name in removed_parameter_names(tool.name)]
+                refused += [removed_parameter_message(name, tool.name) for name in removed]
+                hinted = [name for name in unknown if hinted_parameter_message(name, tool.name)]
+                refused += [hinted_parameter_message(name, tool.name) or "" for name in hinted]
+                if others := [name for name in unknown if name not in renamed and name not in removed + hinted]:
                     verb = "is not an argument" if len(others) == 1 else "are not arguments"
                     refused.append(
                         f"{join_names(others)} {verb} of {tool.name}, which takes {join_names(sorted(taken))}"
@@ -445,20 +794,22 @@ _REPORTING_HEADERS = (
     "x-wetterdienst-warnings",
     "x-wetterdienst-truncated",
     "x-wetterdienst-forecast-from-now",
+    "x-wetterdienst-values-searched",
+    "x-wetterdienst-values-expected",
+    "x-wetterdienst-rows-matched",
 )
-# The media types that are text though they are not `text/*`.
-_TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
-# The media types of data, whose body is repeated in the structured content (GH-4017). A chart (html, svg) is markup
-# of 100 KB and more that a model cannot read as data, so it is not.
-_REPEATED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
+
+
+# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
+_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
+
+
+# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
+_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
 
 
 def _is_json(media_type: str) -> bool:
     return media_type == "application/json" or media_type.endswith("+json")
-
-
-def _is_text(media_type: str) -> bool:
-    return media_type.startswith("text/") or media_type in _TEXT_MEDIA_TYPES
 
 
 def _decode(body: bytes, charset: str | None) -> str:
@@ -474,9 +825,18 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
 
     FastMCP's tool for a route reads the answer as JSON. A text body it passes on as text content without structured
     content, which the output schema of the tool refuses ("has an output schema but did not return structured
-    content"), and a binary body it fails to decode. So the body is put in a JSON object,
-    `{_BODY_KEY: {"media_type", "encoding", "body"}}`, which `_return_bodies_as_content` takes apart again into the
-    content blocks of the result (GH-3464). A failure (not a 2xx) is left as it is.
+    content"). So the body is put in a JSON object, `{_BODY_KEY: {"media_type", "size", "headers", "body"}}`, which
+    `_return_bodies_as_content` takes apart again into the content block of the result (GH-3464). A failure (not a
+    2xx) is left as it is.
+
+    What it carries is text: csv and ndjson, the data formats of a tool that are not JSON. A 2xx of any other media
+    type is no answer of a tool (a chart, or what a route answered to an argument it should not have been given): it is
+    an error, a 502 that names the media type, and its body is not decoded, not copied and not passed on (GH-4453; the
+    in-process transport holds it whole, nothing here uses it). That is the last line, not the first: a chart format
+    and an object for an argument that takes none are refused before the route is called
+    (`_refuse_unknown_arguments`, GH-4318, GH-4453), and `tests/ui/test_mcp_formats.py` holds what a tool offers (every
+    `format` an enum of the data formats, and no route of the OpenAPI document that a tool is made from declaring
+    another media type for a 2xx, which says nothing of what a route answers without declaring it).
     """
     import httpx2  # noqa: PLC0415
 
@@ -486,9 +846,22 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
             media_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
             if not 200 <= response.status_code < 300 or not media_type or _is_json(media_type):
                 return response
+            if media_type not in _CARRIED_MEDIA_TYPES:
+                # the body is not decoded, not copied and not passed on: no tool answers it (a chart, or what an
+                # argument made the route answer)
+                await response.aclose()
+                text = (
+                    f"The REST API answered {media_type}, which a tool does not carry: "
+                    "a tool answers json, geojson, csv or ndjson."
+                )
+                return httpx2.Response(
+                    502,
+                    headers={"content-type": "application/json"},
+                    content=json.dumps(text).encode("utf-8"),
+                    request=request,
+                )
             body = await response.aread()
             await response.aclose()
-            text = _is_text(media_type)
             envelope = {
                 _BODY_KEY: {
                     "media_type": media_type,
@@ -496,10 +869,7 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
                     "headers": {
                         name: response.headers[name] for name in _REPORTING_HEADERS if name in response.headers
                     },
-                    "encoding": "text" if text else "base64",
-                    "body": _decode(body, response.charset_encoding)
-                    if text
-                    else base64.b64encode(body).decode("ascii"),
+                    "body": _decode(body, response.charset_encoding),
                 }
             }
             return httpx2.Response(
@@ -515,7 +885,7 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
     return CarryBodiesAsJson()
 
 
-def _report_of(headers: dict[str, str]) -> dict[str, Any]:
+def _report_of(headers: dict[str, str]) -> dict[str, Any]:  # noqa: C901
     """Read the licence, credit line, processing note and warnings off the headers of an answer, as text."""
     report: dict[str, Any] = {}
     if license_ := headers.get("x-wetterdienst-license"):
@@ -532,21 +902,25 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:
         report["truncated"] = unquote(truncated)
     if started := headers.get("x-wetterdienst-forecast-from-now"):
         report["forecast_from_now"] = unquote(started)
+    # what the row options searched, which a CSV has no block to carry (`metadata.search` of the JSON answers)
+    if searched := headers.get("x-wetterdienst-values-searched"):
+        report["values_searched"] = searched
+        if expected := headers.get("x-wetterdienst-values-expected"):
+            report["values_expected"] = expected
+        if matched := headers.get("x-wetterdienst-rows-matched"):
+            report["rows_matched"] = matched
     return report
 
 
-def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], *, repeated: bool = False) -> str:
+def _sentence_of(media_type: str, size: int, report: dict[str, Any]) -> str:
     """Tell what the answer is and whose, in the sentence that stands as the structured content of the result.
 
-    With `repeated` the body follows the sentence in the structured content, which the sentence says, so that a reader
-    of the structured content alone does not look for a content block it cannot see.
+    The body follows the sentence in the structured content, which the sentence says, so that a reader of the
+    structured content alone does not look for a content block it cannot see.
     """
-    if repeated:
-        sentence = (
-            f"The answer is {media_type} ({size:,} bytes) and follows below (it is also the {kind} of this result)."
-        )
-    else:
-        sentence = f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."
+    sentence = (
+        f"The answer is {media_type} ({size:,} bytes) and follows below (it is also the text content of this result)."
+    )
     if "license" in report:
         url = f" ({report['license_url']})" if "license_url" in report else ""
         sentence += f" Licence: {report['license']}{url}."
@@ -560,6 +934,12 @@ def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], 
         sentence += f" Truncated: {report['truncated']}"
     if "forecast_from_now" in report:
         sentence += f" Forecast: {report['forecast_from_now']}"
+    if "values_searched" in report:
+        of = f" of {report['values_expected']} expected" if "values_expected" in report else ""
+        sentence += (
+            f" Searched: {report['values_searched']} values{of}; {report.get('rows_matched', '?')} rows matched "
+            "the options."
+        )
     return sentence
 
 
@@ -570,13 +950,10 @@ def structured_size(media_type: str, body: str, headers: dict[str, str]) -> int:
     sentence of the answer (`_sentence_of`, which `_return_bodies_as_content` builds from the same `headers` the REST
     app sent), a blank line and the body. It reaches the client as JSON, where every newline and quote of the text is
     an escape of two characters, so that is what is counted: compact, with each character that is not ASCII as it is,
-    as the client reads it. It is what `ui.budget` holds to its budget (GH-4022, GH-4029). Any other media type is not
-    repeated in the structured content, and counts as its body.
+    as the client reads it. It is what `ui.budget` holds to its budget (GH-4022, GH-4029).
     """
-    if media_type not in _REPEATED_MEDIA_TYPES:
-        return len(body)
     size = len(body.encode("utf-8"))
-    sentence = _sentence_of(media_type, size, "text content", _report_of(headers), repeated=True)
+    sentence = _sentence_of(media_type, size, _report_of(headers))
     return len(json.dumps({"result": f"{sentence}\n\n{body}"}, separators=(",", ":"), ensure_ascii=False))
 
 
@@ -595,19 +972,17 @@ def _envelope_of(result: ToolResult) -> dict[str, Any] | None:
 def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
     """Build the middleware that makes the body of an answer that is not JSON the content of the tool result.
 
-    A text body (csv, ndjson, html, svg) is a text content block, as the REST API answers it; an image (png, jpg)
-    an image content block and any other binary body (pdf) an embedded resource. The structured content, which
-    the output schema of a tool requires, is a sentence about the answer, with its licence, attribution,
-    processing note and warnings, which the REST API sends in headers for these formats: the schema of every tool that
-    has one admits a string as its `result` (the `str` of the REST route's response model). For data (csv, ndjson) the
-    sentence is followed by the body itself, since a client may hand the model the structured content alone (Claude
-    Code does, and the rows of a csv never reached it, GH-4017); a client that reads the content blocks has the same
-    text there, so the body is twice in the result. A chart (html, svg), an image or a pdf is not repeated, and its
-    sentence stands alone. The report, structured, is in the `_meta` of the result under `wetterdienst`.
+    The body (csv, ndjson) is a text content block, as the REST API answers it. The structured content, which the
+    output schema of a tool requires, is a sentence about the answer, with its licence, attribution, processing note
+    and warnings, which the REST API sends in headers for these formats: the schema of every tool that has one admits a
+    string as its `result` (the `str` of the REST route's response model). The sentence is followed by the body itself,
+    since a client may hand the model the structured content alone (Claude Code does, and the rows of a csv never
+    reached it, GH-4017); a client that reads the content blocks has the same text there, so the body is twice in the
+    result. The report, structured, is in the `_meta` of the result under `wetterdienst`.
     """
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
     from fastmcp.tools import ToolResult  # noqa: PLC0415
-    from mcp_types import BlobResourceContents, EmbeddedResource, ImageContent, TextContent  # noqa: PLC0415
+    from mcp_types import TextContent  # noqa: PLC0415
 
     class ReturnBodiesAsContent(Middleware):
         async def on_call_tool(
@@ -620,28 +995,15 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
             if envelope is None:
                 return result
             media_type, body, size = envelope["media_type"], envelope["body"], envelope["size"]
-            if envelope["encoding"] == "text":
-                block = TextContent(type="text", text=body)
-                kind = "text content"
-            elif media_type.startswith("image/"):
-                block = ImageContent(type="image", data=body, mime_type=media_type)
-                kind = "image content"
-            else:
-                block = EmbeddedResource(
-                    type="resource",
-                    resource=BlobResourceContents(uri="wetterdienst://answer", mime_type=media_type, blob=body),
-                )
-                kind = "an embedded resource"
+            block = TextContent(type="text", text=body)
             report = _report_of(envelope["headers"])
             tool = await provider.get_tool(context.message.name)
             structured = None
             if tool is not None and tool.output_schema is not None:
                 # A client may hand the model the structured content and not the content blocks (Claude Code does:
                 # a result with both reaches the model as the structured content alone, so the rows of a csv were
-                # lost behind the sentence, GH-4017). The schema admits a string, so data is repeated in it.
-                repeated = envelope["encoding"] == "text" and media_type in _REPEATED_MEDIA_TYPES
-                sentence = _sentence_of(media_type, size, kind, report, repeated=repeated)
-                structured = {"result": f"{sentence}\n\n{body}" if repeated else sentence}
+                # lost behind the sentence, GH-4017). The schema admits a string, so the data is repeated in it.
+                structured = {"result": f"{_sentence_of(media_type, size, report)}\n\n{body}"}
             # also where the tool has no output schema to put the sentence in
             return ToolResult(
                 content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None
@@ -682,8 +1044,9 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         ),
         base_url=_ASGI_BASE_URL,
     )
+    spec = rest_app.openapi()
     provider = OpenAPIProvider(
-        openapi_spec=rest_app.openapi(),
+        openapi_spec=_slim_for_tools(spec),
         client=client,
         route_maps=route_maps,
         mcp_names=_TOOL_NAMES,
@@ -708,7 +1071,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         providers=[provider],
         lifespan=lifespan,
         middleware=[
-            _refuse_unknown_arguments(provider),
+            _refuse_unknown_arguments(provider, _routes_of_tools(spec)),
             _require_a_network_for_coverage(),
             _send_objects_as_json(provider),
             _return_bodies_as_content(provider),

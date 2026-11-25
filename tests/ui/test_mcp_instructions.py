@@ -125,3 +125,18 @@ def test_the_example_names_arguments_the_tool_takes() -> None:
 
     assert {"provider", "network", "parameters", "latitude", "longitude", "rank"} <= named
     assert named <= taken, f"stations does not take {sorted(named - taken)}"
+
+
+@pytest.mark.parametrize("tool", ["interpolate", "summarize"])
+def test_the_station_of_an_estimate_says_it_is_answered_at_its_own_altitude(tool: str) -> None:
+    """The instructions no longer say so, to stay compact: the schema of the tool does, where the argument is."""
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def read() -> Any:  # noqa: ANN401
+        tools = await build_mcp_server(restapi.app).list_tools()
+        return next(t for t in tools if t.name == tool)
+
+    description = asyncio.run(read()).parameters["properties"]["station"]["description"]
+
+    assert _text("own altitude", "no `elevation` is needed")(description)

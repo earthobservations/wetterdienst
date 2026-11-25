@@ -15,6 +15,7 @@ from dataclasses import replace
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast, get_type_hints
 
+import polars as pl
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -28,6 +29,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from typing_extensions import TypedDict
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
+from wetterdienst.core.station_search import find_stations_by_id
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
@@ -41,18 +43,20 @@ from wetterdienst.exceptions import (
     MissingDependencyError,
     MissingTimeIntervalError,
     NoInternetError,
+    NoStationPositionsError,
     ProviderRateLimitError,
     ReversedTimeIntervalError,
     StationListingIncompleteError,
     UpstreamError,
     WetterdienstError,
 )
-from wetterdienst.io.export import render_image, require_vl_convert
 from wetterdienst.io.formats import is_image
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.group_statistics import GroupsOverLimitError
 from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
+    StationsFilter,
     ValuesResult,
     _HistoryEntry,
     _InterpolatedValuesDictBody,
@@ -65,10 +69,24 @@ from wetterdienst.model.result import (
     _ValuesDictBody,
     _ValuesOgcFeatureCollectionBody,
 )
+from wetterdienst.model.row_selection import (
+    MAX_REPORTED_SERIES,
+    MAX_TOOL_SERIES,
+    RowSelectionError,
+    RowsOverLimitError,
+    Searched,
+)
 from wetterdienst.options import Options
-from wetterdienst.settings import check_settings
+from wetterdienst.settings import check_settings, removed_settings
 from wetterdienst.ui import forecast_start
-from wetterdienst.ui.budget import fit_coverage, fit_stations, fit_values
+from wetterdienst.ui.budget import (
+    fit_alerts,
+    fit_coverage,
+    fit_station_ids,
+    fit_stations,
+    fit_statistics,
+    fit_values,
+)
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -87,24 +105,21 @@ from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
+    KostraRequest,
     ProvidersRequest,
+    RadarFrameRequest,
+    RadarFramesRequest,
     RestInterpolationRequest,
     RestSummaryRequest,
     Selection,
     SettingsRequest,
+    StationIdsRequest,
     StationsRequest,
-    StripesImageRequest,
-    StripesSeries,
-    StripesStationsRequest,
-    StripesValuesRequest,
+    StatisticsRequest,
+    StormCellsRequest,
     SummaryRequest,
     ValuesRequest,
     _caller_refusal_status,
-    _draw_stripes,
-    _get_stripes_data,
-    _get_stripes_options,
-    _get_stripes_stations,
-    _require_plotting,
     check_timeseries_api,
     coverage_needs_a_network,
     failure_status,
@@ -113,18 +128,23 @@ from wetterdienst.ui.core import (
     get_interpolate,
     get_issues,
     get_stations,
+    get_statistics,
     get_summarize,
     get_values,
     limit_stations_to_rank,
     limit_stations_to_window,
     overlay_options,
     resolve_network,
+    row_options_of,
     set_logging_level,
 )
 from wetterdienst.ui.limits import (
     Limits,
+    check_chosen_groups,
+    check_chosen_rows,
     check_point_rows,
     check_rows,
+    check_series_count,
     check_station_count,
     check_stations_in_reach,
     estimate_point_rows,
@@ -148,11 +168,11 @@ from wetterdienst.ui.problems import (
     status_phrase,
 )
 from wetterdienst.ui.providers import ProvidersAnswer, get_providers
+from wetterdienst.ui.radar import RadarFramesWithMetadataDict, render_radar_frames
 from wetterdienst.ui.readiness import CHECKS, failed_checks
 from wetterdienst.ui.render import (
     InterpolationSettings,
     StationsSettings,
-    StripesSettings,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
@@ -165,19 +185,25 @@ from wetterdienst.ui.render import (
     render_alerts,
     render_history,
     render_issues,
+    render_kostra,
+    render_station_ids,
     render_stations,
-    render_stripes_stations,
-    render_stripes_values,
+    render_statistics,
+    render_storm_cells,
 )
 from wetterdienst.ui.response_metadata import (
     API_VERSION,
     ResponseMetadata,
+    Search,
+    StationIdsMetadata,
+    StatisticsMetadata,
     catalogue_headers,
     issues_metadata,
+    radar_metadata,
     response_headers,
     response_metadata,
-    result_metadata,
-    stripes_metadata,
+    station_ids_headers,
+    statistics_metadata,
 )
 from wetterdienst.ui.streaming import (
     NDJSON_MEDIA_TYPE,
@@ -188,11 +214,10 @@ from wetterdienst.ui.streaming import (
     stream_response,
 )
 from wetterdienst.util.cli import no_color, setup_logging
-from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.hosts import is_loopback, loopback_allowed_hosts, split_listen_address
 from wetterdienst.util.logging import get_one_line_logger
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+from wetterdienst.util.response_warnings import begin_response, record_response_warning, recorded_warnings
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -202,6 +227,7 @@ if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from wetterdienst.api import StandaloneRequest
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.result import InterpolatedValuesResult, StationsResult, SummarizedValuesResult
 
@@ -211,8 +237,10 @@ info = Info()
 TAG_CATALOGUE = "Catalogue"
 TAG_STATIONS = "Stations"
 TAG_VALUES = "Values"
-TAG_STRIPES = "Climate stripes"
 TAG_ALERTS = "Alerts"
+TAG_STORM_CELLS = "Storm cells"
+TAG_KOSTRA = "Heavy rainfall"
+TAG_RADAR = "Precipitation radar"
 TAG_SERVER = "Server"
 
 # FastAPI's OpenTelemetry stays on, so it reports to a provider the operator sets up. Its startup
@@ -264,12 +292,23 @@ app = FastAPI(
             "description": "What the server offers: providers, networks, parameters, and credentials.",
         },
         {"name": TAG_STATIONS, "description": "Find stations and read their history and the runs of a forecast."},
-        {"name": TAG_VALUES, "description": "Measurements of stations, or estimated for a point between them."},
         {
-            "name": TAG_STRIPES,
-            "description": "Climate stripes of a station in Germany: stations, values and the image.",
+            "name": TAG_VALUES,
+            "description": "Measurements of stations, estimated for a point between them, or counted, averaged and "
+            "added up per year, month, day or hour.",
         },
         {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
+        {"name": TAG_STORM_CELLS, "description": "Thunderstorm cells of the DWD, detected in its radar data."},
+        {
+            "name": TAG_KOSTRA,
+            "description": "Design rainfall of the DWD (KOSTRA-DWD-2020, return periods of heavy rain): the depth, "
+            "intensity and uncertainty of a rain by duration and return period, at a point in Germany.",
+        },
+        {
+            "name": TAG_RADAR,
+            "description": "DWD's precipitation radar over Germany as map images: the frames of the last hours and "
+            "DWD's forecast of the next two.",
+        },
         {"name": TAG_SERVER, "description": "This instance: its version and limits, its settings, and its health."},
     ],
     debug=False,
@@ -308,6 +347,9 @@ router = APIRouter(generate_unique_id_function=_operation_id)
 class _RefuseInvalidSettings:
     """Refuse to start the server while a `WD_*` setting is malformed, naming the variable (GH-2335).
 
+    A variable that asks for what was removed (`WD_RESTAPI_SQL=true`, see `removed_settings`) is warned about, once,
+    and the server starts: it asks for nothing the server could not do without it.
+
     Checked as the server starts the app's lifespan, so it holds whatever starts it --
     `wetterdienst restapi`, `uvicorn wetterdienst.ui.restapi:app` -- unless the lifespan is turned
     off, and covers `/mcp/v1` and its alias `/mcp`, which are served by this app. A failure in the
@@ -324,6 +366,7 @@ class _RefuseInvalidSettings:
         if scope["type"] == "lifespan":
             try:
                 problems = check_settings()
+                notices = removed_settings()
             except Exception as e:  # noqa: BLE001
                 # a validator failing other than by refusing the value, as the station distances'
                 # did with a `TypeError` until GH-2353, is refused all the same: raised here,
@@ -331,6 +374,9 @@ class _RefuseInvalidSettings:
                 # support, and serve. Told by its type alone, as its message is not pydantic's and
                 # may carry what it was given
                 problems = [f"the settings could not be built: {type(e).__name__}"]
+                notices = []
+            for notice in notices:
+                log.warning(notice)
             if problems:
                 await receive()
                 message = "\n".join(["Refusing to start, the settings are invalid:", *problems])
@@ -357,13 +403,13 @@ REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_history": "api/history?provider=dwd&network=observation&parameters=daily/kl&stations=00011",  # noqa:E501
     "dwd_observation_daily_climate_interpolation": "api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
     "dwd_observation_daily_climate_summary": "api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
-    "dwd_observation_daily_climate_stripes_stations": "api/stripes/stations?kind=temperature",
-    "dwd_observation_daily_climate_stripes_values": "api/stripes/values?kind=temperature&station=1048",
-    "dwd_observation_daily_climate_stripes_image": "api/stripes/image?kind=temperature&station=1048",
     "dwd_mosmix_issues": "api/issues?provider=dwd&network=mosmix&station=10147",
     "dwd_dmo_issues": "api/issues?provider=dwd&network=dmo&station=10147",
     "dwd_swsmos_issues": "api/issues?provider=dwd&network=swsmos&station=A006",
     "dwd_weather_alerts": "api/alerts?granularity=community&format=geojson",
+    "dwd_storm_cells": "api/storm-cells?format=geojson&track=false",
+    "dwd_kostra": "api/kostra?latitude=52.52&longitude=13.40&duration=60",
+    "station_ids": "api/station-ids?wmo_id=10381",
 }
 
 
@@ -506,7 +552,7 @@ def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> H
     instruction for a machine the caller does not administer, about a request that was perfectly
     well formed. Over HTTP the missing half is a property of the deployment, and 501 is what says
     so: this server does not implement what needs the package, such as the networks published as
-    BUFR, a `sql` filter or an image. The install line is not lost, it moves to where someone can
+    BUFR or an image. The install line is not lost, it moves to where someone can
     act on it -- the server log, carried there by the message itself rather than by a traceback,
     since a dependency that was never installed has no incident to show.
     """
@@ -589,33 +635,6 @@ def _credential_rejected_on_the_server(e: CredentialRejectedError, request: Base
     )
 
 
-def _refuse_sql_unless_enabled(
-    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
-) -> None:
-    """Refuse a `sql` or `sql_values` clause unless whoever runs this server has enabled them.
-
-    The clause runs in DuckDB on this host. Its connection cannot read files, reach the network or
-    load extensions, but its limits are per request: it can still read DuckDB's settings, run for as
-    long as it likes on one core, and allocate outside DuckDB's memory limit. Whether to take that
-    from anyone who can reach the API is the operator's decision, so it is off until they set
-    `WD_RESTAPI_SQL=true`. A 403, as for the BUFR reader's 501: the request is well formed and this
-    deployment declines it, which a 400 would blame on the caller. Checked before anything is
-    fetched, so a refused request costs nothing. The MCP tools are this API's routes, so they are
-    gated with it; the library and the CLI are not.
-    """
-    given = [name for name in ("sql", "sql_values") if getattr(request, name, None)]
-    if given and not Settings().restapi_sql:
-        raise ProblemError(
-            403,
-            (
-                f"SQL filtering is disabled on this server, so {' and '.join(given)} cannot be used. "
-                "Whoever runs this instance can enable it with the setting restapi_sql "
-                "(environment variable WD_RESTAPI_SQL=true); otherwise filter the response yourself."
-            ),
-            ProblemKind.SQL_DISABLED,
-        )
-
-
 #: the longest side, in pixels once `scale` is applied, of an image this server renders. The renderer holds the
 #: whole canvas and draws it for as long as it takes: 14000 x 10000 px took 18 s in the browser the images were
 #: drawn with before vl-convert, and 28000 x 20000 px 30 s and then an empty body that was answered with a 200
@@ -625,9 +644,7 @@ _MAX_IMAGE_SIDE = 8192
 _DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT = 700, 500
 
 
-def _refuse_oversized_image(
-    width: int | None, height: int | None, scale: float | None, *, lower: str = "width, height or scale"
-) -> None:
+def _refuse_oversized_image(width: int | None, height: int | None, scale: float | None) -> None:
     """Refuse an image larger than `_MAX_IMAGE_SIDE` on a side, with a 400, before anything is fetched.
 
     The request fields only have to be positive, and the caller is whoever can reach the API: each
@@ -641,7 +658,7 @@ def _refuse_oversized_image(
     rendered = ((width or _DEFAULT_IMAGE_WIDTH) * scale, (height or _DEFAULT_IMAGE_HEIGHT) * scale)
     if max(rendered) > _MAX_IMAGE_SIDE:
         error = ImageTooLargeError(rendered[0], rendered[1], _MAX_IMAGE_SIDE)
-        raise ProblemError(400, f"{error} Lower {lower}.", ProblemKind.IMAGE_TOO_LARGE)
+        raise ProblemError(400, f"{error} Lower width, height or scale.", ProblemKind.IMAGE_TOO_LARGE)
 
 
 def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
@@ -685,7 +702,7 @@ async def _refuse_too_many_points(request: Request, exc: ImageTooManyPointsError
 
 
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type
-# for jpg or svg, and the stripes image sent `image/pdf` for a PDF (GH-2063)
+# for jpg or svg, and a PDF was sent as `image/pdf` (GH-2063)
 _MEDIA_TYPES = {
     "csv": "text/csv",
     # only a tool's request is answered as one body in ndjson (`_is_streamed`); any other is streamed
@@ -776,6 +793,43 @@ class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeat
     settings: NotRequired[SummarySettings]
 
 
+class _StatisticsOverGroups(TypedDict):
+    """The statistics over the complete groups of a series that have a value, of one aggregate."""
+
+    groups: int
+    usable: int
+    min: float | None
+    max: float | None
+    mean: float | None
+
+
+class _StatisticsSeries(TypedDict):
+    """One station's series with its report, the statistics over its groups and its groups."""
+
+    station_id: str
+    name: str | None
+    resolution: str
+    dataset: str
+    parameter: str
+    unit: str
+    # the unit of an aggregate where it is not `unit`: the `sum` of a temperature is in degree days (`°Cd`)
+    units: NotRequired[dict[str, str]]
+    first_timestamp: str | None
+    last_timestamp: str | None
+    searched: int
+    expected: int | None
+    gaps: int | None
+    over_groups: dict[str, _StatisticsOverGroups]
+    # `rank` (`per=none`), the columns of `by`, each aggregate (and `<aggregate>_at` for `min`, `max`, `earliest`,
+    # `latest`), then `searched`, `expected` and `complete`
+    groups: list[dict[str, Any]]
+
+
+class _StatisticsWithMetadataDict(TypedDict):
+    metadata: StatisticsMetadata
+    series: list[_StatisticsSeries]
+
+
 class _HistoryWithMetadataDict(TypedDict):
     metadata: ResponseMetadata
     stations: NotRequired[list[_Station]]
@@ -803,15 +857,68 @@ class _AlertsWithMetadataOgcFeatureCollection(TypedDict):
     features: list[dict[str, Any]]
 
 
-class _StripesValue(TypedDict):
-    timestamp: str | None
-    value: float | None
-
-
-class _StripesValuesWithMetadataDict(TypedDict):
+class _StormCellsWithMetadataDict(TypedDict):
     metadata: ResponseMetadata
-    series: StripesSeries
-    values: list[_StripesValue]
+    # the UTC reference time of the scan, which an empty scan has too
+    reference_time: str | None
+    # one entry per cell, with the nested `geometry` and `track`
+    cells: list[dict[str, Any]]
+
+
+class _StormCellsWithMetadataOgcFeatureCollection(TypedDict):
+    type: Literal["FeatureCollection"]
+    metadata: ResponseMetadata
+    reference_time: str | None
+    features: list[dict[str, Any]]
+
+
+class _KostraCell(TypedDict):
+    # DWD's name of the cell, (row * 1000) + column in six digits
+    index_rc: str
+    row: int
+    column: int
+    # the centre of the cell, in WGS84 degrees
+    latitude: float
+    longitude: float
+
+
+class _KostraValue(TypedDict):
+    duration_minutes: int
+    return_period_years: int
+    depth_mm: float | None
+    intensity_l_s_ha: float | None
+    uncertainty_percent: float | None
+
+
+class _KostraWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    edition: str
+    cell: _KostraCell
+    values: list[_KostraValue]
+
+
+class _StationIdsStation(TypedDict):
+    provider: str
+    network: str
+    # the station list the row comes from: another dataset of the network may list other stations
+    resolution: str
+    dataset: str
+    station_id: str
+    name: str | None
+    latitude: float | None
+    longitude: float | None
+    elevation: float | None
+    wmo_id: str | None
+    wigos_id: str | None
+    icao_id: str | None
+    # which id of the station matched, and whether the id searched for was its own or came by an equivalence
+    matched_by: Literal["wmo_id", "wigos_id", "icao_id"]
+    match: Literal["direct", "equivalent"]
+
+
+class _StationIdsWithMetadataDict(TypedDict):
+    metadata: StationIdsMetadata
+    stations: list[_StationIdsStation]
 
 
 @app.get(
@@ -929,10 +1036,10 @@ def index() -> HTMLResponse:
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
                     <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
                     <li><a href="api/summarize" target="_blank" rel="noopener">summary</a></li>
-                    <li><a href="api/stripes/stations" target="_blank" rel="noopener">stripes stations</a></li>
-                    <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
-                    <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
+                    <li><a href="api/storm-cells" target="_blank" rel="noopener">storm cells</a></li>
+                    <li><a href="api/kostra" target="_blank" rel="noopener">heavy rainfall (KOSTRA)</a></li>
+                    <li><a href="api/station-ids" target="_blank" rel="noopener">station by WMO, WIGOS or ICAO id</a></li>
                     {f"<li>MCP endpoint (streamable HTTP): <code>{MCP_PREFIX}</code> (<code>{MCP_ALIAS_PREFIX}</code> follows the current version)</li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
@@ -942,10 +1049,10 @@ def index() -> HTMLResponse:
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_history"]}" target="_blank" rel="noopener">DWD Observation Daily Climate History</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_interpolation"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Interpolation</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_summary"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Summary</a></li>
-                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_stations"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
-                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
-                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_image"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Image</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_weather_alerts"]}" target="_blank" rel="noopener">DWD Weather Alerts</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_storm_cells"]}" target="_blank" rel="noopener">DWD Storm Cells</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_kostra"]}" target="_blank" rel="noopener">DWD Heavy Rainfall (KOSTRA)</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["station_ids"]}" target="_blank" rel="noopener">Station 10381 at every provider</a></li>
                 </ul>
                 <h2>Producer</h2>
                 <ul>
@@ -1100,6 +1207,7 @@ class VersionAnswer(BaseModel):
                         "max_stations": 100,
                         "max_rows": 500000,
                         "max_stream_rows": 10000000,
+                        "max_groups": 50000,
                         "timeout": 60.0,
                         "max_concurrent": 32,
                     },
@@ -1136,8 +1244,8 @@ def version() -> VersionAnswer:
 
     `limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`
     and `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or
-    `csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind
-    `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
+    `csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a
+    400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
     """
     return VersionAnswer(
         version=__version__,
@@ -1203,7 +1311,7 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
 #: statuses are the table of `docs/usage/restapi.md`, and `tests/ui/test_openapi_snapshot.py` holds each route to what
 #: its handler answers. A route that reads from a provider can answer all that `_failure` does: a 400 for a request
 #: it refuses (a limit, a window, an image too large), a 404, a 501 for what this server lacks or does not implement
-#: and a 502 for a provider that failed; the 403 is `sql` and `sql_values` where the server does not enable them
+#: and a 502 for a provider that failed
 _DATA_ANSWERS = (400, 404, 501, 502)
 _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "version": (),
@@ -1212,16 +1320,19 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "coverage": (400, 404, 501),
     "providers": (404,),
     "glossary": (),
-    "stations": (403, *_DATA_ANSWERS),
+    "stations": _DATA_ANSWERS,
     "issues": _DATA_ANSWERS,
     "history": _DATA_ANSWERS,
-    "values": (403, *_DATA_ANSWERS),
-    "interpolate": (403, *_DATA_ANSWERS),
-    "summarize": (403, *_DATA_ANSWERS),
-    "stripes/stations": (501, 502),
-    "stripes/values": _DATA_ANSWERS,
-    "stripes/image": _DATA_ANSWERS,
+    "values": _DATA_ANSWERS,
+    "statistics": _DATA_ANSWERS,
+    "interpolate": _DATA_ANSWERS,
+    "summarize": _DATA_ANSWERS,
     "alerts": _DATA_ANSWERS,
+    "storm-cells": _DATA_ANSWERS,
+    "kostra": _DATA_ANSWERS,
+    "station-ids": _DATA_ANSWERS,
+    "radar/frames": _DATA_ANSWERS,
+    "radar/frame": _DATA_ANSWERS,
 }
 #: what every route under `API_PREFIX` can answer: a `Host` that is not allowed (400), a defect (500), the cap on
 #: requests served at once (503) and the request timeout (504), see `ui.middleware`
@@ -1233,7 +1344,6 @@ _HOST_CHECKED_ROUTES = ("/", "/robots.txt")
 #: document is the same on every Python. The 422 is not here: FastAPI adds it, `_declare_problem_schema` completes it
 _PROBLEM_COMPONENTS = {
     400: ("BadRequest", "Bad Request"),
-    403: ("Forbidden", "Forbidden"),
     404: ("NotFound", "Not Found"),
     500: ("InternalError", "Internal Server Error"),
     501: ("NotImplemented", "Not Implemented"),
@@ -1316,7 +1426,7 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             },
             "limit": {
                 "type": "string",
-                "enum": ["stations", "rows", "stream_rows", "image_points"],
+                "enum": ["stations", "rows", "stream_rows", "groups", "series", "image_points"],
                 "description": "Of `limit-exceeded`: the limit the request passes.",
             },
             "maximum": {"type": "integer", "description": "Of `limit-exceeded`: the value of that limit."},
@@ -1672,7 +1782,7 @@ def coverage(
     providers and their networks, with whether each needs credentials and has them (`configured`). Narrow the
     answer with resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names. It
     is keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers
-    at once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.
+    at once. A standalone network (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) has none: a 404.
 
     Each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a
     regional one): the dataset's own where it is narrower than its network's, else the network's. Whether the
@@ -1737,7 +1847,8 @@ def providers(
     whether a request has to give a date (`date_required`) and its number of `parameters`.
 
     `kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values
-    (every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other
+    (every network but three); `radar`, `alerts` and `storm_cells` are standalone (`dwd/radar`, `dwd/alerts`,
+    `dwd/storm_cells`): the other
     endpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are
     present; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for
     one network.
@@ -1815,7 +1926,7 @@ def glossary(
 def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
     """Get the API of a network the timeseries endpoints serve, refusing one they cannot with a 404.
 
-    A standalone network (dwd/radar, dwd/alerts) or, with `history`, a network without station
+    A standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) or, with `history`, a network without station
     history has nothing to answer these with, as a provider or network that does not exist.
     """
     try:
@@ -1843,15 +1954,38 @@ _STREAM_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def _check_values_limits(stations: StationsResult, limits: Limits, *, streamed: bool) -> None:
+def _check_values_limits(
+    stations: StationsResult,
+    limits: Limits,
+    *,
+    streamed: bool,
+    chooses: bool = False,
+    holds: bool = False,
+    one_body: bool = False,
+) -> None:
     """Refuse a values request that reads too many stations or would return too many rows, before any download.
 
     Counted from the selection of stations, which the server holds already; the rows are an estimate and an upper
-    bound (`ui.limits`).
+    bound (`ui.limits`). A request that `chooses` rows with `first` or a `filter` is held to what it reads, not to what
+    it sends: it may read up to the stream limit, whatever its format, and what is sent is held to the limit of its
+    format after (`check_chosen_rows`). A request that `holds` every row it reads (a `sort` with neither) is told that a
+    stream does not help it. `one_body` is a request whose answer is one body (`values`): what it reads is held to the
+    larger of `rows` and `stream_rows`, so a server that sets the stream limit below `rows` does not refuse what the
+    request without a `filter` is answered (0 for either is no limit); `statistics` reads under `stream_rows` alone.
     """
-    check_station_count(selected_station_count(stations), limits)
-    if limits.max_stream_rows if streamed else limits.max_rows:
-        check_rows(estimate_rows(stations), limits, streamed=streamed)
+    check_station_count(
+        selected_station_count(stations),
+        limits,
+        by_region=stations._stations_filter is StationsFilter.BY_REGION,  # noqa: SLF001
+    )
+    if one_body and chooses and not streamed:
+        if limits.max_rows and limits.max_stream_rows:
+            widest = max(limits.max_rows, limits.max_stream_rows)
+            check_rows(estimate_rows(stations), limits, streamed=True, reads=True, read_maximum=widest)
+        return
+    reads_streamed = streamed or chooses
+    if limits.max_stream_rows if reads_streamed else limits.max_rows:
+        check_rows(estimate_rows(stations), limits, streamed=reads_streamed, holds=holds, reads=chooses)
 
 
 def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
@@ -1882,17 +2016,16 @@ def _geo_reach_check(limits: Limits, distance: str) -> Callable[[int], None]:
 
 
 def _is_streamed(request: ValuesRequest, http_request: Request) -> bool:
-    """Tell whether a values request is answered as a stream: ndjson, and csv unless `sql_values` filters the whole.
+    """Tell whether a values request is answered as a stream: ndjson and csv.
 
-    A `sql_values` clause filters the answer as a frame, which a stream never holds, so csv with one is the answer
-    in one body as it was before; ndjson is refused with it (and with `with_stations`). An MCP tool's request is
-    never streamed: a tool answers one body, held to `rows` in every format (GH-3464).
+    ndjson is refused with `with_stations`. An MCP tool's request is never streamed: a tool answers one body, held to
+    `rows` in every format (GH-3464).
     """
     if request.format == "ndjson":
         if (refusal := ndjson_refusal(request)) is not None:
             raise ProblemError(400, refusal)
         return not is_tool_request(http_request.scope)
-    return request.format == "csv" and not request.sql_values and not is_tool_request(http_request.scope)
+    return request.format == "csv" and not is_tool_request(http_request.scope)
 
 
 def _stream_headers(metadata: ResponseMetadata) -> dict[str, str]:
@@ -1937,9 +2070,15 @@ def _stream_response(
     )
 
 
-def _stream_end(stations: int, rows: int) -> dict[str, Any]:
-    """Give the `end` line of a stream: what was sent, and every warning raised while it was."""
-    return ndjson_end(stations, rows, recorded_warnings())
+def _stream_end(stations: int, rows: int, search: Callable[[], dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Give the `end` line of a stream: what was sent, and every warning raised while it was.
+
+    `search` gives what the row options searched where the stream has them: it is known only at the end, so the line
+    that ends the stream carries it, as it carries the warnings.
+    """
+    # the search first: it may say that `max_rows` cut the answer, a warning the line carries
+    report = search() if search is not None else None
+    return ndjson_end(stations, rows, recorded_warnings(), report)
 
 
 def _stream_stations(
@@ -1978,14 +2117,22 @@ def _stream_values(
     The stations are selected and the limits checked as for the other formats. The first station is read before the
     response begins, so that a failure on it has its status; one on a later station comes as the last line of
     NDJSON, and cuts a CSV.
+
+    A `sort` or a `first` makes the answer of the whole read: the order is that of all the rows and the groups may span
+    stations, so the rows are chosen first, and sent in batches with the report of what was searched in the first line
+    (`_stream_chosen_values`). A `filter` alone is applied to each station as it is read, and the report is the last
+    line's.
     """
+    rows = row_options_of(request)
+    if "sort" in rows or "first" in rows:
+        return _stream_chosen_values(api, request, settings, options, limits)
     try:
         stations = get_stations(
             api=api, request=request, timestamp=request.timestamp, settings=settings, options=options
         )
-        _check_values_limits(stations, limits, streamed=True)
+        _check_values_limits(stations, limits, streamed=True, chooses="filter" in rows)
         reader = stations.values()
-        results = reader.query()
+        results = reader.query(**rows)
         first = next(results, None)
     except (AssertionError, HTTPException):
         raise
@@ -1997,9 +2144,87 @@ def _stream_values(
     # no `data_updated_at`: the newest date of the stations is not known before the last is read, and a list of
     # stations has none
     metadata = response_metadata(preview, request, rows=0)
-    frames = (result.df for result in results)
+    searched: list[pl.DataFrame] = []
+
+    cap = request.max_rows
+    # the rows the options chose and the rows sent, as frames count them: a wide row counts once, whatever its columns
+    counted = {"sent": 0, "matched": 0}
+
+    def frames_of(read: Iterator[ValuesResult]) -> Iterator[pl.DataFrame]:
+        # `max_rows` cuts the answer over all stations: what is sent stops at it, the walk goes on to count the rest
+        for result in read:
+            frame, search = result.df, result.search
+            if cap is not None:
+                frame = frame.head(max(cap - counted["sent"], 0))
+                search = search.with_returned(frame) if search is not None else None
+            counted["sent"] += frame.height
+            if search is not None:
+                counted["matched"] += search.matched_rows or 0
+                searched.append(search.series)
+            yield frame
+
+    frames = frames_of(results)
     failure = _stream_failure(request, "stream values")
 
+    def search_report() -> dict[str, Any]:
+        selection = reader._row_selection(rows, whole=True)  # noqa: SLF001
+        assert selection is not None  # noqa: S101 -- search_report is asked for only where row options are given
+        window = (stations.start, stations.end)
+        read = reader._stations_read  # noqa: SLF001
+        report = (
+            Searched(
+                series=pl.concat(searched),
+                selection=selection,
+                window=window,
+                matched_rows=counted["matched"],
+                returned_rows=counted["sent"],
+                stations_read=read,
+            )
+            if searched
+            else Searched.nothing(selection, window, read)
+        )
+        report.warn_if_capped()
+        return Search.model_validate(report.to_dict()).model_dump(mode="json")
+
+    if request.format == "ndjson":
+        settings_ = _applied_settings(ValuesSettings, options) if request.with_metadata else None
+        chunks = ndjson_stream(
+            ndjson_head(metadata, settings_),
+            frames,
+            lambda df: cast("list[dict[str, Any]]", ValuesResult._to_dict(df)),  # noqa: SLF001
+            lambda stations_, rows_: _stream_end(stations_, rows_, search_report if rows else None),
+            failure,
+        )
+        return _stream_response(chunks, NDJSON_MEDIA_TYPE, metadata, ndjson=True)
+    chunks = csv_stream(
+        frames,
+        lambda df, header: ValuesResult(stations=stations, df=df).to_csv(include_header=header),
+        reader._empty_values_df,  # noqa: SLF001
+        failure,
+        # the header is written with the first station, which lacks the parameters only a later one has
+        schema=None if options.tidy else reader._wide_schema(),  # noqa: SLF001
+    )
+    return _stream_response(chunks, "text/csv", metadata, ndjson=False)
+
+
+def _stream_chosen_values(
+    api: type[TimeseriesRequest],
+    request: ValuesRequest,
+    settings: Settings,
+    options: Options,
+    limits: Limits,
+) -> StreamingResponse:
+    """Stream the rows a `sort` or a `first` chose: all of them are held before the first is sent.
+
+    So they are held to the limit of one body (`rows`), as the answer of `json` is, and not to the one of a stream: a
+    stream does not hold its rows, this one does. Read as the other formats are, under the stream limit where `first`
+    is given (a record is searched). The `metadata` block is whole, with the search, as the rows are all known. The
+    timeout of the server holds for the whole read here, as no chunk goes out before the last station is read.
+    """
+    values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
+    metadata = response_metadata(values_, request)
+    frames = frames_in_batches(values_.df)
+    failure = _stream_failure(request, "stream values")
     if request.format == "ndjson":
         settings_ = _applied_settings(ValuesSettings, options) if request.with_metadata else None
         chunks = ndjson_stream(
@@ -2012,8 +2237,8 @@ def _stream_values(
         return _stream_response(chunks, NDJSON_MEDIA_TYPE, metadata, ndjson=True)
     chunks = csv_stream(
         frames,
-        lambda df, header: ValuesResult(stations=stations, df=df).to_csv(include_header=header),
-        reader._empty_values_df,  # noqa: SLF001
+        lambda df, header: ValuesResult(stations=values_.stations, df=df).to_csv(include_header=header),
+        lambda: values_.df,
         failure,
     )
     return _stream_response(chunks, "text/csv", metadata, ndjson=False)
@@ -2037,8 +2262,9 @@ def stations(
 
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
     parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
-    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `stations` ids,
-    lat/lon with `rank` or `distance`, a bounding box, `sql` (where the server enables it), or
+    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `region` for every station
+    the source lists under a state or province (region="Hamburg", offshore stations included), `stations` ids,
+    lat/lon with `rank` or `distance`, a bounding box, or
     all=true for the full list. `name` gives the best five matches unless `rank` says otherwise.
     Returns station metadata including `station_id`, which you pass to `values`.
 
@@ -2048,7 +2274,6 @@ def stations(
     named in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.
     """
     begin_response()
-    _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
@@ -2099,13 +2324,76 @@ def stations(
     return _answer(content, request.format, metadata)
 
 
+@router.get("/station-ids", response_model=_StationIdsWithMetadataDict | str, tags=[TAG_STATIONS])
+def station_ids(
+    request: Annotated[StationIdsRequest, Query()],
+    http_request: Request,
+) -> Response:
+    """Find one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it.
+
+    Pass `wmo_id`, `wigos_id` or `icao_id` (one or several, comma-separated, at least one) and get one row for
+    each station that carries one of them, at every network that publishes the id with its stations (the
+    `searched` list of the `metadata` block names them): `provider`, `network`, the `resolution` and `dataset` of the
+    station list it comes from (another dataset of the network may list other stations), `station_id` (what you pass
+    to `values`), `name`, `latitude`, `longitude`, `elevation`, `wmo_id`, `wigos_id`, `icao_id`, and `matched_by`
+    with `match`. One WMO number can sit on several stations of one provider (NOAA GHCN has up to four), so the
+    answer is a list.
+
+    The ids are equivalent: the WIGOS identifier `0-20000-0-10381` and the WMO number `10381` find each other, and
+    an ICAO code also searches the WMO numbers of the stations it finds, so `icao_id=EDDH` finds Hamburg's DWD
+    station `01975` and NOAA GHCN `GM000010147`, which list no ICAO code. `matched_by` says which id of the station
+    matched (`wmo_id`, `wigos_id` or `icao_id`), and `match` whether it was the id asked for (`direct`) or one
+    equivalent to it (`equivalent`).
+
+    Every network that declares id columns is asked, with no narrowing by region. The first search reads their station
+    lists, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is slow;
+    the same search again takes about a second, from the server's cache. Do not repeat it within a conversation. A
+    network that cannot be read is left out and named in `warnings` (`network-failed`) and in `searched`, and keyed
+    networks without credentials are named in a warning too (`network-not-configured`), and one that answers 429 is
+    named with the wait it asks for (`network-rate-limited`); the others answer. If every network that was asked
+    fails it is a 502 and no answer, and if every one failed or was rate-limited, with at least one 429, it is the
+    503 of a provider's rate limit with `Retry-After`, since an outage is no station that does not exist. A
+    station of `noaa/ghcn` that has no data file is left out. No row means no listed station has the id, not an error.
+    A tool's answer is cut to 40,000 characters, with an `answer-truncated` warning: ask for fewer ids.
+    """
+    begin_response()
+
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
+    try:
+        result = find_stations_by_id(
+            wmo_id=request.wmo_id, wigos_id=request.wigos_id, icao_id=request.icao_id, settings=settings
+        )
+    except AssertionError:
+        raise
+    except Exception as e:
+        raise _failure(e, request, "find stations by id") from e
+
+    content, metadata = render_station_ids(result, request.format, pretty=request.pretty)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4022)
+        content, metadata = fit_station_ids(
+            result,
+            request.format,
+            content,
+            metadata,
+            lambda cut: render_station_ids(cut, request.format, pretty=request.pretty),
+        )
+    return Response(
+        content=content,
+        media_type=_MEDIA_TYPES.get(request.format, "application/json"),
+        headers=station_ids_headers(metadata),
+    )
+
+
 @router.get("/issues", response_model=_IssuesWithMetadataDict, tags=[TAG_STATIONS])
 def issues(
     request: Annotated[IssuesRequest, Query()],
 ) -> Response:
     """Return available issue datetimes for a provider/network/station combination.
 
-    Currently supported: provider=dwd, network=mosmix|dmo|swsmos.
+    Currently supported: provider=dwd, network=mosmix|dmo|swsmos. `dataset` names the product whose runs are
+    listed: MOSMIX large (default), small or snow, DMO icon (default) or icon_eu.
     """
     begin_response()
 
@@ -2152,15 +2440,24 @@ def values(
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
     other one. In the JSON of shape="long", the default unless the server's WD_TS_SHAPE says
     otherwise, the `values` items are grouped by station, then by
-    resolution, dataset and parameter, in timestamp order within each group: a parameter's latest
-    timestamp is the last item of its group, not of the array. With shape="wide" an item is one
-    timestamp of a station and resolution, with a key per parameter (prefixed with the full dataset
-    name, e.g. "climate_summary_", when datasets of more than one name are requested), its
+    resolution, dataset and parameter, in timestamp order within each group (unless `filter`, `sort` or `first`
+    choose the rows): a parameter's latest timestamp is the last item of its group, not of the array. With
+    shape="wide" an item is one timestamp of a station and resolution, with a key per parameter (prefixed with the
+    full dataset name, e.g. "climate_summary_", when datasets of more than one name are requested), its
     `_quality_flags` key, no `parameter` key, and a null `dataset` where
     several datasets of its resolution are requested. With format="geojson" the items sit under each
     feature's `values`, keeping their order but not `station_id`; a feature is one resolution and
     dataset of one station (one resolution in the wide shape), so a station can have several. Do not
     re-request in other formats.
+
+    To find a record or a rare value, have the server choose the rows instead of reading the series:
+    `sort=value&first=1` is the lowest value of each station in the window (`sort=-value` the highest),
+    `filter=value<=-20,month=12` the readings at or below -20 in a December. An extreme can be a faulty reading:
+    read its `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows
+    (every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when
+    and how many values were searched, so that a record the data lacks is told from one not looked for. To meet two
+    parameters at one time (one resolution), name them: `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the
+    days of frost and strong gusts, with all parameters' rows.
 
     With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
     relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
@@ -2168,8 +2465,8 @@ def values(
     either means the source does not state it.
     """
     begin_response()
-    _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
+    _refuse_repeated_row_options(http_request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -2184,6 +2481,9 @@ def values(
         return _stream_values(api, request, settings, options, limits)
     values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
     tool = is_tool_request(http_request.scope)
+    if tool and values_.search is not None:
+        # an assistant reads the report inside the budget of its answer: the first series, the totals of all
+        values_ = replace(values_, search=replace(values_.search, listed=MAX_TOOL_SERIES))
     if tool and forecast_start.applies(api, request):
         # a forecast without a window, or with one of days around now, starts at now, before the budget counts (GH-4025)
         values_ = forecast_start.forecast_from_now(values_, floor=forecast_start.lower_bound(request))
@@ -2205,11 +2505,147 @@ def values(
     return _answer(content, request.format, metadata)
 
 
+def _check_statistics_limits(stations: StationsResult, limits: Limits) -> None:
+    """Refuse a statistics request that reads too much or names more series than an answer reports, before a download.
+
+    The stations and the readings are held as for a request with `first`: up to the stream limit, whatever the format.
+    """
+    _check_values_limits(stations, limits, streamed=False, chooses=True)
+    check_series_count(selected_station_count(stations) * len(stations.parameters), MAX_REPORTED_SERIES)
+
+
+def _statistics(
+    api: type[TimeseriesRequest],
+    request: StatisticsRequest,
+    settings: Settings,
+    options: Options,
+    limits: Limits,
+) -> StatisticsResult:
+    """Collect the statistics, telling the caller which failures are theirs to fix.
+
+    The sibling of `_values`: the stations are read under the stream limit, as a request that `first` chooses rows of
+    is (a record is searched), and the groups kept are held to the limit of one body (`check_chosen_groups`), as soon
+    as a station makes them more than that, and not after the last.
+    """
+    try:
+        result = get_statistics(
+            api=api,
+            request=request,
+            settings=settings,
+            options=options,
+            check=lambda stations_: _check_statistics_limits(stations_, limits),
+            held_groups_limit=limits.max_groups or None,
+        )
+        check_chosen_groups(sum(series.frame.height for series in result.series), limits)
+    except GroupsOverLimitError as e:
+        check_chosen_groups(e.groups, limits, so_far=True)
+        raise
+    except (AssertionError, HTTPException):
+        raise
+    except Exception as e:
+        raise _failure(e, request, "get statistics") from e
+    return result
+
+
+# response models for the different formats are
+# - _StatisticsWithMetadataDict for json
+# - str for csv and ndjson
+@router.get(
+    "/statistics",
+    response_model=_StatisticsWithMetadataDict | str,
+    tags=[TAG_VALUES],
+)
+def statistics(
+    request: Annotated[StatisticsRequest, Query()],
+    http_request: Request,
+) -> Response:
+    """Count, average, add up or find the extremes of each station's values per year, month, day or hour.
+
+    Stations and `timestamp` as in `values`; the groups are in `series[].groups`. `aggregate`: up to five of `count`,
+    `mean`, `sum`, `min`, `max`, `earliest`, `latest`; `by`: `year`, `month`, `day`, `hour` (UTC). `filter=value<0`
+    counts values below 0. A group says how many values it has (`searched`) and should have (`expected`) and is
+    `complete` or not: a gap, a year the window cuts or that is not over leaves `mean` and `sum` null unless
+    `max_missing` allows it. `having`, `sort`, `first` choose groups (`aggregate=mean&by=year&sort=-mean&first=5`: the
+    five warmest years; `per=none` ranks across stations). `over_groups` is the min, max and mean over the complete
+    groups. For single readings use `values`. A `min` or `max` can be a faulty reading: leave impossible values out
+    with `filter`.
+    """
+    begin_response()
+    _refuse_repeated_row_options(http_request, _STATISTICS_OPTIONS)
+
+    api = _get_timeseries_api(request.provider, request.network)
+
+    # outside the handlers: nothing of the caller's reaches the server's settings
+    settings = Settings()
+    # the shape is always long, whatever the server's default says
+    options = overlay_options(Options(), {"shape": "long"})
+    limits = limits_of(settings)
+
+    result = _statistics(api, request, settings, options, limits)
+    metadata = statistics_metadata(result, provider=request.provider, network=request.network)
+    content, metadata = render_statistics(result, request, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: the first groups that fit, with a note (GH-4022)
+        content, metadata = fit_statistics(
+            result,
+            request.format,
+            content,
+            metadata,
+            lambda cut, block: render_statistics(cut, request, metadata=block),
+        )
+    return _answer(content, request.format, metadata)
+
+
+_ROW_OPTIONS = ("filter", "sort", "first", "by", "max_rows")
+_JOINED_EXAMPLE = {"filter": "filter=value<=-20,month=12", "having": "having=count>=100,searched<360"}
+#: the options of `statistics` that are given once, as the row options are
+_STATISTICS_OPTIONS = (
+    "aggregate",
+    "by",
+    "filter",
+    "year_start",
+    "max_missing",
+    "having",
+    "sort",
+    "first",
+    "per",
+    "max_rows",
+)
+
+
+def _refuse_repeated_row_options(http_request: Request, names: tuple[str, ...] = _ROW_OPTIONS) -> None:
+    """Refuse a row option given more than once: the query would keep one of them and the answer would not say which.
+
+    `filter=value<0&filter=month=1` is the conditions `value<0,month=1` in the grammar, which joins them by a comma;
+    a second `sort` or `by` has no such reading. A 422 located at the option, as an option that cannot be read is.
+    """
+    entries: list[dict[str, Any]] = [
+        {
+            "type": "repeated",
+            "loc": ["query", name],
+            "msg": (
+                f"`{name}` is given {len(values)} times and a request takes it once: "
+                + (
+                    f"join the conditions of `{name}` with a comma, as in {_JOINED_EXAMPLE[name]}"
+                    if name in {"filter", "having"}
+                    else f"give one number to `{name}`"
+                    if name in {"first", "max_rows", "year_start", "max_missing"}
+                    else f"give one value of `{name}`, columns joined by commas where it takes several"
+                )
+            ),
+            "input": values,
+        }
+        for name in names
+        if len(values := http_request.query_params.getlist(name)) > 1
+    ]
+    if entries:
+        raise ProblemError(422, str(entries[0]["msg"]), ProblemKind.INVALID_PARAMETERS, extra={"errors": entries})
+
+
 def _request_options(
     request: BaseModel,
     given: Collection[str],
-    applied: type[_AppliedSettings | StationsSettings | StripesSettings],
-    base: Options | None = None,
+    applied: type[_AppliedSettings | StationsSettings],
 ) -> Options:
     """Build an endpoint's options from the server's and the fields the request gave.
 
@@ -2224,10 +2660,8 @@ def _request_options(
     valid on their own, an error once the request's fields are added is the request's, and is told
     by its field with the value the request gave, not the dict merged from it and the server's.
 
-    `base` stands in for the server's options where an endpoint fixes some of them itself, as the stripes do
-    (GH-2348, GH-3980).
     """
-    server = base if base is not None else Options()
+    server = Options()
     # each option given by the field that sets it
     passed = {
         str(option.validation_alias): (field, value)
@@ -2271,7 +2705,7 @@ def _geo_options(
     return _request_options(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
 
 
-def _refusal_detail(e: Exception, what: str) -> str:
+def _refusal_detail(e: Exception, what: str, request: BaseModel | None = None) -> str:
     """Word a refusal for a caller of this API, who passes the window as one `timestamp`.
 
     A request refuses a window that is missing or ends before it starts in terms of its `start` and
@@ -2281,7 +2715,11 @@ def _refusal_detail(e: Exception, what: str) -> str:
     if isinstance(e, ReversedTimeIntervalError):
         return "the interval in timestamp ends before it starts"
     if isinstance(e, DateRequiredError):
-        return "timestamp is required for this dataset"
+        detail = "timestamp is required for this dataset"
+        if any(getattr(request, name, None) is not None for name in ("filter", "sort", "first", "by")):
+            # a search of the record asks for a window that spans it, which is the only way to say "everything"
+            detail += ": give a window that spans the record, such as timestamp=1883/2026 (a later end is fine)"
+        return detail
     if isinstance(e, MissingTimeIntervalError):
         return f"timestamp is required to {what}"
     return str(e)
@@ -2430,10 +2868,44 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
     """
     status = _caller_refusal_status(e, request)
     if status is not None:
-        detail = _refusal_detail(e, what)
+        detail = _refusal_detail(e, what, request)
         log.info(f"Failed to {what}: {detail}")
+        if isinstance(e, NoStationPositionsError):
+            return _unplaceable_format(detail, getattr(request, "format", None))
+        if isinstance(e, RowSelectionError):
+            return _unreadable_option(e, request)
         return HTTPException(status_code=status, detail=detail)
     return _server_side_failure(e, request, what)
+
+
+def _unplaceable_format(detail: str, fmt: str | None) -> ProblemError:
+    """Answer a map of stations none of which has a position as the 422 `invalid-parameters` it is (GH-4206).
+
+    The `format` is the parameter that cannot be served for these stations, so it is the entry of `errors` that
+    the kind promises, located as pydantic locates a query parameter. `input` is what was asked for, where the
+    request is at hand.
+    """
+    entry: dict[str, Any] = {"type": "no_positions", "loc": ["query", "format"], "msg": detail}
+    if fmt is not None:
+        entry["input"] = fmt
+    return ProblemError(422, detail, ProblemKind.INVALID_PARAMETERS, extra={"errors": [entry]})
+
+
+def _unreadable_option(e: RowSelectionError, request: BaseModel) -> ProblemError:
+    """Answer a `filter` or `sort` that the request's parameters refuse as the 422 of a text that cannot be read.
+
+    A word that is no parameter's name, or that names several, is known to be wrong only once the request's
+    parameters are (GH-4419); it is the same fault as a text that cannot be read, so it is answered the same way: a 422
+    `invalid-parameters` whose `errors` locate it at the option, with what was written in `input`.
+    """
+    entry: dict[str, Any] = {
+        "type": "row_selection",
+        "loc": ["query", e.option],
+        "msg": str(e),
+        "input": getattr(request, e.option, None),
+        "ctx": {},
+    }
+    return ProblemError(422, f"{e.option}: {e}", ProblemKind.INVALID_PARAMETERS, extra={"errors": [entry]})
 
 
 def _values(
@@ -2449,20 +2921,37 @@ def _values(
     the same reason: which failure earns which status is a decision of its own, and the endpoint --
     which also assembles a response format, a target and a set of kwargs -- is not where it belongs.
     """
+    # a `first` or a `filter` chooses rows from the whole record: read up to the stream limit, held to `rows`. A `sort`
+    # alone holds all it reads, so it is held to `rows` for what it reads too (GH-4436)
+    chooses = request.first is not None or request.filter is not None
+    # told to drop a `sort` only where the `sort` is what holds everything it reads
+    holds = not chooses and request.sort is not None
+    # what the refusal of the rows chosen says to change: what the request has already is not asked for again
+    has = (request.first is not None, request.sort is not None, request.max_rows)
     try:
-        return get_values(
+        values_ = get_values(
             api=api,
             request=request,
             settings=settings,
             options=options,
-            check=lambda stations_: _check_values_limits(stations_, limits, streamed=False),
+            check=lambda stations_: _check_values_limits(
+                stations_, limits, streamed=False, chooses=chooses, holds=holds, one_body=True
+            ),
+            held_rows_limit=limits.max_rows if chooses else None,
         )
+        if chooses:
+            # read under the stream limit, so that a record can be searched; sent under the limit of one body
+            check_chosen_rows(values_.df.height, limits, first=has[0], sort=has[1], max_rows=has[2])
+    except RowsOverLimitError as e:
+        check_chosen_rows(e.rows, limits, so_far=True, first=has[0], sort=has[1], max_rows=has[2])
+        raise
     except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix; and a limit that refused the request, which is its 400
         raise
     except Exception as e:
         raise _failure(e, request, "get values") from e
+    return values_
 
 
 def _geo_values(
@@ -2531,7 +3020,6 @@ def interpolate(
     network, parameters and a `timestamp`.
     """
     begin_response()
-    _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
@@ -2584,7 +3072,6 @@ def summarize(
     `timestamp`.
     """
     begin_response()
-    _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
@@ -2610,127 +3097,6 @@ def summarize(
         )
 
     return _answer(content, request.format, metadata)
-
-
-@router.get(
-    "/stripes/stations",
-    response_model=_StationsWithMetadataDict | _StationsWithMetadataOgcFeatureCollection | str,
-    tags=[TAG_STRIPES],
-)
-def stripes_stations(
-    request: Annotated[StripesStationsRequest, Query()],
-    http_request: Request,
-) -> Response:
-    """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
-    begin_response()
-
-    # the provider request below builds its settings from the environment inside the handler: checked
-    # here first, a malformed server setting is the app's unhandled 500, which does not read its
-    # value back
-    Settings()
-    try:
-        stations = _get_stripes_stations(kind=request.kind, active=request.active)
-    except Exception as e:
-        # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
-        # so a failure here is the server's or the data source's, whatever its type
-        raise _logged_server_error(e, "get stripes stations") from e
-    metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
-    content = render_stripes_stations(stations, request, metadata)
-    if is_tool_request(http_request.scope):
-        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
-        content, metadata = fit_stations(
-            stations,
-            request,
-            content,
-            metadata,
-            lambda cut, block, asked: render_stripes_stations(cut, asked, block),
-        )
-    return _answer(content, request.format, metadata)
-
-
-@router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str, tags=[TAG_STRIPES])
-def stripes_values(
-    request: Annotated[StripesValuesRequest, Query()],
-    http_request: Request,
-) -> Response:
-    """Get climate stripes data values with timestamps, and the series they are of.
-
-    The JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.
-    "degree_celsius"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for
-    `/api/values`, e.g. {"temperature": "degree_fahrenheit"}; the server's
-    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the
-    quantity where the values are converted, the source's unit where not. The colours of the stripes
-    (`/api/stripes/image`) are relative to the years' own range and are the same in any unit.
-    """
-    begin_response()
-
-    # checked outside the handler below, as for `/api/stripes/stations`
-    Settings()
-    # a unit target for a quantity or unit the converter has none for is the request's 400, as for `/api/values`
-    _request_options(request, http_request.query_params.keys(), StripesSettings, _get_stripes_options())
-    try:
-        stripes_data = _get_stripes_data(request)
-    except AssertionError:
-        # a request its model should have refused: our bug, which FastAPI answers as a 500
-        raise
-    except Exception as e:
-        raise _failure(e, request, "get stripes data") from e
-
-    metadata = stripes_metadata(stripes_data, request)
-    if request.format == "csv":
-        content = timestamps_to_string(stripes_data.df).write_csv()
-    else:
-        content = render_stripes_values(stripes_data, request, metadata)
-    return _answer(content, request.format, metadata)
-
-
-@router.get(
-    "/stripes/image",
-    response_class=Response,
-    tags=[TAG_STRIPES],
-    responses={
-        200: {
-            "description": "The image, in the media type of its `format`.",
-            "content": {
-                # no schema: one makes the MCP tool declare an output it does not structure
-                _MEDIA_TYPES[format_]: {}
-                for format_ in ("png", "jpg", "svg", "pdf")
-            },
-        }
-    },
-)
-def stripes_image(
-    request: Annotated[StripesImageRequest, Query()],
-) -> Response:
-    """Generate climate stripes image for a station."""
-    # the image is rendered at `dpi / 100` times the default size
-    _refuse_oversized_image(None, None, request.dpi / 100, lower="dpi")
-
-    begin_response()
-
-    # checked outside the handler below, as for `/api/stripes/stations`
-    Settings()
-    try:
-        # before the record is downloaded: a server without the `plotting` extra refuses at once
-        _require_plotting()
-        stripes_data = _get_stripes_data(request)
-        chart = _draw_stripes(stripes_data, request)
-    except AssertionError:
-        # a request its model should have refused: our bug, which FastAPI answers as a 500
-        raise
-    except Exception as e:
-        raise _failure(e, request, "plot stripes") from e
-    require_vl_convert()
-    # the licence, the credit line and the warnings are told in the headers, as for every answer: an image holds
-    # none of it (GH-3581)
-    return Response(
-        content=render_image(chart, request.format, scale=request.dpi / 100),
-        media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
-        headers={
-            **response_headers(stripes_metadata(stripes_data, request, image=True)),
-            **_image_headers(request.format),
-        },
-    )
 
 
 @router.get(
@@ -2803,6 +3169,7 @@ def history(
 )
 def alerts(
     request: Annotated[AlertsRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Provide DWD weather alerts (CAP warnings) via restapi.
 
@@ -2816,6 +3183,7 @@ def alerts(
     says in the words of what was asked.
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts.api import NO_AREA_MATCHED, no_area_matched_message  # noqa: PLC0415
 
     begin_response()
 
@@ -2838,8 +3206,251 @@ def alerts(
         # and an alert in it the parser does not expect, is the provider's (GH-2985)
         raise _failure(e, request, "get weather alerts") from e
 
+    tool = is_tool_request(http_request.scope)
+    name = alerts_request.name
+    if tool and name is not None and result.name_matched is False:
+        # an assistant read an empty answer for a name that found no area as "no warning" (GH-4338)
+        record_response_warning(NO_AREA_MATCHED, no_area_matched_message(name, point=request.latitude is not None))
     content, metadata = render_alerts(result, request.format, pretty=request.pretty)
+    if tool:
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4338)
+        content, metadata = fit_alerts(
+            result,
+            request.format,
+            content,
+            metadata,
+            lambda cut, block: render_alerts(cut, request.format, pretty=request.pretty, metadata=block)[0],
+            name=name,
+            point=request.latitude is not None,
+        )
     return _answer(content, request.format, metadata)
+
+
+@router.get(
+    "/storm-cells",
+    response_model=_StormCellsWithMetadataDict | _StormCellsWithMetadataOgcFeatureCollection | str,
+    tags=[TAG_STORM_CELLS],
+)
+def storm_cells(
+    request: Annotated[StormCellsRequest, Query()],
+) -> Response:
+    """Provide DWD's thunderstorm cells (KONRAD3D) via restapi.
+
+    Returns the cells of the newest radar scan, or of the newest at or before ``timestamp`` (ISO 8601, UTC if no
+    offset) within the ~48 hours DWD keeps, one entry per cell: its severity (0 weak to 3 extreme), warning flags for
+    hail, heavy rain and gusts, size, speed, the ``direction_degrees`` of its motion (calculated), its outline and its
+    forecast ``track`` of 12 positions to 60 minutes ahead. Without a place that is every cell of Germany (several
+    hundred KB on a day of storms, more than an assistant can read): pass ``latitude``, ``longitude`` and ``distance``
+    (km) for the cells whose outline contains the point or comes within the distance, or ``left``, ``bottom``,
+    ``right`` and ``top`` for a box, and ``min_severity``. ``track=false`` and ``geometry=centroid`` make a long list
+    small. Most scans hold no cell: an empty ``cells`` is an answer, not an error, and ``reference_time`` says which
+    scan it is of. A filter that leaves no cell of a scan that has some carries a ``no-storm-cells-for-place`` warning
+    in ``metadata``, and a scan that is more than 20 minutes older than the time asked for a ``scan-stale`` warning:
+    an empty answer is then no all-clear. Scans come every 5 minutes and the newest is 5 to 10 minutes old when it
+    appears.
+    """
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handlers below, as for `/api/stations`
+    settings = Settings()
+    try:
+        cells_request = DwdStormCellsRequest(
+            timestamp=request.timestamp,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            distance=request.distance,
+            left=request.left,
+            bottom=request.bottom,
+            right=request.right,
+            top=request.top,
+            min_severity=request.min_severity,
+            track=request.track,
+            geometry=request.geometry,
+            settings=settings,
+        )
+        result = cells_request.query()
+    except Exception as e:
+        # a time that does not parse, or one before DWD's rolling window, or a box that is no box, is the request's; a
+        # listing that does not list, a file that does not download or parse is the provider's
+        raise _failure(e, request, "get storm cells") from e
+
+    content, metadata = render_storm_cells(result, request.format, pretty=request.pretty)
+    return _answer(content, request.format, metadata)
+
+
+@router.get(
+    "/kostra",
+    response_model=_KostraWithMetadataDict | str,
+    tags=[TAG_KOSTRA],
+)
+def kostra(
+    request: Annotated[KostraRequest, Query()],
+) -> Response:
+    """Provide DWD's design rainfall (KOSTRA-DWD-2020: the rain of a duration that returns every N years) of a point.
+
+    Returns the table of the cell of DWD's 5 km grid that holds the point: for each duration of a rain (5 minutes to
+    7 days) and each return period (1 to 100 years) its depth in mm (``depth_mm``), its intensity in l/(s ha)
+    (``intensity_l_s_ha``) and DWD's uncertainty in plus-minus percent (``uncertainty_percent``, a tolerance of both),
+    with the cell's ``index_rc`` and the position of its centre. Engineers size drains and retention basins with these
+    values. Pass ``duration`` (and ``return_period``) for the one value you need: a duration reads one table of DWD,
+    without it all 22 are read (2 s the first time, then from the cache). The values are DWD's estimates for the cell,
+    not measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is refused.
+    """
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handlers below, as for `/api/stations`
+    settings = Settings()
+    try:
+        result = DwdKostraRequest(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            duration=request.duration,
+            return_period=request.return_period,
+            settings=settings,
+        ).query()
+    except Exception as e:
+        # a point outside the grid or in a cell without values is the request's (a 400); a table that does not
+        # download or read is the provider's
+        raise _failure(e, request, "get KOSTRA statistics") from e
+
+    content, metadata = render_kostra(result, request.format, pretty=request.pretty)
+    return _answer(content, request.format, metadata)
+
+
+#: how long the list of the frames of the radar may be reused: the server holds the list of DWD's runs for a minute
+RADAR_FRAMES_CACHE_CONTROL = "public, max-age=60"
+#: how long the image of a frame is reused where the request names its run, which never changes (DWD keeps a run for
+#: about 48 hours, and the server draws a frame the same every time), and where it does not (a forecast frame is that of
+#: the newest run, which comes every 5 minutes)
+RADAR_FRAME_OF_A_RUN_CACHE_CONTROL = "public, max-age=3600"
+RADAR_FRAME_OF_THE_NEWEST_CACHE_CONTROL = "public, max-age=60"
+
+
+@router.get(
+    "/radar/frames",
+    response_model=RadarFramesWithMetadataDict,
+    tags=[TAG_RADAR],
+    responses=_revalidatable(last_modified=False),
+)
+def radar_frames(
+    request: Annotated[RadarFramesRequest, Query()],
+    http_request: Request,
+) -> Response:
+    """List the frames of DWD's precipitation radar, a loop of the last hours and the forecast of the next two.
+
+    DWD's RV composite: the precipitation over Germany of every 5 minutes. Each frame has the `time` it is valid at
+    (UTC), the `run` of DWD it is read from, and is `observation` (the radar analysis, `past` minutes of it, 2 hours by
+    default) or `forecast` (DWD's extrapolation of the recent movement of the rain, 24 frames to 2 hours after the
+    newest run, unless `forecast=false`). Fetch the image of a frame from `/radar/frame` with its `time` and `run`.
+    `image` says where the images lie: `bounds` in WGS84, which a Leaflet `ImageOverlay` takes as they are (the images
+    are in Web Mercator, `crs`, so a map of another projection must not stretch them), and `legend` the colours of the
+    classes of the rate in mm/h, as numbers. The newest run is 3 to 8 minutes old when it appears on DWD's server; a
+    `radar-stale` warning in `metadata` says that it is much older.
+    """
+    from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
+    try:
+        listing = DwdRadarFrames(settings).frames(history_minutes=request.past, forecast=request.forecast)
+    except Exception as e:
+        # a directory that does not list, or lists no run, is the provider's
+        raise _failure(e, request, "list radar frames") from e
+
+    content, metadata = render_radar_frames(listing, pretty=request.pretty)
+    if metadata.warnings:
+        # an old run is a source that is behind for the moment: the next request may give another
+        return _answer(content, "json", metadata)
+    return cached_json(
+        http_request,
+        content,
+        cache_control=RADAR_FRAMES_CACHE_CONTROL,
+        ignoring=[metadata.retrieved_at],
+        headers=response_headers(metadata),
+    )
+
+
+@router.get(
+    "/radar/frame",
+    response_class=Response,
+    tags=[TAG_RADAR],
+    responses={
+        200: {
+            "description": "The frame as an image: an indexed PNG whose colours are the classes of the legend of "
+            "`/radar/frames` and whose background is transparent. The licence, the credit line and the note on what "
+            "was done to the data are in the headers, as for every answer that holds no `metadata` block; "
+            "`X-Wetterdienst-Radar-Time` and `X-Wetterdienst-Radar-Run` say which frame it is.",
+            "content": {"image/png": {}},
+            "headers": {
+                **_VALIDATOR_HEADERS,
+                "X-Wetterdienst-Radar-Time": {
+                    "description": "The UTC time the frame is valid at.",
+                    "schema": {"type": "string"},
+                },
+                "X-Wetterdienst-Radar-Run": {
+                    "description": "The UTC time of the run of DWD the frame is read from.",
+                    "schema": {"type": "string"},
+                },
+            },
+        },
+        304: _revalidatable(last_modified=False)[304],
+    },
+)
+def radar_frame(
+    request: Annotated[RadarFrameRequest, Query()],
+    http_request: Request,
+) -> Response:
+    """Get the image of one frame of DWD's precipitation radar, as a PNG that a map draws over Germany.
+
+    The `time` (UTC, a multiple of 5 minutes) and the `run` are those of a frame of `/radar/frames`. The image is the
+    precipitation of the 5 minutes that end at `time` as a rate, in the classes of the legend of `/radar/frames`;
+    where there is no rain, and where the composite has no data, it is transparent. It lies over the `bounds` of that
+    answer and is in Web Mercator (EPSG:3857). One decoded frame serves every reader, so a frame is drawn once.
+    Given `run`, the image is the same for as long as DWD keeps the run (about 48 hours) and may be reused for an hour;
+    without it, a time after the newest run is a forecast frame of the newest run, which changes every 5 minutes. The
+    forecast of a run is served for the newest three runs DWD lists, and a run it does not list is a 404. Load frames a
+    few at a time (4 to 6): the server serves 32 requests at once.
+    """
+    from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames, format_instant, parse_instant  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
+    try:
+        image = DwdRadarFrames(settings).frame(
+            parse_instant(request.time, name="time"),
+            parse_instant(request.run, name="run") if request.run else None,
+        )
+    except Exception as e:
+        # a time that does not parse or is not a frame is the request's, a run DWD does not hold a 404, and a file that
+        # does not download or decode the provider's
+        raise _failure(e, request, "draw a radar frame") from e
+
+    metadata = radar_metadata(1, image=True)
+    checked = validators(
+        http_request,
+        image.png,
+        cache_control=RADAR_FRAME_OF_A_RUN_CACHE_CONTROL if request.run else RADAR_FRAME_OF_THE_NEWEST_CACHE_CONTROL,
+    )
+    if checked.matched:
+        return checked.not_modified()
+    return Response(
+        content=image.png,
+        media_type="image/png",
+        headers={
+            **response_headers(metadata),
+            "X-Wetterdienst-Radar-Time": format_instant(image.frame.time),
+            "X-Wetterdienst-Radar-Run": format_instant(image.frame.run),
+            **checked.headers,
+        },
+    )
 
 
 def _mount_mcp(rest_app: FastAPI) -> bool:
@@ -2851,7 +3462,8 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
     contract version, and ``/mcp`` is an alias of the current one, as ``/api`` is of ``/api/v1``.
     Both paths are routes to the one endpoint, so they share the session manager and
     the server is built once, and a tool answers alike on either (GH-3074). The endpoint is stateless (GH-3088):
-    every request stands alone, no session is created or kept, and a request needs no `initialize` before it. The MCP
+    every request stands alone, no session is kept, and a request needs no `initialize` before it. An `initialize`
+    is answered with an `Mcp-Session-Id` that the server neither stores nor checks (GH-4341). The MCP
     streamable-http session manager runs via the sub-app's lifespan, which is *composed* with
     ``rest_app``'s existing lifespan here (not replaced), so any current or future app
     startup/shutdown still runs; the existing REST routes keep working with or without the
@@ -2865,7 +3477,7 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
         from fastmcp.utilities.lifespan import combine_lifespans  # noqa: PLC0415
         from starlette.routing import Route  # noqa: PLC0415
 
-        from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+        from wetterdienst.ui.mcp import AnnounceSessionId, build_mcp_server  # noqa: PLC0415
 
         # stateless: the tools hold no session state, so no session is kept (GH-3088)
         mcp_app = build_mcp_server(rest_app).http_app(path=MCP_PREFIX, stateless_http=True)
@@ -2884,7 +3496,18 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
     # app's existing lifespan (rather than replacing it, which would drop any app startup/shutdown).
     # The alias is a second route to the pinned route's own endpoint: not a second `http_app`, whose
     # lifespan would start a second session manager and enter the server's lifespan a second time
-    mcp_routes = list(mcp_app.router.routes)
+    # the endpoint answers an `initialize` with an `Mcp-Session-Id` that nothing keeps or checks (GH-4341)
+    mcp_routes = [
+        Route(
+            route.path,
+            endpoint=AnnounceSessionId(route.endpoint),
+            methods=sorted(route.methods) if route.methods else None,
+            name=route.name,
+        )
+        if isinstance(route, Route) and route.path == MCP_PREFIX
+        else route
+        for route in mcp_app.router.routes
+    ]
     rest_app.router.routes.extend(mcp_routes)
     rest_app.router.routes.extend(
         Route(MCP_ALIAS_PREFIX, endpoint=route.endpoint, methods=sorted(route.methods) if route.methods else None)

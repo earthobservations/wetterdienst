@@ -13,11 +13,12 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, cast
 
 import polars as pl
 from tqdm import tqdm
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, Unpack
 
 from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
+from wetterdienst.model.group_statistics import StatisticsResult, StatisticsRun, parse_statistics
 from wetterdienst.model.judge import SOURCE as SOURCE_COLUMN
 from wetterdienst.model.judge import (
     SOURCE_TEXT,
@@ -35,13 +36,26 @@ from wetterdienst.model.plausibility import REJECTED_TOKEN, leave_out_suspect
 from wetterdienst.model.quality_flags import CALM_TOKEN, QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
+from wetterdienst.model.row_selection import (
+    ParameterNames,
+    RowSelection,
+    RowSelectionRefusedError,
+    RowsOverLimitError,
+    Searched,
+    parse_row_selection,
+    searched_of,
+    station_names,
+    wide_value_columns,
+)
 from wetterdienst.model.schema import (
     LONG_SCHEMA,
     WIDE_FLAGS_DTYPE,
     WIDE_FLAGS_SUFFIX,
     WIDE_VALUE_DTYPE,
+    wide_schema,
 )
 from wetterdienst.model.unit import UnitConverter
+from wetterdienst.util.cancellation import check as check_cancelled
 from wetterdienst.util.datetime import is_plausible_update, newest
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.response_warnings import (
@@ -61,6 +75,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping, Sequence
 
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
+    from wetterdienst.model.row_selection import RowOptions
 
 log = logging.getLogger(__name__)
 
@@ -75,6 +90,13 @@ _UnitT = TypeVar("_UnitT", bound="ParameterModel | DatasetModel", default=Any)
 #: the column a provider whose source dates its files hands its rows over with, the date of the file of each row
 UPDATED = "updated"
 _REQUIRED_COLUMNS = ("parameter", "timestamp", "value")
+
+
+def _cells(frame: pl.DataFrame) -> int:
+    """Count what a frame of values holds in cells: a long row is one, a wide row one for each parameter it has."""
+    if "parameter" in frame.columns:
+        return frame.height
+    return frame.height * max(1, len(wide_value_columns(frame)))
 
 
 def merge_duplicate_readings(df: pl.DataFrame, subset: Sequence[str]) -> pl.DataFrame:
@@ -300,6 +322,22 @@ def _value_as_number(df: pl.DataFrame, provider: str) -> pl.Expr:
     return value
 
 
+def _requested_wide_columns(parameters: Iterable[ParameterModel], *, humanize: bool) -> list[str]:
+    """Give the value columns of the requested parameters of a wide frame, in request order, once each.
+
+    Named after humanising if that is on, else as the source names them, with the dataset as a prefix when the
+    parameters span several datasets: what `TimeseriesValues._widen_df` names them, and the header of a streamed CSV.
+    """
+    parameters = list(parameters)
+    datasets = {parameter.dataset.name.lower() for parameter in parameters}
+    requested = []
+    for parameter in parameters:
+        name = parameter.name if humanize else parameter.name_original
+        requested.append(f"{parameter.dataset.name.lower()}_{name}" if len(datasets) > 1 else name)
+    # once: the same parameter of a dataset of one name at two resolutions is one column
+    return list(dict.fromkeys(requested))
+
+
 @dataclass
 class TimeseriesValues(ABC, Generic[_UnitT]):
     """Core for sources of timeseries where data is related to a station.
@@ -351,8 +389,22 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: stations whose file the provider let go, those whose dates of another series were left out and those whose values
     #: of a window that had not closed were left out, which the estimate tells once as `source-data-left-out` when its
     #: walk is over (`EstimateLeftOut`, GH-3848, GH-3883). It also says that the values are read for an estimate:
-    #: `metno/frost` leaves the monthly and annual value of an open window out of one, as it does a daily value
+    #: `metno/frost` leaves the monthly and annual value of an open window out of one, as it does a daily value,
+    #: and `dmi/observation` the day, the month and the year still running (`model/open_window.py`)
     _left_out_of_estimate: EstimateLeftOut | None = field(default=None, init=False, repr=False, compare=False)
+    #: whether `all` is the caller of `query`, which finishes what the walk reduces station by station: a grouping that
+    #: spans stations (`by=year`) and the order of `sort` are the whole answer's, and `query` alone cannot give them
+    _finishing_rows: bool = field(default=False, init=False, repr=False, compare=False)
+    #: the most rows `all` holds of the rows chosen, which a caller that answers within a limit (the REST API)
+    #: sets; None for no limit. A walk whose choice stays in a station (a `filter`, a `sort`, a `first` by station) is
+    #: stopped with `RowsOverLimitError` when it has held more
+    _held_rows_limit: int | None = field(default=None, init=False, repr=False, compare=False)
+    #: the stations the walk in hand read, those without a value included (`Searched.stations_read`)
+    _stations_read: int = field(default=0, init=False, repr=False, compare=False)
+    #: the cells `all` held when it last made the choice again over groups that span stations (`_hold`)
+    _compacted_cells: int = field(default=0, init=False, repr=False, compare=False)
+    #: the names of the stations of the walk in hand by id, read once for the report (`_searched_of`)
+    _names: dict[str, str | None] | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -465,18 +517,67 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         df = df.with_columns(convert)
         return df.drop(SOURCE_COLUMN) if canonical else df
 
-    def query(self) -> Iterator[ValuesResult]:
+    def _unit_symbol(self, parameter: ParameterModel) -> str:
+        """Give the symbol of the unit the values of a parameter come back in."""
+        if self.sr.options.convert_units:
+            return self.unit_converter.targets[parameter.unit_type].symbol
+        return self.unit_converter.get_unit(parameter.unit, parameter.unit_type).symbol
+
+    def _row_names(self) -> ParameterNames:
+        """Give the names of the parameters of the request that a `filter` or a `sort` may write, as answered."""
+        return ParameterNames.of(self.sr.parameters, humanize=self.sr.options.humanize)
+
+    def _row_selection(self, rows: RowOptions, *, whole: bool) -> RowSelection | None:
+        """Read the options that choose the rows and check them against this request, None where none is given.
+
+        Raised before a station is read: a text that cannot be read (`RowSelectionError`), `value` over parameters in
+        different units or in the wide shape, and a grouping across stations asked of `query`, which yields the
+        stations one by one and cannot give it (`RowSelectionRefusedError`). `whole` is `all`, which can.
+        """
+        selection = parse_row_selection(**rows, parameters=self._row_names())
+        if selection is None:
+            return None
+        if not self.sr.options.tidy:
+            selection.refuse_wide()
+        selection.refuse_for(self.sr.parameters, self._unit_symbol)
+        if not whole and not selection.per_station:
+            msg = (
+                f"`by` without station_id groups across stations ({selection.echo()['by']}), which the stations of "
+                "`query` cannot give one by one: use `all`, or add station_id to `by`."
+            )
+            raise RowSelectionRefusedError(msg)
+        return selection
+
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Query data for all stations and parameters and return a DataFrame for each station.
 
         For a provider that names the files of a station beforehand (`_files_ahead`) the files of the next stations
         are fetched while one is read, as many as `Settings.fetch_ahead` says (GH-3454). Nothing about the answer
         depends on it: the stations come in the same order with the same rows, and a failure is the failure of the
         station it was met at.
+
+        `filter`, `sort`, `first` and `by` choose the rows of each station (`RowSelection`): the readings that meet the
+        conditions, the first of each group in the order of `sort`. They are applied to a station after it is counted
+        for a `rank` and for `skip_empty`, so that they change which rows come back and never which stations are read.
+        Each result carries what was searched of its station (`ValuesResult.search`). A `by` that spans stations needs
+        the whole answer, and is refused here: use `all`. `max_rows` caps the answer, which `query` has station by
+        station: each station's rows are cut to it, and the cap of the whole is the caller's (`all` does it).
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read, when the walk begins and before any station is.
+            RowSelectionRefusedError: a selection that cannot be applied to this request, at the same point.
+
         """
+        return self._walk(self._row_selection(rows, whole=self._finishing_rows))
+
+    def _walk(self, selection: RowSelection | None, statistics: StatisticsRun | None = None) -> Iterator[ValuesResult]:
+        """Walk the stations of the request, each reduced by `selection` or fed to `statistics` where there is one."""
+        self._stations_read = 0
+        self._names = None
         groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
         ahead = self._fetch_ahead(groups)
         try:
-            yield from self._query_stations(groups, ahead)
+            yield from self._query_stations(groups, ahead, selection, statistics)
         finally:
             # a consumer that stops (a closed generator, an error, a streamed answer whose client has gone) starts
             # nothing more: what is begun ends with its download, and a download never leaves a part of a file in
@@ -485,9 +586,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 ahead.close()
 
     def _query_stations(
-        self, groups: list[tuple[Any, pl.DataFrame]], ahead: FetchAhead | None
+        self,
+        groups: list[tuple[Any, pl.DataFrame]],
+        ahead: FetchAhead | None,
+        selection: RowSelection | None = None,
+        statistics: StatisticsRun | None = None,
     ) -> Iterator[ValuesResult]:
-        """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
+        """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them.
+
+        With `statistics` each station's rows are handed to it as they are read and let go: the result a station yields
+        has no rows then, and the groups are the run's.
+        """
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
         # an explicit list of ids, `station_id`s or the WMO, WIGOS or ICAO ids of stations, is the one kind of selection
@@ -518,9 +627,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         for position, ((station_id,), df_station_meta) in enumerate(groups):
             if stations_collected == self.sr._rank:  # noqa: SLF001
                 break
+            # the request this walk is for may have had its answer given up (a timeout, a client that left): the work
+            # ends here, between two stations, and not at the last of them (GH-4429)
+            check_cancelled()
             station_id = cast("str", station_id)
             if self._begins_after_window(df_station_meta):
                 continue
+            self._stations_read += 1
             available_datasets = self._get_available_datasets(df_station_meta)
             rows.examine(station_id, available_datasets)
             self._data_updated.clear()
@@ -544,7 +657,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
-                self._leave_out_emptied(station_id, rows)
+                self._leave_out_emptied(station_id, rows, df_station_meta)
                 self._pass_over(rows, station_id)
                 continue
             if self.sr.options.skip_empty:
@@ -555,9 +668,15 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                     self._warn_station_skipped(station_id, percentage, rows)
                     self._pass_over(rows, station_id)
                     continue
-            self._tell_missing_value_markers()
+            self._tell_missing_value_markers(station_id, df_station_meta)
             if hpm is not None:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
+            # what the selection searches, as the answer names it, counted before it chooses
+            searched = (
+                self._searched_of(df, stamped_on_the_day=statistics is not None)
+                if selection is not None or statistics is not None
+                else None
+            )
             if not self.sr.options.tidy:
                 df = self._widen_df(df=df)
             # sorted by resolution first in either shape: two resolutions are two series, and
@@ -572,9 +691,47 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.sort(sort_columns)
             stations_collected += 1
             rows.returned(station_id)
-            yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
+            if statistics is not None and searched is not None:
+                statistics.add_station(df, searched)
+                df, search = df.head(0), None
+            else:
+                df, search = self._choose_rows(selection, searched, df)
+            yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated), search=search)
+        # the answer of the request may have been given up while the last station was read: what is made of the stations
+        # (the rows, the picture) is not made for nobody (GH-4429)
+        check_cancelled()
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
+
+    def _searched_of(self, df: pl.DataFrame, *, stamped_on_the_day: bool = False) -> pl.DataFrame:
+        """Count what the rows of a station hold for the report, with the window, the station's name and the kind."""
+        if self._names is None:
+            self._names = station_names(self.sr.df)
+        return searched_of(
+            df,
+            (self.sr.start, self.sr.end),
+            names=self._names,
+            forecast=self.sr.request.metadata.kind == "forecast",
+            stamped_on_the_day=stamped_on_the_day,
+        )
+
+    def _choose_rows(
+        self, selection: RowSelection | None, searched: pl.DataFrame | None, df: pl.DataFrame
+    ) -> tuple[pl.DataFrame, Searched | None]:
+        """Apply the selection to the rows of a station that is counted, and say what it searched there.
+
+        After the station is counted for a rank and for `skip_empty`: the rows chosen are the answer's, the station
+        read is what the options of the request decided.
+        """
+        if selection is None or searched is None:
+            return df, None
+        df = selection.reduce_station(df)
+        search = Searched(series=searched, selection=selection, window=(self.sr.start, self.sr.end)).with_matched(df)
+        if selection.per_station:
+            # a station holds no more than the answer can: the count of what matched is taken before
+            df = selection.cap_station(df, held=self._finishing_rows)
+            search = search.with_returned(df)
+        return df, search
 
     def _pass_over(self, rows: ParameterRows, station_id: str) -> None:
         """Note that a rank walk passed a candidate over (an empty frame, or one below `skip_threshold`) for the next.
@@ -597,12 +754,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             level=logging.INFO,
         )
 
-    def _leave_out_emptied(self, station_id: str, rows: ParameterRows) -> None:
+    def _leave_out_emptied(self, station_id: str, rows: ParameterRows, df_station_meta: pl.DataFrame) -> None:
         """Tell of a station with nothing left in the window: `station-skipped` if it held readings, all nulls."""
         if self._note_nulls_dropped(rows):
             # `skip_empty` leaves it out, as it does with the nulls kept
             self._warn_station_skipped(station_id, 0.0, rows)
-        self._tell_missing_value_markers(emptied=True)
+        self._tell_missing_value_markers(station_id, df_station_meta, emptied=True)
 
     def _station_spans(self) -> pl.DataFrame | None:
         """Give the span of the station's readings in the window per dataset, before `drop_nulls`, or None for none."""
@@ -657,13 +814,16 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         for check, number in checks.iter_rows():
             self._rejected_by_check[check] = self._rejected_by_check.get(check, 0) + number
 
-    def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
+    def _tell_missing_value_markers(
+        self, station_id: str, df_station_meta: pl.DataFrame, *, emptied: bool = False
+    ) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
 
         Counted by `_process_dataset` for the station and told here, once the walk has not skipped it (`skip_empty`):
         the count is of the readings of the answer, and a station that is not in it, or one that an estimate reads
         (`_count_missing_value_markers`), has none to tell (GH-3554). One sum for the request, which
-        `count_response_warning` keeps.
+        `count_response_warning` keeps, with the count at each station (and its name), which the message tells for the
+        first few (GH-4424).
 
         A station `emptied` of its frame because the nulls were dropped is told when the request names it: the markers
         are what the nulls were. Not where it would be left out all the same -- `skip_empty` skips a frame without a
@@ -673,14 +833,37 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if emptied and (self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK):  # noqa: SLF001
             return
         if self._count_missing_value_markers:
-            count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)
-            count_response_warning(CALM_WIND_DIRECTION, self._calm_in_window, CALM_WIND_DIRECTION_MESSAGE)
+            name = self._name_of(df_station_meta)
+            count_response_warning(
+                MISSING_VALUE_MARKER,
+                self._markers_in_window,
+                MISSING_VALUE_MARKER_MESSAGE,
+                station=station_id,
+                station_name=name,
+            )
+            count_response_warning(
+                CALM_WIND_DIRECTION,
+                self._calm_in_window,
+                CALM_WIND_DIRECTION_MESSAGE,
+                station=station_id,
+                station_name=name,
+            )
             count_response_warning(
                 REJECTED_BY_PLAUSIBILITY,
                 self._rejected_in_window,
                 REJECTED_BY_PLAUSIBILITY_MESSAGE,
                 details=self._rejected_by_check,
+                station=station_id,
+                station_name=name,
             )
+
+    @staticmethod
+    def _name_of(df_station_meta: pl.DataFrame) -> str | None:
+        """Give the name the station list has for the station, or None where it has none (its rows are at hand)."""
+        if "name" not in df_station_meta.columns or df_station_meta.is_empty():
+            return None
+        name = df_station_meta.get_column("name")[0]
+        return name.strip() if isinstance(name, str) and name.strip() else None
 
     @staticmethod
     def _rows_of(*parameters: ParameterModel) -> pl.Expr:
@@ -1173,6 +1356,16 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         """
 
+    def _wide_schema(self) -> pl.Schema:
+        """Give the columns a wide frame of this request can have, in the order it writes them, with their dtypes.
+
+        The columns of `WIDE_SCHEMA`, then the value column of every requested parameter, each followed by its flags
+        column, named as `_widen_df` names them: after humanising if that is on, with the dataset as a prefix when
+        the request spans several. A station's frame has the columns of the parameters it delivers only, so a stream
+        that writes its header with the first station asks this for the header of all (GH-4432).
+        """
+        return wide_schema(_requested_wide_columns(self.sr.parameters, humanize=self.sr.options.humanize))
+
     def _widen_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Widen a dataframe with each row having one timestamp, parameter, value and quality flags.
 
@@ -1249,12 +1442,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         # the columns of the parameters in the order the request names them, as the empty frame has them,
         # and not in the order the source happened to deliver its rows in
-        requested = []
-        for parameter in self.sr.parameters:
-            name = parameter.name_original if not self.sr.options.humanize else parameter.name
-            requested.append(f"{parameter.dataset.name.lower()}_{name}" if len(datasets) > 1 else name)
-        # once: the same parameter of a dataset of one name at two resolutions is one column
-        requested = list(dict.fromkeys(requested))
+        requested = _requested_wide_columns(self.sr.parameters, humanize=self.sr.options.humanize)
 
         if not df.is_empty():
             delivered = {
@@ -1291,18 +1479,51 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         return df_wide
 
-    def all(self) -> ValuesResult:
-        """Collect all data for all stations and parameters and return a single DataFrame."""
+    def all(self, **rows: Unpack[RowOptions]) -> ValuesResult:
+        """Collect all data for all stations and parameters and return a single DataFrame.
+
+        `filter`, `sort`, `first` and `by` choose the rows (`RowSelection`; see `query`). Each station is reduced as it
+        is read, so that only the rows chosen are held, and the whole is finished once: the groups of `by` that span
+        stations, and the order of `sort` (by series, the sort keys, then station and timestamp). The result says
+        what was searched, per station and series, in `search`.
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read, before any station is.
+            RowSelectionRefusedError: a selection that cannot be applied to this request.
+
+        """
+        selection = self._row_selection(rows, whole=True)
         data = []
         updated = []
+        parts: list[pl.DataFrame] = []
+        matched_rows = 0
+        # `max_rows` over a choice that stays in a station: what is held is no more than the answer, and the walk
+        # goes on counting what matched at the stations after it
+        keep = selection.max_rows if selection is not None and selection.per_station and not selection.sort else None
 
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
 
-        for result in tqdm(self.query(), total=len(self.sr.station_id), file=tqdm_out):
-            data.append(result.df)
-            if result.data_updated_at is not None:
-                updated.append(result.data_updated_at)
+        self._finishing_rows = selection is not None
+        self._compacted_cells = 0
+        held_rows = held_cells = 0
+        try:
+            walk = self.query(**rows) if selection is not None else self.query()
+            for result in tqdm(walk, total=len(self.sr.station_id), file=tqdm_out):
+                frame = result.df if keep is None else result.df.head(max(keep - held_rows, 0))
+                data.append(frame)
+                held_rows += frame.height
+                held_cells += _cells(frame)
+                if selection is not None:
+                    held_rows, held_cells, data = self._hold(selection, held_rows, held_cells, data)
+                if result.data_updated_at is not None:
+                    updated.append(result.data_updated_at)
+                if result.search is not None:
+                    parts.append(result.search.series)
+                    matched_rows += result.search.matched_rows or 0
+        finally:
+            self._finishing_rows = False
 
+        window = (self.sr.start, self.sr.end)
         if not data:
             # an ordinary outcome -- no station covered the requested window -- rather than an
             # error, so it is logged as one and does not print a traceback. The frame still carries
@@ -1310,11 +1531,136 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # concatenates it against a populated frame, and none of that survives a frame with no
             # columns at all
             log.info("No data available for given constraints")
-            return ValuesResult(stations=self.sr, df=self._empty_values_df())
+            empty = self._empty_values_df()
+            search = None
+            if selection is not None:
+                search = Searched.nothing(selection, window, self._stations_read)
+            return ValuesResult(stations=self.sr, df=empty, search=search)
 
-        df = pl.concat(data, how="diagonal")
+        if selection is None:
+            df = pl.concat(data, how="diagonal")
+            return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
+        matching = selection.finish(data)
+        search = Searched(
+            series=pl.concat(parts),
+            selection=selection,
+            window=window,
+            matched_rows=matched_rows,
+            stations_read=self._stations_read,
+        )
+        if not (selection.max_rows is not None and selection.per_station):
+            # the rows of the walk are what matched: counted again over the whole, which a group that spans stations
+            # settles. Where the stations were cut to `max_rows`, the counts of the walk are the ones that count
+            search = search.with_matched(matching)
+        df = selection.cap(matching)
+        search = search.with_returned(df)
+        search.warn_if_capped()
+        return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated), search=search)
 
-        return ValuesResult(stations=self.sr, df=df, data_updated_at=newest(updated))
+    def statistics(
+        self,
+        aggregate: str | Sequence[str],
+        *,
+        by: str | Sequence[str] | None = None,
+        filter: str | None = None,  # noqa: A002
+        year_start: int | str | None = None,
+        max_missing: int | str | None = None,
+        having: str | None = None,
+        sort: str | None = None,
+        first: int | str | None = None,
+        per: str | None = None,
+        max_rows: int | str | None = None,
+    ) -> StatisticsResult:
+        """Count, average, add up or take the extremes of each station's values per year, month, day or hour.
+
+        `aggregate` is one to five of `count mean sum min max earliest latest`; `by` the groups besides the series (any
+        of `year month day hour`); `filter` the conditions (`year month day hour` say which values are looked at,
+        `value` which of them count); `year_start` the month a `year` begins; `max_missing` how many missing values a
+        group may have and still get a `mean` and a `sum` (keep it 0 to rank: `gaps-allowed` counts the groups it
+        lets in); `having` and `sort` choose and order the groups by what was calculated, `first` keeps the first N of
+        them (exactly N: `ties-not-shown` says how many more tie) per series or, with `per="none"`, over the stations
+        of a parameter; `max_rows` cuts the answer. See `group_statistics`.
+
+        Each station is reduced to its groups as it is read and its rows let go, so that what is held is the groups
+        and not the readings. A group that is not over yet is incomplete: its `mean` and `sum` are null unless
+        `max_missing` allows it, and `searched` and `expected` say how many values it has and should have. Series are
+        never merged.
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read, before any station is.
+            RowSelectionRefusedError: an option that cannot be applied to this request or to one of its series (a sum
+                of a pressure, `by=hour` of daily values, the wide shape).
+            GroupsOverLimitError: the groups held are more than `_held_rows_limit` allows.
+
+        """
+        plan = parse_statistics(
+            aggregate,
+            by=by,
+            filter=filter,
+            year_start=year_start,
+            max_missing=max_missing,
+            having=having,
+            sort=sort,
+            first=first,
+            per=per,
+            max_rows=max_rows,
+        )
+        run = StatisticsRun.for_stations(
+            self.sr, plan, unit_symbol=self._unit_symbol, held_groups_limit=self._held_rows_limit
+        )
+        updated: list[dt.datetime] = []
+        tqdm_out = TqdmToLogger(log, level=logging.INFO)
+        for result in tqdm(self._walk(None, run), total=len(self.sr.station_id), file=tqdm_out):
+            if result.data_updated_at is not None:
+                updated.append(result.data_updated_at)
+        return run.finish(self.sr, stations_read=self._stations_read, data_updated_at=newest(updated))
+
+    #: the cells of the rows chosen that `all` lets pile up before it makes the first rows of the groups that span
+    #: stations of them, or fewer where the limit it was given is lower
+    _COMPACT_CELLS = 1_000_000
+
+    def _hold(
+        self, selection: RowSelection, rows: int, cells: int, data: list[pl.DataFrame]
+    ) -> tuple[int, int, list[pl.DataFrame]]:
+        """Keep what `all` holds of the rows chosen bounded, and stop a walk that has chosen more than it may hold.
+
+        The rows are what the limit and `max_rows` count, one unit throughout: a row of the frame. The cells (a long row
+        is one, a wide row one for each parameter it holds) are what the memory is, and set when the rows chosen are
+        chosen again. Three cases, by where the rows that will be in the answer can come from:
+
+        - a choice that stays in a station (a `filter` alone, a `sort`, or `first` with `station_id` in `by`) is the
+          answer as it is read: a station's rows that match are held as they arrive and the rest let go, and more rows
+          than the limit are an answer that is refused, now and not after the last station (`RowsOverLimitError`);
+        - the same with `max_rows` and a `sort`: every station holds up to `max_rows` rows and a hundred stations
+          hold a hundred times that, of which only the first `max_rows` in the answer's order can matter, so what is
+          held is cut to them once it is twice as many rows;
+        - groups that span stations: the first rows of a group are among those of its parts, so the choice is made
+          again over what was chosen, which gives the same rows. It is done when the held cells double what the last
+          time left (never before a million, or the limit where that is lower), so that the work is of the order of
+          the rows read and not of their square. Rows that remain above the limit after it are refused, as a group that
+          ties over many stations (every dry day at 0.0 mm) has no bound but its rows: add a column to `sort`.
+
+        Gives the rows and cells held and the frames, which are the same ones unless the choice was made again.
+        """
+        limit = self._held_rows_limit
+        if selection.per_station:
+            if selection.max_rows is not None:
+                if selection.sort and rows > 2 * selection.max_rows:
+                    compact = selection.cap_held(selection.finish(data))
+                    return compact.height, _cells(compact), [compact]
+                return rows, cells, data
+            if limit and rows > limit:
+                raise RowsOverLimitError(rows, limit)
+            return rows, cells, data
+        base = min(self._COMPACT_CELLS, limit) if limit else self._COMPACT_CELLS
+        if cells >= max(base, 2 * self._compacted_cells):
+            compact = selection.finish(data)
+            held = _cells(compact)
+            self._compacted_cells = held
+            if limit and compact.height > limit:
+                raise RowsOverLimitError(compact.height, limit)
+            return compact.height, held, [compact]
+        return rows, cells, data
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
         """Wrap to_target of all queried results.
@@ -1398,6 +1744,58 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 return cast("int", row.item(0, "rows"))
         return df_parameter.height
 
+    def _given_timestamps(self, parameter: ParameterModel) -> pl.Series | None:  # noqa: ARG002
+        """Name the steps at which the source gives a parameter at the station in hand, for `skip_empty`, or None.
+
+        Implemented by a provider whose product gives an element at some steps of its resolution only, which a share
+        measured against every step of the grid (`_get_actual_percentage`) would read as a station that lacks values
+        (MOSMIX-L's `TX` every 12th hour, MOSMIX-SNOW's `SnCv` every 3rd, GH-4093). Called once per parameter of the
+        request after the station was collected, for the station in hand; it must not download. The steps are
+        timestamps (a UTC datetime series, or None for no say) of the readings the file the station was read from
+        gives, whether this station has a value there or not, in the timezone of the frames the provider returns; the
+        share is then the distinct slots of the resolution among them that the station has a value at, of those that
+        lie in the window (or the span of the station's series). An empty series is a parameter given at no step at all,
+        which counts as zero, as a parameter that came back with nothing does. A parameter given at steps, none of them
+        in the window, is not measured: there is nothing to share, so it is left out of `skip_criteria`'s min, mean and
+        max beside the parameters that are measured (a source that gives an element at 06 and 18 UTC has no say about a
+        window of 07 to 17). A station whose every parameter is left out has nothing in the window and is skipped, as
+        it is whatever `drop_nulls` and the shape are.
+
+        The steps are the file's own, so an element that ends before the run does cannot be told from one that is given
+        so: its last step is whichever the file last gives, and a station that has them all is complete. No real file
+        has such an element (MOSMIX-L and MOSMIX-S, 2026-11-17: every element reaches the last step of its cadence),
+        and `docs/data/provider/dwd/mosmix/elements/index.md` lists them. An element the file gives at no step for the
+        station (`DRR1` at 10961, the Zugspitze) is an empty series: zero coverage, and `skip_empty` (with
+        `skip_criteria` "min") skips the station.
+
+        Not implemented, which is what a provider that does not name its steps does, the steps are every slot of the
+        resolution's grid over the window, as they always were.
+        """
+        return None
+
+    @staticmethod
+    def _share_of_given_steps(
+        df_parameter: pl.DataFrame,
+        given: pl.Series,
+        interval: str,
+        window: tuple[dt.datetime | None, dt.datetime | None],
+    ) -> float | None:
+        """Give the share of the slots the source gives a parameter at, in the window, the station has a value at.
+
+        None where the source gives the parameter at steps and none of them lies in the window: nothing to measure.
+        """
+        if given.is_empty():
+            return 0.0
+        slots = given.cast(df_parameter.schema["timestamp"]).to_frame("timestamp")
+        start_date, end_date = window
+        if start_date is not None and end_date is not None:
+            slots = slots.filter(pl.col("timestamp").is_between(start_date, end_date, closed="both"))
+        expected = slots.select(pl.col("timestamp").dt.truncate(interval).unique()).get_column("timestamp")
+        if expected.is_empty():
+            return None
+        covered = df_parameter.drop_nulls("value").get_column("timestamp").dt.truncate(interval)
+        return min(covered.filter(covered.is_in(expected.implode())).n_unique() / expected.len(), 1.0)
+
     def _get_actual_percentage(
         self, df: pl.DataFrame, spans: pl.DataFrame | None = None, rows: pl.DataFrame | None = None
     ) -> float:
@@ -1426,7 +1824,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         A parameter that was asked for and came back with nothing counts as zero rather than
         going unmeasured: a request for two parameters where one is missing is not fully covered. So does one whose
         values are all flagged ``suspect:`` by a soft plausibility check: the coverage counts the unflagged values
-        alone, as an interpolation and the climate stripes do.
+        alone, as an interpolation does.
         """
         # a station that returned nothing inside the window covers none of it, and there is no
         # frame under the question to read a span or a dtype off
@@ -1436,7 +1834,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # whatever the mode (GH-3676). As it was where the check used to null the value; a road sensor that stopped,
         # which kept its value and counted, no longer counts
         df = leave_out_suspect(df)
-        percentages = []
+        # None for a parameter that is not measured (`_share_of_given_steps`)
+        percentages: list[float | None] = []
         for parameter in cast("Iterable[ParameterModel]", self.sr.parameters):
             resolution = parameter.dataset.resolution
             # the dataset frame carries the fallback window below. Read per dataset rather than
@@ -1457,12 +1856,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             start_date, end_date = self.sr.start, self.sr.end
             if start_date is None or end_date is None:
                 start_date, end_date = self._series_span(df_dataset, spans, resolution.name, parameter.dataset.name)
+            interval = reading_interval(resolution.value)
+            # a source that names the steps it gives the parameter at is measured against those, not against every
+            # slot of the grid (`_given_timestamps`)
+            given = self._given_timestamps(parameter) if interval is not None else None
+            if given is not None and interval is not None:
+                percentages.append(self._share_of_given_steps(df_parameter, given, interval, (start_date, end_date)))
+                continue
             expected = (
                 count_readings(resolution.value, start_date, end_date)
                 if start_date is not None and end_date is not None
                 else None
             )
-            interval = reading_interval(resolution.value)
             if not expected or interval is None:
                 held = self._rows_held(df_parameter, rows, resolution.name, parameter)
                 percentages.append(df_parameter.get_column("value").drop_nulls().len() / held if held else 0.0)
@@ -1474,13 +1879,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # of an hourly window would cover it twice over and read as complete
             covered = df_parameter.drop_nulls("value").get_column("timestamp").dt.truncate(interval).n_unique()
             percentages.append(min(covered / expected, 1.0))
-        if not percentages:
+        measured = [percentage for percentage in percentages if percentage is not None]
+        if not measured:
+            # every parameter was left unmeasured (`_given_timestamps` names none in the window), or there is none: the
+            # station has nothing in the window and is skipped, as it is with the nulls dropped (an empty frame) and
+            # as it was before the steps were named. Not measured only means a parameter has no say beside the others
             return 0.0
         if self.sr.options.skip_criteria == "min":
-            return min(percentages)
+            return min(measured)
         if self.sr.options.skip_criteria == "mean":
-            return sum(percentages) / len(percentages)
+            return sum(measured) / len(measured)
         if self.sr.options.skip_criteria == "max":
-            return max(percentages)
+            return max(measured)
         msg = "skip_criteria must be one of min, mean, max"
         raise KeyError(msg)

@@ -314,8 +314,11 @@ _LEAF_WETNESS = {
 # the day of the read, the seasons 2024/25 and 2025/26 and October and November 2026 included; `snow_depth` of the
 # same collection goes on to 2026-11-11), although DMI says it is still observed, by about 91 snow observers from 1
 # October to 30 April. The observations are published on, as the metObs parameter `snow_cover_man` that the table of
-# DMI's calculation names as the source: codes 0 to 4 and not percent, at 80 to 86 stations (GH-3762). The library
-# reads the climate data only, so it has nothing after the stop to serve.
+# DMI's calculation names as the source: codes 0 to 4 and not percent, at 80 to 86 stations (GH-3762). DMI customer
+# service (2026-11-19): the observer reports 0 where less than a quarter of the ground is covered, 1 for about a
+# quarter, 2 for about half, and so on; metObs is raw data that nobody checks, the climate data is checked by DMI's
+# climatologists, and the stop may be because `snow_cover` is no longer checked (asked of the climatologists, no answer
+# yet). The library reads the climate data only, so it has nothing after the stop to serve.
 _SNOW_COVER = {
     "name": "snow_cover",
     "name_original": "snow_cover",
@@ -573,6 +576,7 @@ _DmiObservationMetadataSpec = {
     },
     "timezone": "Europe/Copenhagen",
     "auth": False,
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "hourly",

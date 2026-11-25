@@ -22,6 +22,7 @@ from wetterdienst import Settings, Wetterdienst
 from wetterdienst.exceptions import InvalidEnumerationError, StationNotFoundError
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.options import Options
+from wetterdienst.provider.eumetnet.opera.sites import OPERA_CREDIT_LINE
 from wetterdienst.ui.cli import cli, wetterdienst_help
 
 # Individual settings for observation and mosmix
@@ -45,11 +46,14 @@ def test_cli_help() -> None:
           info         Display project information.
           interpolate  Interpolate data for a point from the stations around it.
           issues       List available issue (model-run) datetimes for a station.
+          kostra       Acquire DWD's design rainfall (KOSTRA: return periods of...
           providers    List the providers and their networks, and describe what...
           radar        List radar stations.
           restapi      Start the Wetterdienst REST API web service.
+          station-ids  Find one WMO number, WIGOS identifier or ICAO code at every...
           stations     Acquire stations.
-          stripes      Climate stripes.
+          statistics   Count, average, add up or take the extremes of each...
+          storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
           summarize    Summarize data for a point: the nearest station's value.
           values       Acquire data.
         """,
@@ -377,7 +381,7 @@ def test_cli_radar_stations_opera() -> None:
     """Test cli radar stations."""
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--odim-code=ukdea"])
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert isinstance(response, dict)
     assert response["location"] == "Dean Hill"
 
@@ -387,7 +391,7 @@ def test_cli_radar_stations_opera_wmo_code() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--wmo-code=11038"])
     assert result.exit_code == 0
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert response["odimcode"] == "atrau"
     assert response["wmocode"] == 11038
 
@@ -414,9 +418,27 @@ def test_cli_radar_stations_dwd() -> None:
     """Test cli radar stations."""
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--dwd"])
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert isinstance(response, list)
     assert len(response) == 20
+
+
+@pytest.mark.parametrize("argv", [["--odim-code=ukdea"], ["--wmo-code=11038"], ["--country-name=france"], ["--dwd"]])
+def test_cli_radar_credits_eumetnet_opera_on_stderr(argv: list[str]) -> None:
+    """The credit of the OPERA sites and its source page go to stderr; stdout stays the JSON (GH-4200)."""
+    result = CliRunner().invoke(cli, ["radar", *argv])
+    assert result.exit_code == 0
+    assert result.stderr == f"{OPERA_CREDIT_LINE}\n"
+    assert OPERA_CREDIT_LINE.startswith("Radar sites: EUMETNET OPERA, https://www.eumetnet.eu/")
+    # stdout is the JSON alone, as it was before the credit
+    assert result.stdout == json.dumps(json.loads(result.stdout), indent=4) + "\n"
+
+
+def test_cli_radar_error_carries_no_credit() -> None:
+    """A lookup that finds no site answers no list, so it carries no credit."""
+    result = CliRunner().invoke(cli, ["radar", "--wmo-code=99999"])
+    assert result.exit_code == 1
+    assert OPERA_CREDIT_LINE not in result.stderr
 
 
 @pytest.mark.remote
@@ -556,6 +578,61 @@ def test_issues_dmo_passes_the_product_and_lead_time_through(monkeypatch: pytest
     assert asked == {"station_id": "01001", "dataset": "icon_eu", "lead_time": "long"}
 
 
+@pytest.mark.parametrize("dataset", ["large", "small", "snow"])
+def test_issues_mosmix_passes_the_product_through(monkeypatch: pytest.MonkeyPatch, dataset: str) -> None:
+    """`--dataset` names the MOSMIX product whose runs are listed, and none names MOSMIX-L (GH-4093)."""
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+
+    asked: dict[str, object] = {}
+
+    def available_issues(station_id: str, _settings: object, **kwargs: object) -> list:
+        asked.update({"station_id": station_id, **kwargs})
+        return []
+
+    monkeypatch.setattr(DwdMosmixRequest, "available_issues", available_issues)
+    result = CliRunner().invoke(
+        cli, ["issues", "--provider=dwd", "--network=mosmix", "--station=Z914", f"--dataset={dataset}"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert asked == {"station_id": "Z914", "dataset": dataset}
+
+
+def test_issues_mosmix_without_a_dataset_leaves_the_product_to_mosmix_l(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No `--dataset` passes none on, so the answer is the one callers had before the product could be named."""
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+
+    asked: dict[str, object] = {}
+
+    def available_issues(station_id: str, _settings: object, **kwargs: object) -> list:
+        asked.update({"station_id": station_id, **kwargs})
+        return []
+
+    monkeypatch.setattr(DwdMosmixRequest, "available_issues", available_issues)
+    result = CliRunner().invoke(cli, ["issues", "--provider=dwd", "--network=mosmix", "--station=10147"])
+
+    assert result.exit_code == 0, result.output
+    assert asked == {"station_id": "10147"}
+
+
+@pytest.mark.parametrize(
+    ("network", "station", "dataset", "message"),
+    [
+        ("dmo", "10147", "snow", "dataset 'snow' is a DWD MOSMIX product; DWD DMO lists icon or icon_eu"),
+        ("mosmix", "10147", "icon", "dataset 'icon' is a DWD DMO product; DWD MOSMIX lists large, small or snow"),
+        ("swsmos", "A006", "small", "dataset does not apply to DWD SWSMOS"),
+    ],
+)
+def test_issues_refuses_a_product_of_the_other_network(network: str, station: str, dataset: str, message: str) -> None:
+    """A product of MOSMIX asked of DMO is refused, as one of DMO asked of MOSMIX is, and none is SWSMOS's (GH-4093)."""
+    result = CliRunner().invoke(
+        cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--dataset={dataset}"]
+    )
+
+    assert result.exit_code == 2, result.output
+    assert message in result.stderr
+
+
 def test_issues_mosmix_says_the_dmo_options_do_not_apply() -> None:
     """Named rather than ignored: answering a different question than the one asked is the fault here."""
     runner = CliRunner()
@@ -576,13 +653,12 @@ def test_every_export_command_can_say_what_to_do_with_an_existing_target() -> No
     one run's rows. This walks the command tree rather than naming the four commands, because the
     gap was a command gaining `--target` without the option that says what a second run does.
 
-    Four commands are excluded because their `--target` never reaches a sink: `alerts` and
-    `history` write text with `Path.write_text`, and `stripes image` writes an
-    image with `fig.write_image`. There is nothing for them to ask what to do with an existing target.
+    Two commands are excluded because their `--target` never reaches a sink: `alerts` and
+    `history` write text with `Path.write_text`. There is nothing for them to ask what to do with an existing target.
     """
     import click  # noqa: PLC0415
 
-    writes_directly = {"alerts", "history", "stripes image"}
+    writes_directly = {"alerts", "history"}
 
     def walk(command: click.Command, path: tuple[str, ...] = ()) -> list[tuple[str, click.Command]]:
         here = (*path, command.name)
@@ -624,7 +700,7 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
             ["stations", *_DWD_KL],
             (
                 "Error: Missing option: one of '--all', '--stations', '--wmo-id', '--wigos-id', '--icao-id', "
-                "'--name', ('--latitude' and '--longitude'), ('--left', '--bottom', '--right' and '--top') "
+                "'--name', '--region', ('--latitude' and '--longitude'), ('--left', '--bottom', '--right' and '--top') "
                 "or '--sql'.\n"
             ),
         ),
@@ -632,7 +708,8 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
             ["stations", *_DWD_KL, "--stations=01048", "--name=Hamburg"],
             (
                 "Error: Options '--stations' and '--name' cannot be used together, give exactly one of '--all', "
-                "'--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name', ('--latitude' and '--longitude'), "
+                "'--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name', '--region', "
+                "('--latitude' and '--longitude'), "
                 "('--left', '--bottom', '--right' and '--top') or '--sql'.\n"
             ),
         ),
@@ -689,14 +766,6 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
         # an empty value, e.g. from an unset shell variable, selects nothing
         (["radar", "--odim-code="], f"Error: {_RADAR_ONE_OF}\n"),
         (["radar", "--country-name="], f"Error: {_RADAR_ONE_OF}\n"),
-        (["stripes", "image", "--kind=temperature"], "Error: Missing option: one of '--station' or '--name'.\n"),
-        (
-            ["stripes", "image", "--kind=temperature", "--station=1048", "--name=Dresden"],
-            (
-                "Error: Options '--station' and '--name' cannot be used together, "
-                "give exactly one of '--station' or '--name'.\n"
-            ),
-        ),
         # a single value's error is told as click tells an invalid value, with the value refused;
         # --sections is a set, so the position pydantic gives within it points nowhere and is left out
         (
@@ -1088,8 +1157,6 @@ def test_cli_summarize_has_no_use_nearby_station_distance(monkeypatch: pytest.Mo
         pytest.param(["issues", "--provider=dwd", "--network=mosmix", "--station=10147"], id="issues"),
         pytest.param(["interpolate", *_POINT_ARGS], id="interpolate"),
         pytest.param(["summarize", *_POINT_ARGS], id="summarize"),
-        pytest.param(["stripes", "stations", "--kind=temperature"], id="stripes-stations"),
-        pytest.param(["stripes", "image", "--kind=temperature", "--station=1048"], id="stripes-image"),
         pytest.param(["alerts"], id="alerts"),
     ],
 )
@@ -1193,43 +1260,51 @@ def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
     assert json.loads(result.output)["issues"] == ["2026-10-04T06:00:00.000000+00:00"]
 
 
-@pytest.mark.parametrize("option", ["dataset", "lead_time"])
-def test_issues_help_says_what_the_dmo_options_do(option: str) -> None:
-    """Test `issues` describes --dataset and --lead-time as refused for MOSMIX and SWSMOS (GH-2347).
+def test_issues_help_says_what_the_lead_time_does() -> None:
+    """Test `issues` describes --lead-time as refused for MOSMIX and SWSMOS (GH-2347).
 
     The help said "ignored by other networks", which `values` says of its own --lead-time and is true
-    there, but `issues` refuses either option for MOSMIX and SWSMOS. The default it names is the one
+    there, but `issues` refuses the option for MOSMIX and SWSMOS. The default it names is the one
     `available_issues` lists when the option is left out.
     """
     import inspect  # noqa: PLC0415
 
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
 
-    help_text = next(param.help for param in cli.commands["issues"].params if param.name == option)
+    help_text = next(param.help for param in cli.commands["issues"].params if param.name == "lead_time")
     assert "; DMO only, refused for MOSMIX and SWSMOS." in help_text
-    default = inspect.signature(DwdDmoRequest.available_issues).parameters[option].default
+    default = inspect.signature(DwdDmoRequest.available_issues).parameters["lead_time"].default
     # an enum member for lead_time (SHORT = 78), named on the command line by its lowercased name
     assert help_text.endswith(f"Default: {getattr(default, 'name', default).lower()}")
 
 
-@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
+def test_issues_help_says_which_products_the_dataset_names() -> None:
+    """Test `issues` names the product of each network and the default `available_issues` lists (GH-4093)."""
+    import inspect  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+
+    option = next(param for param in cli.commands["issues"].params if param.name == "dataset")
+    assert list(option.type.choices) == ["icon", "icon_eu", "large", "small", "snow"]
+    dmo_default = inspect.signature(DwdDmoRequest.available_issues).parameters["dataset"].default
+    mosmix_default = inspect.signature(DwdMosmixRequest.available_issues).parameters["dataset"].default
+    assert f"icon or icon_eu (default {dmo_default})" in option.help
+    assert f"large, small or snow (default {mosmix_default})" in option.help
+
+
 @pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
-def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
-    option: str, value: str, network: str, station: str
-) -> None:
-    """Test `issues` refuses --dataset and --lead-time for MOSMIX and SWSMOS, as its help says (GH-2347)."""
+def test_issues_refuses_the_lead_time_for_mosmix_and_swsmos(network: str, station: str) -> None:
+    """Test `issues` refuses --lead-time for MOSMIX and SWSMOS, as its help says (GH-2347).
+
+    --dataset is refused by what the network accepts: `test_issues_refuses_a_product_of_the_other_network`.
+    """
     result = CliRunner().invoke(
         cli,
-        [
-            "issues",
-            "--provider=dwd",
-            f"--network={network}",
-            f"--station={station}",
-            f"--{option.replace('_', '-')}={value}",
-        ],
+        ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", "--lead-time=long"],
     )
     assert result.exit_code == 2, result.output
-    assert f"{option} applies to DWD DMO only" in result.stderr
+    assert "lead_time applies to DWD DMO only" in result.stderr
 
 
 @pytest.mark.parametrize(
@@ -1626,7 +1701,10 @@ def test_cli_usage_error_never_suggests_an_option_it_refuses(name: str) -> None:
         assert result.exit_code == 2, f"{name} {option}: {result.output}"
         error = result.output.split("Error:", 1)[1]
         if option in refused:
-            match = re.search(rf"{re.escape(option)} was renamed to (--[a-z-]+)\.", error)
+            # renamed, or a name that was never an option and has what to use instead (`--limit`, GH-4411)
+            match = re.search(rf"{re.escape(option)} was renamed to (--[a-z-]+)\.", error) or re.search(
+                rf"{re.escape(option)} is not an option of {name}: .*?(--[a-z-]+)", error
+            )
             assert match, f"{name} {option}: {error}"
             assert match.group(1) in offered, f"{name} {option} names {match.group(1)}, which is not offered"
         else:
@@ -1678,7 +1756,7 @@ def test_the_moved_commands_are_top_level_commands_and_about_is_none() -> None:
     assert set(_MOVED_FROM_ABOUT) <= set(cli.commands)
     assert "about" not in cli.commands
     assert "about" not in cli.list_commands(click.Context(cli))
-    assert len(cli.commands) == 17
+    assert len(cli.commands) == 20
 
     help_text = CliRunner().invoke(cli, ["--help"]).output
     assert "about" not in help_text.split("Commands:", 1)[1]

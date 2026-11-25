@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from tests.provider import station_data_index as data_index
+from tests.provider.dwd.observation.stationslexikon_rows import STATIONSLEXIKON
 from tests.provider.metno.frost import catalogue_rows as frost_rows
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, Bbox, has_encoding_damage
 from wetterdienst import Settings
@@ -53,14 +54,17 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import fileindex as dwd_fileindex
 from wetterdienst.provider.dwd.observation import metaindex as dwd_metaindex
+from wetterdienst.provider.dwd.observation import stationslexikon as dwd_stationslexikon
 from wetterdienst.provider.dwd.phenology import DwdPhenologyRequest
 from wetterdienst.provider.dwd.phenology import api as phenology_api
 from wetterdienst.provider.dwd.poi import DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as poi_api
+from wetterdienst.provider.dwd.pollen import DwdPollenRequest
 from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as swsmos_api
+from wetterdienst.provider.dwd.uvi import DwdUviRequest
 from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.ea.hydrology import api as ea_api
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
@@ -159,6 +163,18 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(DwdSwsmosRequest, ("hourly", "data"))
 
 
+def _dwd_uvi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:  # noqa: ARG001
+    # the catalogue is the table of the 38 places of `uvi.json` that the provider keeps (DWD's file gives a city and no
+    # position), so there is nothing to serve: the reader is the table, and the rules hold its positions to Germany
+    return _stations(DwdUviRequest, ("daily", "data"))
+
+
+def _dwd_pollen(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:  # noqa: ARG001
+    # the catalogue is the table of the 27 regions of `s31fg.json` that the provider keeps (DWD gives them an id and a
+    # name and no position), so there is nothing to serve: the reader is the table
+    return _stations(DwdPollenRequest, ("daily", "data"))
+
+
 def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     def row(station_id: str, name: str, region: str, lat: str, lon: str, elevation: str, group: str) -> dict[str, str]:
         return {
@@ -204,9 +220,22 @@ def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;270\r\n"
         "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
         "84;249190890;RADZIECHOWY ;Soła (2132);2008;49 38 55;19 09 20;395\r\n"
+        "516;252150270;BABIMOST;Gniła Obra (1568);2007;52 08 37;15 48 12;57\r\n"
         "539;252180290;Tuliszków ;Powa (18352);2005;52 04 04;18 16 07;111\r\n"
     )
-    _serve(monkeypatch, imgw_meteorology_api, {"kody_stacji": catalogue.encode("utf8")})
+    # the codes of `wykaz_stacji.csv` as published (GH-4070): BABIMOST has two, a climate and a precipitation one, and
+    # Dzierżkowice and Tuliszków none (573 of the 800 stations of the catalogue have one)
+    codes = (
+        '"249180010","PSZCZYNA"," 5409"\r\n'
+        '"249190890","RADZIECHOWY"," 6552"\r\n'
+        '"252150270","BABIMOST"," 3152"\r\n'
+        '"252150270","BABIMOST","93152"\r\n'
+    )
+    _serve(
+        monkeypatch,
+        imgw_meteorology_api,
+        {"kody_stacji": catalogue.encode("utf8"), "wykaz_stacji": codes.encode("cp1250")},
+    )
     return _stations(ImgwMeteorologyRequest, ("daily", "climate"))
 
 
@@ -224,8 +253,8 @@ def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 # Pszczyna, Strzyżów and Starnin, whose ids end in 010 as the ids of two synop stations of the list end in the code of
 # their per-station files (so that a code alone does not tell them apart); and Wrocław 351160425, a station of the
 # catalogue that the archives do not hold (the synop station of the city is 351160424, which the stub leaves out).
-# The wykaz also holds the row of GOŁYMIN-OŚRODEK as it is published, with a comma inside the quotes of its name and no
-# code of its own, which the reader must leave alone.
+# The wykaz also holds the row of GOŁYMIN-OŚRODEK as it is published: malformed, the name and the code `93668` in one
+# pair of quotes with a quote missing, which the reader must leave alone.
 def _imgw_meteorology_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     catalogue = (
         "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
@@ -468,8 +497,12 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 def _aemet(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # the inventory needs a key, so it is served in place of the download of `_fetch_datos`; the names and ids are
     # those the list pads with blanks (GH-2654), the positions and provinces worded after the list's own shape
-    # (degrees, minutes and seconds with the hemisphere)
-    def row(station_id: str, name: str, region: str, lat: str, lon: str, elevation: str) -> dict[str, str]:
+    # (degrees, minutes and seconds with the hemisphere). `indsinop` is the synoptic indicative, the WMO number, blank
+    # for a station that is no synoptic one; Madrid Retiro has the WMO number 08222 (WMO's register, the stub's value
+    # is not read from the live list, which needs a key, GH-4070)
+    def row(
+        station_id: str, name: str, region: str, lat: str, lon: str, elevation: str, synoptic: str = ""
+    ) -> dict[str, str]:
         return {
             "indicativo": station_id,
             "nombre": name,
@@ -477,13 +510,13 @@ def _aemet(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
             "altitud": elevation,
             "latitud": lat,
             "longitud": lon,
-            "indsinop": "",
+            "indsinop": synoptic,
         }
 
     catalogue = [
         row("2847X", "PEDROSILLO DE LOS AIRES   ", "SALAMANCA", "405512N", "060328W", "888"),
         row("2863C", "PEDRAZA DE ALBA  ", "SALAMANCA", "405347N", "053022W", "840"),
-        row("3195", "MADRID, RETIRO", "MADRID", "402441N", "034040W", "667"),
+        row("3195", "MADRID, RETIRO", "MADRID", "402441N", "034040W", "667", "08222"),
         row("B434X", "PORTOCOLOM  ", "ILLES BALEARS", "391259N", "031218E", "5"),
         row("C314Z", "VALLEHERMOSO, ALTO IGUALERO  ", "SANTA CRUZ DE TENERIFE", "281134N", "172221W", "790"),
     ]
@@ -529,6 +562,16 @@ def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
             "availableTimeSeries/v0.jsonld": json.dumps(frost_rows.SERIES).encode("utf8"),
         },
     )
+    served = frost_api.download_file
+
+    def download_file(*, url: str, **kwargs: Any) -> File:  # noqa: ANN401
+        # the ids are in the answer only if the request names them in its `fields` (GH-4070)
+        if "sources/v0.jsonld" in url:
+            missing = [name for name in ("wmoId", "wigosId", "icaoCodes") if name not in url]
+            assert not missing, f"the sources request does not ask for {missing}: {url}"
+        return served(url=url, **kwargs)
+
+    monkeypatch.setattr(frost_api, "download_file", download_file)
     request = MetnoFrostRequest(
         parameters=[("hourly", "data")],
         settings=Settings(cache_disable=True, auth={"metno_frost": ("stub-client", "stub-secret")}),
@@ -559,6 +602,11 @@ FROST_NO_POSITION = Accepted(
     "they stay in the list and no search picks them (GH-2655)",
     where=lambda row: row["latitude"] is None and row["longitude"] is None,
 )
+POLLEN_NO_POSITION = Accepted(
+    "coordinates_missing",
+    "DWD ships no shape and no position of the 27 regions of its pollen forecast (`Beschreibung_pollen_s31fg.pdf`): "
+    "they are found by name or id, and a search by place finds none (GH-4088)",
+)
 GHCN_NAMES = Accepted(
     "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
 )
@@ -580,6 +628,8 @@ EA_HYDROLOGY_LISTING = [
     {
         "label": ["Beach's Mill", "Beach'S Mill"],
         "notation": "fcdd7420-c000-4db7-99fa-3835a65372fe",
+        "nrfaStationID": "37006",
+        "RLOIid": "6149",
         "easting": 569009,
         "northing": 207165,
         "lat": 51.737703,
@@ -633,6 +683,8 @@ EA_HYDROLOGY_LISTING = [
     {
         "label": "Udford",
         "notation": "ab5db73f-059e-4d10-9b92-5a640db3c1ab",
+        "nrfaStationID": "76003",
+        "RLOIid": "5141",
         "easting": 357570,
         "northing": 530450,
         "lat": 54.667313,
@@ -684,6 +736,33 @@ EA_HYDROLOGY_LISTING = [
                 "parameter": "flow",
                 "period": 86400,
                 "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/minimum"},
+            },
+        ],
+    },
+    # a station that is two stations of River Levels on the Internet: `RLOIid` is an array of two there (52 of the 1808
+    # stations that have one), in no order the reader may rely on (GH-4070)
+    {
+        "label": "Iwood",
+        "notation": "959f3e4f-bb6e-4f4a-8082-0157eea99482",
+        "nrfaStationID": "52017",
+        "RLOIid": ["3416", "3060"],
+        "easting": 345173,
+        "northing": 163064,
+        "lat": 51.363977,
+        "long": -2.78889,
+        "dateOpened": "1973-03-12",
+        "measures": [
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/959f3e4f-bb6e-4f4a-8082-0157eea99482-level-i-900-m-qualified",
+                "parameter": "level",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/959f3e4f-bb6e-4f4a-8082-0157eea99482-flow-i-900-m3s-qualified",
+                "parameter": "flow",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
             },
         ],
     },
@@ -879,10 +958,38 @@ OBSERVATION_EXPECTED: dict[str, dict[str, Any]] = {
         "latitude": 47.8413,
         "longitude": 8.8493,
     },
-    "00011": {"name": "Donaueschingen (Landeplatz)", "region": "Baden-Württemberg", "elevation": 680.0},
-    "00197": {"name": "Arolsen-Volkhardinghausen, Bad", "region": "Hessen", "latitude": 51.3219, "longitude": 9.0558},
-    "00314": {"name": "Kubschütz, Kr. Bautzen", "region": "Sachsen", "latitude": 51.1604, "longitude": 14.5042},
-    "01332": {"name": "Falkenberg,Kr.Rottal-Inn", "region": "Bayern", "latitude": 48.4832, "longitude": 12.7241},
+    "00003": {"name": "Aachen", "wmo_id": "10501"},
+    # `SY` and `MN` carry an id of DWD's own (`Q870`), which is no WMO number. The `wigos_id` of the stations that OSCAR
+    # lists as `0-276-3-<Stations_ID>` (the secondary stations; the stub of its register is `tests/model/oscar_rows.py`,
+    # GH-4074): the id is DWD's without the zeros it is padded with, `00011` is `0-276-3-11`
+    "00011": {
+        "name": "Donaueschingen (Landeplatz)",
+        "region": "Baden-Württemberg",
+        "elevation": 680.0,
+        "wmo_id": None,
+        "wigos_id": "0-276-3-11",
+    },
+    "00197": {
+        "name": "Arolsen-Volkhardinghausen, Bad",
+        "region": "Hessen",
+        "latitude": 51.3219,
+        "longitude": 9.0558,
+        "wigos_id": "0-276-3-197",
+    },
+    "00314": {
+        "name": "Kubschütz, Kr. Bautzen",
+        "region": "Sachsen",
+        "latitude": 51.1604,
+        "longitude": 14.5042,
+        "wigos_id": "0-276-3-314",
+    },
+    "01332": {
+        "name": "Falkenberg,Kr.Rottal-Inn",
+        "region": "Bayern",
+        "latitude": 48.4832,
+        "longitude": 12.7241,
+        "wigos_id": "0-276-3-1332",
+    },
     "03657": {"name": "Nümbrecht auf dem Lindchen", "region": "Nordrhein-Westfalen", "elevation": 341.0},
 }
 
@@ -925,6 +1032,8 @@ def _dwd_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     files.append(f"{base}tageswerte_KL_01018_19510101_20041231_hist.zip")
     monkeypatch.setattr(dwd_fileindex, "list_remote_files_fsspec", lambda *_args, **_kwargs: files)
     _serve(monkeypatch, dwd_metaindex, {"Beschreibung_Stationen": catalogue.encode("latin-1")})
+    # the WMO numbers come from the Stationslexikon, a page of its own (GH-4073): the rows of `stationslexikon_rows`
+    _serve(monkeypatch, dwd_stationslexikon, {"statlex_html": STATIONSLEXIKON})
     return _stations(DwdObservationRequest, ("daily", "climate_summary"), periods="historical")
 
 
@@ -1041,7 +1150,9 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # the last record of Københavns Lufthavn and Skagen Fyr and all the records of Pituffik and Qaanaaq, oldest first.
     # The reader takes the one still open (`validTo` null): the earlier records of Pituffik and Qaanaaq have neither the
     # elevation nor the position and name of the later ones, and `created` is the same on all records of a station
-    # (see GH-2946)
+    # (see GH-2946). `wmoStationId` is as published: `stationId` on 901 of 1065 stations, among them DMI's own numbers
+    # of its automatic stations (Slamrehuse `32210`), which are no number of WMO's register (GH-4070); Nolsoy, a
+    # synoptic station of the Faroe Islands, has none
     def feature(
         station_id: str,
         name: str,
@@ -1050,6 +1161,7 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         lat: float,
         height: float | None,
         valid: tuple[str, str | None],
+        wmo_station_id: str | None = None,
     ) -> dict[str, Any]:
         return {
             "type": "Feature",
@@ -1058,6 +1170,7 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
                 "stationId": station_id,
                 "name": name,
                 "country": country,
+                "wmoStationId": wmo_station_id,
                 "stationHeight": height,
                 "validFrom": valid[0],
                 "validTo": valid[1],
@@ -1076,20 +1189,53 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
                 55.614,
                 5.0,
                 ("1983-06-16T00:00:00Z", "2019-01-15T13:34:48Z"),
-            ),
-            feature("06180", "Københavns Lufthavn", "DNK", 12.6454, 55.614, 5.0, ("2024-11-14T16:10:37Z", None)),
-            feature(
-                "06041", "Skagen Fyr", "DNK", 10.6318, 57.7363, 3.2, ("1953-01-01T00:00:00Z", "2000-12-14T00:00:00Z")
-            ),
-            feature("06041", "Skagen Fyr", "DNK", 10.6316, 57.7364, 3.2, ("2019-01-30T15:42:23Z", None)),
-            feature(
-                "04202", "Pituffik", "GRL", -68.75, 76.5333, None, ("1948-12-31T00:00:00Z", "2006-10-16T00:00:00Z")
+                "06180",
             ),
             feature(
-                "04202", "Pituffik", "GRL", -68.7031, 76.5311, 76.5, ("2006-10-16T00:00:00Z", "2019-01-15T13:34:47Z")
+                "06180", "Københavns Lufthavn", "DNK", 12.6454, 55.614, 5.0, ("2024-11-14T16:10:37Z", None), "06180"
             ),
-            feature("04202", "Pituffik", "GRL", -68.7031, 76.5311, 77.0, ("2019-01-15T13:34:47Z", None)),
-            feature("04205", "Qaanaaq", "GRL", -69.2, 77.4833, None, ("1964-01-01T00:00:00Z", "1980-07-01T00:00:00Z")),
+            feature(
+                "06041",
+                "Skagen Fyr",
+                "DNK",
+                10.6318,
+                57.7363,
+                3.2,
+                ("1953-01-01T00:00:00Z", "2000-12-14T00:00:00Z"),
+                "06041",
+            ),
+            feature("06041", "Skagen Fyr", "DNK", 10.6316, 57.7364, 3.2, ("2019-01-30T15:42:23Z", None), "06041"),
+            feature(
+                "04202",
+                "Pituffik",
+                "GRL",
+                -68.75,
+                76.5333,
+                None,
+                ("1948-12-31T00:00:00Z", "2006-10-16T00:00:00Z"),
+                "04202",
+            ),
+            feature(
+                "04202",
+                "Pituffik",
+                "GRL",
+                -68.7031,
+                76.5311,
+                76.5,
+                ("2006-10-16T00:00:00Z", "2019-01-15T13:34:47Z"),
+                "04202",
+            ),
+            feature("04202", "Pituffik", "GRL", -68.7031, 76.5311, 77.0, ("2019-01-15T13:34:47Z", None), "04202"),
+            feature(
+                "04205",
+                "Qaanaaq",
+                "GRL",
+                -69.2,
+                77.4833,
+                None,
+                ("1964-01-01T00:00:00Z", "1980-07-01T00:00:00Z"),
+                "04205",
+            ),
             feature(
                 "04205",
                 "Mittarfik Qaanaaq",
@@ -1098,8 +1244,13 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
                 77.4853,
                 16.0,
                 ("1980-07-01T00:00:00Z", "2019-01-15T13:34:47Z"),
+                "04205",
             ),
-            feature("04205", "Mittarfik Qaanaaq", "GRL", -69.3744, 77.4853, 16.0, ("2019-01-15T13:34:47Z", None)),
+            feature(
+                "04205", "Mittarfik Qaanaaq", "GRL", -69.3744, 77.4853, 16.0, ("2019-01-15T13:34:47Z", None), "04205"
+            ),
+            feature("06007", "Nolsoy", "FRO", -6.617, 61.958, 94.5, ("2022-05-25T00:00:00Z", None)),
+            feature("32210", "SLAMREHUSE", "DNK", 15.1039, 55.0642, 27.0, ("2007-01-02T00:00:00Z", None), "32210"),
         ],
     }
     _serve(monkeypatch, dmi_api, {"station/items": json.dumps(catalogue).encode("utf8")})
@@ -1114,12 +1265,15 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
     # `HAS_MONTHLY_SUMMARY` is `Y` (GH-3006): Alert A has `N`, Gladman Point `Y` with no monthly date, as 763 stations
     # do (monthly rows nonetheless). `LATITUDE` and `LONGITUDE`
     # are packed degrees, minutes and seconds (`485500000` is 48 deg 55'), while the geometry of the feature is decimal
-    # degrees (GH-2942); `ELEVATION` is text, and null for a station without one
+    # degrees (GH-2942); `ELEVATION` is text, and null for a station without one. `CLIMATE_IDENTIFIER` is on every
+    # station, `WMO_IDENTIFIER` (five digits, text) on 993 of 8435 and `TC_IDENTIFIER` (an airport's three letters)
+    # on 1460 of them (GH-4070)
     keys = ("FIRST", "LAST", "HLY_FIRST", "HLY_LAST", "DLY_FIRST", "DLY_LAST", "MLY_FIRST", "MLY_LAST")
 
     def feature(
         station_id: int,
         name: str,
+        ids: tuple[str, str | None, str | None],
         region: str,
         packed: tuple[int, int],
         zone: str,
@@ -1133,6 +1287,9 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
             "properties": {
                 "STN_ID": station_id,
                 "STATION_NAME": name,
+                "CLIMATE_IDENTIFIER": ids[0],
+                "WMO_IDENTIFIER": ids[1],
+                "TC_IDENTIFIER": ids[2],
                 "PROV_STATE_TERR_CODE": region,
                 "LATITUDE": packed[0],
                 "LONGITUDE": packed[1],
@@ -1150,6 +1307,7 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
             feature(
                 2,
                 "CHEMAINUS BARE POINT",
+                ("101AE00", None, None),
                 "BC",
                 (485500000, -1234200000),
                 "PST",
@@ -1163,6 +1321,7 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
             feature(
                 52,
                 "ESQUIMALT HARBOUR",
+                ("1012710", "71798", "WPF"),
                 "BC",
                 (482555100, -1232621600),
                 "PST",
@@ -1176,6 +1335,7 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
             feature(
                 2219,
                 "CARWAY",
+                ("3031400", None, None),
                 "AB",
                 (485959010, -1132234000),
                 "MST",
@@ -1189,6 +1349,7 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
             feature(
                 7559,
                 "ALERT A",
+                ("2400302", None, "YLT"),
                 "NU",
                 (823100000, -621700000),
                 "AST",
@@ -1203,6 +1364,7 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
             feature(
                 10904,
                 "GLADMAN POINT",
+                ("2402339", None, None),
                 "NU",
                 (684049000, -974841000),
                 "CST",
@@ -1241,11 +1403,25 @@ FMI_ANTARCTICA = Accepted(
 def _fmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # `fmi::ef::stations` (2026-10-15), 439 facilities of which these four, cut down to the elements the reader reads
     # (the `gml:id` shortened to the station id); the position is `lat lon`, a station still in service ends in
-    # `indeterminatePosition="now"`, and Helsinki Vuosaaren satama has no region
-    def facility(station_id: str, name: str, region: str | None, position: str, begin: str) -> str:
+    # `indeterminatePosition="now"`, and Helsinki Vuosaaren satama has no region. The WMO number (on 183 of the 437
+    # facilities, five digits with the leading zero) and the ICAO code (on 24) are `gml:name` entries of their own code
+    # spaces (GH-4070); Maarianhamina lentoasema, the airport of Mariehamn, has both
+    def facility(
+        station_id: str,
+        name: str,
+        region: str | None,
+        position: str,
+        begin: str,
+        wmo: str | None = None,
+        icao: str | None = None,
+    ) -> str:
         region_name = (
             f'<gml:name codeSpace="http://xml.fmi.fi/namespace/location/region">{region}</gml:name>' if region else ""
         )
+        if wmo:
+            region_name += f'<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/wmo">{wmo}</gml:name>'
+        if icao:
+            region_name += f'<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/icao">{icao}</gml:name>'
         return f"""
   <wfs:member>
     <ef:EnvironmentalMonitoringFacility gml:id="WFS-{station_id}">
@@ -1274,8 +1450,12 @@ def _fmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         [
             facility("100539", "Kemi Ajos", "Kemi", "65.673370 24.515260", "1922-06-14T00:00:00Z"),
             facility("100540", "Raahe Lapaluoto", "Raahe", "64.666300 24.407080", "1922-06-15T00:00:00Z"),
+            facility(
+                *("100907", "Maarianhamina lentoasema", "Jomala", "60.127351 19.900379", "1950-09-01T00:00:00Z"),
+                *("02970", "EFMA"),
+            ),
             facility("104089", "Helsinki Vuosaaren satama", None, "60.221730 25.179811", "2016-01-01T00:00:00Z"),
-            facility("112275", "Antarktis Aboa", "AQ", "-73.050000 -13.383330", "2003-11-25T00:00:00Z"),
+            facility("112275", "Antarktis Aboa", "AQ", "-73.050000 -13.383330", "2003-11-25T00:00:00Z", "89014"),
         ]
     )
     catalogue = (
@@ -1291,7 +1471,9 @@ def _fmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 def _meteoswiss(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # `ogd-smn_meta_stations.csv` (2026-10-15), four of its 159 rows as published: semicolon-separated, windows-1252,
-    # CRLF, dates as `DD.MM.YYYY`, the barometer height empty for Oberageri
+    # CRLF, dates as `DD.MM.YYYY`, the barometer height empty for Oberageri. `station_wigos_id` is a WSI on every
+    # station: 156 of the 158 are `0-20000-0-<WMO number>` and two (Biasca, Pfaffnau) are of MeteoSwiss's own issuer,
+    # `0-756-0-<abbreviation>`, which has no WMO number (GH-4070)
     header = (
         "station_abbr;station_name;station_canton;station_wigos_id;station_type_de;station_type_fr;station_type_it;"
         "station_type_en;station_dataowner;station_data_since;station_height_masl;station_height_barometer_masl;"
@@ -1314,28 +1496,33 @@ def _meteoswiss(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         abbr, name, canton, wigos, owner, since, height, barometer, east, north, lat, lon, *exposition = fields
         urls = ";".join(f"{page}#param=messnetz-automatisch&station={abbr}" for page in pages)
         return (
-            f"{abbr};{name};{canton};0-20000-0-{wigos};{types};{owner};{since};{height};{barometer};{east};{north};"
+            f"{abbr};{name};{canton};{wigos};{types};{owner};{since};{height};{barometer};{east};{north};"
             f"{lat};{lon};{';'.join(exposition)};{urls}"
         )
 
     rows = [
         row(
-            *("ABO", "Adelboden", "BE", "06735", "MeteoSchweiz, SLF", "01.01.1901", "1321.0", "1326.0"),
+            *("ABO", "Adelboden", "BE", "0-20000-0-06735", "MeteoSchweiz, SLF", "01.01.1901", "1321.0", "1326.0"),
             *("2609372.0", "1148939.0", "46.491703", "7.560703"),
             *("Südosthang", "Versant sud-est", "Versante sud-orientale", "south-eastern oriented slope"),
         ),
         row(
-            *("AEG", "Oberägeri", "ZG", "06676", "MeteoSchweiz", "01.02.1993", "724.0", ""),
+            *("AEG", "Oberägeri", "ZG", "0-20000-0-06676", "MeteoSchweiz", "01.02.1993", "724.0", ""),
             *("2688729.0", "1220956.0", "47.133636", "8.608206", "Ebene", "Plaine", "Pianura", "plain"),
         ),
         row(
-            *("GSB", "Col du Grand St-Bernard", "VS", "06717", "MeteoSchweiz", "01.01.1818", "2472.0", "2488.0"),
+            *("GSB", "Col du Grand St-Bernard", "VS", "0-20000-0-06717", "MeteoSchweiz"),
+            *("01.01.1818", "2472.0", "2488.0"),
             *("2579191.0", "1079754.0", "45.869092", "7.170683", "Passlage", "Col", "Passo", "pass"),
         ),
         row(
-            *("SMA", "Zürich / Fluntern", "ZH", "06660", "MeteoSchweiz", "01.01.1864", "604.0", "605.0"),
+            *("SMA", "Zürich / Fluntern", "ZH", "0-20000-0-06660", "MeteoSchweiz", "01.01.1864", "604.0", "605.0"),
             *("2685223.0", "1248410.0", "47.381003", "8.567194"),
             *("Südhang", "Versant sud", "Versante meridionale", "southern oriented slope"),
+        ),
+        row(
+            *("BIA", "Biasca", "TI", "0-756-0-BIA", "MeteoSchweiz", "01.01.1900", "278.0", "279.0"),
+            *("2718535.0", "1132792.0", "46.336053", "8.978197", "Ebene", "Plaine", "Pianura", "plain"),
         ),
     ]
     catalogue = "\r\n".join([header, *rows]) + "\r\n"
@@ -1349,7 +1536,7 @@ def _meteoswiss(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
                 for name in ("d_historical", "d_recent", "h_now", "m", "t_now")
             },
         }
-        for abbr in ("ABO", "AEG", "GSB", "SMA")
+        for abbr in ("ABO", "AEG", "BIA", "GSB", "SMA")
     ]
     stac = {"features": items, "links": [{"rel": "self", "href": data_index.STAC_ITEMS}]}
     bodies = {"ogd-smn_meta_stations": catalogue.encode("windows-1252"), "/items": json.dumps(stac).encode("utf8")}
@@ -1552,6 +1739,11 @@ HUBEAU_NOT_OPENED = Accepted(
     ),
 )
 HUBEAU_EXPECTED = {
+    # `site_id`, the `code_site` of the referential (GH-4070): a station's code is its site's and two digits, and
+    # the Seine at Austerlitz has two stations on one site
+    "F700000102": {"site_id": "F7000001"},
+    "F700000103": {"site_id": "F7000001"},
+    "1011000101": {"site_id": "10110001"},
     # the positions after the reader swapped them: Anor in Nord, Planioles in Lot, Le Tech in the Pyrenees-Orientales
     "H000000201": {"latitude": 49.989435, "longitude": 4.099322},
     "O831000201": {"latitude": 44.633866, "longitude": 2.028415},
@@ -1619,12 +1811,15 @@ def _wsv(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 def _nws(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # `METARTable.txt` of MADIS (2026-10-15), tab-separated with the columns padded: the world's METAR stations, of
     # which the reader keeps those of `US` and the three of the Virgin Islands and Hawaii it files under a state
-    # code (PHBK, TIST, TISX); a missing elevation is 9999
+    # code (PHBK, TIST, TISX); a missing elevation is 9999. The first column is the WMO number zero-padded to ten
+    # digits, `0000000000` where there is none; the id of the second is MADIS's station id, not an ICAO code: it is
+    # also an FAA identifier (`03PS`), a road-weather site or a radar, so `icao_id` is null (GH-4070)
     catalogue = (
         "0000072565\tKDEN\t39.83\t-104.66\t 1655\tDENVER/DENVER INTER, CO\tUS\tMTR\n"
         "0000074486\tKJFK\t40.65\t -73.78\t    7\tNEW YORK/JF KENN, NY\tUS\tMTR\n"
         "0000070273\tPANC\t61.17\t-150.02\t   40\tANCHORAGE INTL ARPT, AK\tUS\tMTR\n"
         "0000000000\tK37W\t35.38\t -78.73\t 9999\tERWIN-HARNETT, NC   \tUS\tMTR\n"
+        "0000000000\t03PS\t40.85\t -77.91\t  320\tBELLEFONTE, PA      \tUS\tMTR\n"
         "0000091162\tPHBK\t22.07\t-159.78\t    5\tBARKING SANDS ARPT, HI\tHI\tMTR\n"
         "0000078543\tTIST\t18.33\t -64.97\t   67\tST. THOMAS/KING, VI \tVI\tMTR\n"
         "0000078547\tTISX\t17.70\t -64.81\t   17\tST.CROIX/HAMILTN, VI\tVI\tMTR\n"
@@ -1738,17 +1933,101 @@ FROST_EXPECTED: dict[str, dict[str, Any]] = {
     }
     for station_id, (start, end) in frost_rows.EXPECTED.items()
 }
+# the ids of Oslo - Blindern as live Frost answers them (the live frame of the main `Tests` run 43707983274, GH-4114):
+# the `wmoId`, an integer, 1492 padded to five digits, the WIGOS id of WMO's own issuer, `0-20000-0-01492`, and no
+# `icaoCodes` (a list, on 164 of the 4,183 sources, GH-4070). No row of Norway's issuer 578 (1,350 of the sources) is in
+# the stub: no station of it is verified live from the repo, so none is made up
+FROST_EXPECTED["SN18700"].update({"wmo_id": "01492", "wigos_id": "0-20000-0-01492", "icao_id": None})
+
+# the ids of the stations of the ECCC list that carry them: Esquimalt Harbour has the three, Chemainus Bare Point only
+# the Climate ID (GH-4070); the TC id is no ICAO code, so `icao_id` stays null
+ECCC_IDS_OF_52 = {"wmo_id": "71798", "wigos_id": None, "icao_id": None, "climate_id": "1012710", "tc_id": "WPF"}
+ECCC_IDS_OF_2 = {"wmo_id": None, "climate_id": "101AE00", "tc_id": None}
+
+# the `WSI` of `meta1.csv` is the id and the WIGOS id; the WMO number is its local part only where the issuer is
+# 20000, so not for the 1562 of the Czech issuer, of which 268 have a local part of five digits that looks like one;
+# `GH_ID` is CHMI's own code. Nová Lhota is no sub-daily station (GH-4070)
+CHMI_IDS = {
+    "0-20000-0-11406": {
+        "wigos_id": "0-20000-0-11406",
+        "wmo_id": "11406",
+        "icao_id": None,
+        "gh_id": "L3CHEB01",
+    },
+    "0-203-0-20303032003": {"wigos_id": "0-203-0-20303032003", "wmo_id": None, "gh_id": "O1JAVR01"},
+    "0-203-0-41302035001": {"wigos_id": "0-203-0-41302035001", "wmo_id": None, "gh_id": "B1NLHO01"},
+}
 
 STUBS = [
-    Stub("aemet/observation daily/data", _aemet),
-    Stub("dmi/observation daily/data", _dmi),
-    Stub("fmi/observation hourly/data", _fmi, (FMI_ANTARCTICA,)),
-    Stub("meteoswiss/observation daily/data", _meteoswiss),
-    Stub("rmi/observation 10_minutes/data", _rmi),
+    Stub(
+        "aemet/observation daily/data",
+        _aemet,
+        expected={
+            "3195": {"wmo_id": "08222", "wigos_id": None, "icao_id": None},
+            "2847X": {"wmo_id": None},
+        },
+    ),
+    Stub(
+        "dmi/observation daily/data",
+        _dmi,
+        # the `wmoStationId` of the list where it is in a WMO block of Greenland, Denmark or the Faroe Islands
+        # (GH-4070), and the `wigos_id` that OSCAR lists as `0-208-0-<stationId>` (the stub of its register is
+        # `tests/model/oscar_rows.py`, GH-4074)
+        expected={
+            "06180": {"wmo_id": "06180", "wigos_id": "0-208-0-06180", "icao_id": None},
+            "06041": {"wigos_id": "0-208-0-06041"},
+            "04202": {"wmo_id": "04202", "wigos_id": "0-208-0-04202"},  # GRL, the second territory of its scheme
+            "04205": {"wigos_id": "0-208-0-04205"},
+            "06007": {"wmo_id": None},
+            "32210": {"wmo_id": None},
+        },
+    ),
+    Stub(
+        "fmi/observation hourly/data",
+        _fmi,
+        (FMI_ANTARCTICA,),
+        # the `locationcode/wmo` and `locationcode/icao` names of the facilities (GH-4070), and the `wigos_id` that
+        # OSCAR lists as `0-246-0-<fmisid>` (the stub of its register is `tests/model/oscar_rows.py`, GH-4074)
+        expected={
+            "100907": {"wmo_id": "02970", "icao_id": "EFMA", "wigos_id": "0-246-0-100907"},
+            "112275": {"wmo_id": "89014", "icao_id": None},
+            "100539": {"wmo_id": None, "icao_id": None},
+        },
+    ),
+    Stub(
+        "meteoswiss/observation daily/data",
+        _meteoswiss,
+        # `station_wigos_id` as the WIGOS id, and as the WMO number only where it is of the issuer 20000
+        expected={
+            "ABO": {"wigos_id": "0-20000-0-06735", "wmo_id": "06735", "icao_id": None},
+            "SMA": {"wigos_id": "0-20000-0-06660", "wmo_id": "06660"},
+            "BIA": {"wigos_id": "0-756-0-BIA", "wmo_id": None},
+        },
+    ),
+    Stub(
+        "rmi/observation 10_minutes/data",
+        _rmi,
+        # the WMO number of the WSI of WMO's issuer (`code` 6414 is 06414 without its zero), none for De Haan; the
+        # ids are those of GH-4070
+        expected={
+            "6414": {"wigos_id": "0-20000-0-06414", "wmo_id": "06414", "icao_id": None},
+            "6447": {"wigos_id": "0-20000-0-06447", "wmo_id": "06447"},
+            "10101002": {"wigos_id": "0-56-101-01002", "wmo_id": None},
+        },
+    ),
     Stub("smhi/observation hourly/data", _smhi),
     Stub("eaufrance/hubeau 5_minutes/data", _hubeau, (HUBEAU_BLAVET,), expected=HUBEAU_EXPECTED),
     Stub("wsv/pegel 10_minutes+15_minutes/data", _wsv, (WSV_NO_POSITION, WSV_TIEL)),
-    Stub("nws/observation hourly/data", _nws),
+    Stub(
+        "nws/observation hourly/data",
+        _nws,
+        expected={
+            "KDEN": {"wmo_id": "72565", "icao_id": None, "wigos_id": None},
+            "PANC": {"wmo_id": "70273"},
+            "K37W": {"wmo_id": None},
+            "03PS": {"wmo_id": None},
+        },
+    ),
     Stub("meteofrance/observation daily/core", _meteofrance_observation, expected=METEOFRANCE_EXPECTED),
     # the `Id` of the list is the WMO number (GH-4070)
     Stub(
@@ -1764,16 +2043,20 @@ STUBS = [
         _eccc_hourly,
         # the hourly collection of Esquimalt Harbour starts 1994-02-01 00:00 PST, the station in 1957
         expected={
-            "52": {"start_timestamp": dt.datetime(1994, 2, 1, 8, tzinfo=dt.UTC)},
-            "7559": {"start_timestamp": dt.datetime(1988, 4, 1, 9, tzinfo=dt.UTC)},
+            "52": {"start_timestamp": dt.datetime(1994, 2, 1, 8, tzinfo=dt.UTC), **ECCC_IDS_OF_52},
+            "7559": {"start_timestamp": dt.datetime(1988, 4, 1, 9, tzinfo=dt.UTC), "wmo_id": None, "tc_id": "YLT"},
         },
     ),
     Stub(
         "eccc/observation daily/data",
         _eccc_daily,
-        expected={"52": {"start_timestamp": dt.datetime(1957, 10, 1, tzinfo=dt.UTC)}},
+        expected={"52": {"start_timestamp": dt.datetime(1957, 10, 1, tzinfo=dt.UTC), **ECCC_IDS_OF_52}},
     ),
-    Stub("eccc/observation monthly/data", _eccc_monthly),
+    Stub(
+        "eccc/observation monthly/data",
+        _eccc_monthly,
+        expected={"52": ECCC_IDS_OF_52, "2": ECCC_IDS_OF_2},
+    ),
     Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,), expected=MOSMIX_IDS),
     # the stations of the catalogue that have a report file: not `72520`
     Stub(
@@ -1784,8 +2067,23 @@ STUBS = [
     ),
     Stub("dwd/dmo hourly/icon", _dwd_dmo, expected=DMO_EXPECTED),
     Stub("dwd/observation daily/climate_summary", _dwd_observation, expected=OBSERVATION_EXPECTED),
-    Stub("dwd/derived hourly/radiation_global", _dwd_derived),
-    Stub("dwd/derived daily/soil", _dwd_derived_soil),
+    # the DUETT ids (18xxx) are no ids of the Stationslexikon: no WMO number; the soil list has DWD's station ids, so
+    # Dresden-Klotzsche `01048` has its `10488` and Großenkneten and Doberlug-Kirchhain have none (GH-4162)
+    Stub(
+        "dwd/derived hourly/radiation_global",
+        _dwd_derived,
+        expected={station_id: {"wmo_id": None} for station_id in ("18000", "18001", "18008", "18020")},
+    ),
+    Stub(
+        "dwd/derived daily/soil",
+        _dwd_derived_soil,
+        expected={
+            "00044": {"wmo_id": None},
+            "00073": {"wmo_id": None},
+            "01001": {"wmo_id": None},
+            "01048": {"wmo_id": "10488"},
+        },
+    ),
     Stub("dwd/phenology annual/annual_apple", _dwd_phenology),
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
@@ -1796,8 +2094,11 @@ STUBS = [
         "noaa/ghcn hourly/data",
         _ghcn_hourly,
         (GHCN_NO_POSITION, GHCN_NAMES),
-        # the `WMO_ID` column of the list (GH-4070)
-        expected={"ARM00087500": {"wmo_id": "87500"}, "GMI0000EDDH": {"wmo_id": None}},
+        # the `WMO_ID` and `ICAO` columns of the list (GH-4070)
+        expected={
+            "ARM00087500": {"wmo_id": "87500", "icao_id": None, "wigos_id": None},
+            "GMI0000EDDH": {"wmo_id": None, "icao_id": "EDDH"},
+        },
     ),
     Stub(
         "noaa/ghcn daily/data",
@@ -1819,19 +2120,68 @@ STUBS = [
         "chmi/observation daily/data",
         _chmi,
         (CHMI_NAME,),
+        expected=CHMI_IDS,
     ),
-    Stub("chmi/observation hourly/data", _chmi_hourly),
+    Stub(
+        "chmi/observation hourly/data",
+        _chmi_hourly,
+        expected={wsi: ids for wsi, ids in CHMI_IDS.items() if wsi != "0-203-0-41302035001"},
+    ),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
-    Stub("ea/hydrology 15_minutes/data", _ea_hydrology, (EA_NO_POSITION,)),
+    # the position is that of a DWD station of the place, or GeoNames' for Bonn (`provider/dwd/uvi/places.py`)
+    Stub(
+        "dwd/uvi daily/data",
+        _dwd_uvi,
+        expected={
+            "zugspitze": {"name": "Zugspitze", "latitude": 47.421, "longitude": 10.9848, "elevation": 2956.0},
+            "frankfurt-main": {"name": "Frankfurt/Main", "latitude": 50.0259, "longitude": 8.5213},
+            "bonn": {"latitude": 50.73438, "longitude": 7.09549, "elevation": 64.0},
+        },
+    ),
+    Stub(
+        "dwd/pollen daily/data",
+        _dwd_pollen,
+        (POLLEN_NO_POSITION,),
+        expected={
+            "124": {"name": "Bayern: Mainfranken", "region": "Bayern", "latitude": None, "longitude": None},
+            "20": {"name": "Mecklenburg-Vorpommern", "region": "Mecklenburg-Vorpommern"},
+            "11": {"name": "Schleswig-Holstein und Hamburg: Inseln und Marschen"},
+        },
+    ),
+    Stub(
+        "ea/hydrology 15_minutes/data",
+        _ea_hydrology,
+        (EA_NO_POSITION,),
+        # the national ids (GH-4070): one text each, the all-digit then the lowest where the listing gives two, null
+        # where it gives none
+        expected={
+            "fcdd7420-c000-4db7-99fa-3835a65372fe": {"nrfa_id": "37006", "rloi_id": "6149"},
+            "ab5db73f-059e-4d10-9b92-5a640db3c1ab": {"nrfa_id": "76003", "rloi_id": "5141"},
+            "959f3e4f-bb6e-4f4a-8082-0157eea99482": {"nrfa_id": "52017", "rloi_id": "3060"},
+            "3e7d8886-824c-4c3b-80d3-038758ba3179": {"nrfa_id": None, "rloi_id": None},
+        },
+    ),
     Stub("imgw/hydrology daily/hydrology", _imgw_hydrology),
-    Stub("imgw/meteorology daily/climate", _imgw_meteorology),
+    Stub(
+        "imgw/meteorology daily/climate",
+        _imgw_meteorology,
+        # `short_code` as `wykaz_stacji.csv` writes it, without its blanks; none for a station with two codes
+        # (BABIMOST) and for one the list does not name
+        expected={
+            "249170080": {"short_code": None},
+            "249180010": {"short_code": "5409"},
+            "249190890": {"short_code": "6552"},
+            "252150270": {"short_code": None},
+            "252180290": {"short_code": None},
+        },
+    ),
     Stub(
         "imgw/meteorology daily/synop",
         _imgw_meteorology_synop,
         expected={
-            "349190600": {"name": "Bielsko-Biała", "elevation": 396.0},
-            "352200375": {"name": "Warszawa", "latitude": 52.1628, "longitude": 20.9611},
+            "349190600": {"name": "Bielsko-Biała", "elevation": 396.0, "short_code": "600"},
+            "352200375": {"name": "Warszawa", "latitude": 52.1628, "longitude": 20.9611, "short_code": "375"},
         },
     ),
 ]

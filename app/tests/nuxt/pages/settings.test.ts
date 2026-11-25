@@ -176,11 +176,11 @@ describe('settings Page', () => {
   it('puts the phone bar back with the rest when the settings are reset', async () => {
     const wrapper = await mountPage()
     const vm = wrapper.vm as any
-    vm.settings.tabBar = ['map', 'forecast', 'explorer', 'stripes', 'history']
+    vm.settings.tabBar = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map']
     await wrapper.vm.$nextTick()
     vm.reset()
     await wrapper.vm.$nextTick()
-    expect(vm.settings.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+    expect(vm.settings.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
   })
 
   it('takes the focus to the heading when the address changes to `#bar` on the page it is already on', async () => {
@@ -189,5 +189,55 @@ describe('settings Page', () => {
     expect(document.activeElement).not.toBe(wrapper.find('#bar h2').element)
     await useRouter().push('/settings#bar')
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#bar h2').element))
+  })
+
+  // GH-3790: the search of the header leads to a setting by its anchor
+  it('takes the focus to the setting the address names (`#settings-friendly-labels`)', async () => {
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings#settings-friendly-labels' })
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-friendly-labels').element))
+  })
+
+  it('takes the focus to the row of a unit the address names, where the unit choices are shown', async () => {
+    useSettings().settings.value.convertUnits = true
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings#settings-unit-speed' })
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-unit-speed').element))
+  })
+
+  it('takes the focus to the switch that shows the unit rows where they are not shown: a link to one of them leads there', async () => {
+    useSettings().settings.value.convertUnits = false
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings#settings-unit-speed' })
+    expect(wrapper.find('#settings-unit-speed').exists()).toBe(false)
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-convert-units').element))
+  })
+
+  // GH-3790: the lists of stations the search of the header finds a station by name in
+  describe('the stations in the search', () => {
+    const box = (wrapper: Awaited<ReturnType<typeof mountPage>>, list: string) => wrapper.find(`[data-testid="search-stations-${list}"]`)
+
+    it('is a group of three checkboxes named by their lists, with the forecast\'s points and GHCN daily on and DWD\'s measuring stations off', async () => {
+      const wrapper = await mountPage()
+      const group = wrapper.find('fieldset[aria-describedby="settings-search-stations-hint"]')
+      expect(group.exists()).toBe(true)
+      expect(group.find('legend').text()).toBe('Stations in the search')
+      expect(wrapper.find('#settings-search-stations-hint').text()).toContain('WMO, WIGOS or ICAO id')
+      const labels = group.findAll('label').map(label => label.text())
+      expect(labels).toEqual(['Forecast stations', 'DWD measurements', 'NOAA GHCN daily'])
+      expect(group.findAll('[role="checkbox"]').map(checkbox => checkbox.attributes('aria-checked'))).toEqual(['true', 'false', 'true'])
+      expect(useSettings().settings.value.searchStations).toEqual({ forecast: true, measured: false, ghcn: true })
+    })
+
+    it('keeps what is chosen in the settings, and gives the defaults back on Reset', async () => {
+      const wrapper = await mountPage()
+      await box(wrapper, 'measured').trigger('click')
+      await box(wrapper, 'forecast').trigger('click')
+      expect(useSettings().settings.value.searchStations).toEqual({ forecast: false, measured: true, ghcn: true })
+      useSettings().reset()
+      expect(useSettings().settings.value.searchStations).toEqual({ forecast: true, measured: false, ghcn: true })
+    })
+
+    it('takes the focus to its heading when the address names it (`#settings-search-stations`), which the search finds it by', async () => {
+      const wrapper = await mountPage({ attachTo: document.body, route: '/settings#settings-search-stations' })
+      await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-search-stations').element))
+    })
   })
 })

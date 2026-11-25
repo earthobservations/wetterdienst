@@ -2,11 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The charts of the results: Altair draws them as Vega-Lite specifications, vl-convert renders them (GH-3238).
 
-Three charts, one for each thing the library plots:
+Two charts, one for each thing the library plots:
 
 - `values_chart`: a row of lines and markers for each parameter, a colour for each station;
-- `stations_chart`: the stations as points on a map of the country borders, a colour for each dataset;
-- `stripes_chart`: the climate stripes, a stripe for each year.
+- `stations_chart`: the stations as points on a map of the country borders, a colour for each dataset.
 
 A chart is a Vega-Lite specification and holds all its data, so the same chart is a page (`to_html`) or an image
 (`render_image`), and drawing one needs no browser and fetches nothing: the map's borders come with the package
@@ -34,7 +33,7 @@ import polars as pl
 from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable
 
     import altair as alt
 
@@ -49,9 +48,6 @@ ROW_HEIGHT = 300
 #: where a chart keeps what `render_image` needs to know about it (`usermeta` is Vega-Lite's place for it, which no
 #: renderer reads): the size it is drawn at, and the rows of parameters, a chart that cannot say its own size
 _META = "wetterdienst"
-#: the colour of the stripes' availability line, as it was in Plotly
-_GOLD = "#FFD700"
-_TEXT_COLOR = "#2a3f5f"
 
 #: width in pixels of the whole world at zoom 0 of the map `StationsResult` fits its extent to (512 px tiles)
 MAP_WORLD_PIXELS = 512
@@ -348,134 +344,6 @@ def _visible(center: dict[str, float], scale: float, width: int, height: int) ->
     return center["lon"] - half_width, south, center["lon"] + half_width, north
 
 
-def stripes_chart(
-    df: pl.DataFrame,
-    *,
-    colors: Sequence[str],
-    title: str | None,
-    source: str | None,
-    show_years: bool,
-    show_data_availability: bool,
-    padding: int = 10,
-    background: str = "white",
-) -> alt.TopLevelMixin:
-    """Draw the climate stripes: a stripe for each year, coloured by the year's value, and the gold availability line.
-
-    Args:
-        df: The frame with `timestamp` (a datetime, a year each), `value_scaled` (0 to 1, null for a year without a
-            value; the stripe of 0 is the first colour of the scheme) and `availability` (null for a year without).
-        colors: The colours of the stripes as hex, from the one of `value_scaled` 0 to the one of 1, between which the
-            colour of a year is interpolated in RGB as evenly spaced stops.
-        title: The title above the stripes, none where it is left out.
-        source: Whose data it is, written under the stripes, none where it is left out.
-        show_years: Write the first and the last year.
-        show_data_availability: Draw the line that shows the years that have a value.
-        padding: The pixels around the stripes.
-        background: The colour of the background, `transparent` for none.
-
-    Returns:
-        The chart, `DEFAULT_WIDTH` x `DEFAULT_HEIGHT` pixels as an image.
-
-    """
-    alt = altair()
-    years = df.with_columns(pl.col("timestamp").dt.year().alias("year"))
-    # a frame with a year each has a first and a last, which `min` and `max` type as possibly none
-    first, last = int(years["year"].min()), int(years["year"].max())  # ty: ignore[invalid-argument-type]
-    x_scale = alt.Scale(domain=[first, last + 1], nice=False, zero=False)
-    # the lowest tenth is where the availability line and the text are, under the stripes
-    # and nothing under the stripes where there is no text to write
-    has_text = bool(source) or show_years or show_data_availability
-    y_scale = alt.Scale(domain=[-0.12 if has_text else 0, 1], nice=False)
-    stripes = (
-        years.filter(pl.col("value_scaled").is_not_null())
-        .select("year", "value_scaled")
-        .with_columns((pl.col("year") + 1).alias("year_end"), pl.lit(0.0).alias("bottom"), pl.lit(1.0).alias("top"))
-    )
-    layers = [
-        alt.Chart(_inline_data(stripes, dict.fromkeys(stripes.columns, "number")))
-        .mark_rect()
-        .encode(
-            x=alt.X("year:Q", axis=None, scale=x_scale),
-            x2="year_end:Q",
-            y=alt.Y("bottom:Q", axis=None, scale=y_scale),
-            y2="top:Q",
-            color=alt.Color(
-                "value_scaled:Q",
-                legend=None,
-                # a scale with a stop for each colour: Vega's own schemes are not the ColorBrewer ramps
-                scale=alt.Scale(
-                    domain=[index / (len(colors) - 1) for index in range(len(colors))],
-                    range=list(colors),
-                    interpolate="rgb",
-                ),
-            ),
-        )
-    ]
-    texts = []
-    if source:
-        texts.append(
-            {"x": (first + last + 1) / 2, "y": -0.095, "text": source, "align": "center", "color": _TEXT_COLOR}
-        )
-    if show_data_availability:
-        # a run of the years that have a value is a line, and a year without one is where it stops
-        runs = _runs(years)
-        layers.append(
-            alt.Chart(_inline_data(runs, dict.fromkeys(runs.columns, "number")))
-            .mark_rule(color=_GOLD, strokeWidth=2)
-            .encode(
-                x=alt.X("start:Q", axis=None, scale=x_scale),
-                x2="end:Q",
-                y=alt.Y("level:Q", axis=None, scale=y_scale),
-            )
-        )
-        texts.append({"x": first, "y": -0.05, "text": "data availability", "align": "left", "color": _GOLD})
-    if show_years:
-        texts.append({"x": first, "y": -0.095, "text": str(first), "align": "left", "color": _TEXT_COLOR})
-        texts.append({"x": last + 1, "y": -0.095, "text": str(last), "align": "right", "color": _TEXT_COLOR})
-    for aligned in ("left", "center", "right"):
-        rows = [text for text in texts if text["align"] == aligned]
-        if rows:
-            frame = pl.DataFrame(rows).select("x", "y", "text", "color")
-            layers.append(
-                alt.Chart(_inline_data(frame, {"x": "number", "y": "number", "text": "string", "color": "string"}))
-                .mark_text(align=aligned, baseline="middle", fontSize=11)
-                .encode(
-                    x=alt.X("x:Q", axis=None, scale=x_scale),
-                    y=alt.Y("y:Q", axis=None, scale=y_scale),
-                    text="text:N",
-                    color=alt.Color("color:N", scale=None, legend=None),
-                )
-            )
-    chart = alt.layer(*layers).properties(
-        width=DEFAULT_WIDTH,
-        height=DEFAULT_HEIGHT,
-        padding=dict.fromkeys(("left", "right", "top", "bottom"), padding),
-        autosize=alt.AutoSizeParams(type="fit", contains="padding"),
-        usermeta=_meta(DEFAULT_WIDTH, DEFAULT_HEIGHT),
-    )
-    if title:
-        chart = chart.properties(
-            title=alt.TitleParams(title, anchor="start", fontSize=16, fontWeight="normal", color=_TEXT_COLOR)
-        )
-    return _style(chart, background=background)
-
-
-def _runs(years: pl.DataFrame) -> pl.DataFrame:
-    """Give the runs of years that have a value as `start`, `end` (the first year after it) and `level` of the line."""
-    return (
-        years.select("year", pl.col("availability").is_not_null().alias("has"), pl.col("availability").alias("level"))
-        .with_columns((pl.col("has") != pl.col("has").shift(1, fill_value=False)).cum_sum().alias("run"))
-        .filter(pl.col("has"))
-        .group_by("run", maintain_order=True)
-        .agg(
-            pl.col("year").min().alias("start"),
-            (pl.col("year").max() + 1).alias("end"),
-            pl.col("level").first().alias("level"),
-        )
-        .select("start", "end", "level")
-    )
-
-
 # --------------------------------------------------------------------------------------------------------------
 # the size of an image
 # --------------------------------------------------------------------------------------------------------------
@@ -511,7 +379,7 @@ def sized_spec(chart: alt.TopLevelMixin, width: int | None = None, height: int |
     """Give the specification of a chart that is exactly `width` x `height` pixels, the sizes left out the default.
 
     Vega-Lite's `width` and `height` are those of the plot area, so a chart drawn at 700 x 500 is 712 x 528 pixels
-    once its axes and padding are added. A chart of one view (the map, the stripes) is told to fit: its `width` and
+    once its axes and padding are added. A chart of one view (the map) is told to fit: its `width` and
     `height` are then the whole picture. A chart of rows cannot be (`autosize: fit` is not for facets), so it is
     drawn once, small, to see what its axes, legend and labels take, and its plot areas are those that leave the rest;
     what the whole numbers of pixels leave over goes to the padding.

@@ -13,7 +13,6 @@ import zipfile
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import replace
 from http import HTTPStatus
-from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, get_args
 
@@ -35,9 +34,6 @@ from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import core as ui_core
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import (
-    StripesData,
-    StripesImageRequest,
-    StripesSeries,
     _FormatField,
     get_glossary,
     resolve_network,
@@ -271,6 +267,7 @@ def test_version(client: TestClient) -> None:
         "max_stations": 100,
         "max_rows": 500_000,
         "max_stream_rows": 10_000_000,
+        "max_groups": 50_000,
         "timeout": 60.0,
         "max_concurrent": 32,
     }
@@ -285,7 +282,14 @@ def test_version_reports_the_limits_the_server_holds(client: TestClient, monkeyp
 
     limits = client.get("/api/v1/version").json()["limits"]
 
-    assert limits == {"max_stations": 7, "max_rows": 0, "max_stream_rows": 123, "timeout": 2.5, "max_concurrent": 32}
+    assert limits == {
+        "max_stations": 7,
+        "max_rows": 0,
+        "max_stream_rows": 123,
+        "max_groups": 50_000,
+        "timeout": 2.5,
+        "max_concurrent": 32,
+    }
 
 
 def test_providers_lists_every_provider_and_its_networks(client: TestClient) -> None:
@@ -325,9 +329,12 @@ def test_providers_lists_every_provider_and_its_networks(client: TestClient) -> 
         "road",
         "swsmos",
         "poi",
+        "uvi",
         "phenology",
+        "pollen",
         "radar",
         "alerts",
+        "storm_cells",
         "derived",
     ]
     for network_info in dwd.values():
@@ -640,6 +647,9 @@ def test_stations_dwd_basic(client: TestClient) -> None:
         "elevation": 680.0,
         "name": "Donaueschingen (Landeplatz)",
         "region": "Baden-Württemberg",
+        "wmo_id": None,
+        "wigos_id": "0-276-3-11",
+        "icao_id": None,
     }
 
 
@@ -671,37 +681,10 @@ def test_stations_dwd_geo(client: TestClient) -> None:
         "elevation": 806.0,
         "name": "Oberstdorf",
         "region": "Bayern",
+        "wmo_id": "10948",
+        "wigos_id": None,
+        "icao_id": None,
         "distance": 207.0831,
-    }
-
-
-@pytest.mark.remote
-def test_stations_dwd_sql(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test SQL query."""
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    response = client.get(
-        "/api/stations",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "parameters": "daily/kl",
-            "periods": "recent",
-            "sql": "lower(name) LIKE '%dresden%';",
-        },
-    )
-    assert response.status_code == 200
-    item = response.json()["stations"][0]
-    assert item == {
-        "resolution": "daily",
-        "dataset": "climate_summary",
-        "station_id": "01048",
-        "start_timestamp": "1934-01-01T00:00:00.000000+00:00",
-        "end_timestamp": IsStr,
-        "latitude": 51.1278,
-        "longitude": 13.7543,
-        "elevation": 228.0,
-        "name": "Dresden-Klotzsche",
-        "region": "Sachsen",
     }
 
 
@@ -852,8 +835,8 @@ def test_values_dwd_no_station(client: TestClient) -> None:
             "type": "missing_one_of",
             "loc": ["query"],
             "msg": (
-                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), "
-                "(left, bottom, right and top) or sql is required"
+                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, "
+                "(latitude and longitude) or (left, bottom, right and top) is required"
             ),
             "input": None,
             "ctx": {
@@ -864,9 +847,9 @@ def test_values_dwd_no_station(client: TestClient) -> None:
                     ["wigos_id"],
                     ["icao_id"],
                     ["name"],
+                    ["region"],
                     ["latitude", "longitude"],
                     ["left", "bottom", "right", "top"],
-                    ["sql"],
                 ]
             },
         }
@@ -974,93 +957,6 @@ def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
     assert response.status_code == 400
     assert response.json()["detail"] == _UNKNOWN_PARAMETER
     assert "'abc'. Available datasets:" in response.text
-
-
-@pytest.mark.remote
-@pytest.mark.sql
-def test_values_dwd_sql_tabular(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test tabular format."""
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    response = client.get(
-        "/api/values",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "stations": "01048,4411",
-            "parameters": "daily/kl",
-            "periods": "historical",
-            "timestamp": "2020/2021",
-            "sql_values": "temperature_air_max_2m < 2.0",
-            "shape": "wide",
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()["values"]
-    assert len(data) >= 8
-    item = data[0]
-    assert item == {
-        "station_id": "01048",
-        "timestamp": "2020-01-25T00:00:00.000000+00:00",
-        "resolution": "daily",
-        "dataset": "climate_summary",
-        "cloud_cover_total_mean": 86.25,
-        "cloud_cover_total_mean_quality_flags": "10",
-        "humidity_relative_mean": 89.0,
-        "humidity_relative_mean_quality_flags": "10",
-        "precipitation_form": 0.0,
-        "precipitation_form_quality_flags": "10",
-        "precipitation_amount": 0.0,
-        "precipitation_amount_quality_flags": "10",
-        "pressure_air_site_mean": 993.9,
-        "pressure_air_site_mean_quality_flags": "10",
-        "pressure_vapor_mean": 4.6,
-        "pressure_vapor_mean_quality_flags": "10",
-        "snow_depth": 0,
-        "snow_depth_quality_flags": "10",
-        "sunshine_duration": 0.0,
-        "sunshine_duration_quality_flags": "10",
-        "temperature_air_max_2m": -0.6,
-        "temperature_air_max_2m_quality_flags": "10",
-        "temperature_air_mean_2m": -2.2,
-        "temperature_air_mean_2m_quality_flags": "10",
-        "temperature_air_min_0_05m": -6.6,
-        "temperature_air_min_0_05m_quality_flags": "10",
-        "temperature_air_min_2m": -4.6,
-        "temperature_air_min_2m_quality_flags": "10",
-        "wind_gust_max": 4.6,
-        "wind_gust_max_quality_flags": "10",
-        "wind_speed_mean": 1.9,
-        "wind_speed_mean_quality_flags": "10",
-    }
-
-
-@pytest.mark.remote
-@pytest.mark.sql
-def test_values_dwd_sql_long(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test long format."""
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    response = client.get(
-        "/api/values",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "stations": "01048,4411",
-            "parameters": "daily/kl",
-            "timestamp": "2019-12-01/2019-12-31",
-            "sql_values": "parameter='temperature_air_max_2m' AND value < 1.5",
-        },
-    )
-    assert response.status_code == 200
-    item = response.json()["values"][0]
-    assert item == {
-        "station_id": "01048",
-        "resolution": "daily",
-        "dataset": "climate_summary",
-        "parameter": "temperature_air_max_2m",
-        "timestamp": "2019-12-28T00:00:00.000000+00:00",
-        "value": 1.3,
-        "quality_flags": "10",
-    }
 
 
 @pytest.mark.remote
@@ -1545,7 +1441,6 @@ def test_stations_missing_null(client: TestClient) -> None:
         "resolution": "hourly",
         "dataset": "small",
         "station_id": "01025",
-        "icao_id": None,
         "start_timestamp": None,
         "end_timestamp": None,
         "latitude": 69.68,
@@ -1553,6 +1448,9 @@ def test_stations_missing_null(client: TestClient) -> None:
         "elevation": 10.0,
         "name": "TROMSOE",
         "region": None,
+        "wmo_id": "01025",
+        "wigos_id": None,
+        "icao_id": None,
     }
 
 
@@ -1900,99 +1798,9 @@ def test_values_dwd_observation_climate_summary_image_pdf(client: TestClient) ->
     assert response.headers["Content-Type"] == "application/pdf"
 
 
-@pytest.mark.remote
-def test_stripes_stations_default(client: TestClient) -> None:
-    """Test default parameters."""
-    response = client.get(
-        "/api/stripes/stations",
-        params={
-            "kind": "temperature",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-    data = response.json()
-    assert len(data["stations"]) >= 500
-
-
-@pytest.mark.remote
-def test_stripes_stations_active_false(client: TestClient) -> None:
-    """Test active=False parameter."""
-    response = client.get(
-        "/api/stripes/stations",
-        params={
-            "kind": "temperature",
-            "active": False,
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-    data = response.json()
-    assert len(data["stations"]) >= 1100
-
-
-@pytest.mark.remote
-def test_stripes_values_default(client: TestClient) -> None:
-    """Test default parameters."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-    data = response.json()
-    assert "metadata" in data
-    assert "values" in data
-    assert data["series"]["station"]["station_id"] == "01048"
-    assert data["series"]["resolution"] == "annual"
-    assert data["series"]["dataset"] == "climate_summary"
-    assert data["series"]["parameter"] == "temperature_air_mean_2m"
-    assert len(data["values"]) > 0
-    assert all("timestamp" in v and "value" in v for v in data["values"])
-
-
-@pytest.mark.remote
-def test_stripes_values_name(client: TestClient) -> None:
-    """Test name parameter."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "name": "Dresden-Klotzsche",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-    data = response.json()
-    assert "metadata" in data
-    assert "values" in data
-
-
-@pytest.mark.remote
-def test_stripes_values_csv_format(client: TestClient) -> None:
-    """Test CSV format."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "format": "csv",
-        },
-    )
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "text/csv; charset=utf-8"
-    assert b"timestamp,value" in response.content
-
-
 @pytest.mark.parametrize(
     "fmt",
-    sorted(
-        {*get_args(get_args(_FormatField)[0]), *get_args(StripesImageRequest.model_fields["format"].annotation)}
-        - {"json", "geojson", "csv", "html"},
-    ),
+    sorted({*get_args(get_args(_FormatField)[0])} - {"json", "geojson", "csv", "html"}),
 )
 def test_every_image_format_has_its_media_type(fmt: str) -> None:
     """Test each image format a request model allows is sent as its registered media type.
@@ -2000,301 +1808,6 @@ def test_every_image_format_has_its_media_type(fmt: str) -> None:
     A format added to a model without a media type would otherwise go out under a guessed one.
     """
     assert restapi._MEDIA_TYPES[fmt] == _IMAGE_MEDIA_TYPES[fmt]  # noqa: SLF001
-
-
-@pytest.mark.parametrize(
-    ("fmt", "media_type"),
-    [
-        ("png", "image/png"),
-        ("jpg", "image/jpeg"),
-        ("svg", "image/svg+xml"),
-        ("pdf", "application/pdf"),
-    ],
-)
-@pytest.mark.usefixtures("chart_draws_itself")
-def test_stripes_image_is_sent_as_its_media_type(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    fmt: str,
-    media_type: str,
-) -> None:
-    """Test each stripes image format is sent as the media type registered for it (GH-2063).
-
-    `image/{format}` gave `image/jpg`, `image/svg` and `image/pdf`, none of them registered.
-    """
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"image"
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
-    assert response.status_code == 200
-    assert response.headers["content-type"] == media_type
-
-
-def _without_altair(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make altair not installed: its import raises what a missing package raises, imported before or not."""
-    import importlib  # noqa: PLC0415
-
-    real = importlib.import_module
-
-    def import_module(name: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        if name.split(".", maxsplit=1)[0] == "altair":
-            msg = "No module named 'altair'"
-            raise ModuleNotFoundError(msg, name="altair")
-        return real(name, *args, **kwargs)
-
-    monkeypatch.setattr(importlib, "import_module", import_module)
-
-
-def test_stripes_image_without_altair_is_a_501_before_anything_is_fetched(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A server without the `plotting` extra refuses at once: the record of the station is not downloaded (GH-3581).
-
-    An unknown station would otherwise be a 404 and a known one a download, for the same 501 at the end.
-    """
-    _without_altair(monkeypatch)
-    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
-
-    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "99999"})
-
-    assert response.status_code == 501
-    assert "optional dependency" in response.json()["detail"]
-
-
-def test_stripes_image_without_vl_convert_is_a_501(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test `/api/stripes/image` without vl-convert is a 501 with the install line in the log (GH-2667)."""
-
-    def draw(*_args: object, **_kwargs: object) -> bytes:
-        pytest.fail("rendered although vl-convert is missing")
-
-    monkeypatch.setitem(sys.modules, "vl_convert", None)
-    monkeypatch.setattr("wetterdienst.ui.restapi.render_image", draw)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: object())
-
-    with caplog.at_level(logging.ERROR):
-        response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 501
-    assert "pip install" not in response.json()["detail"]
-    assert "Rendering an image requires vl_convert, which is not installed" in caplog.text
-    assert "pip install wetterdienst[plotting]" in caplog.text
-
-
-@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
-@pytest.mark.parametrize(
-    ("query", "detail"),
-    [
-        (
-            {},
-            [
-                {
-                    "type": "missing_one_of",
-                    "loc": ["query"],
-                    "msg": "Exactly one of station or name is required",
-                    "input": None,
-                    "ctx": {"one_of": [["station"], ["name"]]},
-                },
-            ],
-        ),
-        (
-            {"station": "01048", "name": "Dresden-Klotzsche"},
-            [
-                {
-                    "type": "mutually_exclusive",
-                    "loc": ["query", "station"],
-                    "msg": "Cannot be combined with name, give exactly one of station or name",
-                    "input": "01048",
-                    "ctx": {"conflicts_with": ["name"], "one_of": [["station"], ["name"]]},
-                },
-                {
-                    "type": "mutually_exclusive",
-                    "loc": ["query", "name"],
-                    "msg": "Cannot be combined with station, give exactly one of station or name",
-                    "input": "Dresden-Klotzsche",
-                    "ctx": {"conflicts_with": ["station"], "one_of": [["station"], ["name"]]},
-                },
-            ],
-        ),
-        (
-            {"station": "01048", "start_year": "2021", "end_year": "2020"},
-            [
-                {
-                    "type": "greater_than_field",
-                    "loc": ["query", "end_year"],
-                    "msg": "Input should be greater than start_year (2021)",
-                    "input": 2020,
-                    "ctx": {"field": "start_year", "gt": 2021},
-                },
-            ],
-        ),
-        (
-            {"name": "Dresden-Klotzsche", "name_threshold": "1.01"},
-            [
-                {
-                    "type": "less_than_equal",
-                    "loc": ["query", "name_threshold"],
-                    "msg": "Input should be less than or equal to 1",
-                    "input": "1.01",
-                    "ctx": {"le": 1.0},
-                },
-            ],
-        ),
-    ],
-)
-def test_stripes_refused_as_the_other_endpoints_refuse(
-    client: TestClient,
-    endpoint: str,
-    query: dict[str, str],
-    detail: list[dict],
-) -> None:
-    """Test a stripes request is refused with FastAPI's 422, located at each parameter involved.
-
-    Both endpoints checked these by hand and answered a string 400 --
-    "Query arguments 'station' and 'name' are mutually exclusive" -- where the other endpoints answer
-    the same rule with typed entries (GH-2060). Refused before anything is fetched.
-    """
-    response = client.get(endpoint, params={"kind": "temperature", **query})
-    assert response.status_code == 422
-    assert response.json()["errors"] == detail
-
-
-@pytest.mark.remote
-def test_stripes_values_unknown_name(client: TestClient) -> None:
-    """Test unknown name value."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "name": "foobar",
-        },
-    )
-    assert response.status_code == 404
-    assert response.json()["detail"] == "No station with a name similar to 'foobar' found"
-
-
-@pytest.mark.remote
-def test_stripes_values_unknown_format(client: TestClient) -> None:
-    """Test wrong format value."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "format": "foobar",
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["errors"][0]["msg"] == "Input should be 'json' or 'csv'"
-
-
-@pytest.mark.remote
-def test_stripes_image_default(client: TestClient) -> None:
-    """Test default parameters."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-
-
-@pytest.mark.remote
-def test_stripes_image_name(client: TestClient) -> None:
-    """Test name parameter."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "name": "Dresden-Klotzsche",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-
-
-@pytest.mark.remote
-@pytest.mark.parametrize(
-    "params",
-    [
-        {"show_title": "true"},
-        {"show_years": "true"},
-        {"show_data_availability": "true"},
-        {"show_title": "false"},
-        {"show_years": "false"},
-        {"show_data_availability": "false"},
-    ],
-)
-def test_stripes_image_non_defaults(client: TestClient, params: dict) -> None:
-    """Test non-default parameters."""
-    response = client.get(
-        "/api/stripes/image",
-        params=params
-        | {
-            "kind": "temperature",
-            "station": "01048",
-            "show_title": "true",
-            "show_years": "true",
-            "show_data_availability": "true",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-
-
-@pytest.mark.remote
-def test_stripes_image_unknown_name(client: TestClient) -> None:
-    """Test unknown name value."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "name": "foobar",
-        },
-    )
-    assert response.status_code == 404
-    assert response.json()["detail"] == "No station with a name similar to 'foobar' found"
-
-
-@pytest.mark.remote
-def test_stripes_image_unknown_format(client: TestClient) -> None:
-    """Test wrong format value."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "format": "foobar",
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["errors"][0]["msg"] == "Input should be 'png', 'jpg', 'svg' or 'pdf'"
-
-
-@pytest.mark.remote
-def test_stripes_image_wrong_dpi(client: TestClient) -> None:
-    """Test wrong dpi value."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "dpi": 0,
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["errors"][0]["msg"] == "Input should be greater than 0"
 
 
 @pytest.mark.remote
@@ -2510,6 +2023,46 @@ def test_issues_takes_the_ids_of_the_stations(
 
     assert response.status_code == 200
     assert asked == [station]
+
+
+@pytest.mark.parametrize("dataset", ["large", "small", "snow"])
+def test_issues_of_mosmix_takes_the_product(client: TestClient, monkeypatch: pytest.MonkeyPatch, dataset: str) -> None:
+    """`dataset` names the MOSMIX product whose runs are listed, and a DMO product is a 400 (GH-4093)."""
+    asked: list[str] = []
+
+    def available_issues(_cls: type, _station_id: str, _settings: object, dataset: str) -> list[dt.datetime]:
+        asked.append(dataset)
+        return [dt.datetime(2026, 11, 14, 19, tzinfo=dt.UTC)]
+
+    monkeypatch.setattr(DwdMosmixRequest, "available_issues", classmethod(available_issues))
+
+    response = client.get(
+        "/api/issues", params={"provider": "dwd", "network": "mosmix", "station": "Z914", "dataset": dataset}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["issues"] == ["2026-11-14T19:00:00.000000+00:00"]
+    assert asked == [dataset]
+
+    refused = client.get(
+        "/api/issues", params={"provider": "dwd", "network": "mosmix", "station": "Z914", "dataset": "icon"}
+    )
+    assert refused.status_code == 400
+    assert asked == [dataset]
+
+
+def test_a_422_for_a_missing_parameter_has_the_input_the_request_gave_and_no_defaults(client: TestClient) -> None:
+    """The `input` of a missing parameter's error is the query as sent, not the defaults filled in (FastAPI 0.148)."""
+    response = client.get("/api/values", params={"provider": "dwd", "network": "observation"})
+
+    assert response.status_code == 422
+    (error,) = response.json()["errors"]
+    assert error == {
+        "type": "missing",
+        "loc": ["query", "parameters"],
+        "msg": "Field required",
+        "input": {"provider": "dwd", "network": "observation"},
+    }
 
 
 @pytest.mark.parametrize(
@@ -3082,7 +2635,7 @@ def test_a_provider_the_server_cannot_reach_is_a_503(
     ("endpoint", "target", "params"),
     [
         ("/api/alerts", "wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest.query", {}),
-        ("/api/stripes/stations", "wetterdienst.ui.restapi._get_stripes_stations", {"kind": "temperature"}),
+        ("/api/storm-cells", "wetterdienst.provider.dwd.storm_cells.DwdStormCellsRequest.query", {}),
     ],
 )
 def test_a_provider_the_server_cannot_reach_is_a_503_without_a_traceback_where_the_handler_is_a_catch_all(
@@ -3229,7 +2782,6 @@ def test_values_a_value_error_from_the_values_is_a_500(
     [
         pytest.param("/api/stations", "get_stations", id="stations"),
         pytest.param("/api/values", "get_values", id="values"),
-        pytest.param("/api/stripes/stations", "_get_stripes_stations", id="stripes-stations"),
         pytest.param("/api/history", "get_stations", id="history"),
     ],
 )
@@ -3256,7 +2808,6 @@ def test_a_500_does_not_name_the_servers_paths_but_the_log_does(
     params = {
         "/api/stations": {**_OBSERVATION, "all": "true"},
         "/api/values": {**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"},
-        "/api/stripes/stations": {"kind": "temperature"},
         "/api/history": {**_OBSERVATION, "stations": "01048"},
     }[endpoint]
 
@@ -3339,170 +2890,10 @@ def test_ogc_feature_properties_schema_allows_provider_station_columns() -> None
     assert app.openapi()["components"]["schemas"]["_OgcFeatureProperties"].get("additionalProperties") is True
 
 
-@pytest.mark.sql
-def test_stations_sql_cannot_read_files(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """A `sql` clause that reads a file on the server is refused, as the caller's error.
-
-    The clause ran on DuckDB's default connection, so `read_csv` in it read the server's files, and
-    which stations came back told the caller what they held.
-    """
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-
-    # on a server that has SQL enabled, which is the only one the clause reaches
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    station = {
-        "resolution": "daily",
-        "dataset": "climate_summary",
-        "station_id": "01048",
-        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
-        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.UTC),
-        "latitude": 51.1278,
-        "longitude": 13.7543,
-        "elevation": 228.0,
-        "name": "Dresden-Klotzsche",
-        "region": "Sachsen",
-    }
-    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame([station]))
-    secret = tmp_path / "secret.csv"
-    secret.write_text("station_id\n01048\n")
-    params = {"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
-
-    # the stations are in place, and an ordinary clause still selects from them
-    response = client.get("/api/stations", params={**params, "sql": "region = 'Sachsen'"})
-    assert response.status_code == 200
-    assert [s["station_id"] for s in response.json()["stations"]] == ["01048"]
-
-    # the injection is the point
-    sql = f"station_id IN (SELECT station_id FROM read_csv('{secret.as_posix()}', all_varchar = true))"  # noqa: S608
-    response = client.get("/api/stations", params={**params, "sql": sql})
-    assert response.status_code == 400
-    assert "Permission Error" in response.json()["detail"]
-
-    # nor can a statement appended to the clause answer in place of the stations
-    response = client.get("/api/stations", params={**params, "sql": "true; SELECT * FROM duckdb_settings()"})
-    assert response.status_code == 400
-    assert "Parser Error" in response.json()["detail"]
-
-    # and a clause building more than the filter's memory limit is the caller's to scale down; the
-    # limit is 1 GiB plus the frame's size, here made 64 MiB in all so the refusal comes cheap
-    monkeypatch.setattr(pl.DataFrame, "estimated_size", lambda _self, _unit="b": 64 * 2**20 - 2**30)
-    response = client.get(
-        "/api/stations", params={**params, "sql": "(SELECT len(list(i)) FROM range(20000000) t(i)) > 0"}
-    )
-    assert response.status_code == 400
-    assert "Out of Memory Error" in response.json()["detail"]
-
-
-# each REST endpoint and MCP tool taking a SQL clause, with the rest of a request it would serve
-_SQL_GATED = [
-    ("stations", "sql", {}),
-    ("values", "sql", {}),
-    ("values", "sql_values", {"stations": "01048"}),
-    ("interpolate", "sql_values", {"station": "01048", "timestamp": "2020-06-30"}),
-    ("summarize", "sql_values", {"station": "01048", "timestamp": "2020-06-30"}),
-]
-
-
-def test_sql_gate_covers_every_route_taking_sql() -> None:
-    """Every route offering `sql` or `sql_values` is in the gate's tests, so a new one cannot slip by."""
-    offered = {
-        (path.removeprefix("/api/v1/"), parameter["name"])
-        for path, operations in restapi.app.openapi()["paths"].items()
-        for operation in operations.values()
-        for parameter in operation.get("parameters", [])
-        if parameter["name"] in ("sql", "sql_values")
-    }
-    assert offered == {(endpoint, field) for endpoint, field, _ in _SQL_GATED}
-
-
 def _fail_to_fetch(*_args: object, **_kwargs: object) -> None:
     """Stand in for the provider lookup, which a refused request must not reach."""
-    msg = "a request the SQL gate refuses reached the provider lookup"
+    msg = "a request that is refused reached the provider lookup"
     raise AssertionError(msg)
-
-
-@pytest.mark.parametrize(("endpoint", "field", "query"), _SQL_GATED, ids=[f"{e}-{f}" for e, f, _ in _SQL_GATED])
-def test_sql_is_refused_unless_the_server_enables_it(
-    monkeypatch: pytest.MonkeyPatch,
-    endpoint: str,
-    field: str,
-    query: dict[str, str],
-) -> None:
-    """Without `WD_RESTAPI_SQL=true` a SQL clause is refused with a 403, before anything is fetched."""
-    monkeypatch.delenv("WD_RESTAPI_SQL", raising=False)
-    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
-    params = {
-        "provider": "dwd",
-        "network": "observation",
-        "parameters": "daily/kl/temperature_air_mean_2m",
-        **query,
-        field: "true",
-    }
-    response = TestClient(restapi.app, raise_server_exceptions=False).get(f"/api/{endpoint}", params=params)
-    assert response.status_code == 403
-    detail = response.json()["detail"]
-    assert "SQL filtering is disabled on this server" in detail
-    assert field in detail
-    assert "WD_RESTAPI_SQL=true" in detail
-
-
-@pytest.mark.parametrize(("tool", "field", "query"), _SQL_GATED, ids=[f"{t}-{f}" for t, f, _ in _SQL_GATED])
-def test_mcp_sql_is_refused_unless_the_server_enables_it(
-    monkeypatch: pytest.MonkeyPatch,
-    tool: str,
-    field: str,
-    query: dict[str, str],
-) -> None:
-    """The MCP tools are the REST API's routes, and refuse a SQL clause the same way."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-    from fastmcp.exceptions import ToolError  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    monkeypatch.delenv("WD_RESTAPI_SQL", raising=False)
-    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
-    mcp = build_mcp_server(restapi.app)
-    arguments = {
-        "provider": "dwd",
-        "network": "observation",
-        "parameters": "daily/kl/temperature_air_mean_2m",
-        **query,
-        field: "true",
-    }
-
-    async def _call() -> None:
-        async with Client(mcp) as client:
-            await client.call_tool(tool, arguments)
-
-    with pytest.raises(ToolError, match="SQL filtering is disabled on this server") as error:
-        asyncio.run(_call())
-    assert "WD_RESTAPI_SQL=true" in str(error.value)
-
-
-def test_sql_passes_where_the_server_enables_it(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """With `WD_RESTAPI_SQL=true` an ordinary clause filters, and without a clause nothing is gated."""
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-
-    stations = [
-        {"resolution": "daily", "dataset": "kl", "station_id": station_id, "name": name, "region": region}
-        for station_id, name, region in (("01048", "Dresden-Klotzsche", "Sachsen"), ("01975", "Hamburg", "Hamburg"))
-    ]
-    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame(stations))
-    params = {"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
-
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    response = client.get("/api/stations", params={**params, "sql": "region = 'Sachsen'"})
-    assert response.status_code == 200
-    assert [s["station_id"] for s in response.json()["stations"]] == ["01048"]
-
-    # the gate is on the clause, not on the endpoint
-    monkeypatch.delenv("WD_RESTAPI_SQL")
-    response = client.get("/api/stations", params={**params, "all": "true"})
-    assert response.status_code == 200
-    assert [s["station_id"] for s in response.json()["stations"]] == ["01048", "01975"]
 
 
 @pytest.mark.parametrize(
@@ -3585,13 +2976,6 @@ def _raw_network_failures() -> list[tuple[Exception, str]]:
         pytest.param(
             "/api/issues", "get_issues", {"provider": "dwd", "network": "mosmix", "station": "01048"}, id="issues"
         ),
-        pytest.param("/api/stripes/stations", "_get_stripes_stations", {"kind": "temperature"}, id="stripes-stations"),
-        pytest.param(
-            "/api/stripes/values",
-            "_get_stripes_data",
-            {"kind": "temperature", "station": "01048"},
-            id="stripes-values",
-        ),
     ],
 )
 def test_a_raw_network_exception_is_a_500_that_does_not_repeat_it(
@@ -3654,13 +3038,13 @@ _STATION_SELECTIONS = [
     ["wigos_id"],
     ["icao_id"],
     ["name"],
+    ["region"],
     ["latitude", "longitude"],
     ["left", "bottom", "right", "top"],
-    ["sql"],
 ]
 _GIVE_ONE_STATION_SELECTION = (
-    "give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), "
-    "(left, bottom, right and top) or sql"
+    "give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, "
+    "(latitude and longitude) or (left, bottom, right and top)"
 )
 
 
@@ -3871,14 +3255,6 @@ def _raise_unit_target_refusal(**_kwargs: object) -> None:
     UnitConverter().update_targets({"temperature": "foo"})
 
 
-def _raise_sql_refusal(**_kwargs: object) -> None:
-    import polars as pl  # noqa: PLC0415
-
-    from wetterdienst.io.sql_filter import filter_by_sql  # noqa: PLC0415
-
-    filter_by_sql(pl.DataFrame({"value": [1.0]}), "foo = 1")
-
-
 def _raise_station_not_found(**_kwargs: object) -> None:
     from wetterdienst.exceptions import StationNotFoundError  # noqa: PLC0415
 
@@ -3904,17 +3280,6 @@ def _raise_station_not_found(**_kwargs: object) -> None:
             400,
             "Unit foo not supported for type temperature",
             id="interpolate-unknown-unit-target",
-        ),
-        pytest.param(
-            "/api/values", None, _raise_sql_refusal, 400, 'Referenced column "foo" not found', id="values-sql"
-        ),
-        pytest.param(
-            "/api/summarize",
-            "get_summarize",
-            _raise_sql_refusal,
-            400,
-            'Referenced column "foo" not found',
-            id="summarize-sql",
         ),
         pytest.param(
             "/api/interpolate",
@@ -4052,108 +3417,6 @@ def test_ogc_feature_schema_allows_a_null_geometry(schema_name: str) -> None:
     geometry = app.openapi()["components"]["schemas"][schema_name]["properties"]["geometry"]
     assert {"$ref": "#/components/schemas/_OgcFeatureGeometry"} in geometry["anyOf"]
     assert {"type": "null"} in geometry["anyOf"]
-
-
-@pytest.mark.sql
-@pytest.mark.parametrize(
-    ("clause", "error"),
-    [
-        ("station_id IN (SELECT station_id FROM read_csv('{secret}', all_varchar = true))", "Permission Error"),
-        ("true; SELECT * FROM duckdb_settings()", "Parser Error"),
-        ("(SELECT len(list(i)) FROM range(20000000) t(i)) > 0", "Out of Memory Error"),
-        # an extension DuckDB would install on the fly, refused with the bare `duckdb.Error`
-        ("station_id IN (SELECT 'a' FROM sqlite_scan('{secret}', 't'))", "extension"),
-        # a construct DuckDB does not implement
-        ("value IN (SELECT i FROM range(3) t(i) FULL JOIN df d2 ON i < df.value)", "Not implemented"),
-    ],
-    ids=["file", "statement", "memory", "extension", "not_implemented"],
-)
-def test_values_a_refused_sql_values_clause_is_a_400(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    clause: str,
-    error: str,
-) -> None:
-    """What the clause's connection refuses is the caller's to rephrase, on a server with SQL enabled."""
-    from wetterdienst.io.export import ExportMixin  # noqa: PLC0415
-
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    frame = pl.DataFrame({"station_id": ["01048"], "parameter": ["temperature_air_mean_2m"], "value": [1.0]})
-    stations = _selection(values=lambda: SimpleNamespace(all=lambda: ExportMixin(df=frame)))
-    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
-    # the memory limit is 1 GiB plus the frame's size, here made 64 MiB in all so the refusal comes cheap
-    monkeypatch.setattr(pl.DataFrame, "estimated_size", lambda _self, _unit="b": 64 * 2**20 - 2**30)
-    secret = tmp_path / "secret.csv"
-    secret.write_text("station_id\n01048\n")
-
-    response = client.get(
-        "/api/values",
-        params={**_OBSERVATION, "stations": "01048", "sql_values": clause.format(secret=secret.as_posix())},
-    )
-
-    assert response.status_code == 400
-    assert error in response.json()["detail"]
-
-
-@pytest.mark.sql
-@pytest.mark.parametrize("name", ["InternalException", "IOException"])
-def test_values_a_duckdb_failure_inside_duckdb_is_a_500_with_a_clause_too(
-    monkeypatch: pytest.MonkeyPatch,
-    name: str,
-) -> None:
-    """Only the bare `duckdb.Error` counts as the caller's, not every DuckDB error derived from it."""
-    import duckdb  # noqa: PLC0415
-
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    msg = f"{name}: failed inside DuckDB"
-
-    def fail() -> None:
-        raise getattr(duckdb, name)(msg)
-
-    stations = _selection(values=lambda: SimpleNamespace(all=fail))
-    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
-
-    response = TestClient(restapi.app, raise_server_exceptions=False).get(
-        "/api/values", params={**_OBSERVATION, "stations": "01048", "sql_values": "value > 0"}
-    )
-
-    _is_a_500_naming_only(response, name, hides=msg)
-
-
-@pytest.mark.sql
-@pytest.mark.parametrize(("sql_values", "status"), [("value > 0", 400), (None, 500)], ids=["clause", "no_clause"])
-def test_values_the_bare_duckdb_error_is_the_callers_only_with_a_clause(
-    monkeypatch: pytest.MonkeyPatch,
-    sql_values: str | None,
-    status: int,
-) -> None:
-    """The bare `duckdb.Error`, which a refused extension install is raised as, is the clause's to rephrase.
-
-    Raised directly, so that the branch is held whether or not this machine has the extension the
-    clause above names installed already.
-    """
-    import duckdb  # noqa: PLC0415
-
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    msg = "An error occurred while trying to automatically install the required extension 'sqlite_scanner'"
-
-    def fail() -> None:
-        raise duckdb.Error(msg)
-
-    stations = _selection(values=lambda: SimpleNamespace(all=fail))
-    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
-    params = {**_OBSERVATION, "stations": "01048"}
-    if sql_values:
-        params["sql_values"] = sql_values
-
-    response = TestClient(restapi.app, raise_server_exceptions=False).get("/api/values", params=params)
-
-    if status == 500:
-        _is_a_500_naming_only(response, "Error", hides=msg)
-    else:
-        assert response.status_code == status
-        assert response.json()["detail"] == msg
 
 
 def test_ogc_feature_properties_schema_allows_a_null_dataset() -> None:
@@ -4454,73 +3717,6 @@ def test_a_refusal_of_the_lookup_keeps_its_400(
     assert response.json()["detail"] == detail
 
 
-def test_stations_a_sql_refusal_keeps_its_400(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A `sql` naming a column the stations do not have is still the caller's 400 (GH-2276)."""
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
-    monkeypatch.setattr("wetterdienst.ui.restapi.get_stations", _raise_sql_refusal)
-
-    response = client.get("/api/stations", params={**_OBSERVATION, "sql": "foo = 1"})
-
-    assert response.status_code == 400
-    assert 'Referenced column "foo" not found' in response.json()["detail"]
-
-
-def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values: dict[int, float | None]) -> None:
-    """Have the temperature stripes read `stations` and these yearly `values` instead of DWD's."""
-    import datetime as dt  # noqa: PLC0415
-
-    import polars as pl  # noqa: PLC0415
-
-    from wetterdienst.ui import core  # noqa: PLC0415
-
-    frame = pl.DataFrame(
-        {
-            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.UTC) for year in values],
-            "value": list(values.values()),
-        },
-        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
-    )
-    result = SimpleNamespace(
-        to_dict=lambda: {"stations": stations},
-        values=lambda: SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
-    )
-    request = SimpleNamespace(filter_by_station_id=lambda _station: result, _gaps_that_may_list=lambda _station: {})
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
-
-
-@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
-@pytest.mark.parametrize(
-    ("stations", "values", "status", "detail"),
-    [
-        pytest.param([], {}, 404, "No station with a station_id similar to '99999' found", id="unknown-station"),
-        pytest.param(
-            [{"station_id": "99999", "name": "Somewhere"}],
-            {2000: 1.0},
-            400,
-            "At least two years with data are required to create climate stripes; station 99999 has data "
-            "from 2000 to 2000",
-            id="one-year-with-data",
-        ),
-    ],
-)
-def test_stripes_a_refusal_is_the_callers_4xx(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    endpoint: str,
-    stations: list[dict],
-    values: dict[int, float | None],
-    status: int,
-    detail: str,
-) -> None:
-    """A station the stripes do not know is a 404, one with too little data the caller's 400 (GH-2276, GH-2634)."""
-    _stub_stripes(monkeypatch, stations, values)
-
-    response = client.get(endpoint, params={"kind": "temperature", "station": "99999"})
-
-    assert response.status_code == status
-    assert response.json()["detail"] == detail
-
-
 _UNEXPECTED = "can only call '.item()' if the dataframe has a single element"
 
 
@@ -4571,23 +3767,6 @@ class _HistoryFails:
             {"provider": "dwd", "network": "mosmix", "station": "10382"},
             id="issues",
         ),
-        pytest.param(
-            "/api/stripes/stations", "_get_stripes_stations", _fail, {"kind": "temperature"}, id="stripes-stations"
-        ),
-        pytest.param(
-            "/api/stripes/values",
-            "_get_stripes_data",
-            _fail,
-            {"kind": "temperature", "station": "01048"},
-            id="stripes-values",
-        ),
-        pytest.param(
-            "/api/stripes/image",
-            "_get_stripes_data",
-            _fail,
-            {"kind": "temperature", "station": "01048"},
-            id="stripes-image",
-        ),
     ],
 )
 def test_a_failure_of_the_lookup_that_is_not_a_refusal_is_a_500(
@@ -4619,13 +3798,6 @@ def _fail_as_a_refusal(*_args: object, **_kwargs: object) -> None:
     ("endpoint", "entry_point", "stub", "params"),
     [
         pytest.param(
-            "/api/stripes/stations",
-            "_get_stripes_stations",
-            _fail_as_a_refusal,
-            {"kind": "temperature"},
-            id="stripes-stations",
-        ),
-        pytest.param(
             "/api/history",
             "get_stations",
             lambda **_kwargs: _HistoryFails("history", _fail_as_a_refusal),
@@ -4651,111 +3823,13 @@ def test_a_failure_where_the_caller_has_no_input_is_a_500_whatever_its_type(
 ) -> None:
     """A refusal's type raised where nothing of the caller's reaches is the source's, and a 500 (GH-2276).
 
-    The station list of the stripes takes no input the signature has not checked, and a history is
-    read once its stations are known, so an `InvalidEnumerationError` there comes from the data.
+    A history is read once its stations are known, so an `InvalidEnumerationError` there comes from the data.
     """
     monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", stub)
 
     response = client.get(endpoint, params=params)
 
     _is_a_500_naming_only(response, "InvalidEnumerationError", hides=_UNEXPECTED)
-
-
-def test_stripes_an_index_error_building_the_station_is_not_an_unknown_station(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """An `IndexError` from building the stations is a 500, not "No station ... found" (GH-2276)."""
-    from wetterdienst.ui import core  # noqa: PLC0415
-
-    def to_dict() -> None:
-        msg = "list index out of range"
-        raise IndexError(msg)
-
-    request = SimpleNamespace(filter_by_station_id=lambda _station: SimpleNamespace(to_dict=to_dict))
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
-
-    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
-
-    _is_a_500_naming_only(response, "IndexError", hides="list index out of range")
-
-
-def test_stripes_values_write_their_timestamps_as_every_other_body_does(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test the stripes' JSON stamps are written in the one format, not as `isoformat` makes them (GH-2633)."""
-    df = pl.DataFrame(
-        {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC), None], "value": [9.5, None]},
-        schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
-    )
-    stripes = StripesSeries(
-        station={"station_id": "01048"},
-        resolution="annual",
-        dataset="climate_summary",
-        parameter="temperature_air_mean_2m",
-        unit="degree_celsius",
-    )
-    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, df=df))
-
-    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 200
-    assert response.json()["values"] == [
-        {"timestamp": "2019-01-01T00:00:00.000000+00:00", "value": 9.5},
-        {"timestamp": None, "value": None},
-    ]
-    csv = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048", "format": "csv"})
-    assert csv.text.splitlines()[1] == "2019-01-01T00:00:00.000000+00:00,9.5"
-
-
-def test_stripes_values_send_the_station_as_it_is_with_the_document_describing_it_as_a_station(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test `series.station` is the station row as it was, though the document types it as a station (GH-3908).
-
-    The document says `_Station` (its columns, and any other a provider adds), so a client generator knows the fields
-    of the station; the answer is the row as the listing gave it, with its keys in its order and no key added or
-    dropped, which a model that read the row back would change.
-    """
-    station = {
-        "elevation": 4.0,
-        "station_id": "01048",
-        "gauge_zero": 1.5,  # a column beyond the core ones, which the schema admits
-        "name": "Dresden-Klotzsche",
-        "resolution": "annual",
-        "dataset": "climate_summary",
-        "start_timestamp": "1934-01-01T00:00:00.000000+00:00",
-        "end_timestamp": None,
-        "latitude": 51.1278,
-        "longitude": 13.7543,
-        "region": "Sachsen",
-    }
-    df = pl.DataFrame(
-        {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC)], "value": [9.5]},
-        schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
-    )
-    stripes = StripesSeries(
-        station=station,  # ty: ignore[invalid-argument-type]
-        resolution="annual",
-        dataset="climate_summary",
-        parameter="temperature_air_mean_2m",
-        unit="degree_celsius",
-    )
-    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, df=df))
-
-    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 200
-    sent = response.json()["series"]["station"]
-    assert sent == station
-    assert list(sent) == list(station)
-    schemas = client.get("/openapi.json").json()["components"]["schemas"]
-    described = schemas["StripesSeries"]["properties"]["station"]
-    assert described["properties"] == schemas["_Station"]["properties"]
-    assert described["required"] == schemas["_Station"]["required"]
-    assert described["additionalProperties"] is True
 
 
 def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:
@@ -5223,39 +4297,6 @@ def test_values_a_unit_target_the_server_environment_got_wrong_is_not_the_caller
     _is_an_unhandled_500(response)
 
 
-@pytest.mark.parametrize(
-    ("endpoint", "params"),
-    [
-        pytest.param("/api/stripes/stations", {"kind": "temperature"}, id="stripes-stations"),
-        pytest.param("/api/stripes/values", {"kind": "temperature", "station": "01048"}, id="stripes-values"),
-        pytest.param("/api/stripes/image", {"kind": "temperature", "station": "01048"}, id="stripes-image"),
-    ],
-)
-def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: pathlib.Path,
-    endpoint: str,
-    params: dict[str, str],
-) -> None:
-    """A malformed `WD_*` setting is the server's bare 500, without its value (GH-2312).
-
-    The stripes build their provider request, and with it its settings, inside a catch-all, which
-    answered the `ValidationError` with a 500 carrying the configured value.
-    """
-    from fastapi.testclient import TestClient  # noqa: PLC0415
-
-    from wetterdienst.ui.restapi import app  # noqa: PLC0415
-
-    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=not-a-bool\n")
-    monkeypatch.chdir(tmp_path)
-    client = TestClient(app, raise_server_exceptions=False)
-
-    response = client.get(endpoint, params=params)
-
-    # the app's answer to an exception nothing handled, so the settings are what failed
-    _is_an_unhandled_500(response)
-
-
 def test_summarize_has_no_use_nearby_station_distance(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -5567,6 +4608,80 @@ def test_restapi_starts_with_valid_settings(caplog: pytest.LogCaptureFixture) ->
     assert "Application startup complete." in caplog.text
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("value", ["true", "True", "1", "yes", "on"])
+@pytest.mark.parametrize("where", ["environment", ".env"])
+def test_restapi_warns_once_and_starts_while_the_removed_sql_setting_is_true(
+    value: str,
+    where: str,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`WD_RESTAPI_SQL` set to true is warned about, by the variable and never its value, and the server starts.
+
+    An upgrade must not take a deployment down for a variable it still sets, as it does not for KNMI's old key: it
+    asks for a feature that is gone, so nothing is enabled and every request with `sql` is a 422. Read as the settings
+    are, from the environment and `.env`.
+    """
+    if where == "environment":
+        monkeypatch.setenv("WD_RESTAPI_SQL", value)
+    else:
+        (tmp_path / ".env").write_text(f"WD_RESTAPI_SQL={value}\n")
+
+    with caplog.at_level(logging.WARNING, logger="wetterdienst"):
+        assert _start_lifespan(caplog)
+
+    warnings = [
+        record for record in caplog.records if record.levelno == logging.WARNING and "WD_RESTAPI_SQL" in record.message
+    ]
+    assert len(warnings) == 1
+    assert warnings[0].name == "wetterdienst.ui.restapi"
+    assert "set to true, and the setting was removed" in warnings[0].message
+    assert "Unset the variable" in warnings[0].message
+    assert f"={value}" not in caplog.text
+    assert "Application startup complete." in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("value", ["false", "False", "0", "no", "off", "", "  "])
+def test_restapi_starts_with_the_removed_sql_setting_false_or_empty(
+    value: str, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A deployment that spelled the default out (`WD_RESTAPI_SQL=false`) starts as before, and says nothing."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", value)
+
+    with caplog.at_level(logging.WARNING, logger="wetterdienst"):
+        assert _start_lifespan(caplog)
+    assert "WD_RESTAPI_SQL" not in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_the_server_is_ready_while_the_removed_sql_setting_is_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The readiness probe has nothing to say of a variable that asks for nothing the server cannot do without."""
+    from wetterdienst.ui import readiness  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+
+    assert readiness._settings_problems() == []  # noqa: SLF001
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_a_server_with_the_removed_sql_setting_true_refuses_sql_as_removed(
+    monkeypatch: pytest.MonkeyPatch, client: TestClient
+) -> None:
+    """Nothing is enabled by the variable: a request that carries `sql` is the 422 it is without it."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+
+    response = client.get(
+        "/api/v1/stations",
+        params={"provider": "dwd", "network": "observation", "parameters": "daily/kl", "sql": "true"},
+    )
+
+    assert response.status_code == 422
+    assert "sql was removed" in response.json()["detail"]
+
+
 def test_restapi_imports_with_a_malformed_setting(tmp_path: pathlib.Path) -> None:
     """The REST API's module imports with a malformed `WD_*` setting, for its startup to refuse (GH-2335).
 
@@ -5574,7 +4689,6 @@ def test_restapi_imports_with_a_malformed_setting(tmp_path: pathlib.Path) -> Non
     """
     import os  # noqa: PLC0415
     import subprocess  # noqa: PLC0415
-    import sys  # noqa: PLC0415
 
     result = subprocess.run(
         [sys.executable, "-c", "import wetterdienst.ui.restapi"],
@@ -6291,18 +5405,26 @@ def test_reported_choices_are_the_settings_choices(field: str, option: str) -> N
     assert reported == set(get_args(Options.model_fields[option].annotation))
 
 
-@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
-@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
-def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
-    client: TestClient, network: str, station: str, option: str, value: str
+@pytest.mark.parametrize(
+    ("network", "station", "option", "value", "message"),
+    [
+        ("mosmix", "10147", "lead_time", "long", "lead_time applies to DWD DMO only"),
+        ("swsmos", "A006", "lead_time", "long", "lead_time applies to DWD DMO only"),
+        ("mosmix", "10147", "dataset", "icon", "dataset 'icon' is a DWD DMO product; DWD MOSMIX lists"),
+        ("dmo", "10147", "dataset", "snow", "dataset 'snow' is a DWD MOSMIX product; DWD DMO lists"),
+        ("swsmos", "A006", "dataset", "small", "dataset does not apply to DWD SWSMOS"),
+    ],
+)
+def test_issues_refuses_the_options_the_network_does_not_list(
+    client: TestClient, network: str, station: str, option: str, value: str, message: str
 ) -> None:
-    """/api/issues refuses a DMO-only option for MOSMIX and SWSMOS, as its description says (GH-2347)."""
+    """/api/issues refuses a lead time for MOSMIX and SWSMOS and a product of the other network (GH-2347, GH-4093)."""
     response = client.get(
         "/api/issues",
         params={"provider": "dwd", "network": network, "station": station, option: value},
     )
     assert response.status_code == 400
-    assert response.json()["detail"].startswith(f"{option} applies to DWD DMO only")
+    assert response.json()["detail"].startswith(message)
 
 
 def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
@@ -6318,6 +5440,7 @@ def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
     from fastmcp import Client  # noqa: PLC0415
 
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
     async def _schemas() -> dict[str, dict]:
@@ -6326,11 +5449,17 @@ def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
 
     schemas = asyncio.run(_schemas())
     defaults = inspect.signature(DwdDmoRequest.available_issues).parameters
-    for name in ("dataset", "lead_time"):
-        description = schemas["issues"][name]["description"]
-        assert description.endswith("; DMO only, refused for MOSMIX and SWSMOS."), name
-        # an enum member for lead_time (SHORT = 78), named in a request by its lowercased name
-        assert f", default '{getattr(defaults[name].default, 'name', defaults[name].default).lower()}';" in description
+    lead_time = schemas["issues"]["lead_time"]["description"]
+    assert lead_time.endswith("; DMO only, refused for MOSMIX and SWSMOS.")
+    # an enum member for lead_time (SHORT = 78), named in a request by its lowercased name
+    assert f", default '{getattr(defaults['lead_time'].default, 'name', defaults['lead_time'].default).lower()}';" in (
+        lead_time
+    )
+    # the dataset is the product of DMO (icon, icon_eu) and of MOSMIX (large, small, snow), each with its default
+    dataset = schemas["issues"]["dataset"]["description"]
+    assert f"'icon' or 'icon_eu' (default '{defaults['dataset'].default}')" in dataset
+    mosmix_default = inspect.signature(DwdMosmixRequest.available_issues).parameters["dataset"].default
+    assert f"'snow' (MOSMIX-SNOW), default '{mosmix_default}'" in dataset
     # the data endpoints keep the shared description: there a lead time outside DMO is ignored
     assert schemas["values"]["lead_time"]["description"].endswith("; ignored for other networks.")
 
@@ -6926,328 +6055,6 @@ def test_restapi_does_not_configure_opentelemetry_export_from_the_environment(
     assert not [record for record in caplog.records if record.name.startswith("fastapi")]
 
 
-def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: list[float]) -> None:
-    """Answer the stripes of station 01048 offline: its listing, and one value a year from 2000."""
-    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
-
-    dataset, name_original = {
-        "temperature": ("climate_summary", "ja_tt"),
-        "precipitation": ("precipitation_more", "ja_rr"),
-    }[kind]
-    stations = pl.DataFrame(
-        [
-            {
-                "resolution": "annual",
-                "dataset": dataset,
-                "station_id": "01048",
-                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
-                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.UTC),
-                "latitude": 51.1278,
-                "longitude": 13.7543,
-                "elevation": 228.0,
-                "name": "Dresden-Klotzsche",
-                "region": "Sachsen",
-                "wmo_id": None,
-                "wigos_id": None,
-                "icao_id": None,
-            },
-        ],
-        schema_overrides={"wmo_id": pl.String, "wigos_id": pl.String, "icao_id": pl.String},
-    )
-
-    def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
-
-    def _collect(
-        self: DwdObservationValues,  # noqa: ARG001
-        station_id: str,
-        parameter_or_dataset: object,  # noqa: ARG001
-    ) -> pl.DataFrame:
-        # as the source has them: named by its codes, in the unit it publishes
-        return pl.DataFrame(
-            [
-                {
-                    "station_id": station_id,
-                    "resolution": "annual",
-                    "dataset": dataset,
-                    "parameter": name_original,
-                    "timestamp": dt.datetime(2000 + offset, 1, 1, tzinfo=dt.UTC),
-                    "value": value,
-                    "quality_flags": "10",
-                }
-                for offset, value in enumerate(values)
-            ],
-            schema_overrides={"value": pl.Float64},
-        )
-
-    monkeypatch.setattr(DwdObservationRequest, "all", _all)
-    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", _collect)
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    ("kind", "environment", "unit", "expected"),
-    [
-        pytest.param("temperature", {}, "degree_celsius", [1.0, 2.0], id="temperature"),
-        pytest.param(
-            "temperature",
-            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}'},
-            "degree_fahrenheit",
-            [33.8, 35.6],
-            id="temperature-fahrenheit",
-        ),
-        pytest.param(
-            "temperature",
-            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}', "WD_TS_CONVERT_UNITS": "false"},
-            "degree_celsius",
-            [1.0, 2.0],
-            id="temperature-fahrenheit-unconverted",
-        ),
-        pytest.param("precipitation", {}, "millimeter", [1.0, 2.0], id="precipitation"),
-        pytest.param(
-            "precipitation",
-            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}'},
-            "millimeter",
-            [1.0, 2.0],
-            id="precipitation-fahrenheit",
-        ),
-    ],
-)
-def test_stripes_values_name_the_unit_the_server_converts_to(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    kind: str,
-    environment: dict[str, str],
-    unit: str,
-    expected: list[float],
-) -> None:
-    """The stripes metadata names the unit of their values, which the server's settings set (GH-2372).
-
-    The stripes read a station's values with the server's `WD_TS_CONVERT_UNITS` and
-    `WD_TS_UNIT_TARGETS`, so a station whose annual mean was 1.0 °C came back as 33.8 under a
-    Fahrenheit target, with nothing in the metadata saying so. The station's listing and download
-    are stubbed, so the conversion runs and nothing leaves the machine. The station's record is
-    1.0 and 2.0 in the source's unit; `expected` is what comes back.
-    """
-    for name, setting in environment.items():
-        monkeypatch.setenv(name, setting)
-    _stub_stripes_station(monkeypatch, kind, [1.0, 2.0])
-
-    response = client.get("/api/stripes/values", params={"kind": kind, "station": "01048"})
-
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["series"]["unit"] == unit
-    assert [item["value"] for item in data["values"]] == expected
-    # named by the parameter the unit is taken from
-    assert (data["series"]["resolution"], data["series"]["dataset"], data["series"]["parameter"]) == {
-        "temperature": ("annual", "climate_summary", "temperature_air_mean_2m"),
-        "precipitation": ("annual", "precipitation_more", "precipitation_amount"),
-    }[kind]
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The MCP `stripes_values` tool passes on the unit the stripes metadata names (GH-2372)."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-
-    async def _call() -> dict:
-        async with Client(build_mcp_server(restapi.app)) as mcp_client:
-            result = await mcp_client.call_tool("stripes_values", {"kind": "temperature", "station": "01048"})
-        return json.loads(result.content[0].text)
-
-    # the tool's answer is the endpoint's, as its output schema (a JSON object or text) has it wrapped
-    data = asyncio.run(_call())["result"]
-    assert data["series"]["unit"] == "degree_fahrenheit"
-    assert [item["value"] for item in data["values"]] == [33.8, 35.6]
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    ("kind", "unit_targets", "unit", "expected"),
-    [
-        pytest.param("temperature", '{"temperature": "degree_fahrenheit"}', "degree_fahrenheit", [33.8, 35.6], id="f"),
-        pytest.param("temperature", '{"temperature": "degree_celsius"}', "degree_celsius", [1.0, 2.0], id="c"),
-        pytest.param("temperature", '{"temperature": "degree_kelvin"}', "degree_kelvin", [274.15, 275.15], id="k"),
-        pytest.param(
-            "precipitation", '{"precipitation": "liter_per_square_meter"}', "liter_per_square_meter", [1.0, 2.0], id="l"
-        ),
-        # the other quantity is none of the kind's: the unit stays the source's
-        pytest.param("precipitation", '{"temperature": "degree_fahrenheit"}', "millimeter", [1.0, 2.0], id="other"),
-    ],
-)
-def test_stripes_values_take_the_unit_targets_as_the_values_do(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    kind: str,
-    unit_targets: str,
-    unit: str,
-    expected: list[float],
-) -> None:
-    """`unit_targets` of `/api/stripes/values` chooses the unit of the values, named in `series.unit` (GH-3980)."""
-    _stub_stripes_station(monkeypatch, kind, [1.0, 2.0])
-
-    response = client.get(
-        "/api/stripes/values", params={"kind": kind, "station": "01048", "unit_targets": unit_targets}
-    )
-
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["series"]["unit"] == unit
-    assert [item["value"] for item in data["values"]] == pytest.approx(expected)
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_stripes_values_without_unit_targets_are_unchanged(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A request giving no `unit_targets` is answered in degree Celsius and millimetre, as before (GH-3980)."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    data = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"}).json()
-    assert data["series"]["unit"] == "degree_celsius"
-    assert [item["value"] for item in data["values"]] == [1.0, 2.0]
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_stripes_values_unit_targets_win_over_the_servers_for_the_quantity(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A request's `unit_targets` entry replaces the server's `WD_TS_UNIT_TARGETS` one for its quantity (GH-3980)."""
-    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    params = {"kind": "temperature", "station": "01048"}
-    data = client.get("/api/stripes/values", params={**params, "unit_targets": '{"temperature": "degree_kelvin"}'})
-    assert data.json()["series"]["unit"] == "degree_kelvin"
-    # a quantity it leaves out keeps the server's
-    data = client.get(
-        "/api/stripes/values", params={**params, "unit_targets": '{"precipitation": "liter_per_square_meter"}'}
-    )
-    assert data.json()["series"]["unit"] == "degree_fahrenheit"
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    ("unit_targets", "message"),
-    [
-        ('{"foo": "degree_celsius"}', "Invalid unit targets: quantities not supported: foo."),
-        ('{"temperature": "furlong"}', "Invalid unit targets: Unit furlong not supported for type temperature."),
-    ],
-)
-def test_stripes_values_refuse_unit_targets_as_the_values_route_does(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, unit_targets: str, message: str
-) -> None:
-    """An unknown quantity or unit is the request's 400, worded as `/api/values` words it (GH-3980)."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-
-    response = client.get(
-        "/api/stripes/values", params={"kind": "temperature", "station": "01048", "unit_targets": unit_targets}
-    )
-
-    assert response.status_code == 400
-    assert response.json()["detail"].startswith("Invalid value for 'unit_targets': ")
-    assert message in response.json()["detail"]
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    "variable", [("WD_TS_SHAPE", "bogus"), ("WD_TS_SKIP_EMPTY", "maybe")], ids=["shape", "skip-empty"]
-)
-@pytest.mark.parametrize("unit_targets", [None, '{"temperature": "degree_fahrenheit"}'], ids=["none", "fahrenheit"])
-def test_stripes_values_override_a_malformed_variable_for_their_options(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, variable: tuple[str, str], unit_targets: str | None
-) -> None:
-    """A malformed WD_TS_SHAPE or WD_TS_SKIP_EMPTY, which the stripes fix themselves, does not stop the route (GH-2348).
-
-    The check of `unit_targets` built the server's options from the environment, which reads them, and answered 500.
-    """
-    monkeypatch.setenv(*variable)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    params = {"kind": "temperature", "station": "01048"}
-    if unit_targets:
-        params["unit_targets"] = unit_targets
-
-    response = client.get("/api/stripes/values", params=params)
-
-    assert response.status_code == 200, response.text
-    assert response.json()["series"]["unit"] == ("degree_fahrenheit" if unit_targets else "degree_celsius")
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    "variable", [("WD_TS_SHAPE", "bogus"), ("WD_TS_SKIP_EMPTY", "maybe")], ids=["shape", "skip-empty"]
-)
-def test_mcp_stripes_values_override_a_malformed_variable_for_their_options(
-    monkeypatch: pytest.MonkeyPatch, variable: tuple[str, str]
-) -> None:
-    """The MCP `stripes_values` tool, which is the route, is as little stopped by a malformed variable (GH-2348)."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    monkeypatch.setenv(*variable)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-
-    async def _call() -> dict:
-        async with Client(build_mcp_server(restapi.app)) as mcp_client:
-            result = await mcp_client.call_tool(
-                "stripes_values",
-                {"kind": "temperature", "station": "01048", "unit_targets": {"temperature": "degree_fahrenheit"}},
-            )
-        return json.loads(result.content[0].text)
-
-    data = asyncio.run(_call())["result"]
-    assert data["series"]["unit"] == "degree_fahrenheit"
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_stripes_image_takes_no_unit_targets(client: TestClient) -> None:
-    """The image shows no number or unit, so it takes no `unit_targets` (GH-3980)."""
-    response = client.get(
-        "/api/stripes/image",
-        params={"kind": "temperature", "station": "01048", "unit_targets": '{"temperature": "degree_fahrenheit"}'},
-    )
-    assert response.status_code == 422
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_mcp_stripes_values_take_unit_targets(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The MCP `stripes_values` tool takes `unit_targets` as an object, like `values` does (GH-3980)."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-
-    async def _call(arguments: dict) -> dict:
-        async with Client(build_mcp_server(restapi.app)) as mcp_client:
-            result = await mcp_client.call_tool(
-                "stripes_values", {"kind": "temperature", "station": "01048", **arguments}
-            )
-        return json.loads(result.content[0].text)
-
-    data = asyncio.run(_call({"unit_targets": {"temperature": "degree_fahrenheit"}}))["result"]
-    assert data["series"]["unit"] == "degree_fahrenheit"
-    assert [item["value"] for item in data["values"]] == [33.8, 35.6]
-    # the default is unchanged
-    data = asyncio.run(_call({}))["result"]
-    assert data["series"]["unit"] == "degree_celsius"
-    assert [item["value"] for item in data["values"]] == [1.0, 2.0]
-
-
 def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stand in for the DWD station list with a station that has no position (GH-2385)."""
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
@@ -7357,23 +6164,6 @@ def test_mcp_a_location_out_of_range_is_a_400(
     with pytest.raises(ToolError, match="HTTP error 400") as error:
         asyncio.run(_call())
     assert detail in str(error.value)
-
-
-@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
-def test_stripes_a_station_that_returns_no_rows_is_a_400(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    endpoint: str,
-) -> None:
-    """A listed station whose values come back without rows is the caller's 400, not a 500 (GH-2369)."""
-    _stub_stripes(monkeypatch, [{"station_id": "01048", "name": "Dresden-Klotzsche"}], {})
-
-    response = client.get(endpoint, params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "At least two years with data are required to create climate stripes; station 01048 has data for no year"
-    )
 
 
 @pytest.fixture
@@ -7496,8 +6286,8 @@ def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
 ) -> None:
     """A tool call over `/mcp` records the `/mcp` requests, not the tool's REST request (GH-2432).
 
-    The tool's request runs in the context of the `/mcp` request, so fastapi's operation spans for it
-    sit beneath the tool call's span.
+    The tool's request runs in the context of the `/mcp` request, and fastapi records no operation span
+    for it: it is excluded (`is_tool_request`), and fastapi isolates the telemetry of an excluded request.
     """
     pytest.importorskip("fastmcp")
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
@@ -7538,10 +6328,9 @@ def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
     assert '"isError":false' in response.text
     assert _span_names(spans, "fastapi", server=True) == ["POST /mcp"] * 3
     assert _request_durations(metrics) == {"/mcp": 3}
-    (tool_call,) = [span for span in spans.get_finished_spans() if span.name == "tools/call glossary"]
+    assert [span.name for span in spans.get_finished_spans()].count("tools/call glossary") == 1
     operations = [span for span in spans.get_finished_spans() if span.name.startswith("fastapi.")]
-    assert {span.name for span in operations} == {"fastapi.dependencies", "fastapi.endpoint", "fastapi.serialization"}
-    assert {span.parent.span_id for span in operations if span.parent} == {tool_call.context.span_id}
+    assert operations == []
 
 
 def test_values_a_failed_dwd_download_is_a_502_not_an_empty_result(
@@ -7630,14 +6419,14 @@ _GEO_REFUSALS = [
         "interpolate",
         {"station": "00001", "timestamp": "2020-06-30"},
         404,
-        "no station found for 00001",
+        "no station found for 00001: no station of this request has this id",
         id="interpolate-unknown-station",
     ),
     pytest.param(
         "summarize",
         {"station": "00001", "timestamp": "2020-06-30"},
         404,
-        "no station found for 00001",
+        "no station found for 00001: no station of this request has this id",
         id="summarize-unknown-station",
     ),
 ]
@@ -7921,7 +6710,6 @@ _LOOSE_ENDPOINTS = [
         "/api/coverage", {"provider": "dwd", "network": "observation"}, "_resolve_listed_network", id="coverage"
     ),
     pytest.param("/api/glossary", {"parameter": "temperature_air_mean_2m"}, "get_glossary", id="glossary"),
-    pytest.param("/api/stripes/stations", {"kind": "temperature"}, "_get_stripes_stations", id="stripes-stations"),
     pytest.param("/api/alerts", {}, None, id="alerts"),
 ]
 
@@ -7979,7 +6767,9 @@ def test_mcp_unknown_argument_is_refused(monkeypatch: pytest.MonkeyPatch, tool: 
         async with Client(mcp) as client:
             await client.call_tool(tool, {"bogus": "x"})
 
-    with pytest.raises(ToolError, match=rf"^bogus is not an argument of {tool}, which takes \w+(, \w+)* and \w+$"):
+    with pytest.raises(
+        ToolError, match=rf"^bogus is not an argument of {tool}, which takes \w+(?:(?:, \w+)* and \w+)?$"
+    ):
         asyncio.run(_call())
 
 
@@ -8010,8 +6800,9 @@ def test_mcp_renamed_argument_is_named_beside_an_unknown_one(monkeypatch: pytest
 
 
 def _debug_path(tool: str) -> str:
-    """Give the route of a tool: its name, with the stripes' sub-routes as paths."""
-    return tool.replace("_", "/", 1) if tool.startswith("stripes_") else tool
+    """Give the route of a tool: its name."""
+    # `storm_cells` is served at `/storm-cells`
+    return tool.replace("_", "-")
 
 
 @pytest.mark.parametrize("tool", sorted(_TOOL_NAMES.values()))
@@ -8024,6 +6815,7 @@ def test_debug_is_refused_and_leaves_the_log_level_alone(
     """
     monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+    monkeypatch.setattr("wetterdienst.provider.dwd.storm_cells.DwdStormCellsRequest", _refuse_to_fetch_alerts)
     log = logging.getLogger("wetterdienst")  # the logger `set_logging_level` sets (GH-3388)
     monkeypatch.setattr(log, "level", logging.WARNING)
 
@@ -8476,20 +7268,6 @@ _LOOKUPS = [
         {"provider": "dwd", "network": "mosmix", "station": "10382"},
         "get issues",
         id="issues",
-    ),
-    pytest.param(
-        "/api/stripes/values",
-        "_get_stripes_data",
-        {"kind": "temperature", "station": "01048"},
-        "get stripes data",
-        id="stripes-values",
-    ),
-    pytest.param(
-        "/api/stripes/image",
-        "_get_stripes_data",
-        {"kind": "temperature", "station": "01048"},
-        "plot stripes",
-        id="stripes-image",
     ),
     pytest.param(
         "/api/history",
@@ -9121,7 +7899,7 @@ def test_an_optional_dependency_missing_on_the_server_is_a_501(
 ) -> None:
     """Any optional package the deployment lacks is a 501, as the BUFR reader is (GH-2637).
 
-    A `sql` filter without DuckDB ended in a bare `ModuleNotFoundError`, a 500 with no instruction
+    An optional package that is not installed ended in a bare `ModuleNotFoundError`, a 500 with no instruction
     in it. `MissingDependencyError` is the one class every optional import raises, so one decision
     covers them all: the request was well formed, the instance cannot serve it, and the install
     line goes to the log rather than to a caller who does not administer the machine.
@@ -9131,7 +7909,7 @@ def test_an_optional_dependency_missing_on_the_server_is_a_501(
     """
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
 
-    msg = "Filtering with SQL requires duckdb, which is not installed. Install it with: pip install wetterdienst[sql]"
+    msg = "Plotting requires altair, which is not installed. Install it with: pip install wetterdienst[plotting]"
 
     def refuse(**_kwargs: object) -> None:
         raise MissingDependencyError(msg)
@@ -9144,7 +7922,7 @@ def test_an_optional_dependency_missing_on_the_server_is_a_501(
     detail = response.json()["detail"]
     assert "optional dependency" in detail
     assert "pip install" not in detail
-    assert "pip install wetterdienst[sql]" in caplog.text
+    assert "pip install wetterdienst[plotting]" in caplog.text
 
 
 def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_too(
@@ -9518,43 +8296,6 @@ def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) ->
     )
     assert response.status_code == 404
     assert "No API available" in response.json()["detail"]
-
-
-def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The stripes image is 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
-    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
-    client = TestClient(restapi.app, raise_server_exceptions=False)
-    params = {"kind": "temperature", "station": "01048"}
-
-    response = client.get("/api/stripes/image", params={**params, "dpi": 100_000})
-    assert response.status_code == 400
-    detail = response.json()["detail"]
-    assert "renders no side longer than 8192 px" in detail
-    assert "Lower dpi" in detail
-
-    # 1170 dpi is 8190 px wide, 1171 is 8197: the first is not refused, so it reaches the stub
-    assert client.get("/api/stripes/image", params={**params, "dpi": 1_171}).status_code == 400
-    assert client.get("/api/stripes/image", params={**params, "dpi": 1_170}).status_code == 500
-
-
-def test_mcp_oversized_image_is_refused() -> None:
-    """The MCP tools are the REST API's routes, and refuse an image it refuses."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-    from fastmcp.exceptions import ToolError  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    mcp = build_mcp_server(restapi.app)
-
-    async def _call() -> None:
-        async with Client(mcp) as client:
-            await client.call_tool("stations", _image_params({"all": True}, format="png", width=100_000))
-
-    with pytest.raises(ToolError, match="renders no side longer than 8192 px"):
-        asyncio.run(_call())
 
 
 @pytest.mark.usefixtures("stubbed_values")
@@ -9934,3 +8675,112 @@ def test_an_exception_of_the_library_outside_an_endpoints_handling_is_answered_b
 
     body = _is_a_problem(client.get("/api/glossary"), status)
     assert (reason in body["detail"]) is (status in (400, 404))
+
+
+_DATA = {"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
+_SERIES = {
+    "provider": "dwd",
+    "network": "observation",
+    "parameters": "daily/kl/temperature_air_mean_2m",
+    "station": "1",
+}
+
+
+@pytest.mark.parametrize(
+    ("tool", "name", "arguments"),
+    [
+        ("stations", "sql", _DATA),
+        ("values", "sql", _DATA),
+        ("values", "sql_values", {**_DATA, "stations": "1"}),
+        ("interpolate", "sql_values", _SERIES),
+        ("summarize", "sql_values", _SERIES),
+    ],
+)
+def test_an_mcp_tool_that_is_given_sql_says_it_was_removed(tool: str, name: str, arguments: dict[str, str]) -> None:
+    """A tool that took `sql` or `sql_values` is refused it with what that tool offers instead, and has neither."""
+    from wetterdienst.ui.core import removed_parameter_message  # noqa: PLC0415
+
+    error = _mcp_refusal(tool, {**arguments, name: "value > 1"}, absent=name)
+
+    assert error == removed_parameter_message(name, tool)
+    assert error.startswith(f"{name} was removed: the REST API and the MCP tools no longer filter with SQL")
+
+
+@pytest.mark.parametrize(
+    ("tool", "name", "arguments"),
+    [
+        ("interpolate", "sql", _SERIES),
+        ("summarize", "sql", _SERIES),
+        ("glossary", "sql", {"parameter": "temperature_air_mean_2m"}),
+        ("history", "sql_values", {**_DATA, "all": "true"}),
+        ("alerts", "sql", {"latitude": "54.3", "longitude": "10.1"}),
+    ],
+)
+def test_an_mcp_tool_that_never_took_sql_answers_it_as_an_unknown_argument(
+    tool: str, name: str, arguments: dict[str, str]
+) -> None:
+    """A tool whose route never had `sql` or `sql_values` does not call them removed: they are no argument of it."""
+    error = _mcp_refusal(tool, {**arguments, name: "value > 1"}, absent=name)
+
+    assert error.startswith(f"{name} is not an argument of {tool}, which takes ")
+    assert "removed" not in error
+
+
+def _mcp_refusal(tool: str, arguments: dict[str, str], *, absent: str) -> str:
+    """Call an MCP tool whose call is refused for an argument, after checking that the tool has no such argument."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call() -> None:
+        async with Client(build_mcp_server(restapi.app)) as mcp:
+            listed = {t.name: t for t in await mcp.list_tools()}
+            assert absent not in listed[tool].inputSchema["properties"]
+            await mcp.call_tool(tool, arguments)
+
+    with pytest.raises(ToolError) as caught:
+        asyncio.run(call())
+    return str(caught.value).removeprefix("Error calling tool '" + tool + "': ")
+
+
+def test_a_request_to_the_rest_api_does_not_import_duckdb(tmp_path: pathlib.Path) -> None:
+    """The server answers its routes, the refusal of `sql` among them, without DuckDB being imported.
+
+    Nothing on a server runs a caller's text in DuckDB any more, so it is not loaded: not by the import of the app,
+    not by a request.
+    """
+    import os  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+    import textwrap  # noqa: PLC0415
+
+    code = textwrap.dedent(
+        """
+        import sys
+        from starlette.testclient import TestClient
+        from wetterdienst.ui import restapi
+
+        client = TestClient(restapi.app, raise_server_exceptions=False)
+        assert client.get("/api/v1/version").status_code == 200
+        assert client.get("/api/v1/glossary", params={"parameter": "temperature_air_mean_2m"}).status_code == 200
+        refused = client.get(
+            "/api/v1/stations",
+            params={"provider": "dwd", "network": "observation", "parameters": "daily/kl", "sql": "true"},
+        )
+        assert refused.status_code == 422, refused.text
+        loaded = [name for name in sys.modules if name == "duckdb" or name.startswith("duckdb.")]
+        assert loaded == [], loaded
+        """
+    )
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", code],
+        cwd=tmp_path,
+        env={key: value for key, value in os.environ.items() if not key.startswith("WD_")},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]

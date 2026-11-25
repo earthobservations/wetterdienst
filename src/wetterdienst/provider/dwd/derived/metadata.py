@@ -33,6 +33,7 @@ _DwdDerivedMetadataSpec = {
     "kind": "derived",
     "extent": EXTENT_GERMANY,
     "timezone": "Europe/Berlin",
+    "station_id_list": {"resolution": "daily", "dataset": "soil", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "hourly",
@@ -504,6 +505,22 @@ SUNSHINE_DURATION_DATASETS = [
 ]
 
 SOIL_DATASETS = [
+    DwdDerivedMetadata.daily.soil,
+    DwdDerivedMetadata.monthly.soil,
+]
+
+#: The datasets whose station ids are DWD's own station ids (the `Stations_ID` of the Stationslexikon), so that their
+#: stations have the WMO number the Stationslexikon gives that id (GH-4162): the degree days and degree hours use the
+#: list `KL_Monatswerte_Beschreibung_Stationen.txt` (1,226 ids, read 2026-11-16: all in the Stationslexikon, 270 with
+#: a number, the names agree for all 270) and the soil the list `stations_list_soil.txt` (484 ids, 198 with a number,
+#: names agree). Not the DUETT radiation and sunshine duration (ids `18xxx` of their own, 0 of 576 in the
+#: Stationslexikon) and not the climate correction factor, whose "stations" are the 100,000 postal codes (a postal code
+#: that is also a station id, 314 of them, is no such station)
+DWD_STATION_ID_DATASETS = [
+    DwdDerivedMetadata.monthly.heating_degreedays,
+    DwdDerivedMetadata.monthly.cooling_degreehours_13,
+    DwdDerivedMetadata.monthly.cooling_degreehours_16,
+    DwdDerivedMetadata.monthly.cooling_degreehours_18,
     DwdDerivedMetadata.daily.soil,
     DwdDerivedMetadata.monthly.soil,
 ]

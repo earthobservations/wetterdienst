@@ -34,7 +34,8 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # the suite runs about 31-41 minutes on one Firefox worker, plus about 5 minutes of setup; raised from 45 for GH-4340, when nuxt 4.6.4 made it slower
+    timeout-minutes: 60
 
     defaults:
       run:
@@ -49,7 +50,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '26'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10

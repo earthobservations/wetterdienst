@@ -26,7 +26,7 @@
 | {term}`wind_speed_mean` | FG | Annual mean wind speed, representative for 10 meters, in meters per second. | m/s |
 | {term}`wind_speed_min` | FHN | Annual minimum hourly wind speed, representative for 10 meters, in meters per second. | m/s |
 | {term}`wind_speed_max` | FHX | Annual maximum hourly wind speed, representative for 10 meters, in meters per second. | m/s |
-| {term}`wind_gust_max` | FXX | Annual maximum wind gust, representative for 10 meters, in meters per second. | m/s |
+| {term}`wind_gust_max` | FXX | Annual maximum wind gust, representative for 10 meters, in meters per second. Highest 3 second average of the day (as KNMI writes it; the value is the year's). | m/s |
 | {term}`wind_direction_mean` | DDVEC | Annual vector mean wind direction, representative for 10 meters, in degrees. Wind direction has been weighted with wind speed during aggregation. 360=north; 90=east; 180=south; 270=west; 0=calm/variable. | ° |
 | {term}`precipitation_amount` | RH | Annual precipitation amount, in millimeters. | mm |
 | {term}`precipitation_amount_max` | RHX | Annual maximum hourly precipitation amount. | mm |

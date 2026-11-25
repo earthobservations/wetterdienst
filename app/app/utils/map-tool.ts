@@ -1,16 +1,21 @@
 import type { Station } from '#shared/types/api'
+import type { PreparedStations, StationFields } from './station-search'
 import { withData } from './format'
+import { matchStations, prepareStations, reportsThisOrLastYear } from './station-search'
 
 /**
  * The map tool (GH-3650): what the map shows, how far a place is from a station, and where each kind of station is
- * opened. Taken from the design of #3580 and fitted to this app: two layers, the forecast points and the DWD stations
- * that measure.
+ * opened. Taken from the design of #3580 and fitted to this app: the forecast points, the DWD stations that measure, and
+ * NOAA's GHCN daily (GH-4078).
  */
 
-/** What the map shows: the forecast's points (DWD MOSMIX), or the stations that measure (DWD observations) */
-export type MapLayer = 'forecast' | 'measured'
+/**
+ * What the map shows: the forecast's points (DWD MOSMIX), the stations that measure (DWD observations), or the stations of
+ * NOAA's GHCN daily (GH-4078), worldwide, which the app's server hands out as one compact list (GH-4267)
+ */
+export type MapLayer = 'forecast' | 'measured' | 'ghcn'
 
-export const MAP_LAYERS: MapLayer[] = ['forecast', 'measured']
+export const MAP_LAYERS: MapLayer[] = ['forecast', 'measured', 'ghcn']
 
 /** A station that has a position, which is all a map can show and a distance be taken to */
 export type PlacedStation = Station & { latitude: number, longitude: number }
@@ -29,6 +34,13 @@ export interface MeasuredSource {
 
 /** The provider and network of the measuring stations: this change has DWD's, which every link below is made for */
 export const MEASURED_NETWORK = { provider: 'dwd', network: 'observation' } as const
+
+/** The provider and network of the GHCN layer, and its one resolution and dataset (`daily/data`): the links of its stations are made for them */
+export const GHCN_NETWORK = { provider: 'noaa', network: 'ghcn' } as const
+export const GHCN_SOURCE: MeasuredSource = { resolution: 'daily', dataset: 'data' }
+
+/** The query of the GHCN layer's stations at the backend: the one the map asks for by id, for the details of the station picked (the list of all of them is the app's server's, `GHCN_STATIONS_ROUTE`) */
+export const GHCN_STATIONS_QUERY = { ...GHCN_NETWORK, parameters: `${GHCN_SOURCE.resolution}/${GHCN_SOURCE.dataset}` } as const
 
 /** The source the map opens with: DWD's daily climate summary, the most complete record the library has */
 export const DEFAULT_MEASURED: MeasuredSource = { resolution: 'daily', dataset: 'climate_summary' }
@@ -92,6 +104,74 @@ export function distanceKm(a: Point, b: Point): number {
   const dLon = (b.longitude - a.longitude) * rad
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+/**
+ * The WMO number of a station as it is compared (GH-4077): the five digits a number is written with, `01001` for a `1001`,
+ * or null where the station has none. Two stations of two lists that carry the same one are the same station, which their
+ * own ids, that number the stations of a network each its own way, are not.
+ */
+export function wmoNumber(station: { wmo_id?: string | null }): string | null {
+  const text = station.wmo_id?.trim()
+  if (!text)
+    return null
+  return /^\d{1,5}$/.test(text) ? text.padStart(5, '0') : text
+}
+
+/** The stations of a list that carry a WMO number: none, one (the same station), or several (which of them is not told) */
+export type WmoMatch<S> = { kind: 'none' } | { kind: 'one', station: S } | { kind: 'several', stations: S[] }
+
+/**
+ * The station of a list that has the WMO number a station of another list has. Only a number that is on exactly one
+ * station finds it: where the list has none, or the number is on several (it is not one place), the map goes by the
+ * position as it did, and takes no station for the same.
+ *
+ * @example
+ * matchByWmo(forecastPoints, '10147') // { kind: 'one', station: HAMBURG-FUHLSBUETTEL }
+ */
+export function matchByWmo<S extends { wmo_id?: string | null }>(stations: S[], wmoId: string | null | undefined): WmoMatch<S> {
+  const wanted = wmoId ? wmoNumber({ wmo_id: wmoId }) : null
+  if (!wanted)
+    return { kind: 'none' }
+  const found = stations.filter(station => wmoNumber(station) === wanted)
+  if (found.length === 1)
+    return { kind: 'one', station: found[0]! }
+  return found.length ? { kind: 'several', stations: found } : { kind: 'none' }
+}
+
+/** What the map remembers of the station picked, to find it again in the list of another layer */
+export interface PickedStation {
+  station_id: string
+  /** Its WMO number as it is compared (`wmoNumber`), null where it has none */
+  wmo: string | null
+  /** Whether the layer it was picked in is DWD's observations, whose stations are numbered by one scheme */
+  observation: boolean
+  /** Whether it reports: a forecast point, which has no status, does */
+  reports: boolean
+}
+
+/**
+ * The same station in the list of another layer or dataset, for the station a reader picked: by its id where both lists are
+ * DWD's observations (one network numbers its stations by one id, the same station in every dataset), else by its WMO number
+ * where exactly one station of the list has it (`matchByWmo`). A number is not taken for a station that has stopped when the
+ * station picked reports: the Stationslexikon keeps a number on a closed predecessor (10427 was Altastenberg, 00098, until
+ * 1954 and is Kahler Asten, 02483, after), and a list that holds only the one that has closed would give the reader that
+ * one for the station that reports, past the rule that prefers one that reports. Null where there is none.
+ *
+ * `inObservation` is whether the list is DWD's observations, `reporting` the status of its stations where it has one.
+ */
+export function findSameStation<S extends PlacedStation>(list: S[], picked: PickedStation, inObservation: boolean, reporting?: ReportingRule): { station: S, by: 'id' | 'wmo' } | null {
+  if (picked.observation && inObservation) {
+    const byId = list.find(station => station.station_id === picked.station_id)
+    if (byId)
+      return { station: byId, by: 'id' }
+  }
+  const match = matchByWmo(list, picked.wmo)
+  if (match.kind !== 'one')
+    return null
+  if (picked.reports && reporting && !reporting(match.station))
+    return null
+  return { station: match.station, by: 'wmo' }
 }
 
 /** The stations that have a position, the only ones a map can show or a distance be taken to */
@@ -195,6 +275,22 @@ export function reportingRule(stations: Array<Pick<Station, 'end_timestamp'>>, n
 }
 
 /**
+ * The rule of whether a station of GHCN daily is still reporting (GH-4078): its list gives the span of a record by years, so a
+ * station with no end (its last year is the current one) reports, and so does one whose record ends in last year (a year that may not
+ * be complete yet, as the stripes' `active` counts it); one that ended earlier has stopped. There is no clock of the list to go by:
+ * the clock is today's.
+ */
+export function ghcnReportingRule(now: number = Date.now()): ReportingRule {
+  const lastYear = new Date(now).getUTCFullYear() - 1
+  return (station) => {
+    if (!station.end_timestamp)
+      return true
+    const year = yearOf(station.end_timestamp)
+    return year !== null && year >= lastYear
+  }
+}
+
+/**
  * The station the tool picks for a point (a click on the map that is not on a dot, the centre of the map, the place a
  * layer is changed at, the station of another kind near a station): the nearest one within `reach` kilometres, a
  * reporting one before a closed one where `reporting` says which are, so that the nearest closed station is only
@@ -261,28 +357,54 @@ export function stationAt(stations: PlacedStation[], point: Point, tolerance: nu
   return nearest && nearest.distance <= tolerance ? nearest.station : null
 }
 
+/** The list of stations as the matching of the search reads it, prepared once for the list (`prepareSearch`) */
+const PREPARED = new WeakMap<object, PreparedStations<StationFields>>()
+
+/** The year of the first four characters of a timestamp (`1997-12-31T00:00:00+00:00`): no date is made of it, which 133k stations would cost */
+function yearOfStamp(timestamp?: string | null): number | null {
+  const year = timestamp ? Number.parseInt(timestamp.slice(0, 4), 10) : Number.NaN
+  return Number.isNaN(year) ? null : year
+}
+
+function prepared(stations: Station[]): PreparedStations<StationFields> {
+  return prepareStations({
+    name: stations.map(station => station.name ?? null),
+    station_id: stations.map(station => station.station_id),
+    wmo_id: stations.map(station => station.wmo_id ?? null),
+    last_year: stations.map(station => yearOfStamp(station.end_timestamp)),
+  }, reportsThisOrLastYear())
+}
+
 /**
- * The stations whose name or id holds every word of a query, case and accents aside, the ones whose name starts
- * with it first. At most `limit`.
+ * Folds the names of a list once, for `searchStations` to compare a query with: a list of 133k stations (GHCN daily) is not
+ * to have every name folded at every keystroke (35 ms on a laptop, more on a phone). The search finds what it finds without it, only
+ * more slowly; the list must not change after it (a new list is prepared again).
  */
+export function prepareSearch(stations: Station[]): void {
+  PREPARED.set(stations, prepared(stations))
+}
+
+/** The stations that answer a search of the panel, and how many there are in all */
+export interface StationSearch<S> {
+  total: number
+  stations: S[]
+}
+
+/**
+ * The stations whose name, id or WMO number holds every word of a query, case and accents aside and in either spelling of an umlaut
+ * (`München`, `MUENCHEN`), best first: the same rule as the header's search (`matchStations`), which finds the same stations in the same
+ * order, a station that reports before one that has stopped. At most `limit` are returned and `total` is how many there are.
+ */
+export function searchStationsCounted<S extends Station>(stations: S[], query: string, limit = 20): StationSearch<S> {
+  const list = PREPARED.get(stations) ?? prepared(stations)
+  // the panel finds a station from the first letter, where the header waits for three
+  const { total, indexes } = matchStations(list, query, limit, 1)
+  return { total, stations: indexes.map(index => stations[index]!) }
+}
+
+/** {@link searchStationsCounted}, the stations alone */
 export function searchStations<S extends Station>(stations: S[], query: string, limit = 20): S[] {
-  const fold = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-  const words = fold(query).split(/\s+/).filter(Boolean)
-  if (!words.length)
-    return []
-  const starts: S[] = []
-  const contains: S[] = []
-  for (const station of stations) {
-    const name = fold(station.name ?? '')
-    const id = fold(station.station_id)
-    if (!words.every(word => `${name} ${id}`.includes(word)))
-      continue
-    if (name.startsWith(words[0]!) || id === words[0])
-      starts.push(station)
-    else
-      contains.push(station)
-  }
-  return [...starts, ...contains].slice(0, limit)
+  return searchStationsCounted(stations, query, limit).stations
 }
 
 /**
@@ -314,14 +436,14 @@ export function forecastLink(stationId: string): string {
   return `/meteogram?station=${encodeURIComponent(stationId)}`
 }
 
-/** Where the climate stripes of a station that has them are opened */
-export function stripesLink(stationId: string): string {
-  return `/stripes?${new URLSearchParams({ kind: STRIPES_KIND, station: stationId })}`
+/** Where the climate stripes of a station that has them are opened: a station of GHCN daily (`ghcn`) with its provider and network, which DWD's, the default, leave out */
+export function stripesLink(stationId: string, ghcn = false): string {
+  return `/stripes?${new URLSearchParams({ kind: STRIPES_KIND, ...(ghcn ? GHCN_NETWORK : {}), station: stationId })}`
 }
 
-/** Where the measurements of a station are opened: the explorer, on its source and with the station chosen */
-export function measurementsLink(source: MeasuredSource, stationId: string): string {
-  return `/explorer?${new URLSearchParams({ ...MEASURED_NETWORK, ...source, mode: 'station', stations: stationId })}`
+/** Where the measurements of a station are opened: the explorer, on its source and with the station chosen (of DWD's observations, or of the network given) */
+export function measurementsLink(source: MeasuredSource, stationId: string, network: { provider: string, network: string } = MEASURED_NETWORK): string {
+  return `/explorer?${new URLSearchParams({ ...network, ...source, mode: 'station', stations: stationId })}`
 }
 
 /** Where the history of a station is opened: the station history, on the source and with the station chosen */
@@ -352,7 +474,8 @@ export function stateToQuery(state: MapState): Record<string, string> {
   }
   if (state.stationId)
     query.station = state.stationId
-  if (state.stationId && state.place) {
+  // the place of a pick with no station within reach as well (GH-3790): the address then says where the map was asked about
+  if (state.place) {
     query.lat = state.place.latitude.toFixed(4)
     query.lon = state.place.longitude.toFixed(4)
   }
@@ -373,6 +496,49 @@ export function stateFromQuery(query: Record<string, unknown>): MapState {
       dataset: text(query.dataset) || DEFAULT_MEASURED.dataset,
     },
     stationId,
-    place: stationId && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null,
+    place: Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null,
   }
+}
+
+/**
+ * Where the map is opened on a station of a layer (GH-3790: what a station found by the search leads to): the layer, the source of
+ * the measurements where the layer is DWD's, and the station picked. What is the default is left out, so that a forecast point is
+ * `/map?station=10147`.
+ *
+ * @example
+ * mapStationLink('ghcn', 'GM000010147') // '/map?layer=ghcn&station=GM000010147'
+ */
+export function mapStationLink(layer: MapLayer, stationId: string, source: MeasuredSource = DEFAULT_MEASURED): string {
+  const query = new URLSearchParams(stateToQuery({ layer, source: layer === 'measured' ? source : DEFAULT_MEASURED, stationId, place: null }))
+  return `/map?${query}`
+}
+
+/**
+ * Where the map is opened with its search of a layer started on a text (GH-3790: the "more" of the stations the header's search found):
+ * `/map?layer=ghcn&q=hamburg`, the stations of the layer whose name or number holds it listed in the panel.
+ */
+export function mapSearchLink(layer: MapLayer, query: string): string {
+  const params = new URLSearchParams(stateToQuery({ layer, source: DEFAULT_MEASURED, stationId: null, place: null }))
+  params.set('q', query)
+  return `/map?${params}`
+}
+
+/** The text an address starts the map's search with (`?q=`), or an empty text */
+export function searchFromQuery(query: Record<string, unknown>): string {
+  const value = Array.isArray(query.q) ? query.q[0] : query.q
+  return typeof value === 'string' ? value.slice(0, 100) : ''
+}
+
+/**
+ * The point an address names with no station (`/map?lat=52.52&lon=13.40`, GH-3790: what the search of the header leads to for a
+ * position typed in), or null: an address that names a station carries its place with it (`?station=10147&lat=&lon=`, which
+ * `stateFromQuery` reads), and a latitude or longitude that is not a number, or is beyond 90 or 180 degrees, is no point.
+ */
+export function pointFromQuery(query: Record<string, unknown>): Point | null {
+  const text = (value: unknown) => (Array.isArray(value) ? value[0] : value)?.toString() || ''
+  if (text(query.station) || text(query.lat) === '' || text(query.lon) === '')
+    return null
+  const latitude = Number(text(query.lat))
+  const longitude = Number(text(query.lon))
+  return Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null
 }

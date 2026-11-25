@@ -206,7 +206,7 @@ def test_dmo_available_issues_answers_rather_than_raises(
 
 
 def _stub_dmo_values(
-    lead_time: Literal["short", "long"] = "short",
+    lead_time: Literal["short", "long"] | None = "short",
     dataset: str = "icon",
     station_group: Literal["single_stations", "all_stations"] = "single_stations",
 ) -> object:
@@ -1568,7 +1568,7 @@ def test_dmo_available_issues_asked_for_every_lead_time_says_so_when_none_is_a_f
     assert "is a forecast file" in caplog.text
 
 
-def _dmo_stations_for(parameters: list[str], lead_time: Literal["short", "long"]) -> object:
+def _dmo_stations_for(parameters: list[str], lead_time: Literal["short", "long"] | None) -> object:
     """Stand up the stations of a DMO request for these parameters, with no network."""
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
 
@@ -1621,6 +1621,38 @@ def test_dmo_a_parameter_the_run_does_not_carry_is_refused(
         _dmo_stations_for(parameters, lead_time).values()
 
     assert str(excinfo.value).endswith(f"lead_time='{lead_time}', does not carry {refused}")
+
+
+def test_dmo_the_lead_time_stays_none_where_none_was_given_and_the_short_run_is_read() -> None:
+    """`lead_time` is what the caller passed, so that `None` is no asking; the short run is read where it is `None`."""
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    assert DwdDmoRequest(parameters="hourly/icon/temperature_air_2m").lead_time is None
+    assert DwdDmoRequest(parameters="hourly/icon/temperature_air_2m", lead_time="long").lead_time is (
+        api.DwdDmoLeadTime.LONG
+    )
+    assert DwdDmoRequest(parameters="hourly/icon/temperature_air_2m")._resolved_lead_time() is (  # noqa: SLF001
+        api.DwdDmoLeadTime.SHORT
+    )
+
+
+def test_dmo_the_short_run_is_read_where_no_lead_time_is_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Values of a request with no lead time read the 078 h run and refuse what only the 168 h run carries."""
+    from wetterdienst.exceptions import ParameterNotCarriedError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    listing = ["ptp_gdmog_02378_078_1_210000.kmz", "ptp_gdmog_02378_168_3_210000.kmz"]
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"https://example.com/kmz/{name}" for name in listing],
+    )
+
+    resolved = _stub_dmo_values(lead_time=None).get_url_for_date("https://example.com/kmz/", api.DwdForecastDate.LATEST)
+    assert resolved.rsplit("/", 1)[-1] == listing[0]
+
+    with pytest.raises(ParameterNotCarriedError, match=r"078 h run, lead_time='short', does not carry"):
+        _dmo_stations_for(["hourly/icon/precipitation_amount_last_3h"], None).values()
 
 
 @pytest.mark.parametrize(

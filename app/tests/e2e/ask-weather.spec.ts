@@ -3,6 +3,8 @@ import type { Asked } from './accessibility/ask-backend'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { DateTime } from 'luxon'
+import { defaultSeason } from '../../app/utils/answers'
 import { askHandlers, lastSummerYear } from './accessibility/ask-backend'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 import { expectAtLeastPx } from './target-size'
@@ -39,9 +41,9 @@ test.describe('the suggestions', () => {
   test('are a list of buttons, none pressed, and ask nothing until one is picked', async ({ page, baseURL }) => {
     const { asked } = await home(page, baseURL!)
     const list = questions(page)
-    await expect(list.getByRole('listitem')).toHaveCount(4)
-    await expect(list.getByRole('button')).toHaveCount(4)
-    for (const id of ['rain', 'summer', 'wind', 'download'])
+    await expect(list.getByRole('listitem')).toHaveCount(5)
+    await expect(list.getByRole('button')).toHaveCount(5)
+    for (const id of ['rain', 'season', 'day', 'warnings', 'download'])
       await expect(chip(page, id)).toHaveAttribute('aria-pressed', 'false')
     await expect(chip(page, 'rain')).toContainText('Will it rain in Kiel-Holtenau tomorrow?')
     await expect(page.getByTestId('ask-idle')).toHaveText(en.ask.idle)
@@ -73,34 +75,119 @@ test.describe('the suggestions', () => {
   })
 
   test('answer whether last summer was hotter, and lead into the monthly means and the stripes', async ({ page, baseURL }) => {
-    const { asked } = await home(page, baseURL!)
-    await chip(page, 'summer').click()
+    // the old link asks about the summer, whatever season the question opens on
+    const { asked } = await home(page, baseURL!, '/?ask=summer')
     await expect(page.getByTestId('answer-verdict')).toContainText('Yes, ')
     await expect(page.getByTestId('answer-verdict')).toContainText('warmer than usual')
     const answer = page.getByTestId('answer')
     await expect(answer).toContainText('Number 1 of')
-    const monthly = answer.getByRole('link', { name: en.ask.summer.open })
+    const monthly = answer.getByRole('link', { name: en.ask.season.open })
     const href = new URL((await monthly.getAttribute('href'))!, baseURL!)
     expect(href.pathname).toBe('/explorer')
     expect(Object.fromEntries(href.searchParams)).toMatchObject({ mode: 'station', provider: 'dwd', network: 'observation', resolution: 'monthly', dataset: 'climate_summary', parameters: 'temperature_air_mean_2m', stations: '02564' })
-    await expect(answer.getByRole('link', { name: en.ask.summer.stripes })).toHaveAttribute('href', '/stripes?kind=temperature&station=02564')
+    await expect(answer.getByRole('link', { name: en.ask.season.stripes })).toHaveAttribute('href', '/stripes?kind=temperature&station=02564')
     expect(askedValues(asked)[0]!.query).toMatchObject({ parameters: 'monthly/climate_summary/temperature_air_mean_2m', stations: '02564' })
   })
 
   test('answer how windy a day was, for a day the reader can change', async ({ page, baseURL }) => {
     const { asked } = await home(page, baseURL!, '/?ask=wind&day=2025-12-26')
-    await expect(chip(page, 'wind')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'day')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
     await expect(page.getByTestId('answer')).toContainText('Strongest gust 21.6 m/s, Beaufort 9.')
-    await expect(chip(page, 'wind')).toContainText('How windy was it on 26 December?')
+    await expect(chip(page, 'day')).toContainText('How windy was it on 26 December?')
     expect(askedValues(asked)[0]!.query.timestamp).toBe('2025-12-19/2026-01-02')
 
-    await page.getByLabel(en.ask.wind.dayLabel, { exact: true }).fill('2025-12-20')
+    await page.getByLabel(en.ask.day.dayLabel, { exact: true }).fill('2025-12-20')
     await expect(page).toHaveURL(/day=2025-12-20/)
     await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.calm)
-    const link = page.getByTestId('answer').getByRole('link', { name: en.ask.wind.open })
+    const link = page.getByTestId('answer').getByRole('link', { name: en.ask.day.open })
     const href = new URL((await link.getAttribute('href'))!, baseURL!)
     expect(Object.fromEntries(href.searchParams)).toMatchObject({ resolution: 'daily', parameters: 'wind_gust_max,wind_speed_mean', startDate: '2025-12-13', endDate: '2025-12-27' })
+  })
+
+  test('answer the day question for the measure the reader chooses, in a labelled select that is no part of the question\'s button', async ({ page, baseURL }) => {
+    const { asked } = await home(page, baseURL!, '/?ask=day&day=2025-12-26')
+    const select = page.getByRole('combobox', { name: en.ask.day.measureLabel })
+    await expect(select).toBeVisible()
+    await expect(select).toHaveValue('wind')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
+    // the measure is outside the button of the question, which stays a toggle
+    await expect(chip(page, 'day')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'day').getByRole('combobox')).toHaveCount(0)
+
+    await select.selectOption('sun')
+    await expect(page).toHaveURL(/ask=day/)
+    await expect(page).toHaveURL(/measure=sun/)
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.sun.dull)
+    await expect(chip(page, 'day')).toContainText('How sunny was it on 26 December?')
+    await expect(page.getByTestId('answer').getByRole('heading', { level: 3 })).toHaveText('How sunny was it on 26 December?')
+    await expect(page.getByTestId('answer-status')).toHaveText(en.ask.day.sun.dull)
+    // the same request answers every measure: a change of the measure asks nothing
+    expect(askedValues(asked)).toHaveLength(1)
+    expect(askedValues(asked)[0]!.query.parameters).toContain('daily/climate_summary/sunshine_duration')
+
+    await select.selectOption('temperature')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.temperature.frost)
+    await expect(page.getByTestId('answer')).toContainText('Highest 3.4 °C, lowest -1.2 °C.')
+    await select.selectOption('snow')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.snow.cover)
+    await expect(page.getByTestId('answer')).toContainText('2.0 cm of fresh snow.')
+    const link = page.getByTestId('answer').getByRole('link', { name: en.ask.day.open })
+    expect(Object.fromEntries(new URL((await link.getAttribute('href'))!, baseURL!).searchParams)).toMatchObject({ resolution: 'daily', parameters: 'snow_depth', startDate: '2025-12-19', endDate: '2026-01-02' })
+    expect(askedValues(asked)).toHaveLength(1)
+
+    // a new day asks again, and keeps the measure
+    await page.getByLabel(en.ask.day.dayLabel, { exact: true }).fill('2025-12-20')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.snow.noSnow)
+    await expect(page).toHaveURL(/measure=snow/)
+    expect(askedValues(asked)).toHaveLength(2)
+  })
+
+  test('keep the old link: `?ask=wind` is the day question about the wind, and the page writes the new name once a choice is made', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=wind&day=2025-12-26')
+    await expect(chip(page, 'day')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('combobox', { name: en.ask.day.measureLabel })).toHaveValue('wind')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
+    await page.getByRole('combobox', { name: en.ask.day.measureLabel }).selectOption('rain')
+    await expect(page).toHaveURL(/ask=day/)
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.rain.wet)
+  })
+
+  test('open on the same date last year, for the wind, where the link names no day', async ({ page, baseURL }) => {
+    const { asked } = await home(page, baseURL!, '/?ask=day')
+    const lastYear = DateTime.now().minus({ years: 1 })
+    await expect(page.getByLabel(en.ask.day.dayLabel, { exact: true })).toHaveValue(lastYear.toISODate()!)
+    await expect(chip(page, 'day')).toContainText(`How windy was it on ${lastYear.setLocale('en').toFormat('d MMMM')}?`)
+    expect(askedValues(asked)[0]!.query.timestamp!.split('/')[0]).toBe(lastYear.minus({ days: 7 }).toISODate())
+  })
+
+  test('grey out a measure the station has no reading of, with the reason in the option and in the line under the choices', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=day&day=2025-12-26&place=00183')
+    await expect(page.getByTestId('place-button')).toContainText('Arkona')
+    const select = page.getByRole('combobox', { name: en.ask.day.measureLabel })
+    const snow = select.locator('option[value="snow"]')
+    await expect(snow).toBeDisabled()
+    await expect(snow).toHaveText(/^Snow \(no reading here for .+\)$/)
+    await expect(select.locator('option[disabled]')).toHaveCount(1)
+    const note = page.getByTestId('choice-note')
+    await expect(note).toHaveText(/^Greyed out, with no reading here for .+: snow\.$/)
+    await expect(note).toHaveAttribute('role', 'status')
+    // a link that names it gets the wind, and the line says so
+    await home(page, baseURL!, '/?ask=day&measure=snow&day=2025-12-26&place=00183')
+    await expect(select).toHaveValue('wind')
+    await expect(page.getByTestId('choice-note')).toContainText('Snow: no reading here for')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
+  })
+
+  test('say the question in German for each measure, and the measure and its options in the language of the page', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=day&day=2025-12-26', 'de')
+    const select = page.getByRole('combobox', { name: de.ask.day.measureLabel })
+    await expect(select).toBeVisible()
+    for (const [value, question] of [['wind', 'Wie windig war es am 26. Dezember?'], ['sun', 'Wie sonnig war es am 26. Dezember?'], ['rain', 'Wie nass war es am 26. Dezember?'], ['temperature', 'Wie heiß oder kalt war es am 26. Dezember?'], ['snow', 'Lag am 26. Dezember Schnee?']] as const) {
+      await select.selectOption(value)
+      await expect(page.getByTestId('answer').getByRole('heading', { level: 3 })).toHaveText(question)
+    }
+    await expect(page.getByTestId('answer-verdict')).toHaveText(de.ask.day.snow.cover)
   })
 
   test('answer where hourly temperatures can be downloaded, each source leading into the Explorer filled in', async ({ page, baseURL }) => {
@@ -118,13 +205,13 @@ test.describe('the suggestions', () => {
 
   test('close when pressed again, and one opens in place of the other', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    await chip(page, 'summer').click()
+    await chip(page, 'season').click()
     await expect(page.getByTestId('answer')).toBeVisible()
-    await chip(page, 'wind').click()
-    await expect(chip(page, 'summer')).toHaveAttribute('aria-pressed', 'false')
-    await expect(chip(page, 'wind')).toHaveAttribute('aria-pressed', 'true')
+    await chip(page, 'day').click()
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'false')
+    await expect(chip(page, 'day')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('answer')).toHaveCount(1)
-    await chip(page, 'wind').click()
+    await chip(page, 'day').click()
     await expect(page.getByTestId('answer')).toHaveCount(0)
     await expect(page).not.toHaveURL(/ask=/)
     await expect(page.getByTestId('ask-idle')).toBeVisible()
@@ -139,32 +226,32 @@ test.describe('the suggestions', () => {
     await page.keyboard.press('Tab')
     await expect(chip(page, 'rain')).toBeFocused()
     await page.keyboard.press('Tab')
-    await expect(chip(page, 'summer')).toBeFocused()
+    await expect(chip(page, 'season')).toBeFocused()
     await page.keyboard.press('Space')
-    await expect(chip(page, 'summer')).toHaveAttribute('aria-pressed', 'true')
-    await expect(chip(page, 'summer')).toBeFocused()
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'season')).toBeFocused()
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
-    await expect(chip(page, 'summer')).toBeFocused()
+    await expect(chip(page, 'season')).toBeFocused()
     // the next Tab stop is the next suggestion, the answer's links come after the list
     await page.keyboard.press('Tab')
-    await expect(chip(page, 'wind')).toBeFocused()
+    await expect(chip(page, 'day')).toBeFocused()
   })
 
   test('say so where the backend cannot answer, with a way to ask again', async ({ page, baseURL }) => {
     const { backend } = await home(page, baseURL!)
     const values = backend.handlers.values!
     backend.handlers.values = () => new ApiFailure(422, 'The request could not be processed.')
-    await chip(page, 'summer').click()
+    await chip(page, 'season').click()
     await expect(page.getByTestId('answer').getByText(en.ask.failed)).toBeVisible()
     backend.handlers.values = values
     await page.getByTestId('answer').getByRole('button', { name: en.common.retry }).click()
-    await expect(page.getByTestId('answer-verdict')).toContainText('Yes, ')
+    await expect(page.getByTestId('answer-verdict')).toContainText(/^(Yes|No), /)
   })
 
   test('open from a link, for the place the link names', async ({ page, baseURL }) => {
     const { asked } = await home(page, baseURL!, '/?ask=summer&place=00183')
     await expect(page.getByTestId('place-button')).toContainText('Arkona')
-    await expect(chip(page, 'summer')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
     expect(askedValues(asked).at(-1)!.query.stations).toBe('00183')
   })
@@ -175,6 +262,93 @@ test.describe('the suggestions', () => {
     await expect(chip(page, 'rain')).toContainText('Regnet es morgen in Kiel-Holtenau?')
     await chip(page, 'rain').click()
     await expect(page.getByTestId('answer-verdict')).toHaveText(de.ask.rain.yes)
+  })
+})
+
+test.describe('the explanation under an answer (GH-3764)', () => {
+  test.use({ viewport: { width: 1280, height: 900 } })
+
+  test('is a button that opens a region, with the numbers, the sources, the data, the terms and the limits', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    await chip(page, 'season').click()
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    const button = page.getByTestId('explanation-button')
+    const region = page.getByTestId('explanation-region')
+    await expect(button).toHaveText(en.ask.explain.button)
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
+    await expect(region).toBeHidden()
+    await button.click()
+    await expect(button).toHaveAttribute('aria-expanded', 'true')
+    await expect(region).toBeVisible()
+    // the region is the one the button controls, and is named by it
+    await expect(button).toHaveAttribute('aria-controls', (await region.getAttribute('id'))!)
+    await expect(region).toHaveAttribute('aria-labelledby', (await button.getAttribute('id'))!)
+    await expect(page.getByTestId('explanation-numbers')).toContainText('1991')
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Kiel-Holtenau')
+    // the choices that are wetterdienst's own are marked, and the others name their work and link to its entry
+    await expect(page.getByTestId('own-mark').first()).toHaveText(en.ask.explain.own)
+    await expect(region.getByRole('link', { name: /WMO-No\. 1203 \(2017\)/ }).first()).toHaveAttribute('href', '/methods#work-wmo-1203')
+    await expect(page.getByTestId('explanation-explorer')).toHaveAttribute('href', /\/explorer\?.*stations=02564/)
+    await expect(region.getByRole('link', { name: 'Climate normals' })).toHaveAttribute('href', '/measurement#normals')
+    await expect(page.getByTestId('explanation-limits').getByRole('listitem').first()).toBeVisible()
+    await expect(page.getByTestId('explanation-full')).toHaveAttribute('href', '/methods#season')
+    // pressed again it closes
+    await button.click()
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
+    await expect(region).toBeHidden()
+  })
+
+  test('is worked with the keyboard, and follows the link to the method of the chip', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=wind')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    const button = page.getByTestId('explanation-button')
+    await button.focus()
+    await page.keyboard.press('Enter')
+    await expect(button).toHaveAttribute('aria-expanded', 'true')
+    await expect(button).toBeFocused()
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Beaufort')
+    await page.getByTestId('explanation-full').click()
+    await expect(page).toHaveURL(/\/methods#day$/)
+    await expect(page.locator('#day-title')).toBeFocused()
+  })
+
+  test('is in the language of the page, German where the text is, with the note where it is not', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=rain', 'de')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await page.getByTestId('explanation-button').click()
+    await expect(page.getByTestId('explanation-button')).toHaveText(de.ask.explain.button)
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Vorhersagepunkt')
+    await expect(page.getByTestId('explanation-note')).toHaveCount(0)
+    await page.context().addCookies([{ name: 'wd_lang', value: 'fr', url: baseURL! }])
+    await page.goto('/?ask=rain')
+    await page.getByTestId('explanation-button').click()
+    // a language with no text of its own: the note, and the text in English, marked as such
+    await expect(page.getByTestId('explanation-note')).toBeVisible()
+    await expect(page.getByTestId('explanation-numbers').locator('li[lang="en"]').first()).toBeVisible()
+    // the labels around the text are the interface's own and say no language of their own (WCAG 3.1.2)
+    await expect(page.getByTestId('explanation-button')).not.toHaveAttribute('lang', /.+/)
+    await expect(page.locator('[data-testid="explanation-region"] h5').first()).not.toHaveAttribute('lang', /.+/)
+    await expect(page.locator('[data-testid="explanation-region"] section[lang]')).toHaveCount(0)
+  })
+
+  test('is on every chip, the list of services included', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    for (const id of ['rain', 'season', 'day', 'warnings', 'download']) {
+      await chip(page, id).click()
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByTestId('explanation-button')).toBeVisible()
+      await chip(page, id).click()
+    }
+  })
+
+  test('fits a phone\'s width, opened', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await home(page, baseURL!, '/?ask=summer')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await page.getByTestId('explanation-button').click()
+    await expect(page.getByTestId('explanation-region')).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
   })
 })
 
@@ -204,7 +378,7 @@ test.describe('the place', () => {
     await expect(page).toHaveURL(/place=00183/)
     await expect(chip(page, 'rain')).toContainText('Will it rain in Arkona tomorrow?')
 
-    await chip(page, 'summer').click()
+    await chip(page, 'season').click()
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
     expect(askedValues(asked).at(-1)!.query.stations).toBe('00183')
     // the place stays for the next visit
@@ -236,7 +410,7 @@ test.describe('on a phone', () => {
 
   test('the suggestions and an answer fit the width', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'summer', 'wind', 'download']) {
+    for (const id of ['rain', 'season', 'day', 'warnings', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer')).toBeVisible()
       await expect(page.getByTestId('answer-status')).not.toBeEmpty()
@@ -244,7 +418,7 @@ test.describe('on a phone', () => {
       expect(overflow, id).toBeLessThanOrEqual(0)
     }
     // each suggestion is a target of 44 px or more (WCAG 2.5.8 asks 24)
-    for (const box of await Promise.all(['rain', 'summer', 'wind', 'download'].map(id => chip(page, id).boundingBox())))
+    for (const box of await Promise.all(['rain', 'season', 'day', 'warnings', 'download'].map(id => chip(page, id).boundingBox())))
       expectAtLeastPx(box!.height, 44)
   })
 })
@@ -284,7 +458,7 @@ test.describe('the labels of the answers\' charts', () => {
       await page.setViewportSize({ width, height: 900 })
       await home(page, baseURL!, '/', language)
       let before = ''
-      for (const id of ['summer', 'rain', 'wind']) {
+      for (const id of ['season', 'rain', 'day']) {
         await chip(page, id).click()
         // the chart of this question, not the one of the last
         const caption = page.getByRole('figure').locator('figcaption')
@@ -316,7 +490,7 @@ test.describe('the labels of the answers\' charts', () => {
           for (const other of chart.values.slice(at + 1))
             expect(overlap(value, other), `${where}: ${value.text} and ${other.text}`).toBe(false)
         }
-        if (id === 'summer') {
+        if (id === 'season') {
           // the bars hang from a line, and the line has its 0
           const zero = chart.values.find(value => value.kind === 'zero')
           expect(zero, where).toBeDefined()
@@ -324,6 +498,186 @@ test.describe('the labels of the answers\' charts', () => {
           expect(Math.abs((zero!.top + zero!.bottom) / 2 - chart.zeroLine!.top), where).toBeLessThanOrEqual(8)
           expect(chart.labels.map(label => label.text), where).toContain(String(lastSummerYear()))
         }
+      }
+    })
+  }
+})
+
+// The season and the reference period (GH-3764, step 2a): two labelled selects under the question, which the question's own button does not hold
+test.describe('the season and the reference period', () => {
+  test.use({ viewport: { width: 1280, height: 900 } })
+
+  const seasonSelect = (page: Page) => page.getByRole('combobox', { name: en.ask.season.seasonLabel })
+  const refSelect = (page: Page) => page.getByRole('combobox', { name: en.ask.season.refLabel })
+
+  test('are two labelled selects, and a choice changes the question, the answer and the link, with no new request', async ({ page, baseURL }) => {
+    const { asked } = await home(page, baseURL!, '/?ask=season&season=summer')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await expect(seasonSelect(page)).toHaveValue('summer')
+    await expect(refSelect(page)).toHaveValue('1991-2020')
+    await expect(refSelect(page).locator('option')).toHaveText(['1961–1990', '1971–2000', '1981–2010', '1991–2020'])
+    // the controls are not in the button, which stays one pressed button
+    await expect(chip(page, 'season').locator('select')).toHaveCount(0)
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'true')
+    const requests = askedValues(asked).length
+
+    await seasonSelect(page).selectOption('winter')
+    await expect(chip(page, 'season')).toHaveText('Was last winter colder than usual here?')
+    await expect(page.locator('#answer-heading')).toHaveText('Was last winter colder than usual here?')
+    await expect(page).toHaveURL(/\?ask=season&season=winter$/)
+    // the mock winter is warmer than the normal: the answer to "colder" is no
+    await expect(page.getByTestId('answer-verdict')).toContainText('No, ')
+    await expect(page.getByTestId('answer-verdict')).toContainText('warmer than usual')
+    await refSelect(page).selectOption('1961-1990')
+    await expect(page).toHaveURL(/\?ask=season&season=winter&ref=1961-1990$/)
+    const answer = page.getByTestId('answer')
+    await expect(answer).toContainText('the winters from 1960/61 to 1989/90 averaged')
+    await expect(answer.getByRole('figure').locator('figcaption')).toHaveText('Each winter against the average of 1960/61 to 1989/90, in °C')
+    await expect(answer).toContainText(/Winter \d{4}\/\d{2} \(December to February\) averaged/)
+    // the live region says the new verdict
+    await expect(page.getByTestId('answer-status')).toHaveText((await page.getByTestId('answer-verdict').textContent())!.trim())
+    // the whole record served every choice: nothing was asked again
+    expect(askedValues(asked)).toHaveLength(requests)
+
+    // the disclosure says which season and which normal were used, and the page of the methods is linked
+    await page.getByTestId('explanation-button').click()
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Compared with the winters of 1960/61 to 1989/90: the mean of 30 winters')
+    await expect(page.getByTestId('explanation-full')).toHaveAttribute('href', '/methods#season')
+  })
+
+  test('read the link of a season and a normal, and the link of the old question', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=season&season=autumn&ref=1981-2010')
+    await expect(chip(page, 'season')).toHaveText('Was last autumn warmer than usual here?')
+    await expect(seasonSelect(page)).toHaveValue('autumn')
+    await expect(refSelect(page)).toHaveValue('1981-2010')
+    await expect(page.getByTestId('answer')).toContainText('the autumns from 1981 to 2010 averaged')
+    // a name that is none gives the defaults
+    await page.goto('/?ask=season&season=monsoon&ref=1950-1979')
+    // the season completed most recently
+    await expect(seasonSelect(page)).toHaveValue(defaultSeason(DateTime.now()))
+    await expect(refSelect(page)).toHaveValue('1991-2020')
+    // `?ask=summer` is the summer against the newest normal, the chip pressed
+    await page.goto('/?ask=summer')
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'season')).toHaveText('Was last summer hotter than usual here?')
+    await expect(page.getByTestId('answer')).toContainText('the summers from 1991 to 2020 averaged')
+  })
+
+  test('grey out a normal the station has too few seasons of, with the reason in the option and on the line under the choices, and a link that names it gets the normal the question opens on', async ({ page, baseURL }) => {
+    // Arkona's record starts in 1975: 16 of the 30 winters of 1961 to 1990
+    await home(page, baseURL!, '/?ask=season&season=winter&ref=1961-1990&place=00183')
+    const first = refSelect(page).locator('option').first()
+    await expect(first).toBeDisabled()
+    await expect(first).toHaveText('1961–1990 = 1960/61–1989/90 (only 16 of 30 seasons here, 20 needed)')
+    await expect(refSelect(page).locator('option').nth(1)).toBeEnabled()
+    // the link named a normal that has too little data here: the newest is shown, and the line under the choices says so
+    await expect(refSelect(page)).toHaveValue('1991-2020')
+    const note = page.getByTestId('choice-note')
+    await expect(note).toHaveAttribute('role', 'status')
+    await expect(note).toContainText('1961–1990 = 1960/61–1989/90 has too little data here for this season: 16 of its 30 seasons, 20 needed. Showing instead: 1991–2020 = 1990/91–2019/20.')
+    await expect(note).toContainText('Greyed out: too few seasons at this station. A normal needs 20 of its 30 seasons.')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await refSelect(page).selectOption('1971-2000')
+    await expect(note).not.toContainText('has too little data')
+    await expect(note).toContainText('Greyed out')
+  })
+
+  test('grey out a season the station has too little of, with the reason in the option, and a link that names it gets the season the question opens on, with a line that says so', async ({ page, baseURL }) => {
+    // Aue has the winters from 2018/19 on only
+    await home(page, baseURL!, '/?ask=season&season=winter&place=00205')
+    await expect(page.getByTestId('place-button')).toContainText('Aue')
+    const winter = seasonSelect(page).locator('option[value="winter"]')
+    await expect(winter).toBeDisabled()
+    await expect(winter).toHaveText(/^Winter \(only \d+ complete seasons here\)$/)
+    await expect(seasonSelect(page)).not.toHaveValue('winter')
+    const note = page.getByTestId('choice-note')
+    await expect(note).toContainText('Winter has too little data here to compare. Showing instead:')
+    await expect(note).toContainText('Greyed out')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    // the other seasons can be chosen
+    await seasonSelect(page).selectOption('spring')
+    await expect(chip(page, 'season')).toContainText('spring')
+  })
+
+  test('say nothing under the choices where nothing is greyed out', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=season&season=summer')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await expect(page.getByTestId('choice-note')).toHaveText('')
+  })
+
+  test('are in German, with the season in the one sentence', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=season&season=winter', 'de')
+    await expect(chip(page, 'season')).toHaveText('War der letzte Winter hier kälter als sonst?')
+    await expect(page.getByRole('combobox', { name: de.ask.season.seasonLabel })).toHaveValue('winter')
+    await expect(page.getByRole('combobox', { name: de.ask.season.refLabel })).toBeVisible()
+    await expect(page.getByTestId('answer')).toContainText(/Der Winter \d{4}\/\d{2} \(Dezember bis Februar\) hatte im Mittel/)
+  })
+
+  test('is reached from the keyboard: the controls follow the button, each with its label', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=season')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await seasonSelect(page).focus()
+    await expect(seasonSelect(page)).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(refSelect(page)).toBeFocused()
+  })
+})
+
+test.describe('the season and the reference period on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  for (const language of ['en', 'de', 'es', 'pl']) {
+    test(`fit the width, with controls of 44 px, in ${language}`, async ({ page, baseURL }) => {
+      await home(page, baseURL!, '/?ask=season&season=winter&ref=1961-1990&place=00183', language)
+      await expect(page.getByTestId('answer')).toBeVisible()
+      const choices = page.getByTestId('answer-choices')
+      await expect(choices).toBeVisible()
+      for (const select of await choices.locator('select').all()) {
+        const box = (await select.boundingBox())!
+        expectAtLeastPx(box.height, 44)
+        expect(box.x + box.width, 'inside the page').toBeLessThanOrEqual(390)
+      }
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      expect(overflow).toBeLessThanOrEqual(0)
+    })
+  }
+
+  test('draw the labels of a winter chart, two years each, without touching', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 320, height: 900 })
+    await home(page, baseURL!, '/?ask=season&season=winter')
+    await expect(page.getByRole('figure').getByTestId('answer-bars-label').first()).toBeVisible()
+    const chart = await chartBoxes(page)
+    const labels = chart.labels.sort((a, b) => a.left - b.left)
+    expect(labels.length).toBeGreaterThan(1)
+    for (let at = 1; at < labels.length; at += 1)
+      expect(labels[at - 1]!.right + 1, `${labels[at - 1]!.text} and ${labels[at]!.text}`).toBeLessThanOrEqual(labels[at]!.left)
+    expect(chart.labels.map(label => label.text).some(text => /^\d{4}\/\d{2}$/.test(text))).toBe(true)
+  })
+})
+
+test.describe('the labels of the day question\'s charts, for every measure', () => {
+  for (const [width, language] of [[320, 'de'], [390, 'en'], [1280, 'en']] as const) {
+    test(`do not touch each other, and the page does not scroll sideways, at ${width} px in ${language}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await home(page, baseURL!, '/?ask=day&day=2025-12-26', language)
+      const select = page.getByRole('combobox', { name: language === 'de' ? de.ask.day.measureLabel : en.ask.day.measureLabel })
+      for (const measure of ['wind', 'sun', 'rain', 'temperature', 'snow']) {
+        await select.selectOption(measure)
+        await expect(page.getByRole('figure').getByTestId('answer-bars-label').first()).toBeVisible()
+        const chart = await chartBoxes(page)
+        const where = `${measure} at ${width} px in ${language}`
+        const labels = chart.labels.sort((a, b) => a.left - b.left)
+        expect(labels.length, where).toBeGreaterThan(1)
+        for (let at = 1; at < labels.length; at += 1)
+          expect(labels[at - 1]!.right + 1, `${where}: ${labels[at - 1]!.text} and ${labels[at]!.text}`).toBeLessThanOrEqual(labels[at]!.left)
+        for (const label of labels) {
+          expect(label.left, where).toBeGreaterThanOrEqual(chart.plot.left - 1)
+          expect(label.right, where).toBeLessThanOrEqual(chart.plot.right + 1)
+        }
+        expect(chart.figure.right, where).toBeLessThanOrEqual(chart.page)
+        // the choices wrap and fit the width: nothing of the answer is wider than the page
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+        expect(overflow, where).toBeLessThanOrEqual(0)
       }
     })
   }

@@ -1,0 +1,210 @@
+import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { defineComponent, h, nextTick } from 'vue'
+import MethodsPage from '~/pages/methods.vue'
+import { CHIPS } from '~/utils/ask/registry'
+import { WORK_IDS, workAnchor } from '~/utils/ask/works'
+
+// "How the answers are worked out" (GH-3764): the page of the methods is written from the definitions of the chips, so a chip that is in
+// the registry is on it; its anchors, the headings, the links to the works cited, and the language of the texts.
+
+const SetLocale = defineComponent({
+  setup() {
+    const { setLocale } = useI18n()
+    return { setLocale }
+  },
+  render: () => h('div'),
+})
+
+async function useLocale(code: string) {
+  const harness = await mountSuspended(SetLocale)
+  await (harness.vm as any).setLocale(code)
+  await nextTick()
+}
+
+/** The levels of the headings of a page, in the order of the page */
+function headingLevels(root: Element): number[] {
+  return [...root.querySelectorAll('h1, h2, h3, h4, h5, h6')].map(heading => Number(heading.tagName.slice(1)))
+}
+
+/**
+ * Settles when the address has the hash `hash`. The redirect of a name a chip had to the one it has is a navigation of the router, which the
+ * test waits for and not for a second of the clock (`vi.waitFor`'s own limit, which a loaded machine runs out before the router has
+ * done): where it never comes, the test's own time-out ends the wait. Checked first and then listened for in one step, so that a
+ * redirect that has already happened is not waited for.
+ */
+function hashIs(hash: string): Promise<void> {
+  const router = useRouter()
+  if (router.currentRoute.value.hash === hash)
+    return Promise.resolve()
+  return new Promise((resolve) => {
+    // a navigation that was cancelled or is the address already (a failure) is reported here too, and changes no hash
+    const stop = router.afterEach((to, _from, failure) => {
+      if (!failure && to.hash === hash) {
+        stop()
+        resolve()
+      }
+    })
+  })
+}
+
+describe('the page in English', () => {
+  beforeAll(() => useLocale('en'))
+
+  it('has one title, a section for each chip of the registry and an entry for each work', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    expect(wrapper.findAll('h1').map(h => h.text())).toEqual(['How the answers are worked out'])
+    expect(wrapper.findAll('article.method-section').map(article => article.attributes('id'))).toEqual(CHIPS.map(chip => chip.id))
+    expect(wrapper.findAll('article[data-testid="work"]').map(article => article.attributes('id'))).toEqual(WORK_IDS.map(workAnchor))
+    for (const article of wrapper.findAll('article')) {
+      const heading = article.find('h3')
+      // the heading is what names the entry and what the focus goes to (an anchor's target)
+      expect(heading.attributes('id')).toBe(`${article.attributes('id')}-title`)
+      expect(heading.attributes('tabindex')).toBe('-1')
+      expect(article.attributes('aria-labelledby')).toBe(heading.attributes('id'))
+    }
+    expect(wrapper.findAll('h2').map(h => h.text())).toEqual(['Contents', 'How to read this page', 'The questions', 'Works cited'])
+  })
+
+  it('has its headings in order: no level is skipped on the way down', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    const levels = headingLevels(wrapper.element)
+    expect(levels[0]).toBe(1)
+    for (let index = 1; index < levels.length; index++)
+      expect(levels[index]! - levels[index - 1]!, `heading ${index}`).toBeLessThanOrEqual(1)
+    expect(levels).toContain(4)
+    expect(levels).not.toContain(5)
+  })
+
+  it('has a table of contents of real links to the sections and the works', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    const toc = wrapper.find('nav[aria-labelledby="methods-toc"]')
+    expect(toc.exists()).toBe(true)
+    expect(toc.findAll('a').map(link => link.attributes('href'))).toEqual([...CHIPS.map(chip => `/methods#${chip.id}`), '/methods#works'])
+    expect(toc.findAll('a')[0]!.text()).toBe('Will it rain tomorrow?')
+  })
+
+  it('writes every step, rule and limit of a chip from its definition, in order', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    for (const chip of CHIPS) {
+      const section = wrapper.find(`article#${chip.id}`)
+      expect(section.findAll('[data-step]').map(step => step.attributes('data-step'))).toEqual([...chip.explanation.steps])
+      expect(section.findAll('[data-rule]').map(rule => rule.attributes('data-rule'))).toEqual(chip.explanation.rules.map(rule => rule.id))
+      expect(section.findAll('[data-testid="method-formula"]')).toHaveLength(chip.explanation.formulas.length)
+      // the numbers are the code's, not a text's: no name is left unfilled
+      expect(section.text()).not.toMatch(/\{\w+\}/)
+    }
+  })
+
+  it('marks every choice that is wetterdienst\'s own with a word, and gives its reasoning', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    for (const chip of CHIPS) {
+      const section = wrapper.find(`article#${chip.id}`)
+      const own = chip.explanation.rules.filter(rule => rule.own)
+      expect(section.findAll('[data-own]').map(rule => rule.attributes('data-rule'))).toEqual(own.map(rule => rule.id))
+      expect(section.findAll('[data-testid="own-mark"]')).toHaveLength(own.length)
+      for (const rule of section.findAll('[data-own]'))
+        expect(rule.find('[data-testid="own-mark"]').text()).toBe('wetterdienst\'s own choice.')
+    }
+  })
+
+  it('links every source to an entry of the works cited that is there', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    const anchors = new Set(wrapper.findAll('article[data-testid="work"]').map(article => article.attributes('id')))
+    const links = wrapper.findAll('a[href^="/methods#work-"]')
+    expect(links.length).toBeGreaterThan(10)
+    for (const link of links)
+      expect(anchors.has(link.attributes('href')!.slice('/methods#'.length)), link.attributes('href')).toBe(true)
+  })
+
+  it('names the places in the works and the works with the formal citation as a link to the issuer', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    expect(wrapper.text()).toContain('WMO-No. 1203 (2017), §4.4.2')
+    const work = wrapper.find('article#work-wmo-1203')
+    expect(work.find('a[target="_blank"]').attributes('href')).toMatch(/^https:\/\/library\.wmo\.int\//)
+    expect(work.find('a[target="_blank"]').attributes('rel')).toContain('noopener')
+    expect(work.text()).toContain('Used by')
+  })
+
+  it('links the terms to "How weather is measured" and a chip to the question it answers', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    const season = wrapper.find('article#season')
+    expect(season.findAll('a').some(link => link.attributes('href') === '/measurement#normals')).toBe(true)
+    expect(wrapper.find('[data-testid="method-ask"]').attributes('href')).toBe('/?ask=rain')
+  })
+
+  it('takes a link to the section by the name the chip had (`#summer`) to the section it is now (`#season`)', async () => {
+    await mountSuspended(MethodsPage, { route: '/methods#summer' })
+    await hashIs('#season')
+    expect(useRouter().currentRoute.value.hash).toBe('#season')
+  })
+
+  it('takes a link to a rule by the old name (`#summer-summer-mean`) to the rule it is now (`#season-season-mean`)', async () => {
+    await mountSuspended(MethodsPage, { route: '/methods#summer-summer-mean' })
+    await hashIs('#season-season-mean')
+    expect(useRouter().currentRoute.value.hash).toBe('#season-season-mean')
+    await mountSuspended(MethodsPage, { route: '/methods#summer-anomaly' })
+    await hashIs('#season-anomaly')
+    expect(useRouter().currentRoute.value.hash).toBe('#season-anomaly')
+  })
+
+  it('takes a link to the wind section by the name the chip had (`#wind`) to the day section it is now, and its rules (`#wind-beaufort`) with it', async () => {
+    await mountSuspended(MethodsPage, { route: '/methods#wind' })
+    await hashIs('#day')
+    expect(useRouter().currentRoute.value.hash).toBe('#day')
+    await mountSuspended(MethodsPage, { route: '/methods#wind-beaufort' })
+    await hashIs('#day-beaufort')
+    expect(useRouter().currentRoute.value.hash).toBe('#day-beaufort')
+  })
+
+  it('shows the section of the day question with the rules of every measure, each with its source or its mark', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    const day = wrapper.find('article#day')
+    expect(day.exists()).toBe(true)
+    for (const rule of ['beaufort', 'sun-share', 'day-length', 'sun-bands', 'rain-trace', 'rain-wet-day', 'rain-very-wet', 'heat-days', 'cold-days', 'tropical-night', 'tropical-daily-minimum', 'class-order', 'snow-lies', 'fresh-snow'])
+      expect(day.find(`#day-${rule}`).exists(), rule).toBe(true)
+    // the works the scales are taken from are on the list of works cited
+    for (const work of ['wmo-8-i', 'wmo-1203', 'dwd-kenntage', 'dwd-tropennacht', 'dwd-daily-more-precip'])
+      expect(wrapper.find(`#work-${work}`).exists(), work).toBe(true)
+  })
+
+  it('has no note where the text is in the language of the page', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    expect(wrapper.find('[data-testid="methods-note"]').exists()).toBe(false)
+  })
+})
+
+describe('the page in other languages', () => {
+  it('is in German in German, with no note', async () => {
+    await useLocale('de')
+    const wrapper = await mountSuspended(MethodsPage)
+    expect(wrapper.findAll('h1').map(h => h.text())).toEqual(['Wie die Antworten entstehen'])
+    expect(wrapper.find('article#rain h3').text()).toBe('Regnet es morgen?')
+    expect(wrapper.find('[data-testid="methods-note"]').exists()).toBe(false)
+    expect(wrapper.find('article#rain h3').attributes('lang')).toBeUndefined()
+  })
+
+  it('is in English in French, with the note, and says so in the language of its text', async () => {
+    await useLocale('fr')
+    const wrapper = await mountSuspended(MethodsPage)
+    expect(wrapper.find('article#rain h3').text()).toBe('Will it rain tomorrow?')
+    const notes = wrapper.findAll('[data-testid="methods-note"]')
+    expect(notes).toHaveLength(CHIPS.length)
+    expect(wrapper.find('article#rain h3').attributes('lang')).toBe('en')
+    // only the text says its language: the labels around it (the headings of the parts, the kind of a rule, the own mark, "Source:") are the interface's own (WCAG 3.1.2)
+    const rain = wrapper.find('article#rain')
+    expect(rain.findAll('section[lang], h4[lang], [data-testid="own-mark"][lang]')).toHaveLength(0)
+    expect(rain.find('[data-rule="day"] > p:first-child').attributes('lang')).toBeUndefined()
+    expect(rain.find('[data-rule="day"] > p:nth-child(2)').attributes('lang')).toBe('en')
+    expect(rain.findAll('[data-step]').every(step => step.attributes('lang') === 'en')).toBe(true)
+    await useLocale('en')
+  })
+
+  it('is in German in Luxembourgish, with the note', async () => {
+    await useLocale('lb')
+    const wrapper = await mountSuspended(MethodsPage)
+    expect(wrapper.find('article#rain h3').text()).toBe('Regnet es morgen?')
+    expect(wrapper.find('article#rain h3').attributes('lang')).toBe('de')
+    await useLocale('en')
+  })
+})

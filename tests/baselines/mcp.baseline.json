@@ -387,16 +387,6 @@
             }
           ]
         },
-        "sql_values": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "humanize": {
           "type": "boolean",
           "default": true
@@ -559,7 +549,10 @@
               "type": "string",
               "enum": [
                 "icon",
-                "icon_eu"
+                "icon_eu",
+                "large",
+                "small",
+                "snow"
               ]
             },
             {
@@ -588,6 +581,92 @@
         "station"
       ]
     },
+    "kostra": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "maximum": 90.0,
+          "minimum": -90.0
+        },
+        "longitude": {
+          "type": "number",
+          "maximum": 180.0,
+          "minimum": -180.0
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "enum": [
+                5,
+                10,
+                15,
+                20,
+                30,
+                45,
+                60,
+                90,
+                120,
+                180,
+                240,
+                360,
+                540,
+                720,
+                1080,
+                1440,
+                2880,
+                4320,
+                5760,
+                7200,
+                8640,
+                10080
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "return_period": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                5,
+                10,
+                20,
+                30,
+                50,
+                100
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude"
+      ]
+    },
     "providers": {
       "type": "object",
       "properties": {
@@ -600,6 +679,63 @@
               "type": "null"
             }
           ]
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": []
+    },
+    "station_ids": {
+      "type": "object",
+      "properties": {
+        "wmo_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wigos_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icao_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv"
+          ],
+          "default": "json"
         },
         "pretty": {
           "type": "boolean",
@@ -648,6 +784,58 @@
           "default": false
         },
         "stations": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wmo_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wigos_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icao_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "region": {
           "anyOf": [
             {
               "items": {
@@ -771,16 +959,6 @@
             }
           ]
         },
-        "sql": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "timestamp": {
           "anyOf": [
             {
@@ -867,17 +1045,10 @@
         "parameters"
       ]
     },
-    "stripes_image": {
+    "storm_cells": {
       "type": "object",
       "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "temperature",
-            "precipitation"
-          ]
-        },
-        "station": {
+        "timestamp": {
           "anyOf": [
             {
               "type": "string"
@@ -887,87 +1058,112 @@
             }
           ]
         },
-        "name": {
+        "latitude": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
             },
             {
               "type": "null"
             }
           ]
         },
-        "name_threshold": {
-          "type": "number",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "default": 0.8
-        },
-        "start_year": {
+        "longitude": {
           "anyOf": [
             {
-              "type": "integer"
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
             },
             {
               "type": "null"
             }
           ]
         },
-        "end_year": {
+        "distance": {
           "anyOf": [
             {
-              "type": "integer"
+              "type": "number",
+              "minimum": 0.0
             },
             {
               "type": "null"
             }
           ]
         },
-        "show_title": {
+        "left": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "right": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "top": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min_severity": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 3.0,
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track": {
           "type": "boolean",
           "default": true
         },
-        "show_years": {
-          "type": "boolean",
-          "default": true
-        },
-        "show_data_availability": {
-          "type": "boolean",
-          "default": true
-        },
-        "format": {
+        "geometry": {
           "type": "string",
           "enum": [
-            "png",
-            "jpg",
-            "svg",
-            "pdf"
+            "outline",
+            "centroid"
           ],
-          "default": "png"
-        },
-        "dpi": {
-          "type": "integer",
-          "exclusiveMinimum": 0.0,
-          "default": 300
-        }
-      },
-      "required": [
-        "kind"
-      ]
-    },
-    "stripes_stations": {
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "temperature",
-            "precipitation"
-          ]
-        },
-        "active": {
-          "type": "boolean",
-          "default": true
+          "default": "outline"
         },
         "format": {
           "type": "string",
@@ -983,95 +1179,7 @@
           "default": false
         }
       },
-      "required": [
-        "kind"
-      ]
-    },
-    "stripes_values": {
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "temperature",
-            "precipitation"
-          ]
-        },
-        "station": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "name_threshold": {
-          "type": "number",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "default": 0.8
-        },
-        "start_year": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "end_year": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "format": {
-          "type": "string",
-          "enum": [
-            "json",
-            "csv"
-          ],
-          "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "unit_targets": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "kind"
-      ]
+      "required": []
     },
     "summarize": {
       "type": "object",
@@ -1166,16 +1274,6 @@
           "anyOf": [
             {
               "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "sql_values": {
-          "anyOf": [
-            {
-              "type": "string"
             },
             {
               "type": "null"
@@ -1397,6 +1495,58 @@
             }
           ]
         },
+        "wmo_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wigos_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icao_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "region": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "name": {
           "anyOf": [
             {
@@ -1508,16 +1658,6 @@
             }
           ]
         },
-        "sql": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "with_metadata": {
           "type": "boolean",
           "default": false
@@ -1580,16 +1720,6 @@
           ]
         },
         "timestamp": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "sql_values": {
           "anyOf": [
             {
               "type": "string"
@@ -1785,6 +1915,60 @@
               "type": "null"
             }
           ]
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 10000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_rows": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 10000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1794,5 +1978,5 @@
       ]
     }
   },
-  "x-release": "0.188.0"
+  "x-release": "0.199.0"
 }

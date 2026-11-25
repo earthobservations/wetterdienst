@@ -80,9 +80,10 @@ memory, CPU and outbound connections; the cache directory; the browser of an app
 
 **Trust boundaries:**
 
-1. *Library and CLI.* The caller is the host's own user and is trusted: no limits, `sql` filters ungated, export targets
+1. *Library and CLI.* The caller is the host's own user and is trusted: no limits, `sql` filters (on the hardened connection, no check of the condition), export targets
    (`--target`, `to_target`) used as given. No REST or MCP parameter reaches one (`extra="forbid"` in `ui/core.py`).
-2. *REST API and MCP* (`wetterdienst restapi`; `/mcp` is the same app, stateless, present with the `[mcp]` extra). The
+2. *REST API and MCP* (`wetterdienst restapi`; `/mcp` is the same app, stateless: `initialize` returns an
+   `Mcp-Session-Id` that is neither stored nor checked, and is no credential; present with the `[mcp]` extra). The
    caller is anonymous and untrusted. Every route of `/api` is a `GET`.
 3. *The app* (`app/`). Its Nuxt server proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend at
    `NUXT_API_BASE`; the browser calls its own origin only. It holds no secret.
@@ -113,13 +114,20 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
 - **Timeout and concurrency:** 60 s (`WD_RESTAPI_TIMEOUT`, a 504), 32 requests at once (`WD_RESTAPI_MAX_CONCURRENT`, a
   503). A timed-out request's thread runs on but keeps its slot, so the cap bounds the threads. There is **no
   per-client rate limit**; that is the proxy's job (the app has one, `docs/usage/app.md`).
-- **`sql` and `sql_values`** are a 403 unless `WD_RESTAPI_SQL=true`, on every route and MCP tool that takes them
-  (`test_sql_gate_covers_every_route_taking_sql`). Enabled, the clause is one condition on the frame, in DuckDB with
-  external access off and the configuration locked, on one thread with 1 GiB (`io/export.py`; `tests/test_io.py`:
-  `test_filter_by_sql_cannot_read_files`, `test_filter_by_sql_cannot_reach_the_network`). It can still read DuckDB's
-  settings, run long and allocate outside the limit, per request: enable it for clients you trust with that
-  (GHSA-rpwr-qmm5-m9wp; those documented limits are settled). The `duckdb` floor is 1.1.0, the first release
-  where `sniff_csv` obeys that setting (GHSA-w2gf-jxc9-pf2q; `test_filter_by_sql_cannot_read_files[sniff_csv]`).
+- **No SQL.** The REST API and the MCP tools take no `sql` or `sql_values`: a caller's text is never run in
+  DuckDB on the server (GHSA-332g-7w2w-4w59; `tests/ui/test_restapi.py`:
+  `test_a_request_to_the_rest_api_does_not_import_duckdb`,
+  `test_an_mcp_tool_that_is_given_sql_says_it_was_removed`). A request that sends one is a 422 that says it was
+  removed. The setting `restapi_sql` is gone: a server that finds `WD_RESTAPI_SQL` true says so once as it
+  starts and runs without SQL (`removed_settings` in `settings.py`), so a deployment is not taken down by the
+  upgrade and is not left believing it filters. The library and the command line keep their SQL filters, on a
+  connection with external access off, its configuration locked, no extension to fetch or load, no secret to
+  store, one thread and a memory limit (`io/sql_filter.py`; `tests/test_sql_filter_connection.py`), and need
+  DuckDB 1.5.3 or newer: an older release is refused, and the restrictions are tested on 1.5.3, 1.5.6 and 2.0
+  (`duckdb>=1.5.3,<3`, GH-4348). No check of the condition is kept, since the caller there
+  is the host's own user. These restrictions are defence in depth, not a sandbox: never pass text from someone
+  you do not trust; time, memory outside DuckDB's limit and the process are not protected. The removal also
+  settles GHSA-rpwr-qmm5-m9wp and GHSA-w2gf-jxc9-pf2q for a server.
 - **Errors** are RFC 9457 problems. A 500 is a fixed body with no path, traceback or credential, and a 501 for a missing
   credential does not name the setting (`test_a_500_does_not_name_the_servers_paths_but_the_log_does`).
 - **Response headers** (GH-3349; `ui/middleware.py`, `ui/problems.py`; `tests/ui/test_security_headers.py`). Every

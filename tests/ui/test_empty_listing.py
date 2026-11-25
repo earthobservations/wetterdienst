@@ -10,8 +10,8 @@ with the rest and say with a `file-skipped` warning that the answer is partial, 
 A connection that cannot be made or a failing server is still an error and never a `file-skipped`.
 
 A directory that lists files and no description of its stations (the extreme wind: no FX3 or FX6) is skipped the same
-way (GH-3834), and a station that only a skipped directory lists, asked for by `interpolate`, `summarize` or the
-stripes, is a 502 that names the directory and no 404.
+way (GH-3834), and a station that only a skipped directory lists, asked for by `interpolate` or `summarize`, is a 502
+that names the directory and no 404.
 
 The server is `tests/nginx_stub.py`, one that answers as nginx does, so the listings are fsspec's own (an empty
 directory is `[url]` there without the fix of `list_remote_files_fsspec`): every directory lists one station, 00044, and
@@ -1280,29 +1280,6 @@ def test_rest_a_station_only_the_skipped_directory_lists_is_a_502_that_names_it(
     _names_the_directory(response, reason)
 
 
-@pytest.mark.parametrize(("how", "reason"), _HOWS)
-@pytest.mark.parametrize(
-    ("route", "extra"),
-    [
-        pytest.param("stripes/values", {}, id="stripes-values"),
-        pytest.param("stripes/image", {"format": "png"}, id="image"),
-    ],
-)
-def test_rest_a_stripes_station_only_the_skipped_directory_lists_is_a_502_that_names_it(
-    client: TestClient, dwd: _Dwd, route: str, extra: dict[str, str], how: str, reason: str
-) -> None:
-    """The stripes list their stations from `annual/kl/historical`: with it skipped the station is no 404 either."""
-    directory = _ANNUAL_HISTORICAL
-    if how == "undescribed":
-        _without_description(dwd, directory)
-    else:
-        dwd.set(**{how: (directory,)})
-
-    response = client.get(f"/api/v1/{route}", params={"kind": "temperature", "station": "00044", **extra})
-
-    _names_the_directory(response, reason, directory)
-
-
 @pytest.mark.parametrize("route", ["summarize", "interpolate"])
 def test_rest_a_station_that_does_not_exist_is_still_a_404_where_nothing_was_skipped(
     client: TestClient, dwd: _Dwd, route: str
@@ -1322,16 +1299,6 @@ def test_rest_a_station_that_does_not_exist_is_still_a_404_where_nothing_was_ski
     assert response.status_code == 404
     assert "no station found for 09999" in response.json()["detail"]
     assert dwd.asked
-
-
-@pytest.mark.usefixtures("dwd")
-def test_rest_a_stripes_station_that_does_not_exist_is_still_a_404_where_nothing_was_skipped(
-    client: TestClient,
-) -> None:
-    """The control for the stripes."""
-    response = client.get("/api/v1/stripes/values", params={"kind": "temperature", "station": "09999"})
-
-    assert response.status_code == 404
 
 
 @pytest.mark.parametrize("route", ["summarize", "interpolate"])
@@ -1382,17 +1349,6 @@ def test_cli_a_station_only_the_skipped_directory_lists_is_an_error_that_names_i
     assert result.exit_code == 1
     assert isinstance(result.exception, StationListingIncompleteError)
     assert f"the directory `{_MONTHLY_HISTORICAL}` (its listing came back empty or missing)" in str(result.exception)
-
-
-def test_cli_a_stripes_station_only_the_skipped_directory_lists_is_an_error_that_names_it(dwd: _Dwd) -> None:
-    """`stripes image` on the command line: the sentence, exit 1, and no usage error (exit 2) of a station not there."""
-    dwd.set(empty=(_ANNUAL_HISTORICAL,))
-
-    result = CliRunner().invoke(cli, ["stripes", "image", "--kind", "temperature", "--station", "00044"])
-
-    assert result.exit_code == 1
-    assert "No station found for 00044. The lookup of the stations went without" in result.output
-    assert f"the directory `{_ANNUAL_HISTORICAL}` (its listing came back empty or missing)" in result.output
 
 
 def test_mcp_a_station_only_the_skipped_directory_lists_is_a_tool_error_that_names_it(dwd: _Dwd) -> None:
@@ -1617,18 +1573,6 @@ def test_rest_a_station_the_undescribed_directory_does_not_name_is_the_404_it_wa
 
     assert response.status_code == 404, response.text
     assert "no station found for 09999" in response.json()["detail"]
-
-
-@pytest.mark.parametrize("route", ["stripes/values", "stripes/image"])
-def test_rest_a_stripes_station_the_undescribed_directory_does_not_name_is_the_404_it_was(
-    client: TestClient, dwd: _Dwd, route: str
-) -> None:
-    """The same for the stripes, whose lookup is the `annual` directory."""
-    _without_description(dwd, _ANNUAL_HISTORICAL)
-
-    response = client.get(f"/api/v1/{route}", params={"kind": "temperature", "station": "09999"})
-
-    assert response.status_code == 404, response.text
 
 
 def test_rest_an_undescribed_directory_that_names_the_station_is_the_502(client: TestClient, dwd: _Dwd) -> None:

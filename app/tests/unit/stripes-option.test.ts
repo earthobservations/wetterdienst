@@ -2,24 +2,22 @@ import type { StripesDisplay, StripesOptionInput } from '../../app/utils/stripes
 import { describe, expect, it } from 'vitest'
 import { EMPTY_CHART_THEME, seriesLabelColor } from '../../app/utils/chart-theme'
 import { loadEcharts } from '../../app/utils/echarts-loader'
-import { COLOR_MAPS, stripeColour } from '../../app/utils/stripes'
+import { STRIPE_PALETTES, stripeColour } from '../../app/utils/stripes'
 import { buildStripesModel, fullWindow } from '../../app/utils/stripes-model'
-import { buildStripesOption, stripesLayout, stripesTexts, windowUpdate } from '../../app/utils/stripes-option'
+import { buildStripesOption, extraLinesHeight, STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO, stripesChartHeight, stripesLayout, stripesTexts, windowUpdate } from '../../app/utils/stripes-option'
+import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
 const echarts = loadEcharts()
 
 const LIGHT = { ...EMPTY_CHART_THEME, text: 'rgb(15, 23, 43)', textMuted: 'rgb(90, 100, 120)' }
 const DARK = { ...LIGHT, dark: true, text: 'rgb(226, 232, 240)' }
-const DISPLAY: StripesDisplay = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true, showTimeseries: false, showTrendline: false }
+const DISPLAY: StripesDisplay = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true }
 
-// 1950 to 2024 with 1962 to 1964 missing
-const MODEL = buildStripesModel(
-  Array.from({ length: 75 }, (_, i) => 1950 + i)
-    .filter(year => year < 1962 || year > 1964)
-    .map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: (year - 1950) / 10 })),
-)!
+// 1950 to 2024 with 1962 to 1964 missing, classed against the whole record as the backend does
+const ANSWER = stripesAnswer(recordOf(1950, 2024, year => (year - 1950) / 10, [1962, 1963, 1964]))
+const MODEL = buildStripesModel(ANSWER.values)!
 
-function build(over: Partial<StripesOptionInput & { display: Partial<StripesDisplay> }> = {}) {
+function build(over: Partial<Omit<StripesOptionInput, 'display'>> & { display?: Partial<StripesDisplay> } = {}) {
   const input: StripesOptionInput = {
     model: MODEL,
     kind: 'temperature',
@@ -44,7 +42,65 @@ function draw(input: StripesOptionInput, option: unknown) {
   return svg
 }
 const texts = (svg: string) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!)
-const fills = (svg: string) => [...svg.matchAll(/<path d="M[^"]*" fill="(rgb\([^"]*\))"/g)].map(match => match[1]!)
+/** A bar of the chart, as it is drawn: its left edge, its width, its top and its height, in px */
+interface Bar { x: number, width: number, y: number, height: number }
+/** The stripes (each in the order of the years) and the bars of the availability line (gold) that the SVG draws */
+function barsOf(svg: string) {
+  const bars = (fill: RegExp) => [...svg.matchAll(new RegExp(`<path d="M(-?[\\d.]+) (-?[\\d.]+)l([\\d.]+) 0l0 ([\\d.]+)l-[\\d.]+ 0Z" fill="${fill.source}"`, 'g'))]
+    .map(match => ({ x: Number(match[1]), y: Number(match[2]), width: Number(match[3]), height: Number(match[4]) }) as Bar)
+  return { stripes: bars(/#(?!FFD700)[0-9a-fA-F]{6}/), gold: bars(/#FFD700/) }
+}
+const fills = (svg: string) => [...svg.matchAll(/<path d="M[^"]*" fill="(#(?!FFD700)[0-9a-fA-F]{6})"/g)].map(match => match[1]!)
+
+describe('the rows of text a saved image has under its source (GH-4157)', () => {
+  const REFERENCE_LINES = ['Colours: mean of 1971–2000,', '±2.6 σ of 1901–2000']
+
+  it('takes 20 px a row, the first of them from the room the source leaves where there is none', () => {
+    expect(extraLinesHeight(DISPLAY, 0)).toBe(0)
+    expect(extraLinesHeight(DISPLAY, 1)).toBe(20)
+    expect(extraLinesHeight(DISPLAY, 2)).toBe(40)
+    // with no source row the rows are the whole of what is under the years: 60 px of room before, 80 px for one row
+    expect(extraLinesHeight({ ...DISPLAY, showSource: false }, 1)).toBe(20)
+    expect(extraLinesHeight({ ...DISPLAY, showSource: false, showYears: false }, 1)).toBe(0)
+    expect(extraLinesHeight({ ...DISPLAY, showSource: false, showYears: false }, 3)).toBe(40)
+  })
+
+  it('leaves the stripes as high as they were where the image is made as much higher as the rows take', () => {
+    const plain = stripesLayout(DISPLAY, 1400, 915, 1)
+    const taller = stripesLayout(DISPLAY, 1400, 915 + extraLinesHeight(DISPLAY, 2), 1, 2)
+    expect(taller.stripes).toEqual(plain.stripes)
+    expect(taller.plot.height).toBe(plain.plot.height)
+    expect(stripesChartHeight(DISPLAY, 1400, 1, { clamp: false, extraLines: 2 })).toBe(stripesChartHeight(DISPLAY, 1400, 1, { clamp: false }) + 40)
+  })
+
+  it('writes each row under the source, centred, in the muted text, 20 px apart', () => {
+    const { input } = build({ extraLines: REFERENCE_LINES })
+    const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length, REFERENCE_LINES.length)
+    const texts = stripesTexts(input, layout)
+    const source = texts.find(text => text.text === input.sourceText)!
+    const rows = REFERENCE_LINES.map(line => texts.find(text => text.text === line)!)
+    expect(rows.map(row => row.y)).toEqual([source.y + 20, source.y + 40])
+    for (const row of rows) {
+      expect(row.align).toBe('center')
+      expect(row.x).toBe(source.x)
+      expect(row.fill).toBe(input.theme.textMuted)
+    }
+  })
+
+  it('writes them where the source is not shown too, from where the source would be', () => {
+    const { input } = build({ extraLines: REFERENCE_LINES, display: { showSource: false } })
+    const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length, REFERENCE_LINES.length)
+    const texts = stripesTexts(input, layout)
+    expect(texts.some(text => text.text === input.sourceText)).toBe(false)
+    expect(texts.find(text => text.text === REFERENCE_LINES[0])!.y).toBe(layout.sourceTop)
+  })
+
+  it('draws no row on the page\'s chart, which has none', () => {
+    const { input } = build()
+    const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length)
+    expect(stripesTexts(input, layout).map(text => text.text)).not.toContain('Colours: mean of 1971–2000,')
+  })
+})
 
 describe('the layout', () => {
   it('keeps the margins and the rows below the plot the chart has always had', () => {
@@ -59,8 +115,12 @@ describe('the layout', () => {
     const plain = stripesLayout({ ...DISPLAY, showDataAvailability: false }, 704, 600, 1)
     expect(plain.stripes).toEqual({ top: plain.plot.top, height: plain.plot.height })
     const withLine = stripesLayout(DISPLAY, 704, 600, 1)
-    expect(withLine.stripes.top).toBeCloseTo(withLine.plot.top + (0.05 / 1.1) * withLine.plot.height)
-    expect(withLine.stripes.height).toBeCloseTo(withLine.plot.height / 1.1)
+    // a margin of 20 px above and below, whatever the height (GH-4133: it was 5 % of it, which crowds the title on a small chart)
+    expect(withLine.stripes.top).toBe(withLine.plot.top + 20)
+    expect(withLine.stripes.height).toBe(withLine.plot.height - 40)
+    const small = stripesLayout(DISPLAY, 390, 300, 1)
+    expect(small.stripes.top - small.plot.top).toBe(20)
+    expect(small.plot.height - small.stripes.height).toBe(40)
   })
 
   it('has a smaller top margin without a title, and more room below for a source that has none of the years above it', () => {
@@ -77,26 +137,89 @@ describe('the layout', () => {
   })
 })
 
+describe('the height of the chart (GH-4133)', () => {
+  /** How high the stripes come out of a chart of `width`: what the layout makes of the height the chart is given */
+  const stripesOf = (display: StripesDisplay, width: number, lines = 1, clamp = true) => stripesLayout(display, width, stripesChartHeight(display, width, lines, { clamp }), lines).stripes
+
+  it('gives the stripes the ratio of the page, whatever the width, between the least and the most they are high', () => {
+    for (const width of [400, 704, 820]) {
+      const stripes = stripesOf(DISPLAY, width)
+      expect(stripes.height, `at ${width} px`).toBeGreaterThanOrEqual(STRIPES_MIN_HEIGHT)
+      expect(stripes.height, `at ${width} px`).toBeLessThanOrEqual(STRIPES_MAX_HEIGHT)
+      expect((width - 40) / stripes.height, `at ${width} px`).toBeCloseTo(STRIPES_RATIO, 1)
+    }
+  })
+
+  it('puts the title, the years, the availability line and the source on top of the stripes, and not into them', () => {
+    const plain = { ...DISPLAY, showTitle: false, showYears: false, showSource: false, showDataAvailability: false }
+    // no title (20 px above), nothing below but its 60 px, no margins for the availability line: the stripes and nothing else
+    expect(stripesChartHeight(plain, 704, 0)).toBe(Math.round(20 + (704 - 40) / STRIPES_RATIO + 60))
+    // each thing shown makes the chart higher and the stripes not
+    for (const shown of [{ showTitle: true }, { showYears: true, showSource: true }, { showDataAvailability: true }]) {
+      const display = { ...plain, ...shown }
+      expect(stripesChartHeight(display, 704, 1), JSON.stringify(shown)).toBeGreaterThan(stripesChartHeight(plain, 704, 0))
+      // within the px the chart's height is rounded to
+      expect(Math.abs(stripesOf(display, 704).height - (704 - 40) / STRIPES_RATIO)).toBeLessThanOrEqual(1)
+    }
+    // a title of three lines at a phone's width: the chart is higher by what the lines take, the stripes are the same
+    expect(stripesChartHeight(DISPLAY, 390, 3) - stripesChartHeight(DISPLAY, 390, 1)).toBe(2 * 20 + 18)
+    expect(Math.abs(stripesOf(DISPLAY, 390, 3).height - stripesOf(DISPLAY, 390, 1).height)).toBeLessThanOrEqual(1)
+  })
+
+  it('does not let the stripes get thinner than a stripe reads at, in a narrow window, nor taller than the most, in a wide one', () => {
+    expect(stripesOf(DISPLAY, 320).height).toBe(STRIPES_MIN_HEIGHT)
+    expect(stripesOf(DISPLAY, 3000).height).toBe(STRIPES_MAX_HEIGHT)
+  })
+
+  it('is not held to the least and the most for a saved image, which keeps the ratio at its own width', () => {
+    // the camera's width: 1360 px of stripes over the ratio, a height that the page would not draw
+    const stripes = stripesOf(DISPLAY, 1400, 1, false)
+    expect(Math.abs(stripes.height - 1360 / STRIPES_RATIO)).toBeLessThanOrEqual(1)
+    expect(stripes.height).toBeGreaterThan(STRIPES_MAX_HEIGHT)
+    expect(stripesOf(DISPLAY, 200, 1, false).height).toBeLessThan(STRIPES_MIN_HEIGHT)
+  })
+
+  it('is no longer the fixed 600 px (550 without a title) of before, at any width', () => {
+    for (const width of [320, 390, 704, 820]) {
+      expect(stripesChartHeight(DISPLAY, width, 1)).not.toBe(600)
+      expect(stripesChartHeight({ ...DISPLAY, showTitle: false }, width, 0)).not.toBe(550)
+    }
+    expect(stripesChartHeight(DISPLAY, 390, 1)).toBeLessThan(stripesChartHeight(DISPLAY, 820, 1))
+  })
+})
+
 describe('the option', () => {
-  it('draws a stripe for each year in the colour of its place on the scale, and none for a year without a value', () => {
+  it('draws a stripe for each year in the colour of its class, and none for a year without a value', () => {
     const { input, option } = build()
     const svg = draw(input, option)
     const drawn = fills(svg)
     expect(drawn).toHaveLength(MODEL.years.length)
-    const expected = MODEL.normalized.map(position => stripeColour(COLOR_MAPS.temperature, position).replaceAll(' ', ''))
-    expect(drawn.map(colour => colour.replaceAll(' ', ''))).toEqual(expected)
+    const expected = MODEL.classes.map(stripeClass => stripeColour('temperature', stripeClass))
+    expect(drawn.map(colour => colour.toLowerCase())).toEqual(expected)
+    // 16 colours at most, whatever the record: a discrete scale
+    expect(new Set(drawn).size).toBeLessThanOrEqual(16)
+  })
+
+  it('draws the colours of the answer and not of the years the window shows', () => {
+    const { input: whole, option: wholeOption } = build()
+    // the stripes of 1990 to 2010 with the classes of the whole record: the window of the chart changes none of them
+    const { input, option } = build({ window: { start: 1989.5, end: 2010.5 } })
+    const drawnWhole = fills(draw(whole, wholeOption))
+    const drawnWindow = fills(draw(input, option))
+    expect(drawnWindow).toEqual(drawnWhole)
   })
 
   it('uses the scale of the kind', () => {
     const { input, option } = build({ kind: 'precipitation' })
-    expect(fills(draw(input, option))[0]!.replaceAll(' ', '')).toBe('rgb(84,48,5)')
+    const first = MODEL.classes[0]!
+    expect(fills(draw(input, option))[0]!.toLowerCase()).toBe(STRIPE_PALETTES.precipitation[first])
   })
 
   it('makes stripes that meet share an edge, in whole pixels', () => {
     const { input, option } = build()
     const svg = draw(input, option)
     // a stripe is a path that starts at its left edge and runs its width to the right
-    const rects = [...svg.matchAll(/<path d="M([\d.]+) [\d.]+l([\d.]+) 0l0 [\d.]+l-[\d.]+ 0Z" fill="rgb/g)].map(match => [Number(match[1]), Number(match[2])] as const)
+    const rects = [...svg.matchAll(/<path d="M([\d.]+) [\d.]+l([\d.]+) 0l0 [\d.]+l-[\d.]+ 0Z" fill="#(?!FFD700)[0-9a-fA-F]{6}"/g)].map(match => [Number(match[1]), Number(match[2])] as const)
     expect(rects.length).toBeGreaterThan(10)
     for (const [x, width] of rects) {
       expect(Number.isInteger(x)).toBe(true)
@@ -127,24 +250,158 @@ describe('the option', () => {
     expect(texts(draw(input, option)).slice(0, 3)).toEqual(['Climate stripes (Temperature) for', 'Donaueschingen, Germany', '(00011)'])
   })
 
-  it('draws the availability line in gold with a gap for each missing year, in the margin under the stripes', () => {
-    const { option } = build()
+  it('draws the availability line in gold as one bar for each run of years with a value, in the margin under the stripes', () => {
+    const { input, option } = build()
     const availability = option.series.find((s: any) => s.id === 'availability')
-    expect(availability.lineStyle).toMatchObject({ color: '#FFD700', width: 3 })
-    expect(availability.data.filter((point: number[]) => point[1] === null).map((point: number[]) => point[0])).toEqual([1962, 1963, 1964])
-    expect(option.yAxis[0]).toMatchObject({ min: -0.05, max: 1.05 })
+    // a bar (a rect), not a line, which is drawn from the middle of a stripe to the middle of another
+    expect(availability.type).toBe('custom')
+    expect(availability.lineStyle).toBeUndefined()
+    // 1950 to 1961 and 1965 to 2024: the gap of 1962 to 1964 is none of them
+    expect(availability.data.map((run: number[]) => run.slice(0, 2))).toEqual([[1950, 1961], [1965, 2024]])
+    const { gold } = barsOf(draw(input, option))
+    expect(gold).toHaveLength(2)
+    for (const bar of gold)
+      expect(bar.height).toBe(3)
+    // the 20 px of margin above and below the stripes (450 px high here), in the units of the axis they run 0 to 1 in
+    expect(option.yAxis[0].min).toBeCloseTo(-20 / 450)
+    expect(option.yAxis[0].max).toBeCloseTo(1 + 20 / 450)
   })
 
-  it('draws the timeseries in black, and the trend dashed over it only where both are asked for', () => {
-    expect(build().option.series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'labels'])
-    expect(build({ display: { showTimeseries: true } }).option.series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'timeseries', 'labels'])
-    const { option } = build({ display: { showTimeseries: true, showTrendline: true } })
-    expect(option.series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'timeseries', 'trend', 'labels'])
-    const series = Object.fromEntries(option.series.map((s: any) => [s.id, s]))
-    expect(series.timeseries.lineStyle).toMatchObject({ color: 'black', width: 2 })
-    expect(series.trend.lineStyle).toMatchObject({ color: 'black', width: 4, type: [12, 12] })
-    // a trendline is of the timeseries: asked for alone it is not drawn
-    expect(build({ display: { showTrendline: true } }).option.series.map((s: any) => s.id)).not.toContain('trend')
+  it('lays the availability line 10 px under the stripes, in the middle of the margin, whatever their height (GH-4133)', () => {
+    for (const stripesHeight of [STRIPES_MIN_HEIGHT, 300, STRIPES_MAX_HEIGHT]) {
+      // a chart whose stripes are `stripesHeight` px high: the title, the margin of 20 px each side and the years on top
+      const height = 30 + stripesHeight + 40 + 80
+      const { input, option } = build({ height })
+      const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length)
+      expect(layout.stripes.height).toBe(stripesHeight)
+      const { gold } = barsOf(draw(input, option))
+      expect(gold.length).toBeGreaterThan(0)
+      for (const bar of gold) {
+        // the middle of the bar, to the px it is rounded to
+        const middle = bar.y + bar.height / 2
+        expect(Math.abs(middle - (layout.stripes.top + layout.stripes.height + 10)), `at ${stripesHeight} px of stripes`).toBeLessThanOrEqual(0.5)
+      }
+    }
+  })
+
+  describe('spans exactly the stripes of its run, from edge to edge (GH-4153)', () => {
+    /** An answer with a value for each of `years` */
+    const modelOf = (years: number[]) => {
+      const data = stripesAnswer(years.map(year => ({ year, value: year % 7 })))
+      return buildStripesModel(data.values)!
+    }
+    const SHAPES: Record<string, number[]> = {
+      'a lone year at the start': [1944, 1946, 1947, 1948],
+      'a lone year at the end': [1944, 1945, 1946, 1948],
+      'a lone year in the middle': [1944, 1945, 1947, 1949, 1950],
+      'a run of two': [1944, 1945, 1947, 1948, 1949],
+      'no gaps': [1944, 1945, 1946, 1947, 1948],
+      'all gaps but one year': [1944, 1950, 1951],
+      'the shape of the issue: 1944, 1945 missing, a gap, a lone year near the end': [1944, ...Array.from({ length: 30 }, (_, i) => 1946 + i), ...Array.from({ length: 20 }, (_, i) => 1984 + i), 2019, 2022, 2023, 2024],
+    }
+    // the widths of a phone's chart down to one where a stripe is under a px, and a chart that does not fill its plot with whole stripes
+    const WIDTHS = [704, 390, 320, 140, 61]
+
+    /** The runs of `years` (ascending), each as [first, last]: counted here, not by the code under test */
+    const runsOf = (years: number[]) => {
+      const runs: [number, number][] = []
+      for (const year of years) {
+        const last = runs.at(-1)
+        if (last && last[1] === year - 1)
+          last[1] = year
+        else
+          runs.push([year, year])
+      }
+      return runs
+    }
+
+    for (const [name, years] of Object.entries(SHAPES)) {
+      for (const width of WIDTHS) {
+        it(`${name}, in a chart ${width} px wide`, () => {
+          const model = modelOf(years)
+          const { input, option } = build({ model, width, window: fullWindow(model) })
+          const { stripes, gold } = barsOf(draw(input, option))
+          const runs = runsOf(years)
+          expect(stripes).toHaveLength(years.length)
+          expect(gold).toHaveLength(runs.length)
+          runs.forEach(([first, last], index) => {
+            const firstStripe = stripes[years.indexOf(first)]!
+            const lastStripe = stripes[years.indexOf(last)]!
+            // to the px: the bar starts where the first stripe of the run does, and ends where the last one does
+            expect(gold[index]!.x, `${first} to ${last}: left`).toBe(firstStripe.x)
+            expect(gold[index]!.x + gold[index]!.width, `${first} to ${last}: right`).toBe(lastStripe.x + lastStripe.width)
+          })
+        })
+      }
+    }
+
+    it('is as wide as its stripe for a year between two gaps, which a line draws as nothing', () => {
+      const years = [1990, 1992, 1994]
+      const model = modelOf(years)
+      const { input, option } = build({ model, window: fullWindow(model) })
+      const { stripes, gold } = barsOf(draw(input, option))
+      expect(gold).toHaveLength(3)
+      gold.forEach((bar, index) => {
+        expect(bar.x).toBe(stripes[index]!.x)
+        expect(bar.width).toBe(stripes[index]!.width)
+        expect(bar.width).toBeGreaterThan(1)
+      })
+    })
+
+    it('covers a run from the left edge of its first stripe, not from its middle', () => {
+      // the centre-to-centre line of before: it would start half a stripe in and end half a stripe short
+      const model = modelOf([2000, 2001, 2002, 2003])
+      const { input, option } = build({ model, window: fullWindow(model) })
+      const { stripes, gold } = barsOf(draw(input, option))
+      expect(gold).toHaveLength(1)
+      const stripe = stripes[0]!
+      expect(gold[0]!.width).toBe(4 * stripe.width)
+    })
+
+    it('is cut at the edges of a zoomed window with the stripes, and keeps the ends of its run inside it', () => {
+      // 1950 to 2024 without 1962 to 1964, zoomed to 1958.5 to 1970.5: the run that ends at 1961 and the one that starts at 1965
+      const { input, option } = build({ window: { start: 1958.5, end: 1970.5 } })
+      const svg = draw(input, option)
+      const { stripes, gold } = barsOf(svg)
+      const edges = (list: Bar[]): Array<[number, number]> => list.map(bar => [bar.x, bar.x + bar.width])
+      // the stripes and the bars are in groups clipped to the plot: what reaches out of the window is cut, not shortened
+      expect(svg.match(/<clipPath/g)!.length).toBeGreaterThanOrEqual(2)
+      const plotLeft = 20
+      const stripeOf = (year: number) => stripes[MODEL.years.indexOf(year)]!
+      // the run to 1961 ends at the right edge of its last stripe, and the one from 1965 starts at the left edge of its first
+      const ends = edges(gold)
+      expect(ends.some(([, right]) => right === stripeOf(1961).x + stripeOf(1961).width)).toBe(true)
+      expect(ends.some(([left]) => left === stripeOf(1965).x)).toBe(true)
+      // the first run starts far left of the plot (1950 is out of the window), so it is wider than the window's stripes are: clipped, not shortened
+      expect(Math.min(...ends.map(([left]) => left))).toBeLessThan(plotLeft)
+    })
+  })
+
+  describe('draws no line over the stripes (GH-4170), as in Ed Hawkins\' design', () => {
+    // a record with a gap and a lone year: where a line would have had to break or be a dot
+    const GAPPED = stripesAnswer(recordOf(2000, 2008, year => (year - 2000) / 3, [2002, 2004]))
+    const GAPPED_MODEL = buildStripesModel(GAPPED.values)!
+
+    it('has the stripes, the availability line and the labels, and no series of a line', () => {
+      expect(build().option.series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'labels'])
+      expect(build({ display: { showDataAvailability: false } }).option.series.map((s: any) => s.id)).toEqual(['stripes', 'labels'])
+      for (const id of ['timeseries', 'trend'])
+        expect(build().option.series.map((s: any) => s.id)).not.toContain(id)
+      expect(build().option.series.some((s: any) => s.type === 'line')).toBe(false)
+    })
+
+    it('draws none for the display of an older link or setting, which still says it wants them', () => {
+      const old = { showTimeseries: true, showTrendline: true } as unknown as Partial<StripesDisplay>
+      expect(build({ display: old }).option.series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'labels'])
+    })
+
+    it('draws no stroked path of black over a record with a gap and a lone year: no line, no dot', () => {
+      const { input, option } = build({ model: GAPPED_MODEL, window: fullWindow(GAPPED_MODEL), display: { showDataAvailability: false } })
+      expect(option.series.some((s: any) => s.type === 'line')).toBe(false)
+      const svg = draw(input, option)
+      expect(svg).not.toMatch(/stroke="black"/)
+      expect(svg).not.toMatch(/fill="black"/)
+    })
   })
 
   it('has no paper of its own on the page, and the paper it is given in a saved image', () => {

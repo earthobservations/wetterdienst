@@ -1,5 +1,7 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { chartLayout } from '../../app/utils/meteogram-geometry'
+import { emptyAlerts } from '../helpers/warnings-answer'
 import { mockBackend } from './accessibility/mock-backend'
 
 // The forecast chart (GH-4059): Apache ECharts, drawn as SVG at a fixed height for each panel and a fixed width for each
@@ -20,7 +22,8 @@ const announced = (page: Page) => page.getByTestId('meteogram-announce')
 async function open(page: Page, baseURL: string, path = PAGE, size?: { width: number, height: number }) {
   if (size)
     await page.setViewportSize(size)
-  const backend = await mockBackend(page, baseURL)
+  // a quiet day: the banner of DWD's warnings over the chart (GH-4295) is one line, as high while it loads as after, so that the chart does not move under the pointer
+  const backend = await mockBackend(page, baseURL, { alerts: () => emptyAlerts() })
   await page.goto(path)
   await expect(svg(page)).toBeVisible()
   // drawn: the day names are in it
@@ -58,12 +61,21 @@ for (const [name, path] of [['the forecast page', PAGE], ['the widget', WIDGET]]
   })
 
   test(`${name} does not load Plotly`, async ({ page, baseURL }) => {
-    const requested: string[] = []
-    page.on('request', request => requested.push(request.url()))
+    // the script files are hashed, so what is asked for cannot be told by its name: what is in them can. `plotly-notifier` is the class of
+    // Plotly's own notifications, in its code and in no other's
+    const plotly: string[] = []
+    let scripts = 0
+    page.on('response', async (response) => {
+      if (!/\.js(?:\?|$)/.test(response.url()))
+        return
+      scripts++
+      if ((await response.text().catch(() => '')).includes('plotly-notifier'))
+        plotly.push(response.url())
+    })
     await open(page, baseURL!, path)
     await page.waitForLoadState('networkidle')
-    // the library and its locales: `utils/plotly-locale.ts` is the app's own small module, which asks for them only when a Plotly chart is drawn
-    expect(requested.filter(url => /plotly\.js/i.test(url))).toEqual([])
+    expect(scripts, 'the scripts the page was served').toBeGreaterThan(20)
+    expect(plotly, 'a script with Plotly in it').toEqual([])
     expect(await page.locator('.js-plotly-plot').count()).toBe(0)
     expect(await page.evaluate(() => 'Plotly' in window)).toBe(false)
   })
@@ -93,11 +105,16 @@ test.describe('the shape of the chart', () => {
       })))
     }
     expect(new Set(seen.map(entry => entry.height)).size, JSON.stringify(seen)).toBe(1)
-    // the same strip on a phone, in landscape and on a desktop's card: the 71 hours between the first and the last stamp at 10 px,
-    // and the gutters of the axes (68 px at the left, 84 where a title is broken in two, and 10 at the right)
-    expect(new Set(seen.map(entry => entry.strip)).size, JSON.stringify(seen)).toBe(1)
-    expect(seen[0]!.strip).toBeGreaterThanOrEqual(71 * 10 + 78)
-    expect(seen[0]!.strip).toBeLessThanOrEqual(71 * 10 + 94)
+    // the same strip on a phone and on a desktop's card: the 71 hours between the first and the last stamp at 10 px,
+    // and the gutters of the axes (56 px at the least at the left, 71 with the pressure's labels, and 10 at the right).
+    // A phone on its side (844 px) has the chart edge to edge since GH-4227, which is room for the whole of it: the strip is
+    // then as wide as the window lets it be, and no narrower than the others
+    const [narrow, phone, landscape, desktop] = seen
+    expect(new Set([narrow, phone, desktop].map(entry => entry!.strip)).size, JSON.stringify(seen)).toBe(1)
+    expect(narrow!.strip).toBeGreaterThanOrEqual(71 * 10 + 66)
+    expect(narrow!.strip).toBeLessThanOrEqual(71 * 10 + 94)
+    expect(landscape!.strip).toBeGreaterThanOrEqual(narrow!.strip)
+    expect(landscape!.strip).toBeLessThanOrEqual(844)
   })
 
   test('scrolls sideways on a phone, with the axes in view and the later hours a scroll away', async ({ page, baseURL }) => {
@@ -165,7 +182,7 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
   })
 
   for (const width of WIDTHS) {
-    test(`keeps every title of an axis inside the chart and left of the tick labels at ${width} px, whatever the width of the labels`, async ({ page, baseURL }) => {
+    test(`keeps every title of an axis inside the chart, left of the tick labels of its panel and close to them at ${width} px (GH-4132)`, async ({ page, baseURL }) => {
       await open(page, baseURL!, PAGE_CHART, { width, height: 844 })
       const found = await page.evaluate(() => {
         const stage = document.querySelector('.mg-stage')!.getBoundingClientRect()
@@ -176,26 +193,42 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
           // a two-letter day name such as "Sa" can have as well (taller than wide in Firefox's font)
           const matrix = text.getScreenCTM()
           const turned = !!matrix && Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) > 0.9
-          return { text: text.textContent ?? '', left: box.left - stage.left, right: box.right - stage.left, turned }
+          return { text: text.textContent ?? '', left: box.left - stage.left, right: box.right - stage.left, top: box.top, bottom: box.bottom, turned }
         })
         // the titles are the words turned to read upwards; the labels of the axes are numbers
         // (only what is in the gutter counts: the first day name is at the left as well)
         const titles = texts.filter(entry => entry.turned && entry.left < 100)
         const labels = texts.filter(entry => !entry.turned && /^[-\d.,]+$/.test(entry.text) && entry.right < 100)
-        return { titles, labels, stage: stage.width }
+        return { titles, labels, stage: stage.width, stageTop: stage.top }
       })
+      // the panels' grids, where the layout puts them: each has its title and its labels in it
+      const rows = chartLayout(['wind', 'precip', 'cloud', 'temp', 'pressure'], true).rows
+      const inRow = (row: typeof rows[number], entry: { top: number, bottom: number }) => (entry.top + entry.bottom) / 2 >= found.stageTop + row.top && (entry.top + entry.bottom) / 2 <= found.stageTop + row.top + row.height
       // a title for each of the five panels, of one or two lines
       expect(found.titles.length, JSON.stringify(found.titles)).toBeGreaterThanOrEqual(5)
       expect(found.labels.length).toBeGreaterThanOrEqual(3)
-      const labelsLeft = Math.min(...found.labels.map(entry => entry.left))
       for (const title of found.titles) {
-        expect(title.left, `${title.text} is cut at the left`).toBeGreaterThanOrEqual(0)
-        expect(title.right, `${title.text} is under the labels`).toBeLessThanOrEqual(labelsLeft + 0.5)
+        // (a pixel to spare: the rotated box is 1 px further left in Firefox than in Chrome)
+        expect(title.left, `${title.text} is cut at the left`).toBeGreaterThanOrEqual(1)
+        // the labels of its own panel: those in the same grid, of which a panel has two at least
+        const row = rows.find(candidate => inRow(candidate, title))
+        expect(row, `${title.text} is in no panel: ${JSON.stringify({ title, stageTop: found.stageTop })}`).toBeDefined()
+        // a label is its panel's when its middle is in the grid or within half a label below it: the lowest label sits on the grid's
+        // bottom line, and Firefox puts its middle a fraction of a px below it (a panel of 0 and 0,5 then had one label). The top needs
+        // none: the axis' maximum is not labelled, so no label sits on a grid's top line, where the panel above ends
+        const own = found.labels.filter(label => inRow({ ...row!, height: row!.height + 9 }, label))
+        expect(own.length, `${title.text} (${row!.id}) has fewer than two labels in its panel: ${JSON.stringify(found.labels)}`).toBeGreaterThanOrEqual(2)
+        const middleOf = (entry: { top: number, bottom: number }) => (entry.top + entry.bottom) / 2
+        const ownLeft = Math.min(...own.map(entry => entry.left))
+        expect(title.right, `${title.text} is under the labels`).toBeLessThanOrEqual(ownLeft + 0.5)
+        // and it stands next to them, not at the far left of a gutter made for the widest labels of all: the room between is the 4 px
+        // of the layout and what the estimate of the labels' width has over their real width (a few px), where it was 33 px for the wind's
+        // (a title of two lines is two texts, with the same middle: the block's right edge is its last line's)
+        const blockRight = Math.max(...found.titles.filter(other => Math.abs(middleOf(other) - middleOf(title)) < 2).map(other => other.right))
+        expect(ownLeft - blockRight, `${title.text} stands off its labels: ${JSON.stringify({ title, own })}`).toBeLessThanOrEqual(14)
       }
-      // and they stand where they stand whatever the width of the labels of their panel: in a block of two lines' width at the very left
-      // (a title of one line in the middle of it), never moved by the four digits of the pressure
-      for (const title of found.titles)
-        expect(title.right, `${title.text} stands off the block of the titles: ${JSON.stringify(found.titles)}`).toBeLessThanOrEqual(2 + 2 * 14 + 2)
+      // the panel with the widest labels (the pressure's thousands separator) has its title at the very left edge
+      expect(Math.min(...found.titles.map(title => title.left))).toBeLessThanOrEqual(5)
     })
   }
 
@@ -284,11 +317,79 @@ test.describe('by keyboard', () => {
   })
 })
 
+// WCAG 2.4.3 (GH-4101): a toolbar button that turns off while it has the focus is off (`aria-disabled`) and keeps the focus; `disabled`
+// would drop it to the page, and a keyboard user would start again from the top. Pressed again, it does nothing.
+test.describe('a toolbar button that turns off while it has the focus', () => {
+  const focusedLabel = (page: Page) => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName)
+  async function pressUntilOff(page: Page, button: Locator, key: string) {
+    for (let press = 0; press < 40; press++)
+      await page.keyboard.press(key)
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
+  }
+
+  test('Zoom in keeps the focus at its limit, and does nothing when it is pressed again', async ({ page, baseURL }) => {
+    await open(page, baseURL!, PAGE, { width: 1280, height: 900 })
+    const group = page.getByRole('group', { name: 'Zoom and scroll the chart' })
+    const zoomIn = group.getByRole('button', { name: 'Zoom in' })
+    await expect(zoomIn).not.toHaveAttribute('aria-disabled', 'true')
+    await zoomIn.focus()
+    await pressUntilOff(page, zoomIn, 'Enter')
+    await expect(zoomIn).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Zoom in')
+    // still a button in the tab order, not a disabled one
+    expect(await zoomIn.evaluate((button: HTMLButtonElement) => [button.disabled, button.tabIndex])).toEqual([false, 0])
+    const atLimit = await labelSpacing(page)
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Space')
+    await expect(zoomIn).toBeFocused()
+    await expect(zoomIn).toHaveAttribute('aria-disabled', 'true')
+    expect(await labelSpacing(page)).toBe(atLimit)
+  })
+
+  test('Later keeps the focus at the end of the forecast', async ({ page, baseURL }) => {
+    await open(page, baseURL!, PAGE, { width: 1280, height: 900 })
+    const group = page.getByRole('group', { name: 'Zoom and scroll the chart' })
+    await group.getByRole('button', { name: 'Zoom in' }).click()
+    const later = group.getByRole('button', { name: 'Later hours' })
+    await expect(later).not.toHaveAttribute('aria-disabled', 'true')
+    await later.focus()
+    await pressUntilOff(page, later, 'Space')
+    await expect(later).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Later hours')
+    // the first hour on screen stays where the end of the forecast put it
+    const hours = (await hourLabels(page).allTextContents()).join()
+    await page.keyboard.press('Space')
+    await page.keyboard.press('Enter')
+    await expect(later).toBeFocused()
+    expect((await hourLabels(page).allTextContents()).join()).toBe(hours)
+  })
+})
+
 test.describe('the readout (WCAG 1.4.13)', () => {
-  // over a panel of the chart, in the middle of the plot
+  // over a panel of the chart, a third of the way along the plot, at the middle of an hour: the tests that move the pointer by a pixel
+  // or two need to stay in the hour, which a fixed x does not do (the gutter and the width of the chart differ by a few px between the
+  // engines and the widths of the labels). The middle is found where the hour under the pointer changes, a pixel at a time.
   async function overPlot(page: Page, fraction = 0.3) {
+    // the banner of DWD's warnings (GH-4295) is a line over the chart, which is lower by its height: the chart is brought into the window, so that a pointer measured against it is over it
+    await page.locator('.mg-stage').scrollIntoViewIfNeeded()
     const box = (await page.locator('.mg-stage').boundingBox())!
-    return { x: box.x + 68 + (box.width - 78) * fraction, y: box.y + box.height * 0.6 }
+    const y = box.y + box.height * 0.6
+    const base = box.x + 71 + (box.width - 81) * fraction
+    const hourAt = async (x: number) => {
+      await page.mouse.move(x, y)
+      await expect(readout(page)).toBeVisible()
+      // the readout follows the pointer a frame later
+      await page.waitForTimeout(40)
+      return (await readout(page).locator('.font-semibold').textContent())!
+    }
+    const hour = await hourAt(base)
+    let first = base
+    while (base - first < 12 && (await hourAt(first - 1)) === hour)
+      first--
+    let last = base
+    while (last - base < 12 && (await hourAt(last + 1)) === hour)
+      last++
+    return { x: Math.round((first + last) / 2), y }
   }
 
   test('appears under the pointer, is docked at the far edge, can be moved onto and holds its hour while the pointer is over it', async ({ page, baseURL }) => {
@@ -383,6 +484,7 @@ test.describe('the zoom', () => {
   test('is linked: a box dragged on a panel zooms them all, and the reset goes back', async ({ page, baseURL }) => {
     await open(page, baseURL!, PAGE, { width: 1280, height: 900 })
     const initial = await labelSpacing(page)
+    await page.locator('.mg-stage').scrollIntoViewIfNeeded()
     const box = (await page.locator('.mg-stage').boundingBox())!
     const y = box.y + 200
     await page.mouse.move(box.x + 120, y)

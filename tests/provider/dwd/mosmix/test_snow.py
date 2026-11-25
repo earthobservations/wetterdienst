@@ -16,7 +16,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from tests.provider.value_stubs import _options, _settings, stations_result
+from tests.provider.value_stubs import _options, _settings, dwd_mosmix_values, stations_result
 from wetterdienst import Options, Settings
 from wetterdienst.exceptions import DownloadError, IssueNotFoundError, ProductOutOfSeasonError
 from wetterdienst.provider.dwd import catalogue
@@ -372,6 +372,86 @@ def test_mosmix_snow_directory_that_is_empty_on_the_server_is_out_of_season_and_
             )
 
 
+def test_a_snow_depth_a_little_below_zero_is_zero_and_keeps_the_number_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The last of a melting snow is `SnCv` -0.01 and -0.02 m in the run: 0.0 with `raw:`, as DMO's rain (GH-4182)."""
+    elements = {"SnCv": "0.05 -0.01 -0.02", "Sa3": "0.03 0.00 0.01"}
+    parameters = [("hourly", "snow", "sncv"), ("hourly", "snow", "sa3")]
+    df = dwd_mosmix_values(monkeypatch, elements, parameters, options=Options(drop_nulls=False, convert_units=False))
+    depth = df.filter(pl.col("parameter") == "snow_depth").sort("timestamp")
+    assert depth["value"].to_list() == [0.05, 0.0, 0.0]
+    assert depth["quality_flags"].to_list() == [None, "rejected:floor,raw:-0.01", "rejected:floor,raw:-0.02"]
+    # the depth of a snow that stays is untouched, and so is the new snow
+    assert df.filter(pl.col("parameter") == "snow_depth_new_last_3h").sort("timestamp")["value"].to_list() == [
+        0.03,
+        0.0,
+        0.01,
+    ]
+    assert df.filter(pl.col("parameter") == "snow_depth_new_last_3h")["quality_flags"].is_null().all()
+    # the check does not reject, so the answer has no null where the model wrote a number
+    assert depth["value"].null_count() == 0
+
+    # in the units of the library it is cm, and the range of a depth, which allows -10 cm, does not decide
+    df = dwd_mosmix_values(monkeypatch, elements, parameters, options=Options(drop_nulls=False))
+    depth = df.filter(pl.col("parameter") == "snow_depth").sort("timestamp")
+    assert depth["value"].to_list() == [5.0, 0.0, 0.0]
+    assert depth["quality_flags"].to_list() == [None, "rejected:floor,raw:-0.01", "rejected:floor,raw:-0.02"]
+
+
+def test_a_snow_depth_down_to_10_cm_below_zero_is_zero_and_one_further_below_is_the_ranges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The tolerance is the lower bound of the range of a depth, 10 cm: -0.07 m (run of 2026-11-18) is 0.0 (GH-4237).
+
+    A depth of -0.11 m is no round-off: the floor leaves it to the range, whose low end for a forecast's depth is 0. A
+    forecast is soft in `range`, so the value is kept and flagged `suspect:range`, as the new snow's tolerance, which is
+    the same constant, is held to.
+    """
+    elements = {"SnCv": "-0.07 -0.10 -0.11", "Sa3": "-0.07 -0.11 0.01"}
+    parameters = [("hourly", "snow", "sncv"), ("hourly", "snow", "sa3")]
+    df = dwd_mosmix_values(monkeypatch, elements, parameters, options=Options(drop_nulls=False, convert_units=False))
+    depth = df.filter(pl.col("parameter") == "snow_depth").sort("timestamp")
+    assert depth["value"].to_list() == [0.0, 0.0, -0.11]
+    assert depth["quality_flags"].to_list() == ["rejected:floor,raw:-0.07", "rejected:floor,raw:-0.1", "suspect:range"]
+    # the sums of new snow share the tolerance
+    new = df.filter(pl.col("parameter") == "snow_depth_new_last_3h").sort("timestamp")
+    assert new["value"].to_list() == [0.0, -0.11, 0.01]
+    assert new["quality_flags"].to_list() == ["rejected:floor,raw:-0.07", "suspect:range", None]
+
+
+def test_a_snow_depth_below_zero_is_kept_and_flagged_where_the_floor_is_soft(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`plausibility={"floor": "soft"}` returns the number as DWD wrote it, flagged `suspect:floor` (GH-4182)."""
+    df = dwd_mosmix_values(
+        monkeypatch,
+        {"SnCv": "0.05 -0.01 -0.02"},
+        [("hourly", "snow", "sncv")],
+        options=Options(drop_nulls=False, convert_units=False, plausibility={"floor": "soft"}),
+    ).sort("timestamp")
+    assert df["value"].to_list() == [0.05, -0.01, -0.02]
+    assert df["quality_flags"].to_list() == [None, "suspect:floor", "suspect:floor"]
+
+
+def test_the_amounts_of_mosmix_s_that_cannot_be_negative_are_held_to_the_floor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A round-off below 0 of the precipitation, the radiation and the sunshine of MOSMIX-S is 0.0 with `raw:`."""
+    df = dwd_mosmix_values(
+        monkeypatch,
+        {"RR1c": "-0.02 0.40 0.00", "Rad1h": "-0.16 0.00 142.09", "SunD1": "-0.5 3600.0 0.0"},
+        [("hourly", "small", "rr1c"), ("hourly", "small", "rad1h"), ("hourly", "small", "sund1")],
+        options=Options(drop_nulls=False, convert_units=False),
+    )
+    floored = df.filter(pl.col("quality_flags").str.starts_with("rejected:floor"))
+    assert sorted(floored["parameter"].to_list()) == [
+        "precipitation_amount_significant_weather_last_1h",
+        "radiation_global",
+        "sunshine_duration",
+    ]
+    assert floored["value"].to_list() == [0.0, 0.0, 0.0]
+    assert sorted(floored["quality_flags"].to_list()) == [
+        "rejected:floor,raw:-0.02",
+        "rejected:floor,raw:-0.16",
+        "rejected:floor,raw:-0.5",
+    ]
+
+
 @pytest.mark.remote
 def test_dwd_mosmix_snow(options_humanize_false_convert_units_false: Options) -> None:
     """Fetch the latest run of MOSMIX-SNOW from DWD: the 15 stations and their values.
@@ -391,14 +471,31 @@ def test_dwd_mosmix_snow(options_humanize_false_convert_units_false: Options) ->
     values = request.filter_by_station_id(stations).values().all()
     assert sorted(values.df["station_id"].unique()) == stations
     # and the 15 of the constant, which only an out-of-season answer is read from: a change in the run is noticed here
-    assert stations == sorted(MOSMIX_SNOW_STATION_IDS), "DWD changed the stations of MOSMIX-SNOW: update the constant"
+    assert stations == sorted(MOSMIX_SNOW_STATION_IDS), (
+        "DWD changed the stations of MOSMIX-SNOW: update the constant, and re-check the extent of `hourly/snow` in "
+        "`metadata.py` (national DE; an Austrian station makes it regional DE/AT)"
+    )
     assert set(values.df["parameter"]) == {
         parameter.name_original for parameter in DwdMosmixMetadata.hourly.snow.parameters
     }
     # 48 hourly steps from the hour after the run
     assert values.df.filter(pl.col("station_id") == "Z914")["timestamp"].n_unique() == 48
-    # the snow depth is in m for this options object (`convert_units=False`), as the file writes it, and a depth
-    depth = values.df.filter(pl.col("parameter") == "sncv").drop_nulls("value")["value"]
+    # the snow depth is in m for this options object (`convert_units=False`), as the file writes it.
+    # A model's round-off below 0 is `floor`'s down to -10 cm (0.0 with `raw:`); a value further below is kept and
+    # flagged `suspect:range` (a forecast is soft in `range`), so the reader's promise is that no negative depth
+    # is without that flag, whatever DWD's run holds (GH-4237)
+    depth_rows = values.df.filter(pl.col("parameter") == "sncv").drop_nulls("value")
+    assert not depth_rows.is_empty()
+    ranged = pl.col("quality_flags").str.contains("suspect:range").fill_null(value=False)
+    negative = depth_rows.filter(pl.col("value") < 0.0)
+    assert negative.filter(~ranged).is_empty(), negative
+    # every floored value is 0.0, and the number the file wrote is round-off: from -0.10 m to below 0
+    floored = depth_rows.filter(pl.col("quality_flags").str.contains("rejected:floor").fill_null(value=False))
+    assert (floored["value"] == 0.0).all(), floored
+    raw = floored["quality_flags"].str.extract(r"raw:(-?[0-9.]+)", 1).cast(pl.Float64)
+    assert raw.is_between(-0.10, 0.0, closed="left").all(), floored
+    # the rest is a depth that lies: 0 or more, and less than 12 m
+    depth = depth_rows.filter(~ranged)["value"]
     assert not depth.is_empty()
     assert 0.0 <= depth.min() <= depth.max() < 12.0
     # the probabilities are 0..100 and a probability of more is not above that of less

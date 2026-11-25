@@ -76,18 +76,97 @@ This table and subsets of it can be printed with a function call of
 ``.discover()`` as described in the API section. Furthermore, individual
 parameters can be queried.
 
+## WMO numbers of the stations
+
+The station descriptions on the file server carry no WMO number, so `wmo_id` is read from DWD's
+[Stationslexikon](https://www.dwd.de/DE/leistungen/klimadatendeutschland/statliste/statlex_html.html), an HTML
+table with a row for every station and product (the table itself is the same address with
+`?view=nasPublication`, 5.9 MB). Its column `Stationskennung` is the id the station has in the network
+of the product: for the products `SY` (synoptic station) and `MN` (the automatic network that took over
+the synoptic stations) it is the WMO number (Berlin-Dahlem `00403` is `10381`, Hamburg-Fuhlsbüttel `01975`
+is `10147`), for the other products the id of that network (`03319` is the climate station of Berlin-Dahlem,
+`46552` its rain gauge), and for most `SY` and `MN` rows an id of DWD's own that is no WMO number (`H808`,
+`Q870`). Only a number of five digits of `SY` or `MN` is a `wmo_id`; every other station has `wmo_id` null.
+
+Read 2026-11-16, 314 of the 13,779 stations of the table have one (279 of the 1,284 stations of
+`daily/kl`, 22 %: the main stations; 209 of the 573 of its `recent` period, 36 %). A station with the same
+number in `SY` and `MN` has it once, and none of the 314 has two different ones; where one did, its `wmo_id`
+would be null and a warning in the log would say so. A number may belong to two station ids where the station
+moved and kept it (`10427` is Altastenberg `00098` until 1954 and Kahler Asten `02483` after), and a search by
+`wmo_id` finds both.
+
+The table is kept for a week in the cache and for a day in the process, so a number is at most eight days old. A
+failure to read it is remembered for five minutes, so that a page that is down is not asked for by every request.
+The server is waited for ten seconds and asked once, and the requests that ask at the same time share one read. It
+is a page and not a data format, so it is read by the names of its headers, and a page that has changed (a header
+renamed, no row, no WMO number at all) is an error that names the address. The stations are the answer and the number
+an addition: when the page cannot be read or is no longer the table, or no connection can be made to `www.dwd.de` (a
+host other than the `opendata.dwd.de` the stations are listed from), the stations come back with `wmo_id` null and the
+warning `wmo-ids-unavailable`. A rate limit of the provider (a 429) is still raised, and not remembered.
+
+## WIGOS ids of the stations
+
+DWD publishes no WIGOS station identifier with its stations. WMO's register
+[OSCAR/Surface](https://oscar.wmo.int/surface/) lists `0-276-<issue number>-<Stations_ID>` for stations of DWD:
+`0-276-3-73` is Aldersbach-Kramersepp, the station `00073`. A station gets that as its `wigos_id`, and
+only that: the id is the exact one, the `station_id` is the local part of a WIGOS id of Germany's issuer (`276`),
+and no station is matched by its name or its position. The one difference of notation is the zeros that DWD pads its
+ids to five digits with (`00073`) and OSCAR does not write (`73`). The issue numbers read are `3` (secondary
+stations, 361 ids), `6` (the city climate stations, 6) and `2` (3); the ids of issue numbers `0` and `1` (the radar of
+Borkum `0-276-0-10103`, the Taunus Observatory) are not DWD station numbers, whatever they look like, and are not
+read. The WMO's own `0-20000-0-<WMO number>` of the main stations is not the id of their `station_id` either, so the
+stations of the Stationslexikon with a `wmo_id` have no `wigos_id` from this, but for the four whose national id is
+the only one OSCAR lists (`00096` Neuruppin `0-276-2-96`, `00399` Berlin-Alexanderplatz, `15813` Lingen-Baccum,
+`19912` Bichl).
+
+Read 2026-11-19, 370 of the 6,422 stations of the network have one (298 of the 1,507 stations of the datasets at
+1 minute, 366 of the 6,320 of `daily`; OSCAR lists 366 of them as operational and 4 as closed). Checked against
+OSCAR's names, 366 of the 370 are spelled alike and the other four differ in the umlaut (`Großenkneten` and
+`GROSSENKNETEN`); `06106` Rechlin is 37.6 km from the position OSCAR gives it, all the others within 10 km. Where OSCAR listed two WIGOS ids with one local part, the station would have
+none and a warning in the log would say so; none did. A `wigos_id` that DWD's own list published would be kept.
+
+The register is one request for Germany (2,495 stations, 1.9 MB, no key) and is kept for a week in the cache and for a
+day in the process, so an id is at most eight days old. A failure to read it is remembered for five minutes. The
+server is waited for ten seconds and asked once (the client's default is 30 s and a second attempt), and the requests
+that ask at the same time share one read. The
+stations are the answer and the id an addition: when `oscar.wmo.int` cannot be reached, answers a page that is not
+the register (a waiting page, an error in a 200, a second page, no WIGOS id at all: never an empty register, and it is
+not kept in the cache) or a status that fails, the stations come back with `wigos_id` null and the warning
+`wigos-ids-unavailable`. A rate limit (a 429) is raised, and its message names OSCAR, which limits, not DWD.
+`dwd/derived` (the datasets with DWD station ids), `fmi/observation` and `dmi/observation` read their `wigos_id` the
+same way, with their own issuers.
+
 ## Stations that the station list does not carry
 
 The name and the position of a station come from the station description of its dataset and period
 (e.g. `KL_Tageswerte_Beschreibung_Stationen.txt`), and the stations that you can request are those that the
 description lists and that have a data file. A few stations have data files and no line in the description
-of any period (read 2026-10-22, among others: 01018, 02996 and 05047 in `daily/climate_summary`, eleven stations in
-`daily/weather_phenomena_more`, seven in `10_minutes/precipitation`, two in `1_minute/precipitation`). They are
-not listed and their data cannot be requested, as there is no position and no name to offer them with. When the
-stations of a dataset are read for all of its periods, wetterdienst logs a warning that names them, once for each
-process, so that a missing station is explained; a request for some periods only does not, as another period
-may list the station. The remedy is DWD's, which publishes the files and not the lines
-([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)).
+of any period. They are not listed and their data cannot be requested, as there is no position and no name to offer
+them with. When the stations of a dataset are read for all of its periods, wetterdienst logs a warning that names them,
+once for each process, so that a missing station is explained; a request for some periods only does not, as another
+period may list the station. The remedy is DWD's, which publishes the files and not the lines. DWD was asked on
+2026-11-07 to add the missing lines and has not answered (2026-11-22); until it does, the stations stay unlisted
+([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)). A late answer is a new issue.
+
+Read on 2026-11-07 against the live server, 24 stations in 20 directories under `observations_germany/climate/`
+(`multi_annual` was not read). A station counts only if no station description of the dataset has a line for it, in any
+period or year:
+
+| Directories | Stations with files and no line |
+|---|---|
+| `daily/kl`, `daily/weather_phenomena`, `monthly/kl`, `monthly/weather_phenomena`, `annual/kl`, `annual/weather_phenomena`, `subdaily/air_temperature`, `cloudiness`, `moisture`, `soil`, `visibility`, `wind` | 01018, 02996, 05047 |
+| `daily/water_equiv` | 01018, 04167 |
+| `daily/more_weather_phenomena` | 00047, 01018, 01315, 02072, 03733, 03802, 04655, 05047, 05171, 05206, 05678 |
+| `hourly/wind_synop` | 00991, 02039 |
+| `10_minutes/precipitation` | 01315, 02072, 03432, 03704, 04211, 05206, 05678 |
+| `10_minutes/solar` | 07432 |
+| `10_minutes/extreme_wind` | 03775 |
+| `1_minute/precipitation` | 15851 (`recent/1minutenwerte_nieder_15851_akt.zip`) |
+| `10_minutes/wind_test` | 00430, 02100, 03023 (a directory wetterdienst does not read) |
+
+03704 and 04211 of `1_minute/precipitation` have a line in the description of another year. `monthly/climate_indices`
+and the third `annual` dataset show nothing with this count, but their layout was not looked at further, so the list may
+not be complete. The `dwd/derived` soil stations are on [its page](../derived/index.md).
 
 ## Parameter details
 

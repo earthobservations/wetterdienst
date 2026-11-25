@@ -75,9 +75,9 @@ def test_meteoswiss_observation_api_resolutions(resolution: str) -> None:
 
 _BASE = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn"
 _STATIONS = (
-    "station_abbr;station_name;station_canton;station_data_since;station_height_masl;"
+    "station_abbr;station_name;station_canton;station_wigos_id;station_data_since;station_height_masl;"
     "station_coordinates_wgs84_lat;station_coordinates_wgs84_lon\n"
-    "BER;Bern / Zollikofen;BE;01.01.1864;553.0;46.990744;7.464061\n"
+    "BER;Bern / Zollikofen;BE;0-20000-0-06631;01.01.1864;553.0;46.990744;7.464061\n"
 )
 _HEADER = "station_abbr;reference_timestamp;tre200h0\n"
 

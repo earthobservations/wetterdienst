@@ -22,8 +22,18 @@ from wetterdienst.model.limits import Limit  # noqa: TC001, needed at runtime by
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
-from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
-from wetterdienst.util.datetime import format_timestamp
+from wetterdienst.ui.response_metadata import (
+    ResponseMetadata,
+    StationIdsMetadata,
+    StatisticsMetadata,
+    alerts_metadata,
+    kostra_metadata,
+    metadata_to_dict,
+    response_metadata,
+    station_ids_metadata,
+    statistics_metadata,
+    storm_cells_metadata,
+)
 from wetterdienst.util.json_util import dumps_json
 
 if TYPE_CHECKING:
@@ -31,6 +41,8 @@ if TYPE_CHECKING:
 
     import polars as pl
 
+    from wetterdienst.core.station_search import StationIdSearchResult
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.result import (
         InterpolatedValuesResult,
@@ -40,26 +52,19 @@ if TYPE_CHECKING:
     )
     from wetterdienst.options import Options
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
+    from wetterdienst.provider.dwd.kostra.api import DwdKostraResult
+    from wetterdienst.provider.dwd.storm_cells.api import DwdStormCellsResult
     from wetterdienst.ui.core import (
         HistoryRequest,
         InterpolationRequest,
         StationsRequest,
-        StripesData,
-        StripesStationsRequest,
-        StripesValuesRequest,
+        StatisticsRequest,
         SummaryRequest,
         ValuesRequest,
     )
     from wetterdienst.util.response_warnings import ResponseWarning
 
-    _Request: TypeAlias = (
-        StationsRequest
-        | ValuesRequest
-        | InterpolationRequest
-        | SummaryRequest
-        | HistoryRequest
-        | StripesStationsRequest
-    )
+    _Request: TypeAlias = StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest
 
 
 #: a radius, factor or gain, which the settings take as infinite or NaN too, written then as a string
@@ -117,14 +122,6 @@ class StationsSettings(BaseModel):
     station_window_end_buffer: StationWindowEndBuffer | None = Field(
         validation_alias="station_window_end_buffer", description=_STATION_WINDOW_END_BUFFER_DESCRIPTION
     )
-
-
-class StripesSettings(BaseModel):
-    """The settings of `/api/stripes/values`: the unit its values are returned in (GH-3980)."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    unit_targets: dict[str, str] = Field(validation_alias="unit_targets")
 
 
 def _plausibility_setting(check: str) -> Any:  # noqa: ANN401
@@ -317,9 +314,17 @@ def ndjson_head(metadata: ResponseMetadata, settings: _AppliedSettings | None = 
     return head
 
 
-def ndjson_end(stations: int, rows: int, warnings: Sequence[ResponseWarning]) -> dict[str, Any]:
-    """Give the content of the last line of an NDJSON answer: what was sent, and every warning raised on the way."""
-    return {"counts": {"stations": stations, "rows": rows}, "warnings": list(warnings)}
+def ndjson_end(
+    stations: int, rows: int, warnings: Sequence[ResponseWarning], search: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Give the content of the last line of an NDJSON answer: what was sent, and every warning raised on the way.
+
+    `search` is what the row options searched, where a stream has them and could not say before its end.
+    """
+    end: dict[str, Any] = {"counts": {"stations": stations, "rows": rows}, "warnings": list(warnings)}
+    if search is not None:
+        end["search"] = dict(search)
+    return end
 
 
 def ndjson_refusal(request: StationsRequest | ValuesRequest) -> str | None:
@@ -425,15 +430,23 @@ def render_issues(issues: list[str], metadata: ResponseMetadata, *, pretty: bool
     return dumps_json(answer, indent=4 if pretty else None)
 
 
-def render_alerts(result: DwdWeatherAlertResult, fmt: str, *, pretty: bool = False) -> tuple[str, ResponseMetadata]:
+def render_alerts(
+    result: DwdWeatherAlertResult,
+    fmt: str,
+    *,
+    pretty: bool = False,
+    metadata: ResponseMetadata | None = None,
+) -> tuple[str, ResponseMetadata]:
     """Write the warnings in the format asked for, the JSON formats with the `metadata` block, which is given back too.
+
+    `metadata` is the block, where the caller has built it (a tool's answer cut to the budget carries its note).
 
     A GeoJSON `FeatureCollection` holds the block as a foreign member (RFC 7946 6.1) next to its `snapshot`; CSV has no
     place for it, so a CSV answer carries it in the headers alone (`response_headers`).
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
-    metadata = alerts_metadata(DwdWeatherAlertRequest, result.df.height, result.data_updated_at)
+    metadata = metadata or alerts_metadata(DwdWeatherAlertRequest, result.df.height, result.data_updated_at)
     if fmt == "csv":
         return result.to_csv(), metadata
     data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()
@@ -442,22 +455,74 @@ def render_alerts(result: DwdWeatherAlertResult, fmt: str, *, pretty: bool = Fal
     return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
 
 
-def render_stripes_stations(result: StationsResult, request: StripesStationsRequest, metadata: ResponseMetadata) -> str:
-    """Write the stations climate stripes are made for in the format asked for, the JSON formats with the block."""
+def render_storm_cells(result: DwdStormCellsResult, fmt: str, *, pretty: bool = False) -> tuple[str, ResponseMetadata]:
+    """Write the thunderstorm cells in the format asked for, the JSON formats with the `metadata` block.
+
+    A GeoJSON `FeatureCollection` holds the block as a foreign member (RFC 7946 6.1) next to its `reference_time`; CSV
+    has no place for it, so a CSV answer carries it in the headers alone (`response_headers`). The answer is never cut
+    to the budget of an MCP tool (`ui.budget`): its description asks for a place, and `track` and `geometry` make a
+    long list small.
+    """
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest  # noqa: PLC0415
+
+    metadata = storm_cells_metadata(DwdStormCellsRequest, result.df.height, result.data_updated_at)
+    if fmt == "csv":
+        return result.to_csv(), metadata
+    data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()
+    head = {"type": data.pop("type")} if fmt == "geojson" else {}
+    answer = {**head, "metadata": metadata_to_dict(metadata), **data}
+    return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
+
+
+def render_kostra(result: DwdKostraResult, fmt: str, *, pretty: bool = False) -> tuple[str, ResponseMetadata]:
+    """Write the KOSTRA table of a cell in the format asked for, JSON with the `metadata` block.
+
+    JSON is `{"metadata": ..., "edition": ..., "cell": {...}, "values": [...]}`; CSV is the table alone, with no place
+    for the cell or the block, so a CSV answer carries the block in the headers (`response_headers`).
+    """
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415
+
+    metadata = kostra_metadata(DwdKostraRequest, result.df.height, result.data_updated_at)
+    if fmt == "csv":
+        return result.to_csv(), metadata
+    answer = {"metadata": metadata_to_dict(metadata), **result.to_dict()}
+    return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
+
+
+def render_statistics(
+    result: StatisticsResult, request: StatisticsRequest, *, metadata: StatisticsMetadata | None = None
+) -> tuple[str, StatisticsMetadata]:
+    """Write the statistics in the format the request names, JSON with the `metadata` block, which is given back too.
+
+    JSON is `{"metadata": ..., "series": [...]}`, each series with its report, the statistics over its groups and its
+    groups; CSV is one row per group with the identity of its series in front, with no place for the block, so it
+    travels in the headers (`response_headers`); NDJSON is the block, a line for each group, then the `end` line with
+    the counts, the warnings and the series without their groups. `metadata` is the block, where the caller has built
+    it (a tool's answer cut to the budget carries its note).
+    """
+    metadata = metadata or statistics_metadata(result, provider=request.provider, network=request.network)
     if request.format == "csv":
-        return result.to_csv()
-    data = result.to_dict() if request.format == "json" else result.to_ogc_feature_collection()
-    return _json_answer(dict(data), request, metadata)
+        return result.to_csv(), metadata
+    if request.format == "ndjson":
+        end = ndjson_end(metadata.counts.stations, metadata.counts.rows, metadata.warnings)
+        end["series"] = result.series_dicts(groups=False)
+        head = ndjson_line({"metadata": metadata_to_dict(metadata)}).decode()
+        return head + result.groups_ndjson() + ndjson_line({"end": end}).decode(), metadata
+    series = result.series_dicts()
+    answer = {"metadata": metadata_to_dict(metadata), "series": series}
+    return dumps_json(answer, indent=4 if request.pretty else None, ensure_ascii=False), metadata
 
 
-def render_stripes_values(data: StripesData, request: StripesValuesRequest, metadata: ResponseMetadata) -> str:
-    """Write the values of climate stripes as JSON: the `metadata` block, the `series` they are of, and the `values`."""
-    values = [
-        {
-            "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
-            "value": row["value"],
-        }
-        for row in data.df.select("timestamp", "value").iter_rows(named=True)
-    ]
-    answer = {"metadata": metadata_to_dict(metadata), "series": data.series.model_dump(), "values": values}
-    return dumps_json(answer, indent=4 if request.pretty else None)
+def render_station_ids(
+    result: StationIdSearchResult, fmt: str, *, pretty: bool = False
+) -> tuple[str, StationIdsMetadata]:
+    """Write the stations a search for a WMO, WIGOS or ICAO id found in the format asked for, JSON with the block.
+
+    JSON is `{"metadata": ..., "stations": [...]}`, one entry for each row; CSV is the table alone, with no place for
+    the block, so a CSV answer carries it in the headers (`station_ids_headers`).
+    """
+    metadata = station_ids_metadata(result)
+    if fmt == "csv":
+        return result.df.write_csv(), metadata
+    answer = {"metadata": metadata.model_dump(mode="json"), "stations": result.to_dict()}
+    return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata

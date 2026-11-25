@@ -2,14 +2,20 @@ import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { REFERENCE } from '../../app/utils/sections'
 import { mockBackend } from './accessibility/mock-backend'
 
-// The shell of the app (GH-3518): the header with the four tools and the reference, the search, the tab bar and the
+// The shell of the app (GH-3518): the header with the six tools and the reference, the search, the tab bar and the
 // menu sheet of the narrow layout, the skip link, and the one frame every page sits in. The backend is the
 // accessibility spec's mock, so nothing here reaches a provider.
 
 const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8'))
 const de = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/de.json', import.meta.url)), 'utf-8'))
+
+/** The lists of stations the search looks in by name, all three: DWD's measuring stations are off until a reader turns them on in the settings (GH-3790) */
+async function chooseAllLists(page: Page) {
+  await page.addInitScript(() => localStorage.setItem('wd_settings', JSON.stringify({ version: 2, searchStations: { forecast: true, measured: true, ghcn: true } })))
+}
 
 async function open(page: Page, baseURL: string, path: string, language = 'en') {
   await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL }])
@@ -41,7 +47,7 @@ test.describe('the wide header', () => {
     await page.keyboard.press('Enter')
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
     const panel = page.locator(`[id="${await trigger.getAttribute('aria-controls')}"]`)
-    await expect(panel.getByRole('link')).toHaveCount(3)
+    await expect(panel.getByRole('link')).toHaveCount(REFERENCE.length)
     // Tab walks into it, in the order it shows
     await page.keyboard.press('Tab')
     await expect(panel.getByRole('link').first()).toBeFocused()
@@ -95,7 +101,8 @@ test.describe('the wide header', () => {
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
 
     await trigger.click()
-    for (let stop = 0; stop < 4; stop++)
+    // the trigger, then each link of the reference, then the next thing on the page
+    for (let stop = 0; stop < REFERENCE.length + 1; stop++)
       await page.keyboard.press('Tab')
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
@@ -142,7 +149,8 @@ test.describe('the search', () => {
     await page.getByRole('button', { name: en.shell.search }).click()
     const dialog = page.getByRole('dialog', { name: en.shell.search })
     await page.keyboard.type('DWD')
-    await dialog.getByRole('option', { name: /DWD/ }).first().click()
+    // the provider, not the first page that names DWD in its description (the Radar does, GH-3788): its name starts with it
+    await dialog.getByRole('option', { name: /^DWD\b/ }).first().click()
     await expect(page).toHaveURL(/\/providers\/dwd$/)
   })
 
@@ -206,22 +214,226 @@ test.describe('the search', () => {
     await expect(button).toBeFocused()
   })
 
-  test('finds the forecast of a station by its name, and the forecast shows it', async ({ page, baseURL }) => {
+  // the stations (GH-3790): matched by the app's own server on the lists it keeps, which the mock backend stands in for with the real matching
+  test('finds stations of the forecast, of DWD and of GHCN daily by name, each in a group with its provider and network, and opens the map on one', async ({ page, baseURL }) => {
+    await chooseAllLists(page)
     await open(page, baseURL!, '/')
     await page.keyboard.press('Control+k')
     const dialog = page.getByRole('dialog', { name: en.shell.search })
-    await page.keyboard.type('berlin')
-    // the station is offered twice: its forecast, and the map opened on it (GH-3650)
-    const station = dialog.getByRole('option', { name: /BERLIN-TEMPELHOF.*Forecast for/ })
-    await expect(station).toBeVisible()
-    await expect(dialog.getByRole('option', { name: /BERLIN-TEMPELHOF.*on the map/ })).toBeVisible()
-    // the station is the first of its group, after the tools: walked to by keys, taken by Enter
-    for (let step = 0; step < 10 && await station.getAttribute('aria-selected') !== 'true'; step++)
-      await page.keyboard.press('ArrowDown')
-    await expect(station).toHaveAttribute('aria-selected', 'true')
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    const forecast = dialog.getByRole('group', { name: en.shell.stationsForecast, exact: true })
+    const measured = dialog.getByRole('group', { name: en.shell.stationsMeasured, exact: true })
+    const ghcn = dialog.getByRole('group', { name: en.shell.stationsGhcn, exact: true })
+    await expect(forecast).toBeVisible()
+    await expect(measured).toBeVisible()
+    await expect(ghcn).toBeVisible()
+    // each result names its provider and network
+    await expect(forecast.getByRole('option').first()).toContainText('DWD · MOSMIX forecast · 10147')
+    await expect(measured.getByRole('option').first()).toContainText('DWD · measurements · 01975')
+    await expect(ghcn.getByRole('option').first()).toContainText('NOAA · GHCN daily · GM000010147')
+    // the stations come first, and the first is the active option: Enter opens the map on it
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+    await expect(dialog.getByRole('option').first()).toContainText('HAMBURG-FUHLSBUETTEL')
     await page.keyboard.press('Enter')
-    await expect(page).toHaveURL(/\/meteogram\?station=10384/)
-    await expect(page.getByText('BERLIN-TEMPELHOF').first()).toBeVisible()
+    await expect(page).toHaveURL(/\/map\?station=10147/)
+    await expect(page.getByTestId('map-station-name')).toContainText('HAMBURG-FUHLSBUETTEL')
+  })
+
+  test('looks in the lists the settings choose: DWD\'s measuring stations are off until they are turned on in "Stations in the search", and the choice is kept', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    await expect(dialog.getByRole('group', { name: en.shell.stationsGhcn, exact: true })).toBeVisible()
+    await expect(dialog.getByRole('group', { name: en.shell.stationsForecast, exact: true })).toBeVisible()
+    await expect(dialog.getByRole('group', { name: en.shell.stationsMeasured, exact: true })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    // turned on in the settings
+    await page.goto('/settings#settings-search-stations')
+    await expect(page.locator('#settings-search-stations')).toBeFocused()
+    await page.getByRole('checkbox', { name: en.mapTool.layerMeasured }).click()
+    await expect(page.getByRole('checkbox', { name: en.mapTool.layerMeasured })).toBeChecked()
+    // kept: a reload still has it, and the search finds the measuring stations
+    await page.reload()
+    await expect(page.getByRole('checkbox', { name: en.mapTool.layerMeasured })).toBeChecked()
+    await page.keyboard.press('Control+k')
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    await expect(dialog.getByRole('group', { name: en.shell.stationsMeasured, exact: true })).toBeVisible()
+    // turned off again, the forecast's points are not asked for
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await page.getByRole('checkbox', { name: en.mapTool.layerForecast }).click()
+    await page.keyboard.press('Control+k')
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    await expect(dialog.getByRole('group', { name: en.shell.stationsMeasured, exact: true })).toBeVisible()
+    await expect(dialog.getByRole('group', { name: en.shell.stationsForecast, exact: true })).toHaveCount(0)
+  })
+
+  test('leads a station of GHCN daily to the map on its layer, and the "more" of a network to the map\'s own search', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    const ghcn = dialog.getByRole('group', { name: en.shell.stationsGhcn, exact: true })
+    await expect(ghcn).toBeVisible()
+    await ghcn.getByRole('option').first().click()
+    await expect(page).toHaveURL(/\/map\?layer=ghcn&station=GM000010147/)
+    await expect(page.getByTestId('map-station-name')).toContainText('HAMBURG FUHLSBUETTEL')
+    await expect(dialog).toBeHidden()
+    // three stations of the network and a last option for the rest, which opens the map's own search of the layer on what was typed
+    await page.keyboard.press('Control+k')
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    await expect(ghcn.getByRole('option')).toHaveCount(4)
+    await ghcn.getByRole('option').last().click()
+    // the text starts the map's own search, and the address the page then writes is the map's state, which has no text of a search in it
+    await expect(page.locator('#map-search')).toHaveValue('hamburg')
+    await expect(page).toHaveURL(/\/map\?layer=ghcn/)
+    await expect(page.getByTestId('map-list').getByRole('listitem').first()).toContainText('HAMBURG')
+  })
+
+  test('offers the search of every network for a WMO number, and lists the stations that carry it after Enter', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('10147')
+    // the stations of the lists that have the number are first; the option that asks every network follows them
+    const option = dialog.getByRole('option', { name: /Search all networks for 10147/ })
+    await expect(option).toBeVisible()
+    await expect(dialog.getByRole('option').first()).not.toContainText('Search all networks')
+    await option.click()
+    // the dialog stays open, and the stations of every network that carries the number are a group of their own
+    await expect(dialog).toBeVisible()
+    const group = dialog.getByRole('group', { name: 'Stations with 10147', exact: true })
+    await expect(group.getByRole('option')).toHaveCount(4)
+    await expect(group.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+    await expect(group.getByRole('option').nth(3)).toContainText('AEMET · observation · SN99999 · opens the Explorer')
+    // a network the map shows leads to it, any other to the Explorer with the network and the station chosen
+    await group.getByRole('option').nth(3).click()
+    await expect(page).toHaveURL(/\/explorer\?provider=aemet&network=observation&resolution=hourly&dataset=temperature_air&mode=station&stations=SN99999/)
+  })
+
+  test('takes four letters for a word, and offers the search of every network for them only where nothing else answers', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('Dark')
+    await expect(dialog.getByRole('option', { name: en.settings.themeDark })).toBeVisible()
+    await expect(dialog.getByRole('option', { name: /Search all networks/ })).toHaveCount(0)
+    await dialog.getByRole('combobox').fill('EDDH')
+    await expect(dialog.getByRole('option', { name: /Search all networks for EDDH/ })).toBeVisible()
+  })
+})
+
+// The words of the app, a position and the questions (GH-3790): the index is built with the app and loaded when the search is opened
+test.describe('the search of the words of the app', () => {
+  test.use({ viewport: { width: 1280, height: 800 } })
+
+  async function search(page: Page, text: string) {
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type(text)
+    return dialog
+  }
+
+  test('loads the index of the language when the search opens, not with the page', async ({ page, baseURL }) => {
+    // the index is a script of its own: told by what is in it
+    const indexes: string[] = []
+    page.on('response', async (response) => {
+      if (response.request().resourceType() === 'script' && (await response.text().catch(() => '')).includes('"postings"'))
+        indexes.push(response.url())
+    })
+    await open(page, baseURL!, '/')
+    await page.waitForLoadState('networkidle')
+    expect(indexes).toEqual([])
+    await search(page, 'dew point')
+    await expect(page.getByRole('option', { name: /Humidity and dew point/ })).toBeVisible()
+    // the one of the language of the page, once
+    await expect.poll(() => indexes.length).toBe(1)
+  })
+
+  test('finds an entry of "How weather is measured" and takes the reader to it, at its anchor', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'dew point')
+    const group = dialog.getByRole('group', { name: en.measurement.title, exact: true })
+    await expect(group.getByRole('option').first()).toContainText('Humidity and dew point')
+    await page.keyboard.press('ArrowDown')
+    for (let step = 0; step < 20 && !(await group.getByRole('option').first().getAttribute('aria-selected') === 'true'); step++)
+      await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/measurement#humidity$/)
+    await expect(page.locator('#humidity-title')).toBeFocused()
+  })
+
+  test('finds a word in German, ignoring case', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/', 'de')
+    await page.keyboard.press('Control+k')
+    await page.keyboard.type('TAUPUNKT')
+    await expect(page.getByRole('option', { name: /Luftfeuchte und Taupunkt/ })).toBeVisible()
+  })
+
+  test('finds a parameter of the glossary and goes to its entry, which has the focus', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'dew point')
+    const group = dialog.getByRole('group', { name: en.glossary.title, exact: true })
+    await expect(group.getByRole('option').first()).toContainText('Dew point')
+    await group.getByRole('option').first().click()
+    await expect(page).toHaveURL(/\/glossary#temperature_dew_point_2m$/)
+    await expect(page.locator('[id="temperature_dew_point_2m"]')).toBeFocused()
+  })
+
+  test('shows a few results with a last option that opens the page that has them all', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'units')
+    const group = dialog.getByRole('group', { name: en.common.settings, exact: true })
+    await expect(group.getByRole('option')).toHaveCount(4)
+    await group.getByRole('option').last().click()
+    await expect(page).toHaveURL(/\/settings$/)
+  })
+
+  test('leads a setting to its own control', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'plain-language')
+    await dialog.getByRole('option', { name: /Plain-language labels/ }).click()
+    await expect(page).toHaveURL(/\/settings#settings-friendly-labels$/)
+    await expect(page.locator('#settings-friendly-labels')).toBeFocused()
+  })
+
+  test('finds a question of Ask the weather and opens it on the home page', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings')
+    const dialog = await search(page, 'rain')
+    const group = dialog.getByRole('group', { name: en.ask.title, exact: true })
+    await group.getByRole('option').first().click()
+    await expect(page).toHaveURL(/\/\?ask=rain$/)
+    await expect(page.getByTestId('question-rain')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('takes coordinates as a place that leads to the map at that point, before everything else', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, '52°31\'N 13°24\'E')
+    const place = dialog.getByRole('group').first()
+    await expect(place).toContainText('52.5167, 13.4000')
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/map\?(?:.*&)?lat=52\.5167&lon=13\.4000/)
+    // the map picks the station for the place, as a click would
+    await expect(page.getByTestId('map-station-name')).toBeVisible()
+  })
+
+  test('says how many results each group has, in the live region', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'dew point')
+    await expect(dialog.getByRole('status')).toContainText(new RegExp(`${en.measurement.title}: \\d+`))
+    await expect(dialog.getByRole('status')).toContainText(new RegExp(`${en.glossary.title}: \\d+`))
   })
 })
 
@@ -250,8 +462,8 @@ test.describe('the narrow layout', () => {
     const box = await bar.boundingBox()
     expect(box!.y + box!.height).toBeGreaterThan(844 - 2)
     await expect(bar.getByRole('link', { name: en.nav.meteogram })).toHaveAttribute('aria-current', 'page')
-    // four tools and the Menu, as before the map (GH-3650), which is in the Menu's sheet
-    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.history, en.header.menu])
+    // four tools and the Menu (GH-3650), the Radar in the fourth place (GH-3788); History and the map are in the Menu's sheet
+    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.header.menu])
     // the page keeps the bar's height free at its foot, so its last line is not under the bar
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     const last = page.getByRole('link', { name: en.footer.licenses })
@@ -320,7 +532,7 @@ test.describe('the frame', () => {
   test('puts the title of every page on one line with the logo', async ({ page, baseURL }) => {
     test.setTimeout(120_000)
     const lefts: Record<string, number> = {}
-    for (const path of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/providers', '/glossary', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']) {
+    for (const path of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/providers', '/glossary', '/measurement', '/methods', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']) {
       await open(page, baseURL!, path)
       const logo = await page.getByRole('banner').getByRole('link', { name: 'Wetterdienst' }).locator('img').boundingBox()
       const title = page.getByRole('heading', { level: 1 })

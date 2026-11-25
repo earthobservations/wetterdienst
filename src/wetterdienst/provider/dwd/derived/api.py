@@ -21,6 +21,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.fetch_ahead import FilesAhead
 from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.oscar import with_oscar_wigos_id
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -30,7 +31,11 @@ from wetterdienst.provider.dwd.derived.fileindex import (
     create_file_index_for_climate_derived,
     create_file_list_for_climate_derived,
 )
-from wetterdienst.provider.dwd.derived.metadata import TECHNICAL_DATASETS, DwdDerivedMetadata
+from wetterdienst.provider.dwd.derived.metadata import (
+    DWD_STATION_ID_DATASETS,
+    TECHNICAL_DATASETS,
+    DwdDerivedMetadata,
+)
 from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
 from wetterdienst.provider.dwd.expiry import expiries_of, file_expiry
@@ -41,14 +46,19 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     remembering_empty_directories,
     warn_skipped_listings,
 )
+from wetterdienst.provider.dwd.observation.stationslexikon import with_wmo_id
+from wetterdienst.provider.dwd.observation.wigos import DWD_DERIVED_WIGOS_SCHEME
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
 from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 
+    from typing_extensions import Unpack
+
     from wetterdienst import Period
     from wetterdienst.model.result import ValuesResult
+    from wetterdienst.model.row_selection import RowOptions
     from wetterdienst.settings import Settings
 
 
@@ -92,9 +102,9 @@ class DwdDerivedValues(TimeseriesValues):
     """Values class for dwd derived data."""
 
     @remembering_empty_directories
-    def query(self) -> Iterator[ValuesResult]:
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
-        yield from super().query()
+        yield from super().query(**rows)
 
     _default_start_dates: ClassVar = {
         Resolution.MONTHLY: dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -736,6 +746,11 @@ class DwdDerivedRequest(TimeseriesRequest):
     metadata = DwdDerivedMetadata
     _values = DwdDerivedValues
     _selects_by_period = True
+    # its stations are the 100000 postal codes, ids and no position (`_get_raw_station_data_from_plz_generator`): a
+    # search by place says so (`positions-unavailable`); the other datasets' stations have one
+    datasets_without_positions = frozenset({"monthly/climate_correction_factor"})
+    # and no name either: they are found by their id alone
+    datasets_without_names = frozenset({"monthly/climate_correction_factor"})
 
     def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:
         """Give no span for the monthly datasets, whose recent directories hold years.
@@ -835,4 +850,27 @@ class DwdDerivedRequest(TimeseriesRequest):
         stations_df = stations_df.unique(
             subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
         )
-        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        stations_df = stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        return self._with_wmo_id(stations_df, datasets, settings)
+
+    @staticmethod
+    def _with_wmo_id(stations: pl.LazyFrame, datasets: list[DatasetModel], settings: Settings) -> pl.LazyFrame:
+        """Give the stations of the datasets with DWD's station ids their WMO number and WIGOS id, the others none.
+
+        The number is DWD's Stationslexikon's for a DWD station id (`with_wmo_id`, which `dwd/observation` uses, with
+        its warning where the page cannot be read; GH-4162), and the WIGOS id is WMO's OSCAR/Surface's
+        (`with_oscar_wigos_id`, with its warning `wigos-ids-unavailable`; GH-4074). The ids of the other datasets are
+        none of those, so a number found for one would be another station's: it stays null, and a request for them
+        reads neither.
+        """
+        names = {dataset.name for dataset in datasets if dataset in DWD_STATION_ID_DATASETS}
+        if not names:
+            return stations
+        # the same for the WIGOS id, which WMO's OSCAR/Surface has for the stations whose DWD id is the local part of
+        # one (`with_oscar_wigos_id`, GH-4074)
+        enriched = with_oscar_wigos_id(with_wmo_id(stations, settings), settings, DWD_DERIVED_WIGOS_SCHEME)
+        in_the_datasets = pl.col("dataset").is_in(sorted(names))
+        return enriched.with_columns(
+            pl.when(in_the_datasets).then(pl.col("wmo_id")).alias("wmo_id"),
+            pl.when(in_the_datasets).then(pl.col("wigos_id")).alias("wigos_id"),
+        )

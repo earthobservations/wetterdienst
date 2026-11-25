@@ -26,11 +26,16 @@ describe('unexpectedAnswerReason', () => {
   it('accepts the answers the endpoints give, an empty list included', () => {
     const json = 'application/json'
     expect(unexpectedAnswerReason('/api/stations', { status: 200, contentType: json, data: { stations: [] } })).toBeNull()
-    expect(unexpectedAnswerReason('/api/stripes/values', { status: 200, contentType: json, data: { values: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/_ghcn/annual', { status: 200, contentType: json, data: { values: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/_ghcn/stations', { status: 200, contentType: json, data: { stations: [] } })).toBeNull()
     expect(unexpectedAnswerReason('/api/providers', { status: 200, contentType: json, data: { providers: [] } })).toBeNull()
     expect(unexpectedAnswerReason('/api/glossary', { status: 200, contentType: json, data: [] })).toBeNull()
     expect(unexpectedAnswerReason('/api/coverage', { status: 200, contentType: json, data: {} })).toBeNull()
     expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: { histories: [] } })).toBeNull()
+    // the thunderstorm cells and the radar's frames (GH-4208, GH-3788): a scan with no cell is an empty list, not a failure
+    expect(unexpectedAnswerReason('/api/storm-cells', { status: 200, contentType: json, data: { cells: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/api/radar/frames', { status: 200, contentType: json, data: { frames: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/api/v1/radar/frames', { status: 200, contentType: json, data: { frames: [] } })).toBeNull()
     // the same under the versioned address
     expect(unexpectedAnswerReason('/api/v1/stations', { status: 200, contentType: json, data: { stations: [] } })).toBeNull()
   })
@@ -47,6 +52,16 @@ describe('unexpectedAnswerReason', () => {
     // the history's list is `histories`; an object without it shows nothing
     expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: {} })).toContain('no list of `histories`')
     expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: { stations: [] } })).toContain('no list of `histories`')
+    expect(unexpectedAnswerReason('/api/storm-cells', { status: 200, contentType: json, data: {} })).toContain('no list of `cells`')
+    expect(unexpectedAnswerReason('/api/radar/frames', { status: 200, contentType: json, data: {} })).toContain('no list of `frames`')
+    // the frame itself is an image: it is no JSON that is looked at
+    expect(unexpectedAnswerReason('/api/radar/frame', { status: 200, contentType: 'image/png' })).toBeNull()
+  })
+
+  it('holds the app\'s own list of the GHCN stations to its columns (GH-4267), where a page of another form is no list of none', () => {
+    const json = 'application/json'
+    expect(unexpectedAnswerReason('/_ghcn/map-stations', { status: 200, contentType: json, data: { count: 0, station_id: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/_ghcn/map-stations', { status: 200, contentType: json, data: { stations: [] } })).toContain('no list of `station_id`')
   })
 
   it('tells an answer with no body as no data, and a body labelled JSON that does not parse by that', () => {

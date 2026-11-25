@@ -32,6 +32,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import cli as cli_module
 from wetterdienst.ui import core, restapi
 from wetterdienst.ui.cli import cli
+from wetterdienst.ui.mcp import _REST_ONLY_ARGUMENTS
 from wetterdienst.util import response_warnings
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
@@ -617,15 +618,19 @@ def test_every_command_spells_pretty_the_same() -> None:
         if any(param.name == "pretty" for param in command.params)
     }
 
-    # stations, history, values, interpolate and summarize, alerts and the stripes' stations
+    # stations, history, values, statistics, interpolate and summarize, alerts, storm cells, KOSTRA and the search for
+    # an id
     assert set(with_pretty) == {
         "stations",
         "history",
         "values",
+        "statistics",
         "interpolate",
         "summarize",
         "alerts",
-        "stripes stations",
+        "storm-cells",
+        "kostra",
+        "station-ids",
     }
     spellings = {
         (tuple(param.opts), param.type.name, param.is_flag, param.flag_value, param.default)
@@ -730,10 +735,6 @@ _SURFACES = {
     core.CoverageRequest: (("coverage",), "/api/coverage", "coverage"),
     core.GlossaryRequest: (("glossary",), "/api/glossary", "glossary"),
     core.ProvidersRequest: (("providers",), "/api/providers", "providers"),
-    core.StripesStationsRequest: (("stripes", "stations"), "/api/stripes/stations", "stripes_stations"),
-    # the data of the stripes has no command of its own yet (GH-3035)
-    core.StripesImageRequest: (("stripes", "image"), "/api/stripes/image", "stripes_image"),
-    core.StripesValuesRequest: (None, "/api/stripes/values", "stripes_values"),
     core.SettingsRequest: (None, "/api/settings", None),
 }
 
@@ -750,7 +751,15 @@ _CLI_ONLY = {
     "start": "with --end, the window as two options, read as the one `timestamp`",
     "end": "with --start, the window as two options, read as the one `timestamp`",
 }
+_NO_SQL_ON_A_SERVER = (
+    "the command's caller is the host's own user, who could run the SQL on their own DuckDB; the REST API and the MCP "
+    "tools take none, as it ran a caller's text in DuckDB on the server"
+)
 _CLI_ONLY_OF = {
+    ("stations",): {"sql": _NO_SQL_ON_A_SERVER},
+    ("values",): {"sql": _NO_SQL_ON_A_SERVER, "sql_values": _NO_SQL_ON_A_SERVER},
+    ("interpolate",): {"sql_values": _NO_SQL_ON_A_SERVER},
+    ("summarize",): {"sql_values": _NO_SQL_ON_A_SERVER},
     ("history",): {"format": "history writes JSON only, as REST does without a `format`"},
     ("alerts",): {
         "with_metadata": "writes <file>.metadata.json beside the --target file; a REST answer carries the block always"
@@ -761,9 +770,6 @@ _REST_ONLY_OF = {
     core.ProvidersRequest: {"pretty": "the command line always indents"},
 }
 _NO_COMMAND = {
-    core.StripesValuesRequest: (
-        "the data of the stripes has no command yet: `stripes values`, once the image's name, is not reused (GH-3128)"
-    ),
     core.SettingsRequest: "the settings of the server are reported by REST alone, and are no tool",
 }
 
@@ -836,9 +842,10 @@ def test_every_field_of_a_request_is_an_option_and_an_mcp_argument(model: type[B
     assert set(parameters) == set(fields)
     if tool is not None:
         arguments = _tools()[tool]["properties"]
-        assert set(arguments) == set(fields)
+        # but for the options that only the REST API needs (GH-4318): the tool is the endpoint without them
+        assert set(arguments) == set(fields) - _REST_ONLY_ARGUMENTS
         assert {name: _kind(argument) for name, argument in arguments.items()} == {
-            name: _kind(schema[name]) for name in fields
+            name: _kind(schema[name]) for name in arguments
         }
 
     if path is None:
@@ -1061,7 +1068,6 @@ def test_every_boolean_option_is_one_option_whatever_the_command() -> None:
         "--with-metadata",
         "--humanize",
         "--skip-empty",
-        "--show-title",
     }
     assert [
         (" ".join(path), param.opts[0])
@@ -1094,7 +1100,6 @@ def test_a_bare_boolean_is_on_and_a_boolean_with_a_value_is_that_value(command: 
     [
         pytest.param({}, "missing_one_of", id="none"),
         pytest.param({"stations": "00001", "name": "Dresden"}, "mutually_exclusive", id="stations-and-name"),
-        pytest.param({"all": "true", "sql": "region='Sachsen'"}, "mutually_exclusive", id="all-and-sql"),
         pytest.param(
             {"latitude": "51", "longitude": "13", "rank": "2", "distance": "9"},
             "mutually_exclusive",
@@ -1117,7 +1122,7 @@ def test_a_bad_station_selection_is_the_same_refusal_on_every_surface(
     rest = _rest("/api/values", **selection)
     assert rest.status_code == 422, rest.text
     assert {error["type"] for error in rest.json()["errors"]} == {error_type}
-    named = "rank or distance" if "rank" in selection else "all, stations, wmo_id, wigos_id, icao_id, name"
+    named = "rank or distance" if "rank" in selection else "all, stations, wmo_id, wigos_id, icao_id, name, region"
     assert f"xactly one of {named}" in rest.json()["detail"]
 
     cli_result = _cli("values", *(f"--{key}={value}" for key, value in selection.items()))
@@ -1125,7 +1130,7 @@ def test_a_bad_station_selection_is_the_same_refusal_on_every_surface(
     option_names = (
         "'--rank' or '--distance'"
         if "rank" in selection
-        else "'--all', '--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name'"
+        else "'--all', '--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name', '--region'"
     )
     assert f"one of {option_names}" in cli_result.output
 
@@ -1148,6 +1153,10 @@ _SELECTION_ROUTES: dict[str, tuple[type[BaseModel], dict[str, str]]] = {
     "/api/v1/stations": (core.StationsRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
     "/api/v1/values": (core.ValuesRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
     "/api/v1/history": (core.HistoryRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
+    "/api/v1/statistics": (
+        core.StatisticsRequest,
+        {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "aggregate": "count"},
+    ),
     "/api/v1/interpolate": (
         core.RestInterpolationRequest,
         {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "timestamp": "2020-05-02"},
@@ -1156,13 +1165,11 @@ _SELECTION_ROUTES: dict[str, tuple[type[BaseModel], dict[str, str]]] = {
         core.RestSummaryRequest,
         {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "timestamp": "2020-05-02"},
     ),
-    "/api/v1/stripes/values": (core.StripesValuesRequest, {"kind": "temperature"}),
-    "/api/v1/stripes/image": (core.StripesImageRequest, {"kind": "temperature"}),
 }
 
 
 #: the tools of the MCP server that are these operations
-_SELECTION_TOOLS = {"stations", "values", "history", "interpolate", "summarize", "stripes_values", "stripes_image"}
+_SELECTION_TOOLS = {"stations", "values", "history", "interpolate", "summarize"}
 
 
 def _operation(path: str) -> dict[str, Any]:
@@ -1280,23 +1287,25 @@ def test_each_example_of_a_selection_is_a_value_its_parameter_takes(path: str) -
 
 
 @pytest.mark.parametrize("path", ["/api/v1/stations", "/api/v1/values"])
-def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(
-    path: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(path: str) -> None:
     """The examples of each alternative pass the validation and the lookup of a network of 8 stations (not refused).
 
     That is all it shows. A real network is larger, and a server refuses a request that reads more stations than it
-    allows (`all=true` on `values` over DWD reads 573 and is a 400 at the default limit). `sql` is a 403 where the
-    server does not enable it, which this test does. `history` reads the network's metadata from upstream, which the
-    stand-in does not serve; it, `interpolate`, `summarize` and the two stripes operations are not run here, only
+    allows (`all=true` on `values` over DWD reads 573 and is a 400 at the default limit). `history` reads the network's
+    metadata from upstream, which the stand-in does not serve; it, `interpolate` and `summarize` are not run here, only
     held to the model and to the schemas of their parameters.
     """
     _, base = _SELECTION_ROUTES[path]
-    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     client = TestClient(restapi.app, raise_server_exceptions=False)
 
     for alternative in _alternatives(path):
         answered = client.get(path, params={**base, **alternative})
+        if "region" in alternative:
+            # the stand-in's stations are all in one region, which is not an example's: refused with the ones there are
+            assert answered.status_code == 400, (alternative, answered.text[:300])
+            assert "The regions there are: Sachsen." in answered.json()["detail"]
+            assert client.get(path, params={**base, "region": "sachsen"}).status_code == 200
+            continue
         # the stand-in network has no station by the name or at the place of an example: an empty answer, still a 200
         assert answered.status_code == 200, (alternative, answered.text[:300])
 
@@ -1310,18 +1319,19 @@ _STATION_GROUPS = [
     ["wigos_id"],
     ["icao_id"],
     ["name"],
+    ["region"],
     ["latitude", "longitude"],
     ["left", "bottom", "right", "top"],
-    ["sql"],
 ]
+# fewer than `values`: no bounding box and no list of WMO, WIGOS or ICAO ids (GH-4412)
+_STATISTICS_GROUPS = [["all"], ["stations"], ["name"], ["region"], ["latitude", "longitude"]]
 _EXPECTED_GROUPS = {
     "/api/v1/stations": _STATION_GROUPS,
     "/api/v1/values": _STATION_GROUPS,
     "/api/v1/history": [["all"], ["stations"]],
+    "/api/v1/statistics": _STATISTICS_GROUPS,
     "/api/v1/interpolate": [["station"], ["latitude", "longitude"]],
     "/api/v1/summarize": [["station"], ["latitude", "longitude"]],
-    "/api/v1/stripes/values": [["station"], ["name"]],
-    "/api/v1/stripes/image": [["station"], ["name"]],
 }
 #: parameters to combine, as a client writes them
 _ATOMS = {
@@ -1331,11 +1341,11 @@ _ATOMS = {
     "wigos_id": {"wigos_id": "0-20000-0-10381"},
     "icao_id": {"icao_id": "EDDH"},
     "name": {"name": "Dresden"},
+    "region": {"region": "Sachsen"},
     "point": {"latitude": "51.05", "longitude": "13.74"},
     "latitude": {"latitude": "51.05"},
     "box": {"left": "13", "bottom": "50", "right": "14", "top": "52"},
     "box without top": {"left": "13", "bottom": "50", "right": "14"},
-    "sql": {"sql": "region='Sachsen'"},
     "station": {"station": "01048"},
     "rank": {"rank": "3"},
     "distance": {"distance": "25"},
@@ -1347,7 +1357,7 @@ def _is_accepted(path: str, keys: set[str]) -> bool:
     made = [group for group in _EXPECTED_GROUPS[path] if keys & set(group)]
     if len(made) != 1 or not set(made[0]) <= keys:
         return False
-    if _EXPECTED_GROUPS[path] is _STATION_GROUPS:
+    if _EXPECTED_GROUPS[path] in (_STATION_GROUPS, _STATISTICS_GROUPS):
         point = {"latitude", "longitude"} <= keys
         # a point wants a rank or a distance, not both; a distance wants a point, a rank a point or a name
         if point and len(keys & {"rank", "distance"}) != 1:

@@ -6,21 +6,26 @@ import datetime as dt
 from types import SimpleNamespace
 from typing import Any
 
-import polars as pl
 import pytest
 from pydantic import ValidationError
 
 from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.ui import core
 from wetterdienst.ui.core import (
+    AlertsRequest,
+    CliInterpolationRequest,
+    CliStationsRequest,
+    CliSummaryRequest,
+    CliValuesRequest,
+    GlossaryRequest,
     HistoryRequest,
     InterpolationRequest,
+    IssuesRequest,
+    RestInterpolationRequest,
+    RestSummaryRequest,
     StationsRequest,
-    StripesImageRequest,
-    StripesValuesRequest,
     SummaryRequest,
     ValuesRequest,
-    _get_stripes_data,
     get_interpolate,
     get_summarize,
     resolve_network,
@@ -45,7 +50,6 @@ _BBOX = {"left": 13.0, "bottom": 51.0, "right": 14.0, "top": 52.0}
         # a point on the equator and the prime meridian is a point, not a missing one
         {"latitude": 0.0, "longitude": 0.0, "rank": 5},
         _BBOX,
-        {"sql": "region='Sachsen'"},
     ],
 )
 def test_station_selection_accepted(model: type[StationsRequest | ValuesRequest], selection: dict[str, Any]) -> None:
@@ -89,11 +93,12 @@ _ONE_OF_SELECTIONS = {
         ["wigos_id"],
         ["icao_id"],
         ["name"],
+        ["region"],
         ["latitude", "longitude"],
         ["left", "bottom", "right", "top"],
-        ["sql"],
     ]
 }
+_ONE_OF_CLI_SELECTIONS = {"one_of": [*_ONE_OF_SELECTIONS["one_of"], ["sql"]]}
 
 
 @pytest.mark.parametrize("model", [StationsRequest, ValuesRequest])
@@ -111,11 +116,10 @@ _ONE_OF_SELECTIONS = {
         ),
         # a bounding box conflicts by the first side it gives
         (
-            {"all": True, **_BBOX, "sql": "region='Sachsen'"},
+            {"all": True, **_BBOX},
             [
-                ("mutually_exclusive", ("all",), {"conflicts_with": ["left", "sql"], **_ONE_OF_SELECTIONS}),
-                ("mutually_exclusive", ("left",), {"conflicts_with": ["all", "sql"], **_ONE_OF_SELECTIONS}),
-                ("mutually_exclusive", ("sql",), {"conflicts_with": ["all", "left"], **_ONE_OF_SELECTIONS}),
+                ("mutually_exclusive", ("all",), {"conflicts_with": ["left"], **_ONE_OF_SELECTIONS}),
+                ("mutually_exclusive", ("left",), {"conflicts_with": ["all"], **_ONE_OF_SELECTIONS}),
             ],
         ),
         ({"latitude": 51.0, "rank": 5}, [("missing_with", ("longitude",), {"required_with": ["latitude"]})]),
@@ -160,15 +164,15 @@ def test_station_selection_refused(
         (
             {},
             (
-                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), "
-                "(left, bottom, right and top) or sql is required"
+                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, region, "
+                "(latitude and longitude) or (left, bottom, right and top) is required"
             ),
         ),
         (
             {"stations": "01048", "name": "Hamburg"},
             (
                 "Cannot be combined with name, give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, "
-                "(latitude and longitude), (left, bottom, right and top) or sql"
+                "region, (latitude and longitude) or (left, bottom, right and top)"
             ),
         ),
         ({"latitude": 51.0, "rank": 5}, "Field required with latitude"),
@@ -184,6 +188,114 @@ def test_station_selection_message(selection: dict[str, Any], message: str) -> N
     with pytest.raises(ValidationError) as info:
         StationsRequest.model_validate({**_BASE, **selection})
     assert info.value.errors()[0]["msg"] == message
+
+
+@pytest.mark.parametrize("model", [CliStationsRequest, CliValuesRequest])
+def test_the_command_line_selects_stations_by_sql_too(model: type[CliStationsRequest | CliValuesRequest]) -> None:
+    """The command line's models have `--sql` as one more way to select the stations, with the rules of the others."""
+    model.model_validate({**_BASE, "sql": "region='Sachsen'"})
+    assert _errors(model, _BASE) == [("missing_one_of", (), _ONE_OF_CLI_SELECTIONS)]
+    assert _errors(model, {**_BASE, "all": True, "sql": "region='Sachsen'"}) == [
+        ("mutually_exclusive", ("all",), {"conflicts_with": ["sql"], **_ONE_OF_CLI_SELECTIONS}),
+        ("mutually_exclusive", ("sql",), {"conflicts_with": ["all"], **_ONE_OF_CLI_SELECTIONS}),
+    ]
+    with pytest.raises(ValidationError) as info:
+        model.model_validate(_BASE)
+    assert info.value.errors()[0]["msg"].endswith("(left, bottom, right and top) or sql is required")
+
+
+@pytest.mark.parametrize("model", [CliValuesRequest, CliInterpolationRequest, CliSummaryRequest])
+def test_the_command_line_filters_the_values_by_sql(model: type) -> None:
+    """The command line's models of the values take `--sql-values`, which the server's refuse."""
+    extra = {"stations": "01048"} if model is CliValuesRequest else {"station": "01048"}
+    assert model.model_validate({**_BASE, **extra, "timestamp": "2020-01-01", "sql_values": "value > 1"}).sql_values
+
+
+_SELECTING_BY_NAME = {"stations": "01048"}
+_SELECTING_BY_STATION = {"station": "01048"}
+
+_TOOK_SQL = [
+    pytest.param(
+        StationsRequest,
+        "sql",
+        _SELECTING_BY_NAME,
+        "select the stations with the filters of the route",
+        id="stations-sql",
+    ),
+    pytest.param(
+        ValuesRequest, "sql", _SELECTING_BY_NAME, "select the stations with the filters of the route", id="values-sql"
+    ),
+    pytest.param(
+        ValuesRequest,
+        "sql_values",
+        _SELECTING_BY_NAME,
+        "(the rows of `format=json`, `csv` or `ndjson`)",
+        id="values-sql_values",
+    ),
+    pytest.param(
+        InterpolationRequest,
+        "sql_values",
+        _SELECTING_BY_STATION,
+        "(the rows of `format=json` or `csv`)",
+        id="interpolate-sql_values",
+    ),
+    pytest.param(
+        RestInterpolationRequest,
+        "sql_values",
+        _SELECTING_BY_STATION,
+        "(the rows of `format=json` or `csv`)",
+        id="rest-interpolate-sql_values",
+    ),
+    pytest.param(
+        SummaryRequest,
+        "sql_values",
+        _SELECTING_BY_STATION,
+        "(the rows of `format=json` or `csv`)",
+        id="summarize-sql_values",
+    ),
+    pytest.param(
+        RestSummaryRequest,
+        "sql_values",
+        _SELECTING_BY_STATION,
+        "(the rows of `format=json` or `csv`)",
+        id="rest-summarize-sql_values",
+    ),
+]
+
+
+@pytest.mark.parametrize(("model", "name", "extra", "way_out"), _TOOK_SQL)
+def test_the_server_models_refuse_sql_as_removed(model: type, name: str, extra: dict[str, str], way_out: str) -> None:
+    """A request of a route that took `sql` or `sql_values` is told it was removed, with what that route offers."""
+    values = {**_BASE, **extra, "timestamp": "2020-01-01", name: "value > 1"}
+    with pytest.raises(ValidationError) as info:
+        model.model_validate(values)
+    errors = [(e["type"], e["loc"], e["msg"]) for e in info.value.errors()]
+    assert [(kind, loc) for kind, loc, _ in errors] == [("removed", (name,))]
+    message = errors[0][2]
+    assert message.startswith(f"{name} was removed: the REST API and the MCP tools no longer filter with SQL")
+    assert way_out in message
+    assert message.endswith("keep it")
+    assert ("`--sql-values`" if name == "sql_values" else "`--sql`") in message
+
+
+@pytest.mark.parametrize("model", [InterpolationRequest, SummaryRequest, RestInterpolationRequest, RestSummaryRequest])
+def test_a_route_that_never_took_sql_answers_it_as_a_parameter_it_does_not_know(model: type) -> None:
+    """`interpolate` and `summarize` never had `sql`: it is no removed parameter there, but one like any other."""
+    values = {**_BASE, **_SELECTING_BY_STATION, "timestamp": "2020-01-01", "sql": "value > 1"}
+    with pytest.raises(ValidationError) as info:
+        model.model_validate(values)
+    assert [(e["type"], e["loc"]) for e in info.value.errors()] == [("extra_forbidden", ("sql",))]
+    assert "removed" not in str(info.value)
+
+
+@pytest.mark.parametrize("model", [HistoryRequest, IssuesRequest, GlossaryRequest, AlertsRequest])
+@pytest.mark.parametrize("name", ["sql", "sql_values"])
+def test_a_route_that_took_no_sql_at_all_does_not_call_it_removed(model: type, name: str) -> None:
+    """A route that was never given `sql` or `sql_values` answers as for any parameter it does not know."""
+    with pytest.raises(ValidationError) as info:
+        model.model_validate({name: "value > 1"})
+    assert ("extra_forbidden", (name,)) in [(e["type"], e["loc"]) for e in info.value.errors()]
+    assert "removed" not in str(info.value)
 
 
 @pytest.mark.parametrize(
@@ -246,203 +358,6 @@ def test_reference_point(
         model.model_validate(values)
         return
     assert _errors(model, values) == errors
-
-
-@pytest.mark.parametrize("model", [StripesValuesRequest, StripesImageRequest])
-@pytest.mark.parametrize(
-    ("given", "errors"),
-    [
-        ({"station": "01048"}, None),
-        ({"name": "Dresden"}, None),
-        ({"station": "01048", "start_year": 2000, "end_year": 2001}, None),
-        ({}, [("missing_one_of", (), {"one_of": [["station"], ["name"]]})]),
-        (
-            {"station": "01048", "name": "Dresden"},
-            [
-                ("mutually_exclusive", ("station",), {"conflicts_with": ["name"], "one_of": [["station"], ["name"]]}),
-                ("mutually_exclusive", ("name",), {"conflicts_with": ["station"], "one_of": [["station"], ["name"]]}),
-            ],
-        ),
-        # a range ending where it starts holds one year, and stripes need two
-        (
-            {"station": "01048", "start_year": 2000, "end_year": 2000},
-            [("greater_than_field", ("end_year",), {"field": "start_year", "gt": 2000})],
-        ),
-        ({"station": "01048", "name_threshold": 1.01}, [("less_than_equal", ("name_threshold",), {"le": 1.0})]),
-    ],
-)
-def test_stripes_selection(
-    model: type[StripesValuesRequest | StripesImageRequest],
-    given: dict[str, Any],
-    errors: list | None,
-) -> None:
-    """Test climate stripes are made for exactly one of a station or a name, over a range of years."""
-    values = {"kind": "temperature", **given}
-    if errors is None:
-        model.model_validate(values)
-        return
-    assert _errors(model, values) == errors
-
-
-def _stripes_of(
-    monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None], flags: dict[int, str] | None = None
-) -> None:
-    """Serve these annual values, by year, as the one station any stripes request finds, with the flags by year."""
-    from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
-
-    frame = pl.DataFrame(
-        {
-            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.UTC) for year in values],
-            "value": list(values.values()),
-            "quality_flags": [(flags or {}).get(year) for year in values],
-        },
-        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64, "quality_flags": pl.String},
-    )
-    # read with the parameter and options of the real request, which the metadata names the unit by
-    real = core._get_stripes_temperature_request()  # noqa: SLF001
-    # as the values build theirs
-    unit_converter = UnitConverter()
-    unit_converter.update_targets(real.options.unit_targets)
-    stations = SimpleNamespace(
-        to_dict=lambda: {"stations": [{"station_id": "01048", "name": "Dresden-Klotzsche"}]},
-        values=lambda: SimpleNamespace(all=lambda: SimpleNamespace(df=frame), unit_converter=unit_converter),
-        parameters=real.parameters,
-        options=real.options,
-    )
-    request = SimpleNamespace(filter_by_station_id=lambda _station: stations)
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
-
-
-def test_stripes_are_scaled_over_the_years_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the colours span the requested years, not the station's whole record (GH-2063).
-
-    Scaled over 2000 to 2009 they left 2003 to 2005 in the middle of the colour map, a third of it
-    between them, and `value_scaled` went nowhere near 0 or 1 over the years returned.
-    """
-    _stripes_of(monkeypatch, {year: float(year - 1999) for year in range(2000, 2010)})
-    request = StripesValuesRequest(kind="temperature", station="01048", start_year=2003, end_year=2005)
-    df = _get_stripes_data(request).df
-    assert df.get_column("timestamp").dt.year().to_list() == [2003, 2004, 2005]
-    assert df.get_column("value_scaled").to_list() == [1.0, 0.5, 0.0]
-
-
-@pytest.mark.parametrize(
-    ("values", "years"),
-    [
-        # no year of the station's record in the range: empty stripes, answered as valid
-        ({2000: 1.0, 2001: 2.0}, (2090, 2095)),
-        # one year with data, the rest missing: stripes of a single colour
-        ({2000: 1.0, 2001: None, 2002: None}, (2000, 2002)),
-    ],
-)
-def test_stripes_need_two_years_with_data(
-    monkeypatch: pytest.MonkeyPatch,
-    values: dict[int, float | None],
-    years: tuple[int, int],
-) -> None:
-    """Test a range holding fewer than two years with data is refused, not drawn (GH-2063)."""
-    _stripes_of(monkeypatch, values)
-    request = StripesValuesRequest(kind="temperature", station="01048", start_year=years[0], end_year=years[1])
-    with pytest.raises(
-        ValueError,
-        match="At least two years with data are required to create climate stripes; station 01048 has data from 2000",
-    ):
-        _get_stripes_data(request)
-
-
-def test_stripes_leave_out_a_value_a_soft_check_flagged_suspect(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A year whose value is flagged `suspect:` is a year without data, whatever the mode of the check (GH-3676).
-
-    The 4021 of 2002 would have set the scale of the whole series; flagged suspect, the colours are scaled over the
-    three years that are left, and the year shows as a gap. The flag of a code (`raw:`) and the station's own are no
-    suspicion.
-    """
-    values = {2000: 1.0, 2001: 2.0, 2002: 4021.0, 2003: 3.0, 2004: 4.0}
-    _stripes_of(monkeypatch, values, {2002: "3,suspect:range", 2000: "3,raw:-999", 2001: "3"})
-    df = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df
-    assert df.get_column("timestamp").dt.year().to_list() == [2000, 2001, 2002, 2003, 2004]
-    assert df.get_column("value").to_list() == [1.0, 2.0, None, 3.0, 4.0]
-    assert df.get_column("value_scaled").to_list() == [1.0, pytest.approx(2 / 3), None, pytest.approx(1 / 3), 0.0]
-    # the control: with no flag the value is a year of the series
-    _stripes_of(monkeypatch, values)
-    assert _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df.get_column(
-        "value"
-    ).to_list() == list(values.values())
-
-
-def test_stripes_of_one_value_take_the_middle_of_the_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test years all of one value are scaled to 0.5, not divided by a range of zero into NaN."""
-    _stripes_of(monkeypatch, {2019: 700.0, 2020: 700.0})
-    df = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df
-    assert df.get_column("value_scaled").to_list() == [0.5, 0.5]
-
-
-def test_stripes_start_and_end_at_a_year_with_data(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a start or end year in a gap of the record does not label the stripes with a year without data.
-
-    A start year of 1991 in a record with no data from 1991 to 1994 kept four empty years in front of
-    the first stripe, and the image was labelled 1991.
-    """
-    _stripes_of(monkeypatch, {1990: 1.0, 1991: None, 1992: None, 1993: None, 1994: None, 1995: 2.0, 1996: 3.0})
-    request = StripesValuesRequest(kind="temperature", station="01048", start_year=1991, end_year=1999)
-    df = _get_stripes_data(request).df
-    assert df.get_column("timestamp").dt.year().to_list() == [1995, 1996]
-
-
-def test_stripes_are_coloured_the_same_in_any_unit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the colours, scaled over the years, and the order of the years do not change with the unit (GH-3980).
-
-    The values come back in the unit asked for, the series names it, and `value_scaled`, which the colours are
-    taken from, is the same in degree Celsius, degree Fahrenheit and kelvin up to the rounding of the conversion.
-    """
-    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
-
-    celsius = [1.23, 5.5, -2.1, 9.87, 7.0, 3.3, 8.8]
-    _stub_stripes_station(monkeypatch, "temperature", celsius)
-    request = {"kind": "temperature", "station": "01048"}
-
-    default = _get_stripes_data(StripesValuesRequest(**request))
-    fahrenheit = _get_stripes_data(StripesValuesRequest(**request, unit_targets={"temperature": "degree_fahrenheit"}))
-    kelvin = _get_stripes_data(StripesValuesRequest(**request, unit_targets='{"temperature": "degree_kelvin"}'))
-
-    assert (default.series.unit, fahrenheit.series.unit, kelvin.series.unit) == (
-        "degree_celsius",
-        "degree_fahrenheit",
-        "degree_kelvin",
-    )
-    assert default.df.get_column("value").to_list() == pytest.approx(celsius)
-    assert fahrenheit.df.get_column("value").to_list() == pytest.approx([c * 1.8 + 32 for c in celsius], abs=1e-3)
-    for other in (fahrenheit, kelvin):
-        assert other.df.get_column("value_scaled").to_list() == pytest.approx(
-            default.df.get_column("value_scaled").to_list(), abs=1e-3
-        )
-        assert other.df.get_column("timestamp").to_list() == default.df.get_column("timestamp").to_list()
-        # the order of the years, which the colours rank
-        assert other.df.get_column("value").arg_sort().to_list() == default.df.get_column("value").arg_sort().to_list()
-
-
-@pytest.mark.parametrize(
-    ("kind", "highest", "lowest"),
-    [
-        # warm is red, cool is blue
-        ("temperature", "#67001f", "#053061"),
-        # wet is teal, dry is brown: reversed, the wettest year took brown (GH-2063)
-        ("precipitation", "#003c30", "#543005"),
-    ],
-)
-def test_stripes_colour_the_highest_and_lowest_years_as_their_kind_reads(kind: str, highest: str, lowest: str) -> None:
-    """Test the colour map puts each kind's highest year, scaled to 0, and its lowest, scaled to 1, at the right end."""
-    colours = core.CLIMATE_STRIPES_CONFIG[kind]["colors"]
-    assert (colours[0], colours[-1]) == (highest, lowest)
-
-
-def test_stripes_match_a_name_as_stations_and_values_do() -> None:
-    """Test climate stripes default to the name threshold of the other requests and the CLI (GH-2063)."""
-    assert StripesValuesRequest(kind="temperature", name="Dresden").name_threshold == 0.8
-    assert (
-        StripesValuesRequest.model_fields["name_threshold"].default
-        == StationsRequest.model_fields["name_threshold"].default
-    )
 
 
 class _Recorder:
@@ -545,8 +460,15 @@ def test_get_issues_lists_the_swsmos_runs(monkeypatch: pytest.MonkeyPatch) -> No
     ]
 
 
-@pytest.mark.parametrize("option", [{"dataset": "icon"}, {"lead_time": "long"}])
-def test_get_issues_refuses_dmo_options_for_swsmos(option: dict[str, str]) -> None:
+@pytest.mark.parametrize(
+    ("option", "message"),
+    [
+        ({"dataset": "icon"}, "dataset does not apply to DWD SWSMOS"),
+        ({"dataset": "small"}, "dataset does not apply to DWD SWSMOS"),
+        ({"lead_time": "long"}, "lead_time applies to DWD DMO only"),
+    ],
+)
+def test_get_issues_refuses_dmo_options_for_swsmos(option: dict[str, str], message: str) -> None:
     """Test a DMO-only option asked of dwd/swsmos is refused, as for MOSMIX, rather than ignored (GH-2319)."""
     from wetterdienst.exceptions import InvalidEnumerationError  # noqa: PLC0415
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
@@ -556,135 +478,8 @@ def test_get_issues_refuses_dmo_options_for_swsmos(option: dict[str, str]) -> No
         {"provider": "dwd", "network": "swsmos", "station": "A006", **option},
     )
 
-    with pytest.raises(InvalidEnumerationError, match="applies to DWD DMO only"):
+    with pytest.raises(InvalidEnumerationError, match=message):
         core.get_issues(api=DwdSwsmosRequest, request=request, settings=Settings())
-
-
-@pytest.mark.parametrize(
-    "environment", [{"WD_TS_SHAPE": "wide"}, {"WD_TS_SKIP_EMPTY": "true"}], ids=["wide", "skip_empty"]
-)
-@pytest.mark.parametrize(
-    ("kind", "dataset", "name_original"),
-    [("temperature", "climate_summary", "ja_tt"), ("precipitation", "precipitation_more", "ja_rr")],
-)
-def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
-    monkeypatch: pytest.MonkeyPatch,
-    environment: dict[str, str],
-    kind: str,
-    dataset: str,
-    name_original: str,
-) -> None:
-    """Test the environment leaves the stripes a station's whole record, in a `value` column (GH-2348).
-
-    The stripes requests take their settings from the environment. A wide frame has no `value`
-    column, so `WD_TS_SHAPE=wide` raised `ColumnNotFoundError`, and `WD_TS_SKIP_EMPTY=true` dropped
-    a station with gaps in its record, which left no years to draw. The station list and the
-    station's one download are stubbed, so the dropping of nulls, the skipping and the shaping all
-    still run and nothing leaves the machine.
-    """
-    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
-
-    # two years of five missing, well below the 0.95 `skip_threshold` asks for by default
-    values = [1.0, None, None, 4.0, 5.0]
-    years = list(range(2000, 2000 + len(values)))
-    stations = pl.DataFrame(
-        [
-            {
-                "resolution": "annual",
-                "dataset": dataset,
-                "station_id": "01048",
-                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
-                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.UTC),
-                "latitude": 51.1278,
-                "longitude": 13.7543,
-                "elevation": 228.0,
-                "name": "Dresden-Klotzsche",
-                "state": "Sachsen",
-            },
-        ],
-    )
-
-    def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
-
-    def _collect_station_parameter_or_dataset(
-        self: DwdObservationValues,  # noqa: ARG001
-        station_id: str,
-        parameter_or_dataset: object,  # noqa: ARG001
-    ) -> pl.DataFrame:
-        # as the source has them: named by its codes, the missing years as nulls
-        return pl.DataFrame(
-            [
-                {
-                    "station_id": station_id,
-                    "resolution": "annual",
-                    "dataset": dataset,
-                    "parameter": name_original,
-                    "timestamp": dt.datetime(year, 1, 1, tzinfo=dt.UTC),
-                    "value": value,
-                    "quality_flags": "10",
-                }
-                for year, value in zip(years, values, strict=True)
-            ],
-            schema_overrides={"value": pl.Float64},
-        )
-
-    for name, setting in environment.items():
-        monkeypatch.setenv(name, setting)
-    monkeypatch.setattr(DwdObservationRequest, "all", _all)
-    monkeypatch.setattr(
-        DwdObservationValues, "_collect_station_parameter_or_dataset", _collect_station_parameter_or_dataset
-    )
-    df = _get_stripes_data(StripesValuesRequest(kind=kind, station="01048")).df
-    assert df.get_column("timestamp").dt.year().to_list() == years
-    assert df.get_column("value").to_list() == values
-
-
-def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a listed station whose values come back without rows is refused, not upsampled (GH-2369).
-
-    The values drop a station whose collected frame is empty, so one whose data file is missing left
-    an empty frame, and `upsample` raised `ComputeError` ("cannot determine upsample boundaries")
-    rather than the refusal a station with only null values gets. The station list is stubbed, and
-    the station's one download returns the bare frame DWD's values return for a file that is not
-    there, so the values' own empty frame is what reaches the stripes.
-    """
-    from wetterdienst.exceptions import NotEnoughDataError  # noqa: PLC0415
-    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
-
-    stations = pl.DataFrame(
-        [
-            {
-                "resolution": "annual",
-                "dataset": "climate_summary",
-                "station_id": "01048",
-                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
-                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.UTC),
-                "latitude": 51.1278,
-                "longitude": 13.7543,
-                "elevation": 228.0,
-                "name": "Dresden-Klotzsche",
-                "state": "Sachsen",
-            },
-        ],
-    )
-
-    def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
-
-    monkeypatch.setattr(DwdObservationRequest, "all", _all)
-    monkeypatch.setattr(
-        DwdObservationValues, "_collect_station_parameter_or_dataset", lambda *_args, **_kwargs: pl.DataFrame()
-    )
-    with pytest.raises(
-        NotEnoughDataError,
-        match="At least two years with data are required to create climate stripes; station 01048 has data for no year",
-    ):
-        _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
 
 
 @pytest.mark.parametrize("model", [ValuesRequest, InterpolationRequest, SummaryRequest])
@@ -743,10 +538,10 @@ def test_a_list_by_its_singular_name_is_refused_naming_the_plural(
     ]
 
 
-@pytest.mark.parametrize("model", [InterpolationRequest, SummaryRequest, core.IssuesRequest, StripesValuesRequest])
+@pytest.mark.parametrize("model", [InterpolationRequest, SummaryRequest, core.IssuesRequest])
 def test_the_one_station_a_request_takes_is_not_a_renamed_list(model: type) -> None:
     """Test `station` is the name of a single station, which the requests that take one go on to accept (GH-2561)."""
-    given = {"kind": "temperature"} if model is StripesValuesRequest else {**_BASE, "timestamp": "2020-06-30"}
+    given = {**_BASE, "timestamp": "2020-06-30"}
     if model is core.IssuesRequest:
         given = {"provider": "dwd", "network": "mosmix"}
     assert model.model_validate({**given, "station": "01048"}).station == "01048"
@@ -797,12 +592,13 @@ _STATUS_OF = {
     "MetaFileFormatError": 502,
     "MetaFileNotFoundError": 502,
     "MissingDependencyError": 501,
+    "UnsupportedDependencyError": 501,
     "MissingTimeIntervalError": 400,
     "NoInternetError": 503,
     "NoParametersFoundError": 400,
     "NoPeriodsFoundError": 400,
+    "NoStationPositionsError": 422,
     "NoStationsWithElevationError": 400,
-    "NotEnoughDataError": 400,
     "NotFoundError": 404,
     "ParameterNotCarriedError": 400,
     "ProductFileNotFoundError": 502,
@@ -813,9 +609,13 @@ _STATUS_OF = {
     "RequestError": 400,
     "ReversedTimeIntervalError": 400,
     "StartDateEndDateError": 400,
+    "StationLacksParametersError": 400,
     "StationListingIncompleteError": 502,
+    "RegionListingIncompleteError": 502,
     "StationNotFoundError": 404,
     "UnknownFormatError": 400,
+    "UnknownRegionError": 400,
+    "NoRegionsError": 400,
     "UpstreamError": 502,
     "WetterdienstError": 500,
 }
@@ -916,6 +716,69 @@ def test_a_refusal_is_told_by_its_class_and_not_by_the_class_it_also_is() -> Non
     assert not core._is_caller_refusal(CredentialMissingError("x"), request)  # noqa: SLF001
     # and so is a rejected one, though it is a `PermissionError`
     assert not core._is_caller_refusal(CredentialRejectedError("x"), request)  # noqa: SLF001
+
+
+def _duckdb_refusals() -> list[Any]:
+    """Give the refusals of the connection of the SQL filter, by what they are about, as DuckDB raises them."""
+    duckdb = pytest.importorskip("duckdb")
+    return [
+        pytest.param(duckdb.PermissionException("file system operations are disabled"), id="file"),
+        pytest.param(duckdb.OutOfMemoryException("could not allocate block"), id="memory"),
+        # an extension DuckDB would install on the fly is refused with the bare class, every other derives from it
+        pytest.param(duckdb.Error("Extension is not installed, and cannot be installed on the fly"), id="extension"),
+        pytest.param(duckdb.NotSupportedError("not implemented"), id="not-implemented"),
+    ]
+
+
+@pytest.mark.parametrize("error", _duckdb_refusals())
+@pytest.mark.parametrize("clause", [{"sql": "value > 1"}, {"sql_values": "value > 1"}])
+def test_a_refusal_of_the_sql_connection_is_the_callers_where_the_request_carries_a_clause(
+    error: Exception, clause: dict[str, str]
+) -> None:
+    """The command line's own clause is what the connection refused: a 400, which the command line tells as usage."""
+    request = SimpleNamespace(**clause)
+
+    assert core._caller_refusal_status(error, request) == 400  # noqa: SLF001
+    assert core._is_caller_refusal(error, request)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("error", _duckdb_refusals())
+@pytest.mark.parametrize(
+    "request_", [SimpleNamespace(), SimpleNamespace(sql=None, sql_values=None), SimpleNamespace(sql="")]
+)
+def test_a_refusal_of_the_sql_connection_is_no_refusal_without_a_clause(error: Exception, request_: object) -> None:
+    """DuckDB failing for a request that has no clause is not the caller's doing, so it stays what it is."""
+    assert core._caller_refusal_status(error, request_) is None  # noqa: SLF001
+
+
+@pytest.mark.parametrize("name", ["InternalException", "IOException", "SerializationException", "IntegrityError"])
+def test_a_duckdb_failure_inside_duckdb_stays_a_failure_even_with_a_clause(name: str) -> None:
+    """Only the exact classes of the connection's refusals count: a failure inside DuckDB is a defect, not a 400."""
+    duckdb = pytest.importorskip("duckdb")
+    error = getattr(duckdb, name)("inside")
+    # not derived from a class that is counted, so that the test holds the classes and not the hierarchy of a release
+    assert not isinstance(error, (duckdb.PermissionException, duckdb.OutOfMemoryException, duckdb.NotSupportedError))
+    assert type(error) is not duckdb.Error
+
+    assert core._caller_refusal_status(error, SimpleNamespace(sql_values="value > 1")) is None  # noqa: SLF001
+
+
+def test_the_refusals_of_the_sql_connection_are_what_the_filter_raises() -> None:
+    """The classes counted are those the filter raises for a file and for a URL, not names of a release."""
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.io.sql_filter import filter_by_sql  # noqa: PLC0415
+
+    duckdb = pytest.importorskip("duckdb")
+    frame = pl.DataFrame({"elevation": [1.0, 2.0]})
+    for clause in (
+        "elevation IN (SELECT elevation FROM read_csv('secret.csv'))",
+        "elevation IN (SELECT elevation FROM read_csv('http://127.0.0.1:9/x.csv'))",
+    ):
+        with pytest.raises(duckdb.PermissionException) as caught:
+            filter_by_sql(frame, clause)
+        assert core._caller_refusal_status(caught.value, SimpleNamespace(sql="x")) == 400  # noqa: SLF001
+        assert core._caller_refusal_status(caught.value, SimpleNamespace()) is None  # noqa: SLF001
 
 
 @pytest.mark.parametrize(

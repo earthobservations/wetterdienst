@@ -71,6 +71,7 @@ _KnmiObservationMetadataSpec = {
     },
     "timezone": "Europe/Amsterdam",
     "auth": True,
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "10_minutes",
@@ -91,10 +92,11 @@ _KnmiObservationMetadataSpec = {
                             "aggregation": "instant",
                         },
                         {
-                            "name": "temperature_air_mean_0_1m",
+                            "name": "temperature_air_0_1m",
                             "name_original": "tg",
                             "timestamp_position": "end",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",

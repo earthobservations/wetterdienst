@@ -142,8 +142,8 @@ def _stamp(moment: dt.datetime) -> str:
     return moment.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def _serve(monkeypatch: pytest.MonkeyPatch, series: Series, *, path: str = "batch", now: dt.datetime = NOW) -> None:
-    """Serve Oslo/Blindern with a closed and an open value of the series, at the time `now`, by the reader `path`."""
+def _serve(monkeypatch: pytest.MonkeyPatch, series: Series, *, now: dt.datetime = NOW) -> None:
+    """Serve Oslo/Blindern with a closed and an open value of the series, at the time `now`."""
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
     monkeypatch.setenv("WD_CACHE_DISABLE", "1")
     monkeypatch.setattr(frost_api, "_now", lambda: now)
@@ -151,17 +151,7 @@ def _serve(monkeypatch: pytest.MonkeyPatch, series: Series, *, path: str = "batc
         (_stamp(series.closed), series.offset, CLOSED_VALUE),
         (_stamp(series.open_), series.offset, OPEN_VALUE),
     ]
-    available = {
-        "data": [
-            {
-                "validFrom": "1940-01-01T00:00:00Z",
-                "timeOffset": series.offset,
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
-                f"&timeoffsets={series.offset}",
-            }
-        ]
-    }
-    observations = _answered_by(path, _offset_answer(series.element, readings), available)
+    observations = _answered_by(_offset_answer(series.element, readings))
 
     def download(*, url: str, **_: object) -> File:
         if is_series_listing(url):
@@ -171,15 +161,9 @@ def _serve(monkeypatch: pytest.MonkeyPatch, series: Series, *, path: str = "batc
     monkeypatch.setattr(frost_api, "download_file", download)
 
 
-#: a second parameter of the dataset by resolution, whose batched request the stub answers with a 404, so that the
-#: reader of one parameter is the one reached
-HELPERS = {"monthly": "wind_speed_mean", "annual": "cloud_cover_total_mean"}
-
-
-def _request(series: Series, *, helper: bool = False) -> MetnoFrostRequest:
-    parameters = [*series.parameters, (series.resolution, "data", HELPERS[series.resolution])] if helper else None
+def _request(series: Series) -> MetnoFrostRequest:
     return MetnoFrostRequest(
-        parameters=parameters or series.parameters,
+        parameters=series.parameters,
         start=series.closed,
         end=series.end,
         settings=Settings(cache_disable=True),
@@ -275,26 +259,6 @@ def test_an_estimate_over_closed_windows_says_nothing(monkeypatch: pytest.Monkey
 
     assert recorded_warnings() == []
     assert result.df.filter(pl.col("timestamp") == series.open_)["value"].to_list() == [OPEN_VALUE]
-
-
-@pytest.mark.parametrize("path", ["single", "discovery"])
-@pytest.mark.parametrize(("series", "for_"), SERIES[1:])
-@pytest.mark.parametrize("estimate", ESTIMATES)
-def test_the_single_and_the_discovery_reader_leave_an_open_month_and_year_out_of_an_estimate_too(
-    monkeypatch: pytest.MonkeyPatch, series: Series, for_: str, path: str, estimate: str
-) -> None:
-    """The three readers of Frost agree: the value of an open month or year is not in the estimate and is told."""
-    _serve(monkeypatch, series, path=path)
-    begin_response()
-
-    result = getattr(_request(series, helper=path == "single"), estimate)(_FROST_POINT)
-
-    (warning,) = recorded_warnings()
-    assert warning["code"] == SOURCE_DATA_LEFT_OUT
-    assert f"(1 {for_}) and is left out" in warning["message"]
-    if estimate == "summarize":
-        # and it is not in the answer, which the tally alone would not show
-        assert _closed_and_open_rows(result.df, series) == ([CLOSED_VALUE], [None])
 
 
 def test_several_open_values_are_counted_by_what_the_window_is() -> None:
@@ -644,7 +608,7 @@ def test_an_estimate_and_values_inside_the_download_at_once_keep_to_their_own_ru
     inside: list[str] = []
 
     def download(*, url: str, **kwargs: object) -> File:
-        if "observations/v0" in url and "/sources/" not in url and "availableTimeSeries" not in url:
+        if "observations/v0" in url and "/sources/" not in url:
             inside.append(threading.current_thread().name)
             barrier.wait()
         return served(url=url, **kwargs)

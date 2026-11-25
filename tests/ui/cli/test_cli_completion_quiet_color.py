@@ -478,7 +478,7 @@ def test_the_server_is_told_not_to_colour_with_no_color(
 
 # --- an image under --quiet ---------------------------------------------------------------------------------------
 
-#: a command of its own that draws a chart as `render_image` does, as `stripes image` and a PNG of `values` do
+#: a command of its own that draws a chart as `render_image` does, as a PNG of `values` does
 _DRAW = textwrap.dedent(
     """
     import altair as alt

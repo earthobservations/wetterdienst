@@ -15,10 +15,19 @@ const route = useRoute()
 // scroll is made here as well as by the router, which does not make it on a first load of the address, as the page is
 // drawn after the browser looked for the anchor
 const barHeading = useTemplateRef<HTMLElement>('barHeading')
+//
+// The search of the header leads to a setting by its anchor (`#settings-friendly-labels`, `#settings-unit-speed`, GH-3790): the
+// page scrolls to the control and puts the focus on it. The rows of the unit choices are there only while "Convert units" is on,
+// and a link to one with it off leads to that switch, which is what shows them.
+const reveal = useRevealHash({ fallback: id => id.startsWith('settings-unit-') ? 'settings-convert-units' : undefined })
 function focusBar() {
-  if (route.hash !== '#bar')
+  if (!route.hash)
     return
   nextTick(() => {
+    if (route.hash !== '#bar') {
+      reveal(route.hash)
+      return
+    }
     barHeading.value?.scrollIntoView({ block: 'start' })
     barHeading.value?.focus({ preventScroll: true })
   })
@@ -110,6 +119,29 @@ function unitItems(units: readonly string[]) {
           </div>
         </template>
         <TabBarChooser />
+      </UCard>
+
+      <!-- The lists of stations the search of the header finds a station by name in (GH-3790) -->
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-ph-magnifying-glass" class="text-primary-600 dark:text-primary-500 shrink-0" />
+            <h2 id="settings-search-stations" tabindex="-1" class="text-lg font-bold outline-none">
+              {{ t('settings.searchStationsTitle') }}
+            </h2>
+          </div>
+        </template>
+        <fieldset class="space-y-3" aria-describedby="settings-search-stations-hint">
+          <legend class="sr-only">
+            {{ t('settings.searchStationsTitle') }}
+          </legend>
+          <p id="settings-search-stations-hint" class="text-sm text-gray-500 dark:text-gray-400">
+            {{ t('settings.searchStationsHint') }}
+          </p>
+          <UCheckbox v-model="settings.searchStations.forecast" :label="t('mapTool.layerForecast')" data-testid="search-stations-forecast" />
+          <UCheckbox v-model="settings.searchStations.measured" :label="t('mapTool.layerMeasured')" data-testid="search-stations-measured" />
+          <UCheckbox v-model="settings.searchStations.ghcn" :label="t('mapTool.layerGhcn')" data-testid="search-stations-ghcn" />
+        </fieldset>
       </UCard>
 
       <!-- Display & data -->

@@ -9,8 +9,10 @@
     "dwd/observation",
     "dwd/phenology",
     "dwd/poi",
+    "dwd/pollen",
     "dwd/road",
     "dwd/swsmos",
+    "dwd/uvi",
     "ea/hydrology",
     "eaufrance/hubeau",
     "eccc/observation",
@@ -597,6 +599,28 @@
           "wind_gust_max_last_12h",
           "wind_gust_max_last_1h",
           "wind_gust_max_last_3h",
+          "wind_speed"
+        ],
+        "snow": [
+          "precipitation_amount_significant_weather_last_1h",
+          "probability_snow_depth_new_gt_10cm_last_12h",
+          "probability_snow_depth_new_gt_10cm_last_24h",
+          "probability_snow_depth_new_gt_10cm_last_6h",
+          "probability_snow_depth_new_gt_20cm_last_6h",
+          "probability_snow_depth_new_gt_30cm_last_12h",
+          "probability_snow_depth_new_gt_30cm_last_24h",
+          "probability_snow_depth_new_gt_50cm_last_24h",
+          "probability_snow_depth_new_gt_5cm_last_12h",
+          "probability_snow_depth_new_gt_5cm_last_6h",
+          "snow_depth",
+          "snow_depth_new_last_12h",
+          "snow_depth_new_last_24h",
+          "snow_depth_new_last_3h",
+          "snow_depth_new_last_6h",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "wind_direction",
+          "wind_gust_max_last_1h",
           "wind_speed"
         ]
       }
@@ -1662,6 +1686,20 @@
         ]
       }
     },
+    "dwd/pollen": {
+      "daily": {
+        "data": [
+          "pollen_load_alder",
+          "pollen_load_ash",
+          "pollen_load_birch",
+          "pollen_load_grass",
+          "pollen_load_hazel",
+          "pollen_load_mugwort",
+          "pollen_load_ragweed",
+          "pollen_load_rye"
+        ]
+      }
+    },
     "dwd/road": {
       "15_minutes": {
         "data": [
@@ -1693,6 +1731,13 @@
           "temperature_air",
           "temperature_dew_point",
           "temperature_surface"
+        ]
+      }
+    },
+    "dwd/uvi": {
+      "daily": {
+        "data": [
+          "uv_index_max"
         ]
       }
     },
@@ -2061,8 +2106,8 @@
           "pressure_air_site",
           "radiation_global_intensity_mean",
           "sunshine_duration",
+          "temperature_air_0_1m",
           "temperature_air_2m",
-          "temperature_air_mean_0_1m",
           "temperature_dew_point_2m",
           "temperature_wet_mean_2m",
           "visibility_mean",
@@ -3107,6 +3152,7 @@
       "soil_moisture_mean_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
       "soil_moisture_winterwheat_loamysilt_00cm_60cm": "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
       "soil_moisture_winterwheat_sand_00cm_60cm": "soil_moisture_winter_cereals_sand_00cm_60cm",
+      "temperature_air_mean_0_1m": "temperature_air_0_1m",
       "temperature_air_mean_2m_normal": "temperature_air_mean_minmax_2m_normal",
       "temperature_soil_mean_loamysand_0_05m": "temperature_soil_mean_loamy_sand_0_05m",
       "temperature_soil_mean_loamysilt_0_05m": "temperature_soil_mean_loamy_silt_0_05m",
@@ -3596,5 +3642,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.188.0"
+  "x-release": "0.199.0"
 }

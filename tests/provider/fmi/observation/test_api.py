@@ -222,7 +222,7 @@ def test_fmi_observation_stations_read_the_operational_period_as_utc(monkeypatch
             "name": "Helsinki Kaisaniemi",
             "region": "Uusimaa",
             "wmo_id": None,
-            "wigos_id": None,
+            "wigos_id": "0-246-0-100971",  # OSCAR holds it (the stub of tests/model/oscar_rows.py),
             "icao_id": None,
         },
         {
@@ -286,8 +286,8 @@ def test_fmi_observation_stations() -> None:
             "station_id": HELSINKI_KAISANIEMI,
             "name": "Helsinki Kaisaniemi",
             "region": "Helsinki",
-            "wmo_id": None,
-            "wigos_id": None,
+            "wmo_id": "02978",
+            "wigos_id": "0-246-0-100971",
             "icao_id": None,
         },
     ]

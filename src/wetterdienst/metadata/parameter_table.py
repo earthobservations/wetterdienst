@@ -194,6 +194,15 @@ def _phase(event: str) -> str:
     return f"Day {event}, as DWD's Jultag count (not always the day of the year)."
 
 
+def _pollen(plant: str) -> str:
+    """Describe the load of the pollen of a plant, which is DWD's seven-step class and no concentration."""
+    return (
+        f"Forecast load of {plant} pollen in the air, DWD's class of the Pollenflug-Gefahrenindex: 0 none, 1 low, "
+        "2 medium and 3 high, with 0.5, 1.5 and 2.5 where DWD gives the range between two classes. No number of "
+        "grains per cubic metre."
+    )
+
+
 # Two words of a name that say what the number is, where it is neither a reading nor the total of the interval
 # (GH-2614):
 #
@@ -642,7 +651,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "discharge_min", "volume_per_time", "Lowest discharge observed over the period.", aggregation="min"
     ),
     CanonicalParameter(
-        "distance_river_gauge_height", "length_medium", "Height of the gauge zero point above the reference datum."
+        "distance_river_gauge_height",
+        "length_medium",
+        "Difference between river and gauge height, as NOAA GHCN-Daily defines GAHT.",
     ),
     CanonicalParameter(
         "electric_conductivity",
@@ -1150,6 +1161,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the crop reached yellow ripeness"),
         aggregation="date",
     ),
+    CanonicalParameter("pollen_load_alder", "dimensionless", _pollen("alder (Erle)")),
+    CanonicalParameter("pollen_load_ash", "dimensionless", _pollen("ash (Esche)")),
+    CanonicalParameter("pollen_load_birch", "dimensionless", _pollen("birch (Birke)")),
+    CanonicalParameter("pollen_load_grass", "dimensionless", _pollen("grass (Gräser)")),
+    CanonicalParameter("pollen_load_hazel", "dimensionless", _pollen("hazel (Hasel)")),
+    CanonicalParameter("pollen_load_mugwort", "dimensionless", _pollen("mugwort (Beifuß)")),
+    CanonicalParameter("pollen_load_ragweed", "dimensionless", _pollen("ragweed (Ambrosia)")),
+    CanonicalParameter("pollen_load_rye", "dimensionless", _pollen("rye (Roggen)")),
     CanonicalParameter(
         "precipitation_duration",
         "duration",
@@ -2466,14 +2485,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "sunshine_duration",
         "duration",
-        "Length of time the sun shone unobstructed.",
+        "Length of time during which the direct solar irradiance exceeded 120 W/m² (WMO's threshold).",
         interpolation="homogeneous",
         aggregation="sum",
     ),
     CanonicalParameter(
         "sunshine_duration_last_3h",
         "duration",
-        "Length of time the sun shone unobstructed in the preceding 3 hours.",
+        "Length of time during which the direct solar irradiance exceeded 120 W/m² (WMO's threshold) "
+        "in the preceding 3 hours.",
         interpolation="homogeneous",
         aggregation="sum",
     ),
@@ -2505,7 +2525,8 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "sunshine_duration_yesterday",
         "duration",
-        "Length of time the sun shone unobstructed on the previous day.",
+        "Length of time during which the direct solar irradiance exceeded 120 W/m² (WMO's threshold) "
+        "on the previous day.",
         interpolation="homogeneous",
         aggregation="sum",
     ),
@@ -2522,6 +2543,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_air_0_05m",
         "temperature",
         "Air temperature at 0.05 m above ground.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_air_0_1m",
+        "temperature",
+        "Air temperature at 0.1 m above ground.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2590,13 +2617,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_air_mean_0_05m",
         "temperature",
         "Mean air temperature at 0.05 m above ground.",
-        interpolation="homogeneous",
-        aggregation="mean",
-    ),
-    CanonicalParameter(
-        "temperature_air_mean_0_1m",
-        "temperature",
-        "Mean air temperature at 0.1 m above ground.",
         interpolation="homogeneous",
         aggregation="mean",
     ),
@@ -3913,6 +3933,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         aggregation="code",
     ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
+    CanonicalParameter(
+        "uv_index_max",
+        "dimensionless",
+        "Highest UV index of the day, the WHO's scale of the sunburn-effective UV radiation at the ground "
+        "(0 to 2 low, 3 to 5 moderate, 6 to 7 high, 8 to 10 very high, 11 and above extreme).",
+        aggregation="max",
+    ),
     CanonicalParameter(
         "vapor_pressure_deficit_mean",
         "pressure",

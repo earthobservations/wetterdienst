@@ -39,7 +39,6 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.ui import core
 
 pytest.importorskip("altair")
 pytest.importorskip("vl_convert")
@@ -113,34 +112,6 @@ def _values(
             "value": pl.Float64,
         },
     )
-
-
-def _stripes_frame(years: int = 60, *, gap: tuple[int, int] | None = (20, 25)) -> pl.DataFrame:
-    """Give the frame of the stripes: a year each, the warmest first as 0, and a gap of years without a value."""
-    rows = []
-    for index in range(years):
-        has_value = gap is None or not gap[0] <= index < gap[1]
-        rows.append(
-            {
-                "timestamp": dt.datetime(1950 + index, 1, 1, tzinfo=dt.UTC),
-                "value_scaled": index / (years - 1) if has_value else None,
-                "availability": -0.02 if has_value else None,
-            }
-        )
-    return pl.DataFrame(
-        rows, schema={"timestamp": pl.Datetime(time_zone="UTC"), "value_scaled": pl.Float64, "availability": pl.Float64}
-    )
-
-
-def _stripes(frame: pl.DataFrame | None = None, **kwargs: Any) -> Any:  # noqa: ANN401
-    options = {
-        "colors": core.CLIMATE_STRIPES_CONFIG["temperature"]["colors"],
-        "title": "Climate stripes",
-        "source": "Source: somebody",
-        "show_years": True,
-        "show_data_availability": True,
-    }
-    return charts.stripes_chart(_stripes_frame() if frame is None else frame, **{**options, **kwargs})
 
 
 def _stations_result(count: int = 6) -> StationsResult:
@@ -234,8 +205,6 @@ def _values_result(*, hours: int = 48) -> ValuesResult:
         ),
         pytest.param(lambda: _stations_result().to_plot(), id="map"),
         pytest.param(lambda: _stations_result(1).to_plot(), id="map-one-station"),
-        pytest.param(_stripes, id="stripes"),
-        pytest.param(lambda: _stripes(title=None, show_years=False, show_data_availability=False), id="stripes-bare"),
         pytest.param(charts.empty_chart, id="empty"),
     ],
 )
@@ -254,13 +223,12 @@ def test_a_png_is_as_large_as_asked(chart: Any, width: int | None, height: int |
 
 
 @pytest.mark.parametrize("scale", [0.5, 1, 2, 3])
-@pytest.mark.parametrize("kind", ["values", "map", "stripes"])
+@pytest.mark.parametrize("kind", ["values", "map"])
 def test_the_scale_multiplies_a_png_and_a_jpg(kind: str, scale: float) -> None:
-    """The stripes image is asked for at `dpi / 100`: 300 dpi is 2100 x 1500 pixels, as it always was."""
+    """`scale` of 3 makes the picture of 700 x 500 pixels one of 2100 x 1500, as it always did."""
     chart = {
         "values": lambda: charts.values_chart(_values()),
         "map": lambda: _stations_result().to_plot(),
-        "stripes": _stripes,
     }[kind]()
     width, height = charts.default_size(chart)
     expected = (round(width * scale), round(height * scale))
@@ -294,7 +262,7 @@ def test_a_picture_with_a_legend_that_wraps_is_still_as_large_as_asked() -> None
 
 def test_an_svg_says_the_size_asked_for_and_the_scale_multiplies_it() -> None:
     """A vector: the same drawing at any scale. Plotly's SVG said its size, scaled, in its root, and so does this."""
-    chart = _stripes()
+    chart = _stations_result().to_plot()
     root = _svg_root(render_image(chart, "svg", width=640, height=480))
     assert (root["width"], root["height"], root["viewBox"]) == ("640", "480", "0 0 640 480")
     scaled = _svg_root(render_image(chart, "svg", width=640, height=480, scale=2.5))
@@ -303,24 +271,24 @@ def test_an_svg_says_the_size_asked_for_and_the_scale_multiplies_it() -> None:
 
 def test_a_pdf_page_is_the_picture_at_96_pixels_to_the_inch() -> None:
     """A picture of 640 x 480 pixels is a page of 480 x 360 points, as Plotly's was (700 x 500 was 525 x 375)."""
-    chart = _stripes()
+    chart = _stations_result().to_plot()
     assert _pdf_page(render_image(chart, "pdf", width=640, height=480)) == (480, 360)
     assert _pdf_page(render_image(chart, "pdf")) == (525, 375)
     assert _pdf_page(render_image(chart, "pdf", width=640, height=480, scale=2)) == (960, 720)
 
 
 def test_the_text_of_a_pdf_is_text() -> None:
-    """The title and the source of the stripes are in the PDF as text, set in the font the SVG names."""
+    """The title and the labels of the stations are in the PDF as text, set in the font the SVG names."""
     pypdf = pytest.importorskip("pypdf")
-    pdf = render_image(_stripes(title="Climate stripes of a station"), "pdf")
+    pdf = render_image(charts.values_chart(_values()).properties(title="Values of a station"), "pdf")
     text = pypdf.PdfReader(io.BytesIO(pdf)).pages[0].extract_text()
-    assert "Climate stripes of a station" in text
-    assert "Source: somebody" in text
+    assert "Values of a station" in text
+    assert "01048" in text
 
 
 def test_a_chart_of_one_view_keeps_its_own_size_in_the_chart() -> None:
     """The chart a caller holds draws at its default size without being asked: it says so itself."""
-    chart = _stripes()
+    chart = _stations_result().to_plot()
     spec = chart.to_dict()
     assert (spec["width"], spec["height"]) == (700, 500)
     assert spec["autosize"] == {"type": "fit", "contains": "padding"}
@@ -333,13 +301,12 @@ def test_a_chart_of_one_view_keeps_its_own_size_in_the_chart() -> None:
     ("fmt", "magic"),
     [("png", b"\x89PNG\r\n\x1a\n"), ("jpg", b"\xff\xd8\xff"), ("svg", b"<svg"), ("pdf", b"%PDF-")],
 )
-@pytest.mark.parametrize("kind", ["values", "map", "stripes", "empty"])
+@pytest.mark.parametrize("kind", ["values", "map", "empty"])
 def test_every_image_format_of_every_chart_is_what_it_says(kind: str, fmt: str, magic: bytes) -> None:
-    """A PNG, a JPEG, an SVG and a PDF by their first bytes, for the three charts and the empty one."""
+    """A PNG, a JPEG, an SVG and a PDF by their first bytes, for the two charts and the empty one."""
     chart = {
         "values": lambda: charts.values_chart(_values()),
         "map": lambda: _stations_result().to_plot(),
-        "stripes": _stripes,
         "empty": charts.empty_chart,
     }[kind]()
     image = render_image(chart, fmt)
@@ -352,7 +319,7 @@ def test_every_image_format_of_every_chart_is_what_it_says(kind: str, fmt: str, 
 def test_a_format_that_is_no_image_is_an_unknown_format_error_naming_the_images(fmt: str) -> None:
     """`webp` went with Plotly and Kaleido; the error lists what there is."""
     with pytest.raises(UnknownFormatError) as error:
-        render_image(_stripes(), fmt)
+        render_image(charts.empty_chart(), fmt)
     assert error.value.supported == ("png", "jpg", "svg", "pdf")
 
 
@@ -377,7 +344,7 @@ def test_the_html_holds_the_vega_lite_specification_and_all_the_data() -> None:
         cdn = chart_to_html(chart)
     finally:
         HTML_INLINE.reset(token)
-    assert "cdn.jsdelivr.net/npm/vega" in cdn
+    assert re.search(r'<script [^>]*src="https://cdn\.jsdelivr\.net/npm/vega@', cdn)
     assert "01048" in cdn
     assert len(cdn) < 100_000
 
@@ -465,12 +432,12 @@ def test_no_pandas_is_needed_and_no_file_is_written(tmp_path: Any) -> None:  # n
         """
         import sys
 
-        from tests.test_charts import _stripes, _values
+        from tests.test_charts import _stations_result, _values
         from wetterdienst.io import charts
         from wetterdienst.io.export import render_image
 
         render_image(charts.values_chart(_values()), "png")
-        render_image(_stripes(), "svg")
+        render_image(_stations_result().to_plot(), "svg")
         print(sorted(name for name in ("pandas", "pyarrow", "numpy") if name in sys.modules))
         """
     )
@@ -625,7 +592,7 @@ def test_the_world_file_is_small_and_is_natural_earth_50m() -> None:
 
 def test_the_font_is_the_one_vl_convert_carries_and_it_draws_text() -> None:
     """A family installed nowhere draws no text at all: the stack starts with Liberation Sans, which is there."""
-    chart = charts.empty_chart().properties(title="Climate stripes of a station")
+    chart = charts.empty_chart().properties(title="Title of a chart")
     assert chart.to_dict()["config"]["font"] == charts.FONT
     assert charts.FONT.startswith("Liberation Sans,")
     svg = render_image(chart, "svg").decode()
@@ -638,83 +605,6 @@ def test_the_font_is_the_one_vl_convert_carries_and_it_draws_text() -> None:
     # and the premise: with a family nobody has, the same chart has none of it
     nobody = chart.configure(font="NoSuchFontAnywhere")
     assert ink(render_image(nobody, "png")) == 0
-
-
-# --- the stripes ------------------------------------------------------------------------------------------------------
-
-
-def _stripe_colours(frame: pl.DataFrame, **kwargs: Any) -> list[tuple[int, int, int]]:  # noqa: ANN401
-    """Read the colour of each stripe at the middle of its column, in the upper part of the picture."""
-    chart = _stripes(frame, title=None, show_years=False, show_data_availability=False, **kwargs)
-    width = 400
-    image = _pixels(render_image(chart, "png", width=width, height=200))
-    first = frame["timestamp"].dt.year().min()
-    last = frame["timestamp"].dt.year().max()
-    years = last - first + 1
-    padding = 10  # the stripes fill the picture inside its padding
-    colours = []
-    for index in range(years):
-        x = padding + (index + 0.5) * (width - 2 * padding) / years
-        colours.append(image.getpixel((round(x), 40)))
-    return colours
-
-
-def _near(colour: tuple[int, int, int], expected: tuple[int, int, int], tolerance: int = 3) -> bool:
-    return all(abs(a - b) <= tolerance for a, b in zip(colour, expected, strict=True))
-
-
-def test_the_temperature_stripes_are_red_for_the_highest_year_and_blue_for_the_lowest() -> None:
-    """`value_scaled` 0 is the highest year: ColorBrewer's RdBu from its dark red to its dark blue, as it always was."""
-    frame = _stripes_frame(10, gap=None)
-    colours = _stripe_colours(frame)
-    assert _near(colours[0], (103, 0, 31)), colours[0]
-    assert _near(colours[-1], (5, 48, 97)), colours[-1]
-
-
-def test_the_precipitation_stripes_are_teal_for_the_wettest_year_and_brown_for_the_driest() -> None:
-    """Reversed, as the wettest year is scaled to 0 and took brown (GH-2063)."""
-    config = core.CLIMATE_STRIPES_CONFIG["precipitation"]
-    colours = _stripe_colours(_stripes_frame(10, gap=None), colors=config["colors"])
-    assert _near(colours[0], (0, 60, 48)), colours[0]
-    assert _near(colours[-1], (84, 48, 5)), colours[-1]
-
-
-def test_a_year_without_a_value_is_a_gap_in_the_stripes_and_in_the_gold_line() -> None:
-    """No stripe, and the availability line stops there: the years that have a value are its runs."""
-    frame = _stripes_frame(60, gap=(20, 25))
-    colours = _stripe_colours(frame)
-    assert all(colour == (255, 255, 255) for colour in colours[20:25])
-    assert all(colour != (255, 255, 255) for colour in colours[:20] + colours[25:])
-    runs = charts._runs(frame.with_columns(pl.col("timestamp").dt.year().alias("year")))  # noqa: SLF001
-    assert runs.to_dicts() == [
-        {"start": 1950, "end": 1970, "level": -0.02},
-        {"start": 1975, "end": 2010, "level": -0.02},
-    ]
-
-
-def test_the_availability_line_is_gold_and_is_left_out_when_not_asked_for() -> None:
-    """The gold of Plotly's line, `#FFD700`, under the stripes."""
-
-    def gold(**kwargs: Any) -> int:  # noqa: ANN401
-        image = _pixels(render_image(_stripes(**kwargs), "png"))
-        return sum(1 for pixel in image.get_flattened_data() if _near(pixel, (255, 215, 0), 12))
-
-    assert gold(show_data_availability=True) > 500
-    assert gold(show_data_availability=False) == 0
-
-
-def test_the_stripes_say_their_title_years_and_source_where_asked() -> None:
-    """The title, the first and the last year and the source are the text of the picture, each by its flag."""
-
-    def texts(chart: Any) -> list[str]:  # noqa: ANN401
-        svg = render_image(chart, "svg").decode()
-        return re.findall(r"<text\b[^>]*>([^<]*)</text>", svg)
-
-    full = texts(_stripes(title="Climate stripes (temperature) for Somewhere"))
-    assert sorted(full) == sorted(
-        ["Climate stripes (temperature) for Somewhere", "Source: somebody", "1950", "2009", "data availability"]
-    )
-    assert texts(_stripes(title=None, show_years=False, show_data_availability=False)) == ["Source: somebody"]
 
 
 # --- the charts of the results ---------------------------------------------------------------------------------------
@@ -878,7 +768,7 @@ def test_without_vl_convert_the_html_with_vega_inline_is_a_missing_dependency(mo
     chart = charts.values_chart(_values(hours=3))
     with pytest.raises(MissingDependencyError, match=r"vl_convert.*pip install wetterdienst\[plotting\]"):
         chart_to_html(chart)
-    assert "cdn.jsdelivr.net" in charts.chart_to_html(chart, inline=False)
+    assert re.search(r'src="https://cdn\.jsdelivr\.net/npm/', charts.chart_to_html(chart, inline=False))
 
 
 def test_the_thinned_data_keeps_the_lowest_and_highest_values_where_a_line_has_nulls() -> None:

@@ -8,11 +8,11 @@
 import type { EChartsCoreOption } from 'echarts/core'
 import type { ChartTheme } from './chart-theme'
 import type { ChartLayout, TimeWindow } from './meteogram-geometry'
-import type { DrawnSeries, MeteogramModel, Tone } from './meteogram-model'
+import type { AxisSpec, DrawnSeries, MeteogramModel, Tone } from './meteogram-model'
 import type { YrSymbol } from './weather-symbols'
 import { SERIES_LABEL, seriesLabelColor, withAlpha } from './chart-theme'
 import { withData } from './format'
-import { every, GUTTER_LEFT, HOUR_MS, labelStepHours, MIN_SPAN_HOURS, windBarb } from './meteogram-geometry'
+import { every, GUTTER_LEFT, HOUR_MS, labelStepHours, MIN_SPAN_HOURS, PANEL_HEIGHT, windBarb } from './meteogram-geometry'
 import { yrSymbolFor, yrSymbolUrl } from './weather-symbols'
 
 /** The room a barb, a symbol and a label of the time axis need beside the next one, in px */
@@ -22,14 +22,54 @@ export const LABEL_SPACING = 46
 export const SYMBOL_SIZE = 30
 /** Half the width of a label of the time axis, in px */
 export const HOUR_LABEL_HALF_WIDTH = 18
-/** The titles of the axes: the left of their block, and the width of a line of them; and what the tick labels are made of */
-export const TITLE_LEFT = 2
+/**
+ * The titles of the axes: the left of the widest block, the width of a line of them, and the room between a title and its own panel's
+ * tick labels (GH-4132); and what the tick labels are made of.
+ *
+ * The rotated text of a title is drawn in a box a little wider than its 14 px line: its left edge is 1 px left of the line's in Chrome and
+ * 2 px in Firefox, where the first block would be cut at the edge of the chart (Luftdruck at -1 with a `TITLE_LEFT` of 1). So the block
+ * starts 3 px from the edge, which leaves a pixel in either engine
+ */
+export const TITLE_LEFT = 3
 export const TITLE_LINE_PX = 14
 /** The lines of the block of the titles in every panel, language and width: the name, and the unit on its own line */
 export const TITLE_LINES = 2
-export const TITLE_TO_LABELS = 6
-export const LABEL_MARGIN = 8
-export const LABEL_CHAR_PX = 7
+export const TITLE_TO_LABELS = 4
+/** The room between the tick labels and the plot */
+export const LABEL_MARGIN = 6
+/**
+ * The width of each character a tick label is written with, at 12 px in the app's font (Atkinson Hyperlegible Next, measured with the
+ * canvas and rounded up to a tenth): the digits are proportional (a 1 is 4.9 px, a 0 is 7.8), a separator is 2.6, a hyphen 4.4, the minus
+ * sign 7.3, a space 3.4 (a narrow one 1.7). `DIGIT_PX`, the widest digit, is the width of any other character, the digits of another
+ * script among them. Until the font has loaded the labels are drawn in its metric-adjusted fallback, whose digits are 6.65 px all alike:
+ * a 1 is 1.8 px wider than here, so `LABEL_SLACK_PX` is added to what a panel's labels are estimated at
+ */
+export const DIGIT_PX = 7.8
+/** What a panel's labels are estimated wider than the font's own widths, for the fallback font (a label of two or five digits is up to 2.5 px wider in it) */
+export const LABEL_SLACK_PX = 2
+/** The height of a line of tick labels in px: two labels nearer than this overlap */
+export const LABEL_HEIGHT_PX = 16
+export const CHAR_PX: Readonly<Record<string, number>> = {
+  '0': 7.8,
+  '1': 4.9,
+  '2': 6.6,
+  '3': 7.0,
+  '4': 7.4,
+  '5': 7.1,
+  '6': 7.2,
+  '7': 6.2,
+  '8': 7.4,
+  '9': 7.2,
+  '.': 2.6,
+  ',': 2.6,
+  '\u2019': 2.9,
+  '\'': 2.0,
+  '-': 4.4,
+  '\u2212': 7.3,
+  ' ': 3.4,
+  '\u00A0': 3.4,
+  '\u202F': 1.7,
+}
 
 /** The colours of the series: the line and the wash under it, in the light and the dark scheme */
 const TONES: Record<Tone, { light: string, dark: string, fillLight?: string, fillDark?: string }> = {
@@ -45,6 +85,8 @@ const TONES: Record<Tone, { light: string, dark: string, fillLight?: string, fil
   snowNew: { light: SERIES_LABEL.indigo.light, dark: SERIES_LABEL.indigo.dark },
   snowDepth: { light: SERIES_LABEL.teal.light, dark: SERIES_LABEL.teal.dark, fillLight: 'rgba(15,118,110,0.08)', fillDark: 'rgba(45,212,191,0.06)' },
   snowChance: { light: SERIES_LABEL.gold.light, dark: SERIES_LABEL.gold.dark, fillLight: 'rgba(180,83,9,0.08)', fillDark: 'rgba(218,165,32,0.06)' },
+  // the thunderstorm band's: the colour of the text that names it, as the snow's (3:1 for the bars, 4.5:1 for the axis' text)
+  thunder: { light: SERIES_LABEL.fuchsia.light, dark: SERIES_LABEL.fuchsia.dark },
   wind: { light: '#06b6d4', dark: '#06b6d4', fillLight: 'rgba(6,182,212,0.08)', fillDark: 'rgba(6,182,212,0.04)' },
   gust: { light: '#06b6d4', dark: '#06b6d4' },
   pressure: { light: '#84cc16', dark: '#84cc16', fillLight: 'rgba(132,204,22,0.04)', fillDark: 'rgba(132,204,22,0.02)' },
@@ -97,7 +139,17 @@ export function bandColour(cloud: number, dark: boolean): string {
   return dark ? `rgba(250,204,21,${(alpha * 0.15).toFixed(3)})` : `rgba(253,244,180,${alpha.toFixed(3)})`
 }
 
-const BACKDROP = { band: 0, midnight: 1, now: 2, freeze: 3, divider: 4 } as const
+const BACKDROP = { band: 0, midnight: 1, now: 2, freeze: 3, divider: 4, cadence: 5 } as const
+
+/**
+ * How opaque an hour of the thunderstorm band is for each class (`thunderLevel`): the shade steps up with the probability, as the bar's
+ * height rises with it, so the two say the same and no cue is the colour alone. The lowest is still 3:1 against the paper for a graphic
+ * (WCAG 1.4.11), which `tests/unit/meteogram-thunder.test.ts` holds.
+ */
+export const THUNDER_ALPHA: Readonly<Record<1 | 2 | 3, number>> = { 1: 0.66, 2: 0.8, 3: 1 }
+
+/** How much of its window a block of precipitation fills: the rest is the gap between it and the next (the library's bars were 90 % wide) */
+const BLOCK_FILL = 0.9
 
 /** The option of the chart in `input` */
 export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
@@ -113,7 +165,6 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   const nowColour = dark ? 'rgba(251,146,60,0.75)' : 'rgba(234,88,12,0.75)'
   const bounds = { start: model.minTime, end: model.maxTime }
   const now = nowInput !== null && nowInput > bounds.start && nowInput < bounds.end ? nowInput : null
-  const numberTag = withData(locale, Intl.NumberFormat.supportedLocalesOf)
 
   const grids: any[] = [{ left: gutterLeft, width: plotPx, top: layout.header.top, height: layout.header.height, show: false, outerBoundsMode: 'none' }]
   const xAxes: any[] = [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false, containShape: false }]
@@ -121,7 +172,8 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   rows.forEach((row, i) => {
     const axis = model.axes[row.id]!
     const labelColour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
-    const format = new Intl.NumberFormat(numberTag, { maximumFractionDigits: axis.decimals })
+    const format = tickFormatter(axis, locale)
+    const hideMin = minLabelHidden(axis)
     // outerBoundsMode: the plot is where the gutters say, whatever the labels' width: a grid that shrinks for a long label puts its hours out of line with the others'
     grids.push({ left: gutterLeft, width: plotPx, top: row.top, height: row.height, show: false, outerBoundsMode: 'none' })
     xAxes.push({ type: 'value', gridIndex: i + 1, min: bounds.start, max: bounds.end, show: false, containShape: false })
@@ -143,7 +195,9 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         // the top of a panel is where the panel above ends: its label would touch that one's bottom label, and the
         // ticks that remain are round numbers
         showMaxLabel: false,
-        formatter: (value: number) => format.format(value),
+        // the bottom of the range has a label of its own where it is no multiple of the step, and one that lies nearer to the first tick than a
+        // line of labels is high is left out (GH-4132: the pressure's 1.008 was drawn over its 1.010)
+        formatter: (value: number) => hideMin && value === axis.range[0] ? '' : format(value),
       },
     })
   })
@@ -166,6 +220,9 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
       data.push([BACKDROP.freeze, bounds.start, bounds.end, model.freezing])
     if (i < rows.length - 1)
       data.push([BACKDROP.divider, bounds.start, bounds.end, 0])
+    // where the precipitation goes from blocks of one length to another: a line, and what the blocks after it are
+    if (row.id === 'precip')
+      model.precipChanges.forEach((change, k) => data.push([BACKDROP.cadence, change.t, change.t, k]))
     series.push({
       id: `backdrop-${row.id}`,
       type: 'custom',
@@ -193,6 +250,20 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
           const isNow = kind === BACKDROP.now
           return { type: 'line', silent: true, shape: { x1: x, y1: cs.y, x2: x, y2: cs.y + cs.height }, style: { stroke: isNow ? nowColour : midnightColour, lineWidth: isNow ? 1.5 : 1, lineDash: isNow ? undefined : [2, 3] } }
         }
+        if (kind === BACKDROP.cadence) {
+          const x = api.coord([api.value(1), 0])[0]
+          if (x < left || x > right)
+            return null
+          // the label names the blocks after the line, at its top and on its right
+          return {
+            type: 'group',
+            silent: true,
+            children: [
+              { type: 'line', silent: true, shape: { x1: x, y1: cs.y, x2: x, y2: cs.y + cs.height }, style: { stroke: theme.textMuted, lineWidth: 1, lineDash: [5, 3] } },
+              { type: 'text', silent: true, style: { text: model.precipChanges[api.value(3)]!.label, x: x + 4, y: cs.y + 8, fill: theme.textMuted, font: `11px ${fontFamily}`, textAlign: 'left', textVerticalAlign: 'middle' } },
+            ],
+          }
+        }
         if (kind === BACKDROP.freeze) {
           const y = api.coord([0, api.value(3)])[1]
           return { type: 'line', silent: true, shape: { x1: left, y1: y, x2: right, y2: y }, style: { stroke: theme.zeroline, lineWidth: 1 } }
@@ -204,10 +275,13 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     })
   })
 
-  // The axes' titles, along their panels at the very left of the chart: the same place whatever the width of the tick labels, which
-  // the gutter is made as wide as (`gutterLeftFor`), so that no title is pushed out of the chart or onto a label
+  // The axes' titles, along their panels, each next to its own panel's tick labels (`titleBlockLeft`): the gutter is as wide as the widest
+  // labels and a block of titles (`gutterLeftFor`), so that no title is pushed out of the chart or onto a label, and the room that the
+  // narrower panels leave is at the left edge and not between their titles and their labels
   if (rows.length) {
     const blockLines = TITLE_LINES
+    // where each panel's block starts: computed once, since the title is redrawn with every zoom and scroll
+    const blockLeft = new Map(rows.map(row => [row.id, titleBlockLeft(gutterLeft, model.axes[row.id]!, locale)]))
     series.push({
       id: 'axis-titles',
       type: 'custom',
@@ -225,7 +299,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         const colour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
         const lines = axis.title.split('\n')
         // the lines side by side in a block as wide as the widest title has lines, a shorter title in the middle of it
-        const first = TITLE_LEFT + (TITLE_LINE_PX * (blockLines - lines.length)) / 2 + TITLE_LINE_PX / 2
+        const first = blockLeft.get(row.id)! + (TITLE_LINE_PX * (blockLines - lines.length)) / 2 + TITLE_LINE_PX / 2
         return {
           type: 'group',
           silent: true,
@@ -247,6 +321,33 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     const fill = dark ? TONES[s.tone].fillDark : TONES[s.tone].fillLight
     const index = gridOf(s.panel)
     const common = { id: s.id, xAxisIndex: index, yAxisIndex: index, silent: true, data: s.data, animation: false }
+    if (s.windows) {
+      // blocks over windows of different lengths (the precipitation: 1, 6, 12 or 24 hours), each a rectangle over its own hours, which
+      // the library's bars cannot be: their width is the one least distance between two stamps. One of no height is not drawn
+      // the dimensions are the block's first and last moment and its amount: the zoom keeps a block that is in the window at either end
+      const blocks = s.data.flatMap(([centre, amount], i) => amount ? [[centre - (s.windows![i]! * HOUR_MS) / 2, centre + (s.windows![i]! * HOUR_MS) / 2, amount]] : [])
+      return {
+        id: s.id,
+        type: 'custom',
+        xAxisIndex: index,
+        yAxisIndex: index,
+        silent: true,
+        clip: true,
+        animation: false,
+        z: 3,
+        encode: { x: [0, 1], y: 2 },
+        data: blocks,
+        renderItem: (params: any, api: any) => {
+          // a gap between the blocks, as the bars had
+          const gap = ((api.value(1) - api.value(0)) * (1 - BLOCK_FILL)) / 2
+          const [left, top] = api.coord([api.value(0) + gap, api.value(2)])
+          const [right, bottom] = api.coord([api.value(1) - gap, 0])
+          const cs = params.coordSys
+          const span = clampSpan(left, right, cs.x, cs.x + cs.width)
+          return span ? { type: 'rect', silent: true, shape: { x: span[0], y: top, width: span[1] - span[0], height: Math.max(1, bottom - top) }, style: { fill: colour } } : null
+        },
+      }
+    }
     if (s.kind === 'bar') {
       // a stack for each panel: the rain, mixed and snow of the precipitation are one, the new snow of the snow panel is another
       return { ...common, type: 'bar', stack: s.panel, barWidth: '90%', itemStyle: { color: colour }, z: 3 }
@@ -267,6 +368,35 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   }
   for (const s of model.series)
     series.push(lineSeries(s))
+
+  // the thunderstorm band (GH-4090): an hour of a probability of the threshold or more is a bar over the hour it covers, as high as the
+  // probability on the panel's axis and in the shade of its class
+  if (model.thunder && rows.some(r => r.id === 'thunder')) {
+    const index = gridOf('thunder')
+    const colour = toneColor('thunder', dark)
+    const cells = model.thunder.cells
+    series.push({
+      id: 'thunder',
+      type: 'custom',
+      xAxisIndex: index,
+      yAxisIndex: index,
+      silent: true,
+      clip: true,
+      z: 3,
+      animation: false,
+      // the cell's first and last moment and its value: the zoom keeps a cell that is in the window at either end
+      encode: { x: [0, 1], y: 2 },
+      data: cells.map(cell => [cell.start, cell.end, cell.value, cell.level]),
+      renderItem: (params: any, api: any) => {
+        const gap = ((api.value(1) - api.value(0)) * (1 - BLOCK_FILL)) / 2
+        const [left, top] = api.coord([api.value(0) + gap, api.value(2)])
+        const [right, bottom] = api.coord([api.value(1) - gap, 0])
+        const cs = params.coordSys
+        const span = clampSpan(left, right, cs.x, cs.x + cs.width)
+        return span ? { type: 'rect', silent: true, shape: { x: span[0], y: top, width: span[1] - span[0], height: Math.max(1, bottom - top) }, style: { fill: colour, opacity: THUNDER_ALPHA[api.value(3) as 1 | 2 | 3] } } : null
+      },
+    })
+  }
 
   // the wind barbs, on the speed line at their hour: thinned to the room there is at the zoom the chart is in
   if (model.barbs.length && rows.some(r => r.id === 'wind')) {
@@ -289,7 +419,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         const cs = params.coordSys
         if (outsidePlot(x, cs.x, cs.x + cs.width, 30))
           return null
-        const barb = windBarb(api.value(2), api.value(3))
+        const barb = windBarb(api.value(2), api.value(3), 1, model.southern)
         const style = { stroke: theme.textStrong, fill: theme.textStrong, lineWidth: barb.lineWidth }
         const children: any[] = []
         if (barb.calm !== null)
@@ -419,21 +549,103 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   }
 }
 
+/** The width of a tick label's text in px, character by character (`CHAR_PX`) */
+export function labelWidthOf(text: string): number {
+  let width = 0
+  for (const char of text)
+    width += CHAR_PX[char] ?? DIGIT_PX
+  // (a sum of tenths is a hair over its value: 30.000000000000004 is 30)
+  return Math.ceil(width - 1e-9)
+}
+
 /**
- * The width of the left gutter: the titles (a block of two lines at the very left, the same everywhere), the tick labels (as wide as the widest of
- * all the panels', in the language's digits and separators) and the room between. At least `GUTTER_LEFT`.
+ * The step between the ticks of an axis that is divided into `splits` as ECharts does it (`nice` with rounding): 1, 2, 3 or 5 times a power
+ * of ten
+ */
+export function tickInterval(span: number, splits: number): number {
+  const raw = span / Math.max(1, splits)
+  if (!(raw > 0) || !Number.isFinite(raw))
+    return 1
+  const exponent = Math.floor(Math.log10(raw))
+  const power = 10 ** exponent
+  const f = raw / power
+  const nice = f < 1.5 ? 1 : f < 2.5 ? 2 : f < 4 ? 3 : f < 7 ? 5 : 10
+  return nice * power
+}
+
+/** The number of an axis' tick as the chart writes it: rounded to the axis' decimals, and never "-0" */
+export function tickFormatter(axis: AxisSpec, locale = 'en'): (value: number) => string {
+  const format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { maximumFractionDigits: axis.decimals })
+  // (a value that rounds to zero is zero: "-0" is what the library of the numbers writes for -0.3 at no decimals; `+ 0` turns -0 into 0)
+  return value => format.format(Number(value.toFixed(axis.decimals)) + 0)
+}
+
+/** The first tick above the bottom of the axis' range, or null where there is none below the top (which has no label) */
+function firstTickAbove(axis: AxisSpec): { value: number, step: number } | null {
+  const [min, max] = axis.range
+  const step = tickInterval(max - min, axis.splits)
+  const value = Math.ceil(min / step - 1e-9) * step
+  return value < max - step * 1e-9 ? { value: value + 0, step } : null
+}
+
+/**
+ * Whether the label of the bottom of an axis' range is left out. The bottom is labelled even where it is no multiple of the step, and
+ * where it lies nearer to the first tick than the height of a line of labels (`LABEL_HEIGHT_PX`), the two overlap
+ */
+export function minLabelHidden(axis: AxisSpec, height = PANEL_HEIGHT[axis.panel]): boolean {
+  const first = firstTickAbove(axis)
+  if (!first)
+    return false
+  const [min, max] = axis.range
+  const gap = first.value - min
+  // the bottom is a tick itself
+  if (gap < first.step * 1e-9)
+    return false
+  return (gap / (max - min)) * height < LABEL_HEIGHT_PX
+}
+
+/**
+ * The labels an axis draws, as the chart writes them: the bottom of its range (unless it is left out, `minLabelHidden`), and the multiples
+ * of the step between there and the top, which has no label (`showMaxLabel: false`). The room a title leaves for the labels is measured on
+ * these and not on the ends of the range, whose decimals the ticks do not have (a range of 0 to 17.4 has the ticks 0, 5, 10 and 15), and
+ * which may have more of them than the ends (0 to 1 has the tick 0.5)
+ */
+export function tickLabelsOf(axis: AxisSpec, locale = 'en'): string[] {
+  const format = tickFormatter(axis, locale)
+  const [min, max] = axis.range
+  const step = tickInterval(max - min, axis.splits)
+  const labels = minLabelHidden(axis) ? [] : [format(min)]
+  // a bound on the loop: an axis has a few ticks
+  for (let k = Math.ceil(min / step), n = 0; k * step < max - step * 1e-9 && n < 50; k++, n++) {
+    if (k * step > min)
+      labels.push(format(k * step))
+  }
+  return labels
+}
+
+/** The room an axis' tick labels take in px: the widest of the labels it draws, in the language's digits and separators, and the slack for the fallback font */
+export function labelWidthFor(axis: AxisSpec, locale = 'en'): number {
+  return Math.max(...tickLabelsOf(axis, locale).map(labelWidthOf)) + LABEL_SLACK_PX
+}
+
+/**
+ * Where the block of an axis' titles starts, as the chart's x: the title stands next to its own panel's tick labels, with `TITLE_TO_LABELS`
+ * between them, and not at the very left for every panel, so that the room a narrower panel leaves is at the left edge and not between its
+ * title and its labels (GH-4132). The block of the panel with the widest labels is at `TITLE_LEFT`.
+ */
+export function titleBlockLeft(gutterLeft: number, axis: AxisSpec, locale = 'en'): number {
+  return gutterLeft - LABEL_MARGIN - labelWidthFor(axis, locale) - TITLE_TO_LABELS - TITLE_LINES * TITLE_LINE_PX
+}
+
+/**
+ * The width of the left gutter: the titles (a block of two lines in every panel), the tick labels (as wide as the widest of all the panels',
+ * in the language's digits and separators) and the room between. At least `GUTTER_LEFT`. The plot has one left edge, so the gutter is one
+ * for all panels; each panel's title sits at its own labels (`titleBlockLeft`), the widest one's at the left edge.
  */
 export function gutterLeftFor(model: MeteogramModel, locale = 'en'): number {
   const axes = Object.values(model.axes).filter((axis): axis is NonNullable<typeof axis> => !!axis)
   if (!axes.length)
     return GUTTER_LEFT
-  const lines = TITLE_LINES
-  const tag = withData(locale, Intl.NumberFormat.supportedLocalesOf)
-  let chars = 0
-  for (const axis of axes) {
-    const format = new Intl.NumberFormat(tag, { maximumFractionDigits: axis.decimals })
-    chars = Math.max(chars, format.format(axis.range[0]).length, format.format(axis.range[1]).length)
-  }
-  const labels = Math.ceil((chars + 0.5) * LABEL_CHAR_PX)
-  return Math.max(GUTTER_LEFT, TITLE_LEFT + lines * TITLE_LINE_PX + TITLE_TO_LABELS + labels + LABEL_MARGIN)
+  const labels = Math.max(...axes.map(axis => labelWidthFor(axis, locale)))
+  return Math.max(GUTTER_LEFT, TITLE_LEFT + TITLE_LINES * TITLE_LINE_PX + TITLE_TO_LABELS + labels + LABEL_MARGIN)
 }

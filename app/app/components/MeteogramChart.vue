@@ -14,7 +14,7 @@
  */
 import type { ECharts } from 'echarts/core'
 import type { PanelToggle, ReadoutSide, TimeWindow } from '~/utils/meteogram-geometry'
-import type { MeteogramModel, SunLibrary } from '~/utils/meteogram-model'
+import type { MeteogramModel, ReadoutSeries, SunLibrary } from '~/utils/meteogram-model'
 import type { SeriesMap } from '~/utils/meteogram-series'
 import type { MeteogramUnits } from '~/utils/meteogram-units'
 import { DateTime } from 'luxon'
@@ -22,8 +22,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { formatDayMonth, formatNumber, hourFormatter, weekdayShort } from '~/utils/format'
 import { findNearestIndex } from '~/utils/meteogram'
 import { chartLayout, clampWindow, GUTTER_LEFT, GUTTER_RIGHT, HOUR_MS, hourWidth, MIN_SPAN_HOURS, panWindow, plotWidthFor, readoutPlacement, revealInstant, scrollStrip, toggleOf, windowFromScroll, zoomWindow } from '~/utils/meteogram-geometry'
-import { buildMeteogramModel, readoutValue } from '~/utils/meteogram-model'
+import { buildMeteogramModel, readoutHours, readoutValue } from '~/utils/meteogram-model'
 import { buildMeteogramOption, gutterLeftFor, toneColor } from '~/utils/meteogram-option'
+import { THUNDER_LEVELS } from '~/utils/meteogram-thunder'
 import { withUnit } from '~/utils/units'
 import { yrSymbolFor, yrSymbolUrl } from '~/utils/weather-symbols'
 
@@ -88,6 +89,13 @@ const model = computed<MeteogramModel | null>(() => buildMeteogramModel({
 }))
 // whether the chart draws the snow panel, whose source is named under it
 const snowShown = computed(() => !!model.value?.panels.some(panel => toggleOf(panel) === 'snow'))
+// the legend of the thunderstorm band, where the chart draws one: what it shows, from what probability, and where the shade and the height step up
+const thunderLegend = computed(() => {
+  if (!model.value?.thunder)
+    return ''
+  const probability = (percent: number) => withUnit(formatNumber(props.units.shown('fraction', percent), locale.value, props.units.digits('fraction')), props.units.unitOf('fraction'))
+  return t('meteogram.chart.thunderLegend', { low: probability(THUNDER_LEVELS[0]), mid: probability(THUNDER_LEVELS[1]), high: probability(THUNDER_LEVELS[2]) })
+})
 const bounds = computed<TimeWindow | null>(() => model.value ? { start: model.value.minTime, end: model.value.maxTime } : null)
 const hours = computed(() => bounds.value ? (bounds.value.end - bounds.value.start) / HOUR_MS : 0)
 const layout = computed(() => model.value ? chartLayout(model.value.panels, model.value.symbols.length > 0) : null)
@@ -225,6 +233,12 @@ function writeTime(ms: number): string {
   return `${weekdayShort(day, formatLanguage.value)} ${formatDayMonth(day, formatLanguage.value)} ${hourLabel.value(ms)}`
 }
 
+/** What a readout row is called: a value that covers more than an hour says so (`Rain (6 h)`), as it is no hour's own */
+function readoutLabel(series: ReadoutSeries, time: number): string {
+  const hours = readoutHours(series, time)
+  return hours > 1 ? `${series.hover} (${t('meteogram.chart.blockHours', { hours })})` : series.hover
+}
+
 const readout = computed(() => {
   const m = model.value
   const time = cursor.value
@@ -237,7 +251,7 @@ const readout = computed(() => {
       continue
     rows.push({
       id: series.id,
-      label: series.hover,
+      label: readoutLabel(series, time),
       value: withUnit(formatNumber(value, locale.value, series.digits), series.unit),
       colour: toneColor(series.tone, theme.value.dark),
     })
@@ -295,7 +309,7 @@ function readoutSentence(time: number): string {
   for (const series of m.readout) {
     const value = readoutValue(series, time)
     if (value !== null)
-      parts.push(`${series.hover}${t('common.colon')} ${withUnit(formatNumber(value, locale.value, series.digits), series.unit)}`)
+      parts.push(`${readoutLabel(series, time)}${t('common.colon')} ${withUnit(formatNumber(value, locale.value, series.digits), series.unit)}`)
   }
   return `${writeTime(time)}${t('common.colon')} ${parts.join('; ')}`
 }
@@ -748,20 +762,17 @@ const selectionStyle = computed(() => {
         </div>
       </div>
     </div>
-    <!-- the credits, side by side where the width allows: the symbols' and the snow forecast's -->
-    <div v-if="model?.symbols.length || snowShown" class="flex flex-wrap gap-x-4 gap-y-0.5 px-2 pb-1.5 pt-1 text-xs text-muted">
+    <!-- the credits and the legend, side by side where the width allows: the symbols', the snow forecast's and the thunderstorm band's -->
+    <div v-if="model?.symbols.length || snowShown || thunderLegend" class="flex flex-wrap gap-x-4 gap-y-0.5 px-2 pb-1.5 pt-1 text-xs text-muted">
       <!-- the symbols are the work of Yr, under CC BY 4.0, which asks for this credit where they are shown -->
-      <i18n-t v-if="model?.symbols.length" keypath="meteogram.chart.symbolsCredit" tag="p" scope="global" data-testid="meteogram-credit">
-        <template #yr>
-          <a href="https://github.com/nrkno/yr-weather-symbols" target="_blank" rel="noopener" class="underline underline-offset-2">Yr</a>
-        </template>
-        <template #licence>
-          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" class="underline underline-offset-2">CC BY 4.0</a>
-        </template>
-      </i18n-t>
+      <WeatherSymbolsCredit v-if="model?.symbols.length" data-testid="meteogram-credit" />
       <!-- the snow forecast is DWD's MOSMIX-SNOW, a product of its own that only some stations have: named where it is drawn -->
       <p v-if="snowShown" data-testid="meteogram-snow-credit">
         {{ t('meteogram.chart.snowCredit') }}
+      </p>
+      <!-- the thunderstorm band: its source, and what its bars' height and shade say (colour is not the only cue, and the values are in the readout and the table) -->
+      <p v-if="thunderLegend" data-testid="meteogram-thunder-legend">
+        {{ thunderLegend }}
       </p>
     </div>
     <p :id="hintId" class="sr-only">

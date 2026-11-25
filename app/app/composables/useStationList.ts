@@ -12,9 +12,10 @@ export type ListStatus = 'idle' | 'pending' | 'success' | 'error'
  * `key` names what the list is of. The list and its status are the key's: where the key has moved on (another dataset),
  * they read as nothing until the next `ensure` has asked for the new one, so that the stations of the old list are
  * never taken for the new one's, and an answer that comes after the key has moved on is not the list wanted and is
- * dropped.
+ * dropped. `prepare` is told the stations of a list that has come, before it is shown: a list of 133k is made ready for the
+ * search there, once (`prepareSearch`).
  */
-export function useStationList(key: () => string, load: () => Promise<Station[]>) {
+export function useStationList(key: () => string, load: () => Promise<Station[]>, prepare?: (stations: PlacedStation[]) => void) {
   const items = shallowRef<PlacedStation[]>([])
   const state = ref<ListStatus>('idle')
   const error = shallowRef<unknown>(null)
@@ -39,7 +40,9 @@ export function useStationList(key: () => string, load: () => Promise<Station[]>
       const list = await load()
       if (mine !== generation)
         return
-      items.value = placed(list)
+      const stations = placed(list)
+      prepare?.(stations)
+      items.value = stations
       state.value = 'success'
     }
     catch (failure) {

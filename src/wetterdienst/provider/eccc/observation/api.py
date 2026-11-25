@@ -482,6 +482,17 @@ class EcccObservationRequest(TimeseriesRequest):
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
 
+    # the ids ECCC publishes besides `STN_ID`: the WMO number as `wmo_id` (GH-4070), and the two national ones as
+    # columns of their own, `climate_id` (`CLIMATE_IDENTIFIER`, seven characters, on every station: the id of the
+    # Climate Data Online, which the climate normals and the provinces use) and `tc_id` (`TC_IDENTIFIER`, Transport
+    # Canada's three letters of an airport, `YVR`: the IATA code of a CY** airport, no ICAO code, so `icao_id` is
+    # not filled from it)
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "climate_id",
+        "tc_id",
+    )
+
     # What the values read of the station list and the stations do not carry: for each station and dataset the station's
     # FIRST_DATE and LAST_DATE stamped like the dates of the resolution (GH-2864); the hourly LAST_DATE is null, as the
     # last hourly row is asked for. They are no column of the stations, whose dates are those of the collection
@@ -521,6 +532,9 @@ class EcccObservationRequest(TimeseriesRequest):
                                         "STATION_NAME": pl.String,
                                         "PROV_STATE_TERR_CODE": pl.String,  # alternative: ENG_PROV_NAME
                                         "TIMEZONE": pl.String,
+                                        "WMO_IDENTIFIER": pl.String,
+                                        "CLIMATE_IDENTIFIER": pl.String,
+                                        "TC_IDENTIFIER": pl.String,
                                         "ELEVATION": pl.String,
                                         "FIRST_DATE": pl.String,
                                         "LAST_DATE": pl.String,
@@ -539,6 +553,9 @@ class EcccObservationRequest(TimeseriesRequest):
         df_raw = df_raw.select(
             pl.col("features").struct.field("properties").struct.field("STN_ID").alias("station_id"),
             pl.col("features").struct.field("properties").struct.field("STATION_NAME").alias("name"),
+            pl.col("features").struct.field("properties").struct.field("WMO_IDENTIFIER").alias("wmo_id"),
+            pl.col("features").struct.field("properties").struct.field("CLIMATE_IDENTIFIER").alias("climate_id"),
+            pl.col("features").struct.field("properties").struct.field("TC_IDENTIFIER").alias("tc_id"),
             pl.col("features").struct.field("properties").struct.field("PROV_STATE_TERR_CODE").alias("region"),
             # not `LATITUDE` and `LONGITUDE` of the properties: they pack degrees, minutes and seconds into one
             # integer (`485500000` is 48 deg 55' 00"), which read as degrees times 10^7 put 8431 of the 8435 stations

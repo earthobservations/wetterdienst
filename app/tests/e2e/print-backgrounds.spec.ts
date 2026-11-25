@@ -59,6 +59,8 @@ const PAGES: Target[] = [
   { name: 'the about page', path: '/about' },
   { name: 'the API page', path: '/api' },
   { name: 'the glossary', path: '/glossary' },
+  { name: 'the measurement page', path: '/measurement' },
+  { name: 'the methods page', path: '/methods' },
   { name: 'the providers', path: '/providers' },
   { name: 'the settings', path: '/settings' },
   { name: 'the support page', path: '/support' },
@@ -133,7 +135,7 @@ async function scan(page: Page): Promise<Scan> {
     }
 
     for (const element of document.querySelectorAll('#__nuxt *')) {
-      if (element.closest('svg, .leaflet-container, .js-plotly-plot') || !visible(element))
+      if (element.closest('svg, .leaflet-container') || !visible(element))
         continue
       const style = getComputedStyle(element)
       if (element.classList.contains('iconify')) {

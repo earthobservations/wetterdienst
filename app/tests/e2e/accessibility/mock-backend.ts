@@ -1,16 +1,28 @@
 import type { Page, Route } from '@playwright/test'
+import type { StationSearchAnswer } from '../../../app/utils/station-search'
 import type {
   GlossaryEntry,
   HistoryResponse,
   ProviderNetworkCoverageResponse,
   ProvidersResponse,
   Station,
-  StripesStation,
-  StripesValuesResponse,
   UnitType,
   Value,
 } from '../../../shared/types/api'
+import type { PlaceMatch, PlacesAnswer } from '../../../shared/utils/places'
+import type { StripesFixture } from '../../helpers/stripes-backend'
 import { Buffer } from 'node:buffer'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import process from 'node:process'
+import { prepareStations, searchPrepared } from '../../../app/utils/station-search'
+import { placesOfPhoton } from '../../../shared/utils/places'
+import { radarAnswer } from '../../helpers/radar-answer'
+import { radarPng } from '../../helpers/radar-image'
+import { emptyScan } from '../../helpers/storm-cells-answer'
+import { stripesAnswer } from '../../helpers/stripes-answer'
+import { ghcnAnnualOfFixture, valuesOfFixture } from '../../helpers/stripes-backend'
+import { alertsAnswer } from '../../helpers/warnings-answer'
 
 // What the accessibility spec shows the app instead of a backend.
 //
@@ -26,12 +38,24 @@ import { Buffer } from 'node:buffer'
 
 export type Handler = (url: URL, route: Route) => unknown | Promise<unknown>
 
-/** The answers by `/api/<path>`, to be replaced one by one where a state needs a different one */
+/**
+ * The answers by `/api/<path>`, to be replaced one by one where a state needs a different one.
+ *
+ * Besides the paths of the API, three keys name what the climate stripes are made of (GH-4258): `stripes/stations` and `stripes/values`
+ * answer the requests for the annual record (`/api/stations` and `/api/values` of `annual/...` parameters: the stations that have
+ * stripes, and a station's years), and `_ghcn/stations` and `_ghcn/annual` the app's own server's routes for GHCN daily. The values
+ * are written as the stripes' fixtures are (`{ series, values }`, see `tests/helpers/stripes-backend.ts`) and answered as the API does
+ */
 export type Handlers = Record<string, Handler>
 
 /** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
 export class ApiFailure {
   constructor(readonly status: number, readonly detail: string, readonly extra: Record<string, unknown> = {}) {}
+}
+
+/** What a handler returns to answer with a file instead of JSON (a frame of the radar, GH-3788): its bytes and their type */
+export class ApiBinary {
+  constructor(readonly body: Buffer, readonly contentType: string, readonly headers: Record<string, string> = {}) {}
 }
 
 function parameter(name: string, name_original: string, unit_type: UnitType, unit: string, description: string) {
@@ -113,7 +137,7 @@ const MOSMIX_STATIONS: Station[] = [
   { station_id: '10865', name: 'MUENCHEN-STADT', region: null, latitude: 48.16, longitude: 11.54, elevation: 515, start_timestamp: null, end_timestamp: null },
 ]
 
-const STRIPES_STATIONS: StripesStation[] = STATIONS.slice(0, 6).map(station => ({
+const STRIPES_STATIONS: Station[] = STATIONS.slice(0, 6).map(station => ({
   station_id: station.station_id,
   name: station.name,
   region: station.region,
@@ -232,10 +256,12 @@ function observationValues(url: URL): Value[] {
   const stations = (url.searchParams.getAll('stations').join(',') || '00011').split(',')
   const values: Value[] = []
   for (const station_id of stations) {
+    // another station reads a little more than the first one the mock knows, so that two stations differ
+    const offset = station_id === '00011' ? 0 : (Number(station_id) % 5) + 1
     for (const name of parameters) {
       for (let day = 0; day < 30; day++) {
         // a fixed curve, not a random one: the same page for every scan
-        const base = name.includes('max') ? 18 : name.includes('min') ? 6 : name.includes('precipitation') ? 2 : 12
+        const base = (name.includes('max') ? 18 : name.includes('min') ? 6 : name.includes('precipitation') ? 2 : 12) + offset
         values.push({
           station_id,
           resolution: 'daily',
@@ -249,6 +275,29 @@ function observationValues(url: URL): Value[] {
     }
   }
   return values
+}
+
+/**
+ * What `with_metadata` adds to a `/api/values` answer that the app reads: the facts of each parameter, with the unit its values are
+ * in and what they are relative to their interval (`aggregation`), as the backend states them: a precipitation is a sum, a maximum
+ * and a minimum are what they say, a temperature or a humidity is a mean
+ */
+function observationMetadata(url: URL) {
+  const requested = (url.searchParams.get('parameters') ?? '').split(',').filter(Boolean)
+  const names = requested.map(entry => entry.split('/')[2]).filter((name): name is string => Boolean(name))
+  return {
+    parameters: (names.length ? names : ['temperature_air_mean_2m']).map(name => ({
+      resolution: 'daily',
+      dataset: 'climate_summary',
+      name,
+      name_original: name,
+      description: null,
+      quantity: name.includes('precipitation') ? 'precipitation' : 'temperature',
+      unit: name.includes('precipitation') ? 'mm' : '\u00B0C',
+      aggregation: name.includes('precipitation') ? 'sum' : name.includes('max') ? 'max' : name.includes('min') ? 'min' : 'mean',
+      timestamp_position: null,
+    })),
+  }
 }
 
 /** Three days of hourly MOSMIX values from the hour of `now` on, for each series the meteogram draws */
@@ -328,15 +377,130 @@ function snowValues(url: URL, now: Date): Record<string, unknown> {
   }
 }
 
-function stripesValues(station: string | null): StripesValuesResponse {
-  const found = STRIPES_STATIONS.find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
+/** The stations of GHCN daily that report and have a record long enough: Hamburg and New York */
+const GHCN_STRIPES_STATIONS: Station[] = [
+  { station_id: 'GM000010147', name: 'HAMBURG FUHLSBUETTEL', region: null, latitude: 53.635, longitude: 9.99, elevation: 11, wmo_id: '10147', start_timestamp: '1891-01-01T00:00:00.000000+00:00', end_timestamp: null },
+  { station_id: 'USW00094728', name: 'NEW YORK CNTRL PK TWR', region: null, latitude: 40.7789, longitude: -73.9692, elevation: 42.7, start_timestamp: '1869-01-01T00:00:00.000000+00:00', end_timestamp: null },
+]
+
+// ---- the search of the header (GH-3790) ---------------------------------------------------------------------------
+
+/** The columns of a list of stations, as the app's server keeps them for the search (`server/utils/stationSearch.ts`) */
+function searchColumns(stations: Station[]) {
+  const year = (timestamp: string | null | undefined) => (timestamp ? Number(timestamp.slice(0, 4)) : null)
   return {
-    series: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-    values: Array.from({ length: 70 }, (_, index) => ({
-      timestamp: `${1955 + index}-01-01T00:00:00+00:00`,
-      // a warming curve with a wobble, so the stripes run from blue to red
+    count: stations.length,
+    retrieved_at: null,
+    station_id: stations.map(station => station.station_id),
+    latitude: stations.map(station => station.latitude as number),
+    longitude: stations.map(station => station.longitude as number),
+    first_year: stations.map(station => year(station.start_timestamp)),
+    last_year: stations.map(station => year(station.end_timestamp)),
+    name: stations.map(station => station.name ?? null),
+    wmo_id: stations.map(station => station.wmo_id ?? null),
+  }
+}
+
+const THIS_YEAR = new Date().getUTCFullYear()
+/** A station reports with no end or an end last year or this, as the map's GHCN layer reads a record */
+const reportsIn = (lastYear: number | null) => lastYear === null || lastYear >= THIS_YEAR - 1
+
+/** DWD's measuring stations of the search: the ones of the lists, and Hamburg's, which a search for the town finds in all three networks */
+const SEARCH_MEASURED: Station[] = [
+  ...STATIONS,
+  { station_id: '01975', name: 'Hamburg-Fuhlsbüttel', region: 'Hamburg', latitude: 53.6332, longitude: 9.9881, elevation: 11, wmo_id: '10147', start_timestamp: '1891-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '02597', name: 'Hamburg-Billwerder', region: 'Hamburg', latitude: 53.5, longitude: 10.1, elevation: 4, start_timestamp: '1951-01-01T00:00:00+00:00', end_timestamp: '1997-12-31T00:00:00+00:00' },
+  { station_id: '01981', name: 'Hamburg-Neuwiedenthal', region: 'Hamburg', latitude: 53.47, longitude: 9.9, elevation: 5, start_timestamp: '1979-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+]
+const SEARCH_GHCN: Station[] = [
+  ...GHCN_STRIPES_STATIONS,
+  ...['HAMBURG', 'HAMBURG 2', 'HAMBURG 3 NE', 'HAMBURG 5 SSE', 'HAMBURG AIRPORT', 'HAMBURG-FINKENWERDER'].map((name, index) => ({ station_id: `USC00${30000 + index}`, name, region: null, latitude: 42.7 + index / 10, longitude: -78.8, elevation: 200, wmo_id: null, start_timestamp: '1950-01-01T00:00:00.000000+00:00', end_timestamp: index % 2 ? '1990-12-31T00:00:00.000000+00:00' : null })),
+]
+
+const SEARCH_LISTS = {
+  measured: prepareStations(searchColumns(SEARCH_MEASURED), reportsIn),
+  ghcn: prepareStations(searchColumns(SEARCH_GHCN), reportsIn),
+}
+
+/** What `GET /_search/stations` answers: the real matching, on the mock's lists, for the lists that are asked for */
+function stationSearch(url: URL): StationSearchAnswer {
+  const query = url.searchParams.get('q') ?? ''
+  const limit = Number(url.searchParams.get('limit') ?? 4)
+  // the lists the reader chose that the server keeps (the forecast's points are the backend's own search by name, `/api/stations?name=`)
+  const lists = (url.searchParams.get('lists') ?? 'ghcn').split(',')
+  const networks = (['measured', 'ghcn'] as const)
+    .filter(network => lists.includes(network))
+    .map(network => ({ network, ...searchPrepared(SEARCH_LISTS[network], query, limit) }))
+    .filter(found => found.total > 0)
+  return { query, networks, pending: [], failed: [] }
+}
+
+/** A saved answer of Photon's (tests/fixtures/photon-*.json), read from the app's directory, where the suites run, and when it is asked for: this file is imported by tests that never ask */
+function photonFixture(name: string): unknown {
+  return JSON.parse(readFileSync(resolve(process.cwd(), 'tests/fixtures', `${name}.json`), 'utf8'))
+}
+
+/** The places of the real answers of Photon's for two names, as the route shapes them (GH-3791): "Bad Tölz" and "Paris" */
+const PLACES = [
+  { prefix: 'bad t', fixture: 'photon-badtoelz' },
+  { prefix: 'paris', fixture: 'photon-paris' },
+]
+
+/** What `GET /_search/places` answers: the places of the two names above, none for any other text */
+function placesSearch(url: URL): PlacesAnswer {
+  const query = url.searchParams.get('q') ?? ''
+  const found = PLACES.find(entry => query.toLowerCase().startsWith(entry.prefix))
+  const places: PlaceMatch[] = found ? placesOfPhoton(photonFixture(found.fixture))! : []
+  return { query, state: 'ok', places, attribution: '© OpenStreetMap contributors' }
+}
+
+/**
+ * What `GET /api/station-ids` answers: the stations of several networks that carry the id, as the backend lists them: Hamburg-Fuhlsbüttel's for
+ * 10147 and EDDH (which the lists of the search have too), and Berlin-Dahlem's for any other id (10381 is its WMO number)
+ */
+function stationIds(url: URL) {
+  const asked = ['wmo_id', 'wigos_id', 'icao_id'].map(name => url.searchParams.get(name)).find(Boolean) ?? ''
+  const hamburg = /10147|EDDH/.test(asked)
+  const row = (extra: Record<string, unknown>) => ({ resolution: 'daily', dataset: 'climate_summary', elevation: 50, wmo_id: hamburg ? '10147' : '10381', wigos_id: hamburg ? '0-20000-0-10147' : '0-20000-0-10381', icao_id: hamburg ? 'EDDH' : null, matched_by: 'wmo_id', match: 'direct', ...extra })
+  return {
+    stations: hamburg
+      ? [
+          row({ provider: 'dwd', network: 'mosmix', resolution: 'hourly', dataset: 'large', station_id: '10147', name: 'HAMBURG-FUHLSBUETTEL', latitude: 53.63, longitude: 10 }),
+          row({ provider: 'dwd', network: 'observation', station_id: '01975', name: 'Hamburg-Fuhlsbüttel', latitude: 53.6332, longitude: 9.9881 }),
+          row({ provider: 'noaa', network: 'ghcn', resolution: 'daily', dataset: 'data', station_id: 'GM000010147', name: 'HAMBURG FUHLSBUETTEL', latitude: 53.635, longitude: 9.99, match: 'equivalent' }),
+          row({ provider: 'aemet', network: 'observation', resolution: 'hourly', dataset: 'temperature_air', station_id: 'SN99999', name: 'HAMBURG (TEST)', latitude: 53.6, longitude: 10, match: 'equivalent' }),
+        ]
+      : [
+          row({ provider: 'dwd', network: 'mosmix', resolution: 'hourly', dataset: 'large', station_id: '10381', name: 'BERLIN-DAHLEM (FU)', latitude: 52.46, longitude: 13.3 }),
+          row({ provider: 'dwd', network: 'observation', station_id: '00403', name: 'Berlin-Dahlem (FU)', latitude: 52.4537, longitude: 13.3017 }),
+          row({ provider: 'noaa', network: 'ghcn', resolution: 'daily', dataset: 'data', station_id: 'GM000010381', name: 'BERLIN-DAHLEM', latitude: 52.4537, longitude: 13.3017, match: 'equivalent' }),
+          row({ provider: 'aemet', network: 'observation', resolution: 'daily', dataset: 'data', station_id: '4358', name: 'BERLIN (TEST)', latitude: 52.5, longitude: 13.4, match: 'equivalent' }),
+        ],
+  }
+}
+
+/** The stripes of a station as a fixture: the years and what they are of (the app makes the classes of them itself) */
+function stripesValues(station: string | null, method: 'midrange' | 'tavg' | null = null): StripesFixture {
+  const found = [...STRIPES_STATIONS, ...GHCN_STRIPES_STATIONS].find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
+  return {
+    // the part of the answer's `metadata` the stripes read: who the data is from, under which licence (the table's file carries both, GH-4233)
+    metadata: {
+      provider: {
+        name_local: 'Deutscher Wetterdienst',
+        name_english: 'German Weather Service',
+        country: 'Germany',
+        copyright: '© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)',
+        url: 'https://www.dwd.de',
+        license: { spdx_id: 'CC-BY-4.0', name: 'Creative Commons Attribution 4.0 International', url: 'https://creativecommons.org/licenses/by/4.0/' },
+        attribution: 'Source: Deutscher Wetterdienst',
+      },
+    } as StripesFixture['metadata'],
+    series: { station: found, unit: 'degree_celsius', method },
+    // a warming curve with a wobble, so the stripes run from blue to red
+    ...stripesAnswer(Array.from({ length: 70 }, (_, index) => ({
+      year: 1955 + index,
       value: Math.round((7.5 + index * 0.03 + 0.8 * Math.sin(index / 3)) * 100) / 100,
-    })),
+    }))),
   }
 }
 
@@ -394,14 +558,34 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'values': (url) => {
       if (isSnowRequest(url))
         return snowValues(url, now)
-      return { values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url, now) : observationValues(url) }
+      if (url.searchParams.get('network') === 'mosmix')
+        return { values: forecastValues(url, now) }
+      return { values: observationValues(url), ...(url.searchParams.get('with_metadata') === 'true' ? { metadata: observationMetadata(url) } : {}) }
     },
     'issues': () => ({ issues: ['2026-10-14T09:00:00+00:00', '2026-10-14T15:00:00+00:00', '2026-10-14T21:00:00+00:00'] }),
     'history': () => HISTORY,
     'glossary': () => GLOSSARY,
     'providers': () => PROVIDER_LIST,
     'stripes/stations': () => ({ stations: STRIPES_STATIONS }),
-    'stripes/values': url => stripesValues(url.searchParams.get('station')),
+    'stripes/values': url => stripesValues(url.searchParams.get('stations')),
+    '_ghcn/stations': () => ({ stations: GHCN_STRIPES_STATIONS }),
+    // the search of the header (GH-3790): the app's own server's matching of the lists, and the backend's search of every network for an id
+    '_search/stations': stationSearch,
+    // the places by name, which the app's server asks Photon for (GH-3791)
+    '_search/places': placesSearch,
+    'station-ids': stationIds,
+    // the list of the stations of GHCN daily as the app's server hands it to the map, as columns (GH-4267)
+    '_ghcn/map-stations': () => searchColumns(SEARCH_GHCN),
+    '_ghcn/annual': url => stripesValues(url.searchParams.get('station'), 'midrange'),
+    // the usual scan of the thunderstorm cells: none (GH-4208), and the radar's loop of 49 frames, each an image of cells of rain that drift east (GH-3788)
+    'storm-cells': () => emptyScan(),
+    // DWD's weather warnings (GH-4295): the realistic snapshot of `tests/helpers/warnings-answer.ts`, one of which has no polygon, in the language of the product asked for
+    'alerts': url => alertsAnswer({ now: now.getTime(), language: url.searchParams.get('language') ?? 'en' }),
+    'radar/frames': () => radarAnswer({ now: now.getTime() }),
+    'radar/frame': (url) => {
+      const start = Math.floor(now.getTime() / 300_000) * 300_000
+      return new ApiBinary(radarPng((Date.parse(url.searchParams.get('time') ?? '') - start) / 60_000), 'image/png', { 'cache-control': 'public, max-age=3600' })
+    },
   }
 }
 
@@ -418,6 +602,13 @@ export interface Backend {
   unanswered: string[]
   /** Resolves once no `/api/*` request has been under way or answered for a while: the page has what it asked for */
   idle: () => Promise<void>
+}
+
+/** The key of the handler of a request: its path under `/api/`, `/_ghcn/` and `/_search/` kept, and the requests for the annual record the stripes' keys */
+function keyOf(url: URL): string {
+  const path = url.pathname.replace(/^\/api\//, '').replace(/^\//, '')
+  const annual = url.searchParams.get('parameters')?.startsWith('annual/')
+  return annual && path === 'stations' ? 'stripes/stations' : annual && path === 'values' ? 'stripes/values' : path
 }
 
 /** How long the page is left alone after its last request was answered, for what it does with the answer */
@@ -449,20 +640,25 @@ export async function mockBackend(
   }
 
   await page.route(
-    url => url.origin === origin && url.pathname.startsWith('/api/'),
+    url => url.origin === origin && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/_ghcn/') || url.pathname.startsWith('/_search/')),
     async (route) => {
       inFlight++
       try {
         const url = new URL(route.request().url())
-        const handler = backend.handlers[url.pathname.replace(/^\/api\//, '')]
+        const key = keyOf(url)
+        const handler = backend.handlers[key]
         if (!handler) {
           backend.unanswered.push(url.pathname)
           await route.fulfill({ status: 501, json: { detail: `not mocked: ${url.pathname}` } })
           return
         }
-        const body = await handler(url, route)
+        const answer = await handler(url, route)
+        // the stripes' data is written as a fixture and answered as the API does
+        const body = key === 'stripes/values' ? valuesOfFixture(answer) : key === '_ghcn/annual' ? ghcnAnnualOfFixture(answer) : answer
         if (body instanceof ApiFailure)
           await route.fulfill({ status: body.status, json: { ...body.extra, detail: body.detail } })
+        else if (body instanceof ApiBinary)
+          await route.fulfill({ status: 200, body: body.body, contentType: body.contentType, headers: body.headers })
         else
           await route.fulfill({ status: 200, json: body })
       }

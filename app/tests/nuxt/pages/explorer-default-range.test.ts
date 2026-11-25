@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
 import { clearNuxtState, useRouter, useToast } from '#imports'
@@ -20,8 +20,16 @@ const ExplorerWithApp = defineComponent({
   },
 })
 
+// The clock is stopped (`vi.setSystemTime` without fake timers: `Date` only, so `vi.waitFor` does not move it on) at an
+// instant just before and just after midnight UTC, so that "today" is one day for the test and for the page: read at
+// two moments, as `new Date()` in each did, a run that crossed midnight expected one day and got the next (GH-4134)
+const CLOCKS = [
+  { at: '2026-11-15T23:59:59.900Z', today: '2026-11-15' },
+  { at: '2026-11-16T00:00:00.100Z', today: '2026-11-16' },
+]
+
 // today, which a record that is still going on ends at: the window ends there
-const TODAY = new Date().toISOString().slice(0, 10)
+let TODAY = CLOCKS[0]!.today
 
 // n stations of the daily record since 1891: 49,000 rows each, so that a few of them are over the limit
 function stations(count: number, start = '1891-01-01T00:00:00+00:00') {
@@ -38,11 +46,28 @@ function stations(count: number, start = '1891-01-01T00:00:00+00:00') {
 const mounted: { unmount: () => void }[] = []
 const endpoints: (() => void)[] = []
 
+// a browser an hour east of UTC, where it is already the next day in local time at the first instant: today is UTC's
+let zone: string | undefined
+beforeAll(() => {
+  zone = process.env.TZ
+  process.env.TZ = 'Europe/Berlin'
+  // the zone taken up, else the tests pass in UTC against a day read in local time as well
+  expect(new Date(2020, 0, 1).getTimezoneOffset()).toBe(-60)
+})
+
 afterEach(() => {
+  vi.useRealTimers()
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   endpoints.splice(0).forEach(remove => remove())
   clearNuxtState(EXPLORER_STATE)
   useToast().clear()
+})
+
+afterAll(() => {
+  if (zone === undefined)
+    delete process.env.TZ
+  else
+    process.env.TZ = zone
 })
 
 const query = () => useRouter().currentRoute.value.query
@@ -86,7 +111,12 @@ async function typeDate(wrapper: Awaited<ReturnType<typeof open>>['wrapper'], in
   await input.setValue(value)
 }
 
-describe('explorer default date range', () => {
+describe.each(CLOCKS)('explorer default date range at $at', ({ at, today }) => {
+  beforeEach(() => {
+    TODAY = today
+    vi.setSystemTime(new Date(at))
+  })
+
   it('starts the newest window that fits where the whole record of the selection is more than one answer', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 30))

@@ -30,8 +30,12 @@ EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH = ["_", ".", "metadata"]
 # compare. Named rather than merely skipped: the skip is keyed on an attribute, so a rename would drop
 # a provider out of all four comparisons *and*, because it lands in `skipped`, exempt its published
 # pages from the page side of `test_docs_cover_every_resolution` -- all 88 pages could go to none
-# checked with every test still passing. `dwd/alerts` is a CAP warnings feed with no timeseries model.
-NETWORKS_WITHOUT_A_METADATA_MODEL = {("dwd", "alerts")}
+# checked with every test still passing. `dwd/alerts` is a CAP warnings feed and `dwd/storm_cells` a feed of
+# KONRAD3D scans, neither with a timeseries model.
+NETWORKS_WITHOUT_A_METADATA_MODEL = {("dwd", "alerts"), ("dwd", "storm_cells")}
+
+# The request classes of the point lookups, which are in no registry: `library/api.md` documents them all the same.
+POINT_LOOKUP_CLASSES = {"wetterdienst.provider.dwd.kostra.api.DwdKostraRequest"}
 
 # Providers that are excluded from the docs. "*" is a wildcard.
 EXCLUDE_PROVIDER_NETWORKS = {
@@ -1754,6 +1758,8 @@ def _environment_variables() -> set[str]:
 
 # written on purpose by a page that shows a variable `Settings` ignores
 _MISSPELT_ON_PURPOSE = {"WD_CACHE_DIABLE"}
+# a setting that was removed, which a page names to say so (`removed_settings` in `settings.py`)
+_REMOVED = {"WD_RESTAPI_SQL"}
 
 
 def test_docs_name_only_environment_variables_that_exist() -> None:
@@ -1766,9 +1772,9 @@ def test_docs_name_only_environment_variables_that_exist() -> None:
     variables = _environment_variables()
     errors = []
     for path in _prose_files():
-        for token in set(re.findall(r"WD_[A-Z0-9_]+", path.read_text(encoding="utf8"))):
+        for token in set(re.findall(r"(?<![A-Za-z0-9_])WD_[A-Z0-9_]+", path.read_text(encoding="utf8"))):
             name = token if token.startswith("WD_AUTH__") else token.split("__")[0]
-            if token.endswith("_") or name in variables or token in _MISSPELT_ON_PURPOSE:
+            if token.endswith("_") or name in variables or token in _MISSPELT_ON_PURPOSE or token in _REMOVED:
                 continue
             errors.append(f"{path.relative_to(ROOT)}: {token} is not a setting or an option")
     assert not errors, "\n".join(errors)
@@ -1991,6 +1997,9 @@ def test_docs_api_reference_lists_the_class_of_every_network() -> None:
             classes.add(f"{api.__module__}.{api.__qualname__}")
     text = (DOCS / "library" / "api.md").read_text(encoding="utf8")
     documented = set(re.findall(r"^```\{autodoc2-object\} (\S+)$", text, flags=re.MULTILINE))
+    # a point lookup is no network of the registry (no stations, no values, listed by no `providers`), and its class is
+    # documented all the same
+    classes |= POINT_LOOKUP_CLASSES
     assert documented == classes, (
         f"missing: {sorted(classes - documented)}, not a network class: {sorted(documented - classes)}"
     )

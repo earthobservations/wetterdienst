@@ -47,38 +47,33 @@ export function formatNumber(value: number, locale: string, digits: number): str
   return numberFormat(locale, digits).format(value)
 }
 
+/**
+ * A number with its sign written out for a rise, as an anomaly is (`+0.8`): the minus of a fall is the language's own.
+ * A value that rounds to zero is written without a sign, whichever way it rounds from (`0.0`, not `-0.0`).
+ * @example
+ * formatSigned(0.84, 'en', 1) // '+0.8'
+ * formatSigned(-0.004, 'en', 1) // '0.0'
+ */
+export function formatSigned(value: number, locale: string, digits: number): string {
+  return numberFormat(locale, digits, true).format(value)
+}
+
 // A table of 240 rows of 13 numbers is 3,000 calls, and a formatter is dear to make (it was 17 ms of the Meteogram's mount):
-// one for each language and number of digits, and none that outlives the `Intl` that made it (a test swaps it)
+// one for each language, number of digits and way of writing the sign, and none that outlives the `Intl` that made it (a test swaps it)
 const numberFormats = new Map<string, Intl.NumberFormat>()
 let numberFormatClass = Intl.NumberFormat
-function numberFormat(locale: string, digits: number): Intl.NumberFormat {
+function numberFormat(locale: string, digits: number, signed = false): Intl.NumberFormat {
   if (Intl.NumberFormat !== numberFormatClass) {
     numberFormats.clear()
     numberFormatClass = Intl.NumberFormat
   }
-  const key = `${locale}|${digits}`
+  const key = `${locale}|${digits}|${signed}`
   let format = numberFormats.get(key)
   if (!format) {
-    format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { minimumFractionDigits: digits, maximumFractionDigits: digits })
+    format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { minimumFractionDigits: digits, maximumFractionDigits: digits, ...(signed ? { signDisplay: 'exceptZero' as const } : {}) })
     numberFormats.set(key, format)
   }
   return format
-}
-
-/**
- * The decimal and the group character of a language, as Plotly's `layout.separators` takes them:
- * the two characters in one string, the decimal first. Plotly writes the numbers of a hover text
- * (`%{y:.1f}`) and of the axes with them, and with none writes a point in every language. The
- * group character is the one the language writes (a no-break space in French and Polish), though
- * Plotly shows it only for a format that asks for grouping (`,.1f`).
- * @example
- * plotlySeparators('de') // ',.'
- */
-export function plotlySeparators(locale: string): string {
-  const parts = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf)).formatToParts(1234567.5)
-  const decimal = parts.find(part => part.type === 'decimal')?.value ?? '.'
-  const group = parts.find(part => part.type === 'group')?.value ?? ','
-  return `${decimal}${group}`
 }
 
 /**
@@ -102,30 +97,6 @@ export function formatDayMonth(date: DateTime, language: string): string {
  */
 export function weekdayShort(date: DateTime, language: string): string {
   return date.setLocale(withData(language, Intl.DateTimeFormat.supportedLocalesOf)).toFormat('ccc')
-}
-
-/**
- * The names of the weekdays and the months of a language in the shape of a Plotly locale
- * (`config.locales`, with `config.locale` naming it), which the basic bundle lacks: its `%a` and `%b`
- * write English in every language. Sunday comes first, as Plotly has it.
- * @example
- * plotlyDateLocale('de-DE').format.shortDays[4] // 'Do.'
- */
-export function plotlyDateLocale(language: string): { format: Record<'days' | 'shortDays' | 'months' | 'shortMonths', string[]> } {
-  const tag = withData(language, Intl.DateTimeFormat.supportedLocalesOf)
-  const names = (options: Intl.DateTimeFormatOptions, days: number[]) =>
-    days.map(day => new Intl.DateTimeFormat(tag, { ...options, timeZone: 'UTC' }).format(Date.UTC(2023, 0, day)))
-  const week = [1, 2, 3, 4, 5, 6, 7] // 2023-01-01 is a Sunday
-  const months = Array.from({ length: 12 }, (_, month) => Date.UTC(2023, month, 1))
-  const month = (style: 'long' | 'short') => months.map(ms => new Intl.DateTimeFormat(tag, { month: style, timeZone: 'UTC' }).format(ms))
-  return {
-    format: {
-      days: names({ weekday: 'long' }, week),
-      shortDays: names({ weekday: 'short' }, week),
-      months: month('long'),
-      shortMonths: month('short'),
-    },
-  }
 }
 
 /**

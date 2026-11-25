@@ -5,6 +5,7 @@
 import pytest
 from dirty_equals import IsDict, IsList, IsStr
 
+from tests.provider.dwd.radar.sweep import PRECIPITATION_SCAN_RANGES, assert_sweep_geometry
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
@@ -62,7 +63,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Setti
     assert hdf["/how"].attrs.get("scan_count") == 1
     assert hdf["/dataset1/how"].attrs.get("scan_index") == 1
 
-    assert hdf["/dataset1/data1/data"].shape in ((360, 600), (359, 600), (358, 600))
+    assert_sweep_geometry(hdf, b"VRADH", PRECIPITATION_SCAN_RANGES)
 
 
 @pytest.mark.remote
@@ -140,6 +141,12 @@ def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
     # Verify data.
+    # What the header says before DWD fills the edge of the RADOLAN composites RW, RY, SF and YW with the radar's new
+    # range of 180 km, which its announcement of 3 November 2026 puts "at a later stage": format version 3, which
+    # wradlib reads as "150 km" (it derives `maxrange` from the format version `VS` and does not read a range from the
+    # file, so the two entries are one fact; the recent files of the 23rd, 24th and 25th of November 2026 all say `VS
+    # 3`). The day the header says anything else this test fails, on purpose: it is then held to what the header says
+    # that day, and nothing is accepted before (GH-4404).
     attrs = IsDict(
         {
             "datasize": 1620000,

@@ -28,7 +28,7 @@ particular resources", and "To inform us if you believe your credentials have be
 access ... if it seems to us that you are breaking these Terms and Conditions". They state no rate limit. Whether a
 server that answers other people's queries with your token is "letting other people use your account" they do not say:
 the people it serves use the server, not the account, which is a reading and not CEDA's. The question was put to
-CEDA in November 2026 and no answer has come yet; see [what it does with the data](../data-use.md#keys-and-credentials). Wetterdienst keeps a file for twelve hours.
+CEDA on 2026-11-06 and it has not answered (2026-11-22); the hosted instance keeps serving MIDAS Open meanwhile. See [what it does with the data](../data-use.md#keys-and-credentials). Wetterdienst keeps a file for twelve hours.
 
 ```{toctree}
 :hidden:

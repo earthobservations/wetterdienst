@@ -1,51 +1,60 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
-import type { QuestionId } from '~/utils/questions'
+import type { PlaceMatch } from '#shared/utils/places'
+import type { PlaceInLink } from '~/utils/place-link'
 import { DateTime } from 'luxon'
 import UseMyLocation from '~/components/UseMyLocation.vue'
-import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
-import { lastBoxingDay } from '~/utils/answers'
+import { PLACE_NETWORK, placeOf, townPlace } from '~/composables/usePlace'
+import { queryOfChoice, queryOfPress, queryWith, readChoices, readExplicit } from '~/utils/ask/chip'
+import { chipIdOf, chipOf, CHIPS } from '~/utils/ask/registry'
 import { distanceKm, formatDistance } from '~/utils/map-tool'
-import { isQuestion, QUESTIONS } from '~/utils/questions'
+import { PLACE_QUERY_KEYS, placeOfQuery, queryOfPlace } from '~/utils/place-link'
 
 // Ask the weather (GH-3518): the questions people bring to a weather service, as suggestions on the home page, each
 // answered here from live data (components/AnswerPanel.vue) and leading into the tool that holds that data, filled in.
 // All about one place, a DWD station, which the reader can change (the place button opens a search of stations).
+// Each question is one definition (utils/ask/chip.ts, the registry in utils/ask/registry.ts): nothing here is about one
+// of them.
 //
 // The suggestions are buttons that are pressed or not (`aria-pressed`): one is open at a time, pressing it again
-// closes it. The open one is in the link (`?ask=summer`, `&day=2025-12-26` for the wind question, `&place=02564` for
-// a place the reader chose), so that an answer can be shared; a link without one opens none, and nothing is fetched
-// until a question is asked. The focus stays on the button; the answer is announced by its live region.
+// closes it. The open one is in the link (`?ask=season`, with a question's choices, `&season=winter&ref=1961-1990` for the season question, `&measure=sun&day=2025-12-26` for the day
+// question, and `&place=02564` for a station the reader chose or `&lat=47.7610&lon=11.5596&placeName=Bad Tölz&placeRegion=Bayern, Germany` for a town found by its name), so that an answer can be shared; a link without one
+// opens none, and nothing is fetched until a question is asked. The focus stays on the button; the answer is announced
+// by its live region.
 const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const { place, setPlace } = usePlace()
 const { questionText } = useQuestions()
 
-const question = computed<QuestionId | null>(() => isQuestion(route.query.ask) ? route.query.ask : null)
-const day = computed(() => {
-  const asked = route.query.day?.toString()
-  // a day the calendar has: `2025-13-45` and `2025-02-30` are what a link can carry, and are no day
-  return asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && DateTime.fromISO(asked, { zone: 'utc' }).isValid ? asked : lastBoxingDay(DateTime.now())
+const question = computed(() => chipIdOf(route.query.ask))
+/** The values of every question's choices, as the link has them: a question's own where the link names none, or none that is one */
+const choices = computed(() => {
+  const now = DateTime.now()
+  return Object.fromEntries(CHIPS.map(chip => [chip.id, readChoices(chip, route.query, now)]))
 })
 
+function toggle(id: string) {
+  void router.replace({ query: queryOfPress(route.query, CHIPS, id, question.value) }).catch(() => {})
+}
+
+/** Only what the link names of the open question's choices: the data gives the rest (the season completed most recently that has enough of it) */
+const explicit = computed(() => {
+  const open = chipOf(question.value)
+  return open ? readExplicit(open, route.query, DateTime.now()) : {}
+})
+/** The open question's choices as the panel settled them once its data came, for the button to say what the heading says */
+const settled = ref<Record<string, string> | null>(null)
+watch(question, () => {
+  settled.value = null
+})
+function setChoice(param: string, value: string) {
+  if (question.value)
+    void router.replace({ query: queryOfChoice(route.query, question.value, param, value, explicit.value) }).catch(() => {})
+}
+
 /** The link's query with `changes` put over it; a value of null leaves its key out */
-function queryWith(changes: Record<string, string | null>) {
-  const query: Record<string, string> = {}
-  for (const [key, value] of Object.entries({ ...route.query, ...changes })) {
-    if (typeof value === 'string')
-      query[key] = value
-  }
-  return query
-}
-
-function toggle(id: QuestionId) {
-  void router.replace({ query: queryWith({ ask: question.value === id ? null : id, day: id === 'wind' ? (route.query.day?.toString() ?? null) : null }) }).catch(() => {})
-}
-
-function setDay(next: string) {
-  void router.replace({ query: queryWith({ ask: 'wind', day: next }) }).catch(() => {})
-}
+const queryWithChanges = (changes: Record<string, string | null>) => queryWith(route.query, changes)
 
 // a question just opened is brought into view: on a phone its answer lies below the suggestions
 const answer = ref<HTMLElement | null>(null)
@@ -73,6 +82,52 @@ watch(() => route.query.place, async (id) => {
   }
   catch {
     placeFailed.value = true
+  }
+}, { immediate: true })
+
+/** The keys of the link that name a town, taken out where the place is a station or the reader's position */
+const NO_TOWN = { lat: null, lon: null, placeName: null, placeRegion: null }
+
+// A link that names a town (`?lat=&lon=&placeName=`, GH-3791) asks about it without asking the search of places again: the station nearest to it is looked up once
+// (the stations request, ranked by the town's position) and the town is kept as the reader's place, with that station: the answers name it and how far it is.
+const townProblem = ref(false)
+/** The town that could not be given a station: said by name, so that the answer of the place before is not taken for its */
+const townProblemName = ref('')
+/** How many of the stations nearest to a town are asked for, to find the nearest one that still reports: twenty reach past a cluster of closed ones, and a town whose twenty nearest are all closed has none */
+const TOWN_CANDIDATES = 20
+/** The town of the link is being looked up: no question is asked about the place before it, which is not the town's */
+const townPending = ref(false)
+async function resolveTown(town: PlaceInLink): Promise<boolean> {
+  const response = await $fetch<{ stations: Station[] }>('/api/stations', {
+    // the nearest stations, the nearest first: the nearest one may have stopped reporting, and the town's station is the nearest that still does
+    query: { ...PLACE_NETWORK, latitude: town.latitude, longitude: town.longitude, rank: TOWN_CANDIDATES },
+    ...API_FETCH,
+  })
+  const found = townPlace(town, response.stations ?? [])
+  if (!found)
+    return false
+  setPlace(found)
+  return true
+}
+watch(() => [route.query.lat, route.query.lon, route.query.placeName, route.query.placeRegion].join('\n'), async () => {
+  const named = placeOfQuery(route.query)
+  if (!named)
+    return
+  const current = place.value
+  // the town that is the place already is not looked up again
+  if (current.town && current.name === named.name && Math.abs(current.latitude - named.latitude) < 0.00006 && Math.abs(current.longitude - named.longitude) < 0.00006)
+    return
+  townProblem.value = false
+  townProblemName.value = named.name
+  townPending.value = true
+  try {
+    townProblem.value = !(await resolveTown(named))
+  }
+  catch {
+    townProblem.value = true
+  }
+  finally {
+    townPending.value = false
   }
 }, { immediate: true })
 
@@ -122,9 +177,10 @@ async function onPosition(point: { latitude: number, longitude: number }) {
     }
     setPlace({ ...found, fromPosition: true }, remember.value)
     placeFailed.value = false
+    townProblem.value = false
     locatedText.value = t('location.here', { name: found.name, distance: formatDistance(distanceKm(point, found), locale.value) })
-    if (route.query.place)
-      void router.replace({ query: queryWith({ place: null }) }).catch(() => {})
+    if (route.query.place || PLACE_QUERY_KEYS.some(key => route.query[key]))
+      void router.replace({ query: queryWithChanges({ place: null, ...NO_TOWN }) }).catch(() => {})
   }
   catch {
     if (mine === locateRequest)
@@ -144,7 +200,25 @@ const placeButton = ref<HTMLButtonElement | null>(null)
 function onPlace(chosen: { id: string }) {
   placeOpen.value = false
   placeFailed.value = false
-  void router.replace({ query: queryWith({ place: chosen.id }) }).catch(() => {})
+  townProblem.value = false
+  void router.replace({ query: queryWithChanges({ place: chosen.id, ...NO_TOWN }) }).catch(() => {})
+}
+
+/** A town found by its name (OpenStreetMap's search, GH-3791) is chosen: it becomes the place of the questions, with the station nearest to it, and is in the link */
+async function onTown(match: PlaceMatch) {
+  placeOpen.value = false
+  placeFailed.value = false
+  townProblem.value = false
+  const town: PlaceInLink = { name: match.name, region: match.region, latitude: Number(match.latitude.toFixed(4)), longitude: Number(match.longitude.toFixed(4)) }
+  townProblemName.value = town.name
+  try {
+    townProblem.value = !(await resolveTown(town))
+  }
+  catch {
+    townProblem.value = true
+  }
+  if (!townProblem.value)
+    void router.replace({ query: queryWithChanges({ place: null, ...queryOfPlace(town) }) }).catch(() => {})
 }
 </script>
 
@@ -174,13 +248,15 @@ function onPlace(chosen: { id: string }) {
         <span class="sr-only">– {{ t('ask.placeChange') }}</span>
         <UIcon name="i-ph-caret-down" class="size-4 shrink-0 text-muted" aria-hidden="true" />
       </button>
+      <span v-if="place.town && place.region" class="text-sm text-muted" data-testid="place-region">{{ place.region }}</span>
       <span v-if="placeFailed" class="text-sm text-error" role="status">{{ t('ask.placeNotFound') }}</span>
+      <span v-if="townProblem" class="text-sm text-error" role="status" data-testid="town-problem">{{ t('ask.townNoStation', { place: townProblemName }) }}</span>
     </div>
 
     <UseMyLocation class="mt-3" :resolving="locating" :status="locatedText" :problem="locateProblem" @position="onPosition" />
 
     <ul class="mt-4 flex flex-wrap gap-2" :aria-label="t('ask.questionsLabel')" data-testid="questions">
-      <li v-for="entry in QUESTIONS" :key="entry.id" class="max-w-full">
+      <li v-for="entry in CHIPS" :key="entry.id" class="max-w-full">
         <button
           type="button"
           class="ask-chip"
@@ -189,14 +265,15 @@ function onPlace(chosen: { id: string }) {
           @click="toggle(entry.id)"
         >
           <UIcon :name="entry.icon" class="size-5 shrink-0" aria-hidden="true" />
-          <span class="min-w-0 text-start">{{ questionText(entry.id, day) }}</span>
+          <span class="min-w-0 text-start">{{ questionText(entry, entry.id === question && settled ? settled : choices[entry.id]!) }}</span>
         </button>
       </li>
     </ul>
 
     <div ref="answer" class="ask-answer">
       <!-- while the stored position is checked against the browser's permission (GH-4014), nothing is asked about the station it made -->
-      <AnswerPanel v-if="question && !checking" :question="question" :day="day" @update:day="setDay" />
+      <!-- a town that could not be given a station is no reason to answer for the place before: nothing is said of it until the reader picks -->
+      <AnswerPanel v-if="question && !checking && !townPending && !townProblem" :question="question" :choices="choices[question]!" :explicit="explicit" @update:choice="setChoice" @effective="settled = $event" />
       <p v-else-if="!question" class="ask-idle" data-testid="ask-idle">
         <UIcon name="i-ph-cursor-click" class="size-5 shrink-0" aria-hidden="true" />
         {{ t('ask.idle') }}
@@ -213,7 +290,7 @@ function onPlace(chosen: { id: string }) {
       @after:leave="placeHold.afterLeave"
     >
       <template #body>
-        <AppCommandPalette mode="place" @place="onPlace" @done="placeOpen = false" />
+        <AppCommandPalette mode="place" @place="onPlace" @town="onTown" @done="placeOpen = false" />
       </template>
     </UModal>
   </section>

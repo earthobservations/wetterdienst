@@ -55,10 +55,15 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.poi import DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as dwd_poi_api
+from wetterdienst.provider.dwd.pollen import DwdPollenRequest
+from wetterdienst.provider.dwd.pollen import api as dwd_pollen_api
+from wetterdienst.provider.dwd.pollen.metadata import POLLEN_TYPES
 from wetterdienst.provider.dwd.road import api as dwd_road_api
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as dwd_swsmos_api
+from wetterdienst.provider.dwd.uvi import DwdUviRequest
+from wetterdienst.provider.dwd.uvi import api as dwd_uvi_api
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.eccc.observation import api as eccc_api
 from wetterdienst.provider.fmi.observation import FmiObservationRequest
@@ -180,6 +185,19 @@ def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, 
     lines = ["|".join(header)]
     lines += ["|".join([station, date, *[row.get(name, "") for name in header[2:]]]) for date, row in rows]
     return "\n".join(lines).encode("utf8")
+
+
+def ghcnd_by_station(rows: list[tuple[str, str, str, str, str, str, str]]) -> bytes:
+    """Write a GHCN daily by-station file of the AWS bucket (`csv.gz/by_station/<id>.csv.gz`): gzipped, no header.
+
+    A row is `(id, date, element, value, m_flag, q_flag, s_flag)` and becomes
+    `ID,YYYYMMDD,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with the observation time left empty, which is what
+    NOAA writes for most elements (in the NYC file it is set on PRCP, TMAX, TMIN and TOBS, not on SNOW; `OBS_TIME` of
+    `readme-by_station.txt`). The value is
+    the text of the file, in the tenths of the readme; a reading that is missing has no row.
+    """
+    lines = [",".join([*row, ""]) for row in rows]
+    return gzip.compress(("\n".join(lines) + "\n").encode("utf8"))
 
 
 def stations_result(
@@ -922,27 +940,32 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
 
 
 def _ghcn_daily_gusts(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # access/USW00014755.csv (Mount Washington, NH, read 2026-10-30), the directions of the peak gust (WDFG) and of the
-    # fastest 5-second wind (WDF5) with the speeds beside them, in the tenths of the readme. The readme gives no code
-    # for a day without a direction, and the files write a 0 for it: 1958-03-09 has WDFG 0 beside WSFG 0, a calm, with
-    # no direction (GH-3648; 1,798 of the 1,799 zeros of WDFG in 9 station files are beside a speed of 0). The 0 of
-    # 2002-08-29 is beside 12.5 m/s and stays, as the 123 zeros of WDF5 of 1998 to 2002 do, beside 4.0 to 59.0 m/s
-    body = (
-        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","WDF5","WDF5_ATTRIBUTES","WDFG",'
-        b'"WDFG_ATTRIBUTES","WSF5","WSF5_ATTRIBUTES","WSFG","WSFG_ATTRIBUTES"\n'
-        b'"USW00014755","1958-03-09","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","","",'
-        b'"    0","W,,X","","","    0",",,X"\n'
-        b'"USW00014755","1998-04-04","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","    0",",,W",'
-        b'"  360",",,X","  286",",,W","  286",",,X"\n'
-        b'"USW00014755","2002-08-29","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","    0",",,W",'
-        b'"    0",",,X","  125",",,W","  125",",,X"\n'
+    # by_station/USW00014755.csv.gz of the AWS bucket (Mount Washington, NH, read 2026-11-18), the directions of the
+    # peak gust (WDFG) and of the fastest 5-second wind (WDF5) with the speeds beside them, in the tenths of the readme.
+    # The readme gives no code for a day without a direction, and the files write a 0 for it: 1958-03-09 has WDFG 0
+    # beside WSFG 0, a calm, with no direction (GH-3648; 1,798 of the 1,799 zeros of WDFG in 9 station files are beside
+    # a speed of 0). The 0 of 2002-08-29 is beside 12.5 m/s and stays, as the 123 zeros of WDF5 of 1998 to 2002 do,
+    # beside 4.0 to 59.0 m/s. The file has no row for a reading that is missing (WDF5 and WSF5 on 1958-03-09)
+    body = ghcnd_by_station(
+        [
+            ("USW00014755", "19580309", "WDFG", "0", "W", "", "X"),
+            ("USW00014755", "19580309", "WSFG", "0", "", "", "X"),
+            ("USW00014755", "19980404", "WDF5", "0", "", "", "W"),
+            ("USW00014755", "19980404", "WDFG", "360", "", "", "X"),
+            ("USW00014755", "19980404", "WSF5", "286", "", "", "W"),
+            ("USW00014755", "19980404", "WSFG", "286", "", "", "X"),
+            ("USW00014755", "20020829", "WDF5", "0", "", "", "W"),
+            ("USW00014755", "20020829", "WDFG", "0", "", "", "X"),
+            ("USW00014755", "20020829", "WSF5", "125", "", "", "W"),
+            ("USW00014755", "20020829", "WSFG", "125", "", "", "X"),
+        ]
     )
     stations = b"USW00014755  44.2703  -71.3033 1911.7 NH MOUNT WASHINGTON                                  \n"
     inventory = b"USW00014755  44.2703  -71.3033 WDFG 1948 2005\nUSW00014755  44.2703  -71.3033 WDF5 1998 2025\n"
     serve(
         monkeypatch,
         ghcn_api,
-        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/USW00014755": body},
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "by_station/USW00014755": body},
     )
     request = NoaaGhcnRequest(
         parameters=[
@@ -960,24 +983,27 @@ def _ghcn_daily_gusts(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
 
 
 def _ghcn_daily_gust_not_reported(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # access/CAN03031640.csv (Claresholm, AB, source flag C, Environment Canada, read 2026-10-31), the peak gust WSFG
-    # with its direction WDFG, in the readme's tenths of m/s and degrees. Environment Canada does not report a gust
-    # below 31 km/h ("The stations do not report if less than 31 km/h", ECCC's glossary), and the file writes 0 for it:
-    # 1955-01-01 has WSFG 0 beside WDFG 0, no gust and no direction (GH-3655; 1,789 of the 7,940 WSFG of the station are
-    # 0, each beside a WDFG of 0, and the smallest above is 8.6 m/s, the 86 of 1955-04-06, which stays with its
-    # direction). The same holds at the 13 of 14 CAN stations read with a 0 in WSFG; a 0 of another source is a gust
-    # of 0 (USW00013904: 11)
-    body = (
-        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","WDFG","WDFG_ATTRIBUTES","WSFG","WSFG_ATTRIBUTES"\n'
-        b'"CAN03031640","1955-01-01","50.0036","-113.6386","1009.0","CLARESHOLM, AB CA","    0",",,C","    0",",,C"\n'
-        b'"CAN03031640","1955-04-06","50.0036","-113.6386","1009.0","CLARESHOLM, AB CA","  250",",,C","   86",",,C"\n'
+    # by_station/CAN03031640.csv.gz of the AWS bucket (Claresholm, AB, source flag C, Environment Canada, read
+    # 2026-11-18), the peak gust WSFG with its direction WDFG, in the readme's tenths of m/s and degrees. Environment
+    # Canada does not report a gust below 31 km/h ("The stations do not report if less than 31 km/h", ECCC's
+    # glossary), and the file writes 0 for it: 1955-01-01 has WSFG 0 beside WDFG 0, no gust and no direction (GH-3655;
+    # 1,789 of the 7,940 WSFG of the station are 0, each beside a WDFG of 0, and the smallest above is 8.6 m/s, the 86
+    # of 1955-04-06, which stays with its direction). The same holds at the 13 of 14 CAN stations read with a 0 in
+    # WSFG; a 0 of another source is a gust of 0 (USW00013904: 11)
+    body = ghcnd_by_station(
+        [
+            ("CAN03031640", "19550101", "WDFG", "0", "", "", "C"),
+            ("CAN03031640", "19550101", "WSFG", "0", "", "", "C"),
+            ("CAN03031640", "19550406", "WDFG", "250", "", "", "C"),
+            ("CAN03031640", "19550406", "WSFG", "86", "", "", "C"),
+        ]
     )
     stations = b"CAN03031640  50.0036 -113.6386 1009.0 AB CLARESHOLM                             71234\n"
     inventory = b"CAN03031640  50.0036 -113.6386 WDFG 1955 2026\nCAN03031640  50.0036 -113.6386 WSFG 1955 2026\n"
     serve(
         monkeypatch,
         ghcn_api,
-        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/CAN03031640": body},
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "by_station/CAN03031640": body},
     )
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "wind_direction_gust_max"), ("daily", "data", "wind_gust_max")],
@@ -990,26 +1016,32 @@ def _ghcn_daily_gust_not_reported(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
 
 
 def _ghcn_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # access/USS0054K01S.csv (McNeil River, read 2026-10-30), AWDR with AWND beside it, in the tenths of the readme: the
-    # 0 of 2023-12-20 is beside 0 and is a calm, with no direction (GH-3222); the 189 of the day before is beside 0 too,
-    # and is a bearing. A 0 beside a wind that blows stays: tests/provider/noaa/ghcn. The files leave a missing value
-    # empty (no -9999 in the four files read); the readme gives -9999 for the `.dly` files only
-    body = (
-        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","AWDR","AWDR_ATTRIBUTES","AWND","AWND_ATTRIBUTES"\n'
-        b'"USS0054K01S","2023-12-19","59.08","-154.28","42.7","MCNEIL RIVER SGS, AK US","  189",",,T","    0",",,T"\n'
-        b'"USS0054K01S","2023-12-20","59.08","-154.28","42.7","MCNEIL RIVER SGS, AK US","    0",",,T","    0",",,T"\n'
+    # by_station/USS0054K01S.csv.gz of the AWS bucket (McNeil River, read 2026-11-18), AWDR with AWND beside it, in the
+    # tenths of the readme: the 0 of 2023-12-20 is beside 0 and is a calm, with no direction (GH-3222); the 189 of the
+    # day before is beside 0 too, and is a bearing. A 0 beside a wind that blows stays: tests/provider/noaa/ghcn. The
+    # file has no row for a missing value (no -9999 in the 7 files read); the readme gives -9999 for the `.dly` only
+    body = ghcnd_by_station(
+        [
+            ("USS0054K01S", "20231219", "AWDR", "189", "", "", "T"),
+            ("USS0054K01S", "20231219", "AWND", "0", "", "", "T"),
+            ("USS0054K01S", "20231220", "AWDR", "0", "", "", "T"),
+            ("USS0054K01S", "20231220", "AWND", "0", "", "", "T"),
+            # the readme's missing value of the `.dly` files, which the by_station files leave out as a row: none of
+            # the 1.3 million values of 7 files read is one, so this row is made up (the reader maps it to null)
+            ("USS0054K01S", "20231221", "AWND", "-9999", "", "", "T"),
+        ]
     )
     stations = b"USS0054K01S  59.0800 -154.2800   42.7 AK MCNEIL RIVER SGS                                  \n"
     inventory = b"USS0054K01S  59.0800 -154.2800 AWDR 2019 2026\n"
     serve(
         monkeypatch,
         ghcn_api,
-        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/USS0054K01S": body},
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "by_station/USS0054K01S": body},
     )
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "wind_direction_mean"), ("daily", "data", "wind_speed_mean")],
         start=_day(2023, 12, 19),
-        end=_day(2023, 12, 20),
+        end=_day(2023, 12, 21),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -1606,10 +1638,12 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 def _dwd_mosmix_snow(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # MOSMIX-SNOW writes the depths in m and `-` where an element has no value at a step (the new snow and the snow
     # depth are given at the 3-hourly steps, the first hour has none): the file has no numeric sentinel. The
-    # depth of 0.46 m is 46 cm, the new snow of 0.03 m 3 cm
+    # depth of 0.46 m is 46 cm, the new snow of 0.03 m 3 cm. The last of a melting snow is written a little below
+    # 0 (`SnCv` -0.02 m in 20 of 11,760 values of the 49 runs of 2026-11-15 to -17, at Z901 and Z934): the core sets it
+    # to 0.0 and keeps the number as `raw:` (GH-4182)
     return dwd_mosmix_values(
         monkeypatch,
-        {"SnCv": "- 0.46 -", "Sa3": "- 0.03 0.00", "Sad10": "- 15.00 -"},
+        {"SnCv": "- 0.46 -0.02", "Sa3": "- 0.03 0.00", "Sad10": "- 15.00 -"},
         [("hourly", "snow", "sncv"), ("hourly", "snow", "sa3"), ("hourly", "snow", "sad10")],
         options=_options(drop_nulls),
     )
@@ -1684,6 +1718,36 @@ def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
     return stations_result(request, "hourly", "data", "10147").values().all().df
 
 
+def _dwd_pollen(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # s31fg.json as DWD serves it (read 2026-11-17): the level of each pollen type of a region for today, tomorrow and
+    # the day after, one of the seven steps of the legend (`0`, `0-1`, `1`, `1-2`, `2`, `2-3`, `3`). The description
+    # (`Beschreibung_pollen_s31fg.pdf`) says "Fehlende Werte werden mit einer -1 gekennzeichnet", and the file read has
+    # none, so the day of the birch with the -1 is worded by the stub: the reader takes it for none and keeps what the
+    # file wrote as `raw:`
+    days = {"today": "-1", "tomorrow": "1-2", "dayafter_to": "3"}
+    body = json.dumps(
+        {
+            "last_update": "2026-11-17 11:00 Uhr",
+            "next_update": "2026-11-18 11:00 Uhr",
+            "name": "Pollenflug-Gefahrenindex fuer Deutschland ausgegeben vom Deutschen Wetterdienst",
+            "sender": "Deutscher Wetterdienst - Medizin-Meteorologie",
+            "legend": {"id1": "0", "id1_desc": "keine Belastung", "id7": "3", "id7_desc": "hohe Belastung"},
+            "content": [
+                {
+                    "region_id": 120,
+                    "partregion_id": 124,
+                    "region_name": "Bayern",
+                    "partregion_name": "Mainfranken",
+                    "Pollen": {name: days if name == "Birke" else dict.fromkeys(days, "0") for name in POLLEN_TYPES},
+                }
+            ],
+        }
+    ).encode()
+    serve(monkeypatch, dwd_pollen_api, {"s31fg.json": body})
+    request = DwdPollenRequest(parameters=[("daily", "data")], settings=_settings(), options=_options(drop_nulls))
+    return request.filter_by_station_id(["124"]).values().all().df
+
+
 def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # a run file as DWD serves it (swsmos_LATEST_opendata.csv.bz2, read 2026-10-12): the header, the run's own
     # timestamp, then the rows. The file read had no cell that is no number, in any of its 12 columns, so the text
@@ -1698,6 +1762,26 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     monkeypatch.setattr(dwd_swsmos_api.DwdSwsmosValues, "_run_frame", lambda _self, _settings: run)
     request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     return stations_result(request, "hourly", "data", "A006").values().all().df
+
+
+def _dwd_uvi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # uvi.json as DWD serves it (read 2026-11-17): the city and the highest UV index of today, tomorrow and the day
+    # after, as whole numbers. `Beschreibung_uvi.pdf` describes no marker for a day without a forecast, and the file
+    # read has none, so the text of the first day and the null of the second are worded by the stub: the reader takes a
+    # text that is no number for none and keeps what the file wrote as `raw:`
+    body = json.dumps(
+        {
+            "last_update": "2026-11-17T07:30:00",
+            "next_update": "2026-11-18T07:30:00",
+            "name": "UV-Gefahrenindex",
+            "sender": "Deutscher Wetterdienst - Medizin-Meteorologie",
+            "forecast_day": "2026-11-17",
+            "content": [{"city": "Zugspitze", "forecast": {"today": "---", "tomorrow": None, "dayafter_to": 1}}],
+        }
+    ).encode()
+    serve(monkeypatch, dwd_uvi_api, {"uvi.json": body})
+    request = DwdUviRequest(parameters=[("daily", "data")], settings=_settings(), options=_options(drop_nulls))
+    return stations_result(request, "daily", "data", "zugspitze").values().all().df
 
 
 def _eccc_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1753,16 +1837,19 @@ def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     # no value outside the physical range, and the hours as `Varias` (several) in the `hora*` fields, which are not
     # read; the hourly observation feed of 9,759 reports writes a calm as a `dv` of 0 (see `_aemet_hourly`), and has a
     # 37.7 degC at 04 UTC at Palencia (hr 76 %), one station's fault, not a sentinel
+    # The unit text of `dir` in the `metadatos` of the answer (read 2026-11-23, GH-4321) words both codes: "decenas de
+    # grado (99 = dirección variable)(88 = sin dato)", so an 88 is "sin dato", no data, and no 880 degrees
     records = [
         {"fecha": "2024-01-01", "tmed": "5,3", "prec": "0,0", "dir": "23", "velmedia": "3,1"},
         {"fecha": "2024-01-02", "tmed": "6,0", "prec": "Ip", "dir": "99", "velmedia": "2,0"},
+        {"fecha": "2024-01-03", "tmed": "4,1", "prec": "0,0", "dir": "88", "velmedia": "1,0"},
     ]
     payload = json.dumps(records).encode("latin-1")
     monkeypatch.setattr(aemet_api, "_fetch_datos", lambda *args, **kwargs: payload)  # noqa: ARG005
     request = AemetObservationRequest(
         parameters=[("daily", "data")],
         start=_day(2024, 1, 1),
-        end=_day(2024, 1, 2),
+        end=_day(2024, 1, 3),
         settings=_settings(auth={"aemet": "stub"}),
         options=_options(drop_nulls),
     )
@@ -3135,8 +3222,8 @@ STUBS = [
         "noaa/ghcn daily/data",
         _ghcn_daily,
         reading=("wind_direction_mean", 189.0),
-        sentinels=(("wind_direction_mean", 0.0),),
-        tokens=(("wind_direction_mean", "0", None),),
+        sentinels=(("wind_direction_mean", 0.0), ("wind_speed_mean", -999.9)),
+        tokens=(("wind_direction_mean", "0", None), ("wind_speed_mean", "-9999", None)),
     ),
     ValueStub(
         "noaa/ghcn daily/gusts",
@@ -3503,9 +3590,14 @@ STUBS = [
         "aemet/observation daily/data",
         _aemet_daily,
         reading=("temperature_air_mean_2m", 5.3),
-        sentinels=(("wind_direction_gust_max", 990.0),),
-        # a trace is 0.0 with the code beside it; a calm or variable wind has no direction
-        tokens=(("wind_direction_gust_max", "99", None), ("precipitation_amount", "Ip", 0.0)),
+        sentinels=(("wind_direction_gust_max", 990.0), ("wind_direction_gust_max", 880.0)),
+        # a trace is 0.0 with the code beside it; a variable direction (99) or none given (88, "sin dato") has no
+        # direction
+        tokens=(
+            ("wind_direction_gust_max", "99", None),
+            ("wind_direction_gust_max", "88", None),
+            ("precipitation_amount", "Ip", 0.0),
+        ),
     ),
     ValueStub(
         "dwd/derived hourly/radiation_global",
@@ -3530,7 +3622,12 @@ STUBS = [
         "dwd/mosmix hourly/snow",
         _dwd_mosmix_snow,
         reading=("snow_depth", 46.0),
-        tokens=(("snow_depth", "-", None), ("snow_depth_new_last_3h", "-", None)),
+        tokens=(
+            ("snow_depth", "-", None),
+            ("snow_depth", "-0.02", 0.0),
+            ("snow_depth_new_last_3h", "-", None),
+        ),
+        verdicts=(("snow_depth", "-0.02", "floor"),),
     ),
     ValueStub(
         "dwd/dmo hourly/icon",
@@ -3546,6 +3643,14 @@ STUBS = [
             ("precipitation_amount_last_1h", "-0.02", "floor"),
             ("radiation_global", "-0.16", "floor"),
         ),
+    ),
+    ValueStub(
+        "dwd/pollen daily/data",
+        _dwd_pollen,
+        reading=("pollen_load_birch", 1.5),
+        # DWD's marker of a day without a value, which is outside the 0 to 3 of the scale
+        sentinels=(("pollen_load_birch", -1.0),),
+        tokens=(("pollen_load_birch", "-1", None),),
     ),
     ValueStub(
         "dwd/poi hourly/data",
@@ -3565,6 +3670,12 @@ STUBS = [
         _dwd_swsmos,
         reading=("temperature_air", 6.2),
         tokens=(("temperature_air", "---", None),),
+    ),
+    ValueStub(
+        "dwd/uvi daily/data",
+        _dwd_uvi,
+        reading=("uv_index_max", 1.0),
+        tokens=(("uv_index_max", "---", None),),
     ),
     # Météo-France's climatological files, as audited in GH-2719 and GH-2720. RR (6 minutes, daily, monthly) and RR1
     # (hourly) hold no code: the descriptions (the descriptif_champs files and the climatologie-*-descriptif PDFs)
@@ -3748,6 +3859,7 @@ NO_STUB = {
         "0-20000-0-11520; 17,520 rows, read 2026-10-25) has no empty value and none outside 989 to 1045 hPa"
     ),
     "dwd/alerts": "no timeseries",
+    "dwd/storm_cells": "no timeseries",
     "dwd/phenology": (
         "the value is DWD's JULTAG, which is the day of the year only for a date in the reference year (negative "
         "for a date before it, past 365 for one after it) and the reader maps no sentinel: no -999 or other "

@@ -50,15 +50,31 @@ export const unitSettingsSchema = z.object({
 })
 export type UnitSettings = z.infer<typeof unitSettingsSchema>
 
+// The time series and the trend line over the stripes were options here (`showTimeseries`, `showTrendline`) and are gone
+// (GH-4170). A blob that still holds them is read as it is: an object schema drops a key it does not know, so they are not
+// in what `coerceSettings` returns, and the next write to the storage no longer holds them. No version bump: it would
+// reset nothing a reader chose, and everything else stays.
 export const stripesDisplaySchema = z.object({
   showTitle: z.boolean(),
   showYears: z.boolean(),
   showSource: z.boolean(),
   showDataAvailability: z.boolean(),
-  showTimeseries: z.boolean(),
-  showTrendline: z.boolean(),
 })
 export type StripesDisplaySettings = z.infer<typeof stripesDisplaySchema>
+
+/**
+ * The lists of stations the search of the header (Ctrl/⌘ K) finds a station by name in (GH-3790): DWD's forecast points (MOSMIX), DWD's
+ * measuring stations and NOAA GHCN daily. The forecast's and GHCN's are on, DWD's measuring stations are off until a reader turns them on
+ * (the server reads that list the first time anyone searches it). A WMO, WIGOS or ICAO id on Enter is searched in every network whatever
+ * this says.
+ */
+export const searchStationsSchema = z.object({
+  forecast: z.boolean().default(true),
+  measured: z.boolean().default(false),
+  ghcn: z.boolean().default(true),
+})
+export type SearchStationsSettings = z.infer<typeof searchStationsSchema>
+export const SEARCH_STATIONS_DEFAULTS: SearchStationsSettings = { forecast: true, measured: false, ghcn: true }
 
 export const wdSettingsSchema = z.object({
   version: z.number(),
@@ -74,6 +90,8 @@ export const wdSettingsSchema = z.object({
    * is stored is made a valid order by `normalizeToolOrder` where it is read and here.
    */
   tabBar: z.array(z.string()).default([...DEFAULT_TOOL_ORDER]),
+  /** The lists of stations the search looks in by name; a default, so that settings stored before it are read */
+  searchStations: searchStationsSchema.default({ ...SEARCH_STATIONS_DEFAULTS }),
   /**
    * Whether the settings have been started from the server's (GH-3878): false on a first visit until the server has
    * answered for good (its settings, or a 404), so that a visit whose answer failed is tried again at the next load. A
@@ -112,10 +130,9 @@ export const SETTINGS_DEFAULTS: WdSettings = {
     showYears: true,
     showSource: true,
     showDataAvailability: true,
-    showTimeseries: false,
-    showTrendline: false,
   },
   tabBar: [...DEFAULT_TOOL_ORDER],
+  searchStations: { ...SEARCH_STATIONS_DEFAULTS },
   seededFromServer: true,
 }
 
@@ -166,6 +183,9 @@ export function coerceSettings(raw: unknown): WdSettings {
     if (stripes.success)
       result.stripes = stripes.data
     result.tabBar = normalizeToolOrder(r.tabBar)
+    const searchStations = searchStationsSchema.safeParse(r.searchStations)
+    if (searchStations.success)
+      result.searchStations = searchStations.data
     if (typeof r.seededFromServer === 'boolean')
       result.seededFromServer = r.seededFromServer
   }

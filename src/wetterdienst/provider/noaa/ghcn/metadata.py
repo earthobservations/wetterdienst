@@ -14,12 +14,12 @@ _NoaaGhcnMetadataSpec = {
     "copyright": "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
     # GHCNh: "NOAA waives any potential copyright and related rights in these data worldwide through the Creative
     # Commons Zero 1.0 Universal Public Domain Dedication (CC0-1.0)" (NCEI OneStop record); GHCN-Daily as NOAA's Open
-    # Data Dissemination program publishes it (the bucket this url is of) says the same, and NCEI's own record of it
-    # states a citation and no licence
+    # Data Dissemination program publishes it (the AWS mirror, the fallback of the daily files) says the same, and
+    # NCEI's own record of it states a citation and no licence
     "license": CC0_1_0,
     # NCEI asks for a citation of each product (GHCN-Daily, GHCN-Hourly), and this network serves both
     "attribution": "NOAA National Centers for Environmental Information (NCEI), Global Historical Climatology Network",
-    "url": "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
+    "url": "https://www.ncei.noaa.gov/pub/data/ghcn/daily/",
     "kind": "observation",
     "extent": {
         "scope": "global",
@@ -28,6 +28,7 @@ _NoaaGhcnMetadataSpec = {
         "bbox": [-180.0, -90.0, 180.0, 90.0],
     },
     "timezone": "America/New_York",
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id"]},
     "resolutions": [
         {
             "name": "hourly",

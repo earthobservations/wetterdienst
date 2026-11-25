@@ -76,7 +76,11 @@ df = values.df
 df
 ```
 
-A station id that no station has is a `StationNotFoundError` (a 404 over REST). For `dwd/observation` and `dwd/derived`
+A station id that no station has is a `StationNotFoundError` (a 404 over REST). For `noaa/ghcn` daily, whose list for
+some of the parameters holds only the stations that have one of them, a station that exists but has none of the
+requested parameters is a `StationLacksParametersError` (a `RequestError`, a 400 over REST, `request-refused`) that
+names the parameters: change them, not the id. A station with no data in any element (no line in NOAA's inventory) is
+not found, as for the whole dataset. For `dwd/observation` and `dwd/derived`
 the lookup of the stations can go without a directory of DWD's server that came back empty or missing, or has no
 description of its stations: a station that only it lists is then not found, and the id may be one. That is a
 `StationListingIncompleteError` (an `UpstreamError`, a 502 over REST, exit 1 on the command line) that names the
@@ -128,7 +132,7 @@ for each dataset of the request, as the stations of a request always are (see be
 of the request, so it says where each one stands, not which of them gave which value: the ids in the rows decide
 that. A summary of `temperature_air` and `wind_speed_mean` can list a station under both datasets though only the rows
 of the wind name it. The stations listed are those some row of the answer was made from, and a result cut down afterwards
-(`sql_values` of the request, `filtered_by_date` or `filtered_by_sql`) lists those some row that is left was made from:
+(`--sql-values` of the command line, `filtered_by_date` or `filtered_by_sql`) lists those some row that is left was made from:
 two rows from 00001 list 00001, and a cut to no row lists no station. A station is still listed under every dataset
 of the request, as above. Ask for them with `with_stations=true` (REST API and
 MCP), `--with-stations` (command line) or read `result.stations.df` (Python), and look the stations of a row up by
@@ -187,9 +191,9 @@ enough. A station can lose something on the way: the provider lets a file go (a 
 withdrawn since the listing, a maintenance page, a file that would not parse, a directory found empty), so its values
 may be missing; the provider leaves out the dates of another series of the source (`metno/frost` keeps two series of a
 precipitation sum or a temperature extreme, and a date only the other one has would be a value of another window under
-the parameter's name); the values of a day, month or year that has not closed yet are left out (`metno/frost` serves
-them unmarked, and an estimate cannot carry the `completeness:Incomplete` mark that `values` puts on a partial month or
-year); or a hard [plausibility check](../data/plausibility.md) rejects a value, which the estimate then
+the parameter's name); the values of a day, month or year that has not closed yet are left out (`metno/frost` and
+`dmi/observation` serve them unmarked, and an estimate cannot carry the `completeness:Incomplete` mark that `values`
+puts on a partial month or year); or a hard [plausibility check](../data/plausibility.md) rejects a value, which the estimate then
 does not use (a value a soft check flags is left out in every mode and is not told). None is a station without a
 reading, and the estimate is made from the other stations and the other values all the same. The answer says so once,
 with a `source-data-left-out` warning: how many of the stations read were affected, by which cause, and the first ten

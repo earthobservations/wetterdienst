@@ -31,7 +31,13 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pydantic_settings import BaseSettings, NoDecode, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
+from pydantic_settings import (
+    BaseSettings,
+    NoDecode,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    SettingsError,
+)
 
 from wetterdienst.options import (
     Options,
@@ -51,6 +57,9 @@ RESTAPI_MAX_STATIONS = 100
 RESTAPI_MAX_ROWS = 500_000
 #: the rows of an answer streamed (ndjson, csv), which is held one station at a time: bounded by the time it takes
 RESTAPI_MAX_STREAM_ROWS = 10_000_000
+#: the groups of the answer of `statistics`, which is built and sent as one body and held as the stations are read:
+#: measured: 50,000 groups take 13 to 30 MB, by the aggregates asked for
+RESTAPI_MAX_GROUPS = 50_000
 #: seconds a request may take before its answer begins; a reverse proxy usually gives up after 60
 RESTAPI_TIMEOUT = 60.0
 #: the requests under `/api` a server works on at once (GH-3089). Each holds a thread of the pool (40 by default)
@@ -508,18 +517,15 @@ class Settings(BaseSettings):
     # the stations after the one a read is at that have their files fetched while it is parsed (GH-3454); each is one
     # connection to the host at once. 0 switches it off: the files are fetched one station after the other
     fetch_ahead: int = Field(default=FETCH_AHEAD, ge=0, le=FETCH_AHEAD_MAX)
-    # opt-in: let REST API and MCP clients pass `sql` / `sql_values` clauses. Off by default because
-    # the clause runs in DuckDB on this host with only per-request limits (see `wetterdienst.io.sql_filter`);
-    # the library and the CLI, whose caller is the host's own user, are not gated
-    restapi_sql: bool = Field(default=False)
     # the limits of the REST API and the MCP tools (GH-3065): a request that would pass one is refused before
     # anything is downloaded, with a 400 that says which and how to narrow the request. 0 switches a limit off.
     # The library and the CLI, whose caller is the host's own user, have none
     restapi_max_stations: int = Field(default=RESTAPI_MAX_STATIONS, ge=0)
     restapi_max_rows: int = Field(default=RESTAPI_MAX_ROWS, ge=0)
     restapi_max_stream_rows: int = Field(default=RESTAPI_MAX_STREAM_ROWS, ge=0)
+    restapi_max_groups: int = Field(default=RESTAPI_MAX_GROUPS, ge=0)
     # seconds a request may take until its answer begins (and a streamed answer between two of its chunks),
-    # else a 504; the work already begun is not cancelled. 0 switches the timeout off
+    # else a 504, and the work of the request stops at the next station or file (GH-4429). 0 switches the timeout off
     restapi_timeout: float = Field(default=RESTAPI_TIMEOUT, ge=0, allow_inf_nan=False)
     # the requests under `/api` served at once (GH-3089), counted until the handler is done, else a 503 with
     # `Retry-After`. 0 switches the cap off
@@ -573,10 +579,10 @@ class Settings(BaseSettings):
             auth: Auth | Mapping[str, Any] = ...,
             use_certifi: bool = ...,
             fetch_ahead: int = ...,
-            restapi_sql: bool = ...,
             restapi_max_stations: int = ...,
             restapi_max_rows: int = ...,
             restapi_max_stream_rows: int = ...,
+            restapi_max_groups: int = ...,
             restapi_timeout: float = ...,
             restapi_max_concurrent: int = ...,
             restapi_allowed_hosts: str | list[str] | tuple[str, ...] = ...,
@@ -621,6 +627,24 @@ class Settings(BaseSettings):
             msg = (
                 "read_bufr is no setting any more: DWD publishes no radar product as BUFR and the radar BUFR reader "
                 "was removed (RadarResult.df with it); the BUFR of dwd/road needs no setting"
+            )
+            raise ValueError(msg)
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def refuse_removed_restapi_sql(cls, data: object) -> object:
+        """Refuse ``restapi_sql`` with the reason it is gone.
+
+        It let the clients of the REST API and the MCP tools pass SQL to DuckDB on the server, which is no longer
+        offered there: the parameters are removed, so there is nothing for a setting to enable. Given in code it is
+        refused. The ``WD_RESTAPI_SQL`` variable is ignored, as every variable no setting reads is: a server that finds
+        it set to true says so once as it starts, and runs (`removed_settings`).
+        """
+        if isinstance(data, Mapping) and "restapi_sql" in data:
+            msg = (
+                "restapi_sql is no setting any more: the REST API and the MCP tools take no `sql` or `sql_values`, "
+                "so there is nothing for it to enable; the command line and the library keep their SQL filters"
             )
             raise ValueError(msg)
         return data
@@ -762,6 +786,45 @@ def _describe_settings_error(error: ValidationError | SettingsError, prefix: str
                 variable += ("" if variable == prefix else "__") + str(part).upper()
         lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
     return lines
+
+
+class _RemovedSettings(BaseSettings):
+    """The variables of the settings that were removed, read as `Settings` reads its own: the environment and `.env`."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="WD_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_ignore_empty=True,
+        extra="ignore",
+    )
+
+    restapi_sql: bool = False
+
+
+def removed_settings(env_file: str | Path = ".env") -> list[str]:
+    """Tell which variables are set to a true value that name a setting that was removed, to warn about them.
+
+    ``WD_RESTAPI_SQL`` let the REST API and the MCP tools take SQL; they take none now. Set to a true value it asks
+    for a feature that is gone: the server says so once as it starts, naming the variable and never its value, and
+    runs without it, as it does with the key of KNMI's Open Data API (`Settings.note_the_open_data_key`), so that a
+    deployment that still sets it is not taken down by an upgrade. Set to a false value, to nothing or to what is
+    no boolean it asks for nothing, and is left alone. Read from the environment and from `.env`, as the settings
+    are.
+    """
+    try:
+        asked = _RemovedSettings(_env_file=env_file).restapi_sql
+    except ValidationError:
+        return []
+    if not asked:
+        return []
+    message = (
+        "WD_RESTAPI_SQL is set to true, and the setting was removed: the REST API and the MCP tools take no `sql` or "
+        "`sql_values` any more (a request that sends one is a 422), so nothing is enabled and the server runs "
+        "without SQL. Unset the variable; the command line (`--sql`) and the library (`filter_by_sql`) keep their "
+        "SQL filters."
+    )
+    return [message]
 
 
 def check_settings() -> list[str]:

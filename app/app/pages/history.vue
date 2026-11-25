@@ -752,6 +752,8 @@ function clear() {
                     </div>
                   </div>
                 </div>
+                <!-- whose records these are and what was done to them (GH-4255); the station histories are DWD's alone -->
+                <ProviderCredit :provider="provider" data-testid="history-credit" />
               </div>
             </div>
           </UCard>

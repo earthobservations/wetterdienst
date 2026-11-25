@@ -6,6 +6,8 @@ import { mockBackend } from './accessibility/mock-backend'
 // the files are read without a browser (what a crawler that runs no script gets); the takeover needs one.
 
 const HOST = 'https://wetterdienst.eobs.org'
+// a German browser: a request with no language at all is told in English (tests/e2e/seo-language.spec.ts)
+const GERMAN = { 'Accept-Language': 'de-DE,de;q=0.9' }
 
 test.describe('the files', () => {
   test('serves a sitemap of the public pages, as XML, and not the widget', async ({ request }) => {
@@ -18,6 +20,8 @@ test.describe('the files', () => {
     expect(locs).toContain(`${HOST}/`)
     expect(locs).toContain(`${HOST}/explorer`)
     expect(locs).toContain(`${HOST}/glossary`)
+    expect(locs).toContain(`${HOST}/measurement`)
+    expect(locs).toContain(`${HOST}/methods`)
     expect(body).not.toContain('/widget')
     expect(body).not.toContain('/_swagger-ui')
   })
@@ -39,7 +43,7 @@ test.describe('the files', () => {
 
 test.describe('the shell', () => {
   test('carries the title, description, canonical link and social tags of the path, without a script', async ({ request }) => {
-    const html = await (await request.get('/about')).text()
+    const html = await (await request.get('/about', { headers: GERMAN })).text()
 
     expect(html).toContain('<title>Über uns - Wetterdienst</title>')
     expect(html).toMatch(/<meta name="description" content="[^"]+">/)
@@ -118,5 +122,67 @@ test.describe('the page taking the tags over', () => {
     await page.waitForURL('**/about')
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${HOST}/about`)
     expect(await counts(page, ['meta[name="robots"]'])).toEqual([0])
+  })
+})
+
+// The page of each provider of the backend (GH-4119): the server reads the list from the backend (the one this suite
+// runs against) for the shell and the sitemap, so the pages are those of `GET /api/providers`, whichever they are.
+test.describe('the pages of the providers', () => {
+  const escape = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
+  const pattern = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  test('has a title, a description, a canonical link and a sitemap entry of its own for every provider', async ({ request }) => {
+    const { providers } = await (await request.get('/api/providers')).json() as { providers: { provider: string, name_english: string }[] }
+    const sitemap = await (await request.get('/sitemap.xml')).text()
+    const home = await (await request.get('/', { headers: GERMAN })).text()
+    expect(providers.length).toBeGreaterThan(0)
+
+    for (const { provider, name_english: name } of providers) {
+      expect(sitemap, provider).toContain(`<loc>${HOST}/providers/${provider}</loc>`)
+      const response = await request.get(`/providers/${provider}`, { headers: GERMAN })
+      expect(response.status(), provider).toBe(200)
+      const html = await response.text()
+      expect(html, provider).toContain(`<title>${escape(name)} - Wetterdienst</title>`)
+      expect(html, provider).toContain(`rel="canonical" href="${HOST}/providers/${provider}">`)
+      expect(html, provider).toContain(`<meta property="og:url" content="${HOST}/providers/${provider}">`)
+      expect(html, provider).toContain(`<meta property="og:title" content="${escape(name)} - Wetterdienst">`)
+      expect(html, provider).toMatch(new RegExp(`<meta name="description" content="${pattern(escape(name))} \\([^"]+\\) bei Wetterdienst: [^"]+">`))
+      // none of them is the home page's head
+      expect(html, provider).not.toContain(home.match(/<meta name="description" content="([^"]*)">/)![0])
+    }
+  })
+
+  test('says its sentence in English where the visitor asks for it', async ({ request }) => {
+    const html = await (await request.get('/providers/dwd', { headers: { cookie: 'wd_lang=en' } })).text()
+
+    expect(html).toMatch(/<meta name="description" content="[^"]+ \([^"]+\) on Wetterdienst: [^"]+, with licence and credit line\./)
+    expect(html).toContain('<html lang="en"')
+  })
+
+  test('keeps an id the backend does not have out of the sitemap and tells it as the site, as before', async ({ request }) => {
+    const sitemap = await (await request.get('/sitemap.xml')).text()
+    const response = await request.get('/providers/nowhere-at-all')
+    const html = await response.text()
+
+    expect(sitemap).not.toContain('nowhere-at-all')
+    expect(response.status()).toBe(200)
+    expect(html).not.toContain('rel="canonical"')
+    expect(html).toContain('<title>Wetterdienst – ')
+  })
+
+  test('is taken over by the page with each tag once, and the title of the provider', async ({ page, context, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await context.addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
+
+    await page.goto('/providers/dwd')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page).toHaveTitle('German Weather Service - Wetterdienst')
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${HOST}/providers/dwd`)
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', `${HOST}/providers/dwd`)
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /^German Weather Service \(Germany\) on Wetterdienst: /)
+    const selectors = [...TAGS, 'title']
+    const counts = await page.evaluate(list => list.map(selector => document.head.querySelectorAll(selector).length), selectors)
+    expect(counts).toEqual(selectors.map(() => 1))
   })
 })

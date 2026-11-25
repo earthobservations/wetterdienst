@@ -16,6 +16,590 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Stripes]` Where NOAA's NCEI does not give a station's file and the backend reads GHCN daily
+  from the AWS mirror, the stripes page, the map's panel and the saved image and CSV now say so, in
+  every language, with the last year of the record where it ends early, and a refusal for a record
+  that is too short says it too; `/_ghcn/annual` passes the backend's `source-fallback` warning on
+  in `metadata.warnings` and keeps such an answer 5 minutes, not 12 hours (GH-4390).
+- `[Measurement]` The radar entry gives the range of DWD's precipitation scan as 180 km (extended
+  from 150 km on 24 November 2026), with DWD's announcement as a source (GH-4404).
+
+### Security
+
+- `[Dependencies]` Packages with advisories are updated to fixed releases: `vue` and `@vue/shared`
+  3.5.46 (a denial of service of Vue's server-side rendering, which the app does not use:
+  `ssr: false`), `lib0` 0.2.120 (an out-of-bounds read in a Yjs decoder, from the editor of
+  `@nuxt/ui`, which the app does not use and does not ship), `qs` 6.17.1 (never loaded by the app)
+  and `unrouting` 0.3.2 (a slow route pattern for a catch-all in a page's file name, of which the
+  app has none). No page changes (GH-4382).
+
+## [0.60.0] - 2026-11-24
+
+Paired with backend 0.198.0, which is live; it needs no route newer than 0.195.0.
+
+### Changed
+
+- `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
+  it) instead of Node 24. Run it from source with Node 26 (GH-4342).
+
+### Fixed
+
+- `[Stripes]` Emptying the start or the end year no longer leaves an empty `start_year=` or
+  `end_year=` in the link of the page: the year is taken as none and the parameter is left out
+  (GH-4381).
+- `[Stripes]` A link whose `start_year` or `end_year` is no whole number (`abc`, `2000.5`) no longer
+  gives `NaN` in the page and in the link it writes back: the year is taken as none, and a repeated
+  one as its first value (GH-4388).
+
+### Security
+
+- `[Server]` No request body is read whole before a route runs. nuxt-security's XSS validator is off
+  for the whole app: it read the body of any POST, on any path (one that does not exist included),
+  into memory before a route was picked, and a chunked body was not limited. The app's server takes
+  a body in one route only, `/mcp`, which caps what it reads; the `/api` proxy takes no body. A GET
+  query is no longer filtered either: one with `<` was refused with a 400 and now reaches the
+  backend. The page escapes what it shows and the CSP stays (GH-4364).
+- `[Dependencies]` Packages with advisories are updated to fixed releases: `@nuxt/ui` 4.12.2,
+  `vue-i18n` 11.4.23, `xss` 1.0.17, and `swagger-ui-dist` 5.35.1, so `/docs` runs DOMPurify 3.4.17
+  instead of 3.4.16, besides the build and test tooling (`undici`, `ws`, `brace-expansion`,
+  `my-bad`, `cac`, `powershell-utils`). `node-forge` 1.4.4 follows. No page changes (GH-4382).
+
+## [0.59.0] - 2026-11-23
+
+Paired with backend 0.196.0, which is live; it needs no route newer than 0.195.0.
+
+### Added
+
+- `[Places]` The Forecast, Ask the weather and the Explorer's interpolation and summary find places by
+  name (GH-3791). A place is used for the closest station: the Forecast picks the closest forecast
+  station and lists the others near it with distance and height, Ask the weather reads at the DWD
+  station nearest to a town and names it and its distance, and the Explorer fills the point with
+  the place and says the temperature is not corrected for height. Beyond 50 km no station is taken
+  for the place: the tool says so, names the nearest and gives no answer. A link carries `lat`,
+  `lon`, `placeName` and `placeRegion`, so a shared link shows the place without a search. What you
+  type there goes to Photon through the app's server, as in the search.
+
+### Changed
+
+- `[Weather warnings]` The Forecast and the map's panel show no warnings box for a place outside
+  Germany any more, where it said that no warnings source covers the place. Inside Germany nothing
+  changes. The Forecast's credits say it in one plain line instead, in all eleven languages:
+  "Weather warnings: Germany only, from DWD". The Ask the weather question "Are there warnings
+  here?" still answers plainly for a place outside Germany (GH-4328).
+
+### Fixed
+
+- `[German]` The glossary names `precipitation_amount` and its maximum labels "Niederschlagshöhe",
+  DWD's term, as the other precipitation labels, instead of "Niederschlagsmenge". In Low German
+  (`de-hh`) snow is `Snee`, fresh snow `Niesnee`, snow depth `Sneehööchde`, a height in a compound
+  `-hööchde`, a degree in a compound `graad` (`Köhlgraadstünn`, `Heizgraaddaag`) and humidity
+  `Füchtigkeit`, in the interface and the glossary alike, where each had two or three spellings
+  (Part of GH-2610).
+- `[Credit lines]` A provider's credit line starts in the reader's language: "Source: Deutscher
+  Wetterdienst" reads "Quelle: Deutscher Wetterdienst" on a German page and "Source : Deutscher
+  Wetterdienst" on a French one, on every page that shows it (the forecast, the explorer, the
+  radar, the warnings, the map's credits, the stripes' table and the CSV of the explorer). The app
+  translates the label "Source:" and ECCC's "Data Source:" only and keeps the provider's own words
+  after it; a credit line with no such label ("© SMHI", a text in Polish) is shown as written, as
+  is the providers page's quotation to copy (GH-4333).
+- `[Translations]` The fourth review of the translations corrects the texts added since the third
+  in the Radar, the warnings, the Meteogram, the stripes and the day and season questions. The
+  methods page and its search entry no longer name "Ask the weather" in English in any language;
+  fresh snow, snow depth and values are one word within a language, and wrong sentences in ten
+  languages are fixed. What only a native speaker can decide is listed in `app/i18n/TERMS.md`
+  (GH-2610).
+
+### Security
+
+- `[Dependencies]` Nuxt is 4.6.4, with `@nuxt/nitro-server`, `@nuxt/vite-server`,
+  `@nuxt/vite-builder` and `@nuxt/schema`, which fixes the open Nuxt advisories. Overrides in
+  `pnpm-workspace.yaml` floor `node-forge` at 1.4.3, `minimatch` at 11.0.1 and `glob` at 14.0.2
+  (build and lint tooling only, no copy ships in the app). The search index is written as JSON
+  with `<`, `>`, `&`, `/`, U+2028 and U+2029 escaped instead of text built by hand. The app looks
+  and works the same (GH-4340).
+- `[MCP]` The `/mcp` proxy refuses a request body over 4 MiB, the backend's own limit, with a 413
+  problem: a declared `Content-Length` before any of the body is read, a chunked body (best effort,
+  the connection is closed) as soon as it passes the limit. It held a body of any size in memory
+  first, and nuxt-security's request size limit answered 413 from 2 MB, with an h3 error. Both of
+  its request checks (the XSS filter and the size limit) are off for `/mcp`, and a body that
+  something has read before the proxy is answered 500, never forwarded empty (GH-4362).
+
+## [0.58.0] - 2026-11-22
+
+Paired with backend 0.195.0, which it needs: the search asks the `station-ids` route of 0.195.0 for a WMO
+number, WIGOS identifier or ICAO code.
+
+### Added
+
+- `[Weather warnings]` DWD's official warnings in the app (GH-4295). On the map a chip "Warnings"
+  over the map draws the outlines of the warnings in force or announced (`/map?warnings=1`), the
+  level told by an edge as well as a colour (dotted, dashed, solid, a double line; the legend is in the
+  layers panel), and lists them in the panel, each opening to DWD's own type, level, times,
+  headline, description and instruction; a warning DWD gives by area name alone (the sea, a coast)
+  has no polygon and is listed apart, never drawn. The station or place picked on the map and the
+  Forecast show a banner of the warnings whose polygon contains the position, with the issue time
+  (a polite status; the widget has none), in one line on a quiet day so that the chart does not
+  move. Outside Germany they say plainly that no warnings source covers the place, and ask for
+  nothing. A new question "Are there warnings here?" in Ask the weather quotes the
+  warnings for the place in DWD's words, never rating them; its rules are marked as DWD's CAP
+  profile or as wetterdienst's own in "How was this worked out?" and on `/methods`. The texts are
+  DWD's, in your language where DWD writes in it (German, English, Spanish, French, Polish), else
+  its German, which the page says. The warnings are asked for again every 5 minutes while a page
+  that shows them is open.
+
+- `[Ask the weather]` The summer question is now a season question with two labelled choices
+  under it: the season (spring, summer, autumn, winter; the winter takes the December before it)
+  and the reference period, every complete WMO 30-year normal from 1961-1990 on (1961-1990 to
+  1991-2020 today, with 2001-2030 added by itself on 1 January 2031). The question opens on the
+  season completed most recently that the station has enough data for (the summer until 30
+  November, the autumn from 1 December) and on the newest normal with enough seasons. A season or
+  normal the station has too little of is greyed out with the reason in its text, and a line under
+  the choices says why; a link that names one gets the default and the line says so. The answer
+  names the normal asked for and the seasons the station has of it (summers 1994-2020 now read
+  "the summers from 1991 to 2020", count 27, where they read 1994 to 2020); a winter normal is
+  written by its winters (1960/61 to 1989/90). The link carries `&season=winter&ref=1961-1990`;
+  `?ask=summer` (summer, while it has enough data) and `/methods#summer` keep working (GH-3764).
+- `[Ask the weather]` The wind question is now a day question with a choice of what to ask
+  about: wind, sunshine, rain, heat and cold, or snow, as a labelled select beside the day. The
+  question and verdict follow it ("How sunny was it on 26 December?" "Dull."), in all eleven
+  languages, and a change of the measure asks the backend nothing. Each scale is named in "How was
+  this worked out?" with its source or marked as wetterdienst's own (sun as the share of the
+  possible sunshine, rain, the days DWD names, snow above 0 cm). A measure the station has no
+  reading of for the day is greyed out with the reason. The question opens on the same date last
+  year instead of the last 26 December; `?ask=wind&day=...` and `/methods#wind` keep working
+  (GH-3764).
+
+- `[Radar]` "Use my location", as on the map: the radar marks your position (a white disc with a
+  navy edge, over the picture and the thunderstorm cells), centres on it and zooms to about 9, and a
+  button hides and shows the marker. Marking and centring wait until the radar picture is in, so
+  that a position outside the picture is told and the map stays where it was (the picture's corners
+  hold no data). The position is asked only on a press, rounded to about 1 km in the browser, kept
+  only with "Remember my position" (`wd-location`) and sent to no request: the radar is the same for
+  everyone. The privacy policy lists the radar among the places and for the map tiles, and says so
+  (GH-4287).
+- `[Search]` The search (Ctrl/⌘ K) finds the app's own words, in your language and in English, with
+  case and accents ignored: the entries of "How weather is measured", the sections and works of
+  the methods, the glossary, the cards of About and Support, each setting (the units, plain-language
+  labels, the tab bar) and the questions of Ask the weather, each at its page and anchor
+  (`/measurement#wind`, `/glossary#temperature_air_mean_2m`, `/settings#settings-friendly-labels`),
+  in groups of a few results with a last option that opens the page that has more. A position typed
+  in (`52.52, 13.40`, `52°31'N 13°24'E`) is a place that opens the map at that point (GH-3790).
+- `[Map]` `/map?lat=&lon=` without a station picks the station for that place as a click would and
+  moves the map to the position, also where no station is within reach or the list fails, and the
+  address keeps it; the Glossary starts its field with `?q=` (following it while open), filters by
+  the rule of the search (every word, any order, accents ignored; the unit's symbol too) and goes
+  to an entry by its name (`/glossary#wind_speed`) (GH-3790).
+- `[Measurement]` Four more entries on the "How weather is measured" page: evaporation
+  (`/measurement#evaporation`), soil moisture (`#soil-moisture`), present weather and the state of
+  the ground (`#present-weather`) and clouds (`#clouds`), each with the sources it rests on (the
+  WMO Guide, WMO-No. 8, Volume I, Chapters 10, 11, 14 and 15, and the providers' own files). They
+  are written in German and English, like the first ones; the Glossary links the evaporation,
+  soil moisture, weather and cloud parameters to them (GH-3787).
+- `[Measurement]` Four more entries on the "How weather is measured" page: automatic weather
+  stations (`/measurement#automatic-stations`), urban stations (`#urban-stations`), road weather
+  stations (`#road-stations`) and how a value is formed, as a mean, a sum, a maximum or a minimum
+  (`#from-measurement-to-value`). They rest on WMO-No. 8, Volume III, Chapters 1, 9 and 10 (a new
+  volume on the page, in its 2024 edition), Volume V, Chapters 2 and 3, and DWD's own files and
+  notices. The Glossary links `road_surface_condition`, `water_film_thickness` and
+  `temperature_surface` to the road weather stations (GH-3787).
+- `[Measurement]` The last three entries of the "How weather is measured" page: radar
+  (`/measurement#radar`, with a link to the Radar tool), water level and discharge
+  (`#water-level`, from WMO's Guide to Hydrological Practices, WMO-No. 168, Volume I, and the pages
+  of WSV, the Environment Agency, Hub'Eau and IMGW) and data quality (`#data-quality`, in the new
+  section "Reading the data": the flags of the sources and wetterdienst's plausibility checks).
+  Radar rests on WMO-No. 8, Volume III, Chapter 7, and DWD's pages on its radar network, its
+  composites with their forecast by displacement (the principle from RADVOR, its nowcasting system
+  until February 2026) and RADOLAN. The Glossary links `stage_*`, `discharge_*` and `groundwater_level` to water
+  level and discharge. The search index may be 55 kB gzipped for a language (it was 50), since the
+  largest, Luxembourgish, is 50.7 kB with them (GH-3787).
+- `[Search]` The search finds stations by name (from three letters) in the lists you choose in the
+  settings, "Stations in the search": the forecast's points (DWD MOSMIX, the backend's best five
+  for the name, names only) and NOAA GHCN daily on, DWD's measuring stations off until turned on
+  (the server reads that list the first time anyone asks). A group for each, provider and network
+  on every result; GHCN and DWD show three and a last option ("11 more on the map") that opens the
+  map's panel search, which now starts on `?q=`. Umlauts match in either spelling there and in the
+  map's panel, which finds WMO numbers too and says "first 20 of N". A WMO number, WIGOS id or ICAO
+  code offers "Search all networks for …" on Enter, whatever the settings say (`/api/station-ids`),
+  leading to the map or the Explorer. The server matches GHCN on the map's list (GH-3790).
+- `[Search]` The search finds places by name (from three letters, 400 ms after the last key) in
+  OpenStreetMap's data through Photon (photon.komoot.io), asked by the app's server so that your
+  address never reaches komoot (`GET /_search/places`): a group "Places" after a typed position,
+  each place leading to the map at its point, with the credit "© OpenStreetMap contributors
+  (ODbL), via Photon". A text under three letters or like a position, whole or partial, is never
+  sent. The server keeps answers for 24 h and asks Photon at most 3 times a second in all, 3 and then
+  1 a second for a client, resting after a refusal; `NUXT_PLACES_SEARCH=off` switches it off. The
+  privacy policy has a section on it (GH-3791, GH-3790).
+
+### Changed
+
+- `[Search]` The groups "Forecast for a station" and "Station on the map" are replaced by one group
+  for each network (the forecast's points, DWD measurements, NOAA GHCN daily); a station leads to
+  the map, where its forecast is one click away (GH-3790).
+- `[Explorer]` The value details are split by station, always: a row for each station of each
+  parameter, named by its name and id, and the unit of the parameter in a column. The sum is shown
+  only for a parameter whose aggregation in the answer is `sum`, `count` or `occurrence` (rain,
+  sunshine duration, days with an event) and is a dash for a temperature or a mean, which it used to
+  add up, and for a window longer than the rows (`_last_6h` in hourly rows), whose windows overlap.
+  Rows a query has rewritten get no unit and no sum. Interpolation and Summary stay one series.
+  Stations restored from a shared link keep the link's order instead of being sorted by id. The
+  fetch asks for `with_metadata` to read the units and aggregations; downloads are unchanged
+  (GH-4296).
+
+### Fixed
+
+- `[Radar]` The About text no longer names RADVOR as the system behind the forecast, which DWD
+  stopped operating at the end of February 2026. It says what DWD's radar products page says: a
+  forecast for 2 hours, calculated by displacement, in all eleven languages; the source line and
+  its link go to that page (GH-4309).
+- `[Explorer]` The values table is a named region that takes the keyboard's focus, so that on a
+  phone, where it is wider than the screen, the arrow keys scroll it (it was a scrolling area no
+  key reached, WCAG 2.1.1). Nothing else of it changes (GH-4312).
+
+## [0.57.0] - 2026-11-21
+
+Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the
+stripes' NOAA GHCN years and station list are made of the per-element lists of 0.194.0.
+
+### Added
+
+- `[Ask the weather]` Every answer says how it was worked out: under it, "How was this worked out?"
+  opens the numbers used (station and its distance, period, how many years or days, thresholds),
+  every rule with the work it comes from or the mark that it is wetterdienst's own choice, the
+  data (provider, dataset, licence, a link that opens it in the Explorer), the terms (linked to
+  "How weather is measured") and the limits. A new page in the Reference group, **Methods**
+  (`/methods`), has the full method of each question step by step with its formula, sources and
+  limits, and the list of the works cited (WMO-No. 8 Volume I, WMO-No. 1203, DWD's own pages);
+  written in German and English, as "How weather is measured" is (GH-3764).
+- `[Measurement]` Four more entries on the "How weather is measured" page: pressure and its
+  reduction to sea level (`/measurement#pressure`), humidity and dew point (`#humidity`),
+  radiation (`#radiation`) and visibility (`#visibility`), each with the sources it rests on (the
+  WMO Guide, WMO-No. 8, Volume I, Chapters 3, 4, 7 and 9, and Volume V, Chapter 3, and the
+  providers' own files). They are written in German and English, like the first ones; the Glossary
+  links the pressure, humidity, dew point, radiation and visibility parameters to them
+  (GH-3787).
+- `[Radar]` A tool of its own, the sixth: DWD's precipitation radar over Germany on the map, a loop
+  of the last two hours and DWD's forecast of the next two (marked observed or forecast in words
+  and by an icon), with a player (play and pause, a step each way, a slider; the loop starts by
+  itself unless the system asks for less motion), the time in your own zone, the legend in mm/h
+  with numbers, a short text on what a radar measures and where it errs, and DWD's thunderstorm
+  cells on top with their list (shown on the frames within 15 minutes of their scan, faded out on
+  older frames and on the forecast). It needs backend 0.194.0 (GH-3788).
+- `[Navigation]` The Radar takes History's place in the default tab bar of a phone: Forecast,
+  Explorer, Stripes and the Radar, with History and the Map in the Menu's sheet. A bar you arranged
+  yourself is kept, and the Radar is below its line (GH-3788).
+
+### Changed
+
+- `[Navigation]` With the Radar the header holds six tools, and to fit them in the longer languages
+  the tools' tiles are left out of its tabs below 80 rem (the names stay), and the search's word and
+  the support heart appear from 90 rem instead of 80 rem (GH-3788).
+- `[Map]` The NOAA GHCN daily layer shows its 133,000 stations at every zoom, loaded once as the DWD
+  layers' are, and no longer by the part of the map in view: there is no "zoom in" hint, choosing
+  the layer does not zoom the map in, and the search and the list near the centre cover all of
+  them. The app's server makes one compact list of them from the backend's answer
+  (`/_ghcn/map-stations`: 2 MB gzipped, where the backend's list is 44 MB of JSON, kept for a day;
+  a backend that is down is a failure with Retry, never an empty layer). The list carries each
+  station's name, years and WMO number; its elevation and region are asked for when it is picked
+  (GH-4267).
+- `[Stripes]` The app makes the climate stripes itself and no longer asks the backend's stripes
+  routes, which the backend drops later. Stations and annual values come from `/api/stations` and
+  `/api/values`, the reference, anomalies and classes are calculated in the browser by the
+  backend's rules, and NOAA's GHCN years are calculated from the daily values by the app's own
+  server (`/_ghcn/*`, rate-limited, kept for twelve hours); its list of stations is made of the
+  backend's lists of each element, so it needs backend 0.194.0 (GH-4258, GH-4270).
+- `[Stripes]` A station with no record long enough for stripes is told in a sentence of the
+  page's own (all eleven languages) and not as a failed fetch with the backend's English sentence
+  (GH-4258).
+- `[API]` The API page no longer lists the stripes' routes (GH-4258).
+- `[Credit]` Wherever the app shows provider data it now says whose it is, as Ask the weather and the
+  stripes did: the provider's credit line and its licence (a link to its terms), with what
+  wetterdienst did to the data directly under it. New in the Explorer (table and chart; for an
+  interpolation or a summary the note says the values were calculated), the forecast in every view,
+  the map's forecast and stripes cards, the widget (compactly, inside the forecast above the
+  unchanged "Powered by" footer; the frame needs about 55 px more, so the embed example now says
+  `height="1050"`), the history and the stripes' table. The texts come from the API's provider list,
+  none are written in the app. The Explorer's CSV file starts with up to three lines beginning `#`
+  (credit, licence, note; fewer where the provider states none): skip the leading lines that start
+  with `#`. Its JSON file has a `metadata` member (`provider` where the terms are known,
+  `processing_note`) before `values`, which is unchanged (GH-4255).
+
+### Fixed
+
+- `[Stripes]` A link with a `kind` that is neither `temperature` nor `precipitation` opens the
+  temperature, where the page failed with an error (GH-4258).
+
+## [0.56.0] - 2026-11-20
+
+Paired with backend 0.193.0. It needs backend 0.192.0 (the stripes' `provider` and `network`, for the GHCN
+daily layer) and otherwise no more of the backend than 0.191.0 gave it; 0.193.0 adds nothing it reads.
+
+### Added
+
+- `[Measurement]` A "How weather is measured" page in the Reference group beside the Glossary
+  (`/measurement`): one entry for air and soil temperature, wind, precipitation, sunshine
+  duration, snow, climate normals, time, and observation, forecast and derived data, each with an
+  anchor (`/measurement#wind`), a table of contents and the sources it rests on, the WMO Guide to
+  Instruments and Methods of Observation (WMO-No. 8; Volumes I and II of 2024, Volume V of 2023)
+  and the providers' own files. It is written in German and English; in another language an entry
+  is shown in English (in German for Low German and Luxembourgish), with a note. The Glossary
+  links each parameter it can to its entry, and an entry's link to its fields opens the Glossary
+  on them (`/glossary?topic=wind`) (GH-3787).
+- `[Map]` A NOAA GHCN daily layer, the third in the layers panel: stations from all over the world,
+  loaded for the part of the map in view as it moves (debounced; a request the map has moved past
+  is cancelled) and grouped like any large layer. Zoomed out so far that the view holds more than
+  200 square degrees, it asks for none and says to zoom in; choosing the layer from such a view
+  zooms the map in until it fits, on the place picked or the centre, and shows stations at once. A
+  station's panel offers its own climate stripes and its daily values in the Explorer, and the
+  nearest forecast; a place picked in another layer is kept when the layer is changed, wherever the
+  map has been moved to. It needs backend 0.192.0 (GH-4078).
+- `[Stripes]` The page takes a source, DWD's annual values or NOAA GHCN daily (`provider` and
+  `network` in the link). The title of a GHCN station's stripes names its country, from its id.
+  Where GHCN temperature stripes are shown, the page, the map's panel and the saved image say that
+  they are built from the midrange of the daily maximum and minimum, not a 24-hour mean, and why
+  (GH-4078).
+- `[Home, Stripes]` One muted line under the credit line where the app shows a provider's data
+  says what wetterdienst did to it: the data was reshaped into a uniform table and its units
+  converted where they differ. It is written in the language of the page, in all eleven languages,
+  and stands under the credit of the home page's answers and under the stripes (not where the
+  source line is switched off). The stripes' saved images and the CSV of their table carry it
+  after the source (GH-3799).
+
+## [0.55.0] - 2026-11-19
+
+Paired with backend 0.192.0. It needs no more of the backend than 0.191.0 gave it (the stripes' classes
+and the stations' WMO numbers).
+
+### Changed
+
+- `[Map]` Stations are grouped by distance, not on a grid: a town's stations are one group at
+  the town, where a grid square's corner used to spread them over several bubbles (Hamburg at
+  zoom 7 had none). The radius is 60 px instead of 80, and every station is its own dot from zoom
+  9 instead of 10. The station pickers' maps group with the same radius and separate at the same
+  zoom. The groups still depend on the zoom only (GH-4241).
+
+### Fixed
+
+- `[Map]` The layers panel closes with one tap on its button. In Safari on a phone the first tap
+  left it open (the panel closed as the focus moved, and the tap's click opened it again); the
+  second closed it. A tap on the map still closes it without picking a station (GH-4242).
+
+## [0.54.0] - 2026-11-19
+
+Paired with backend 0.192.0. It needs no more of the backend than 0.191.0 gave it (the stripes' classes
+and the stations' WMO numbers).
+
+### Added
+
+- `[Map]` A full-screen button with the zoom buttons, on every screen size: the browser's Fullscreen
+  API where it has one (desktop, Android, iPad), the map covering the whole page, bars included,
+  where it has none (iPhone Safari). Escape leaves; the view, layer and station picked are kept. A
+  sheet under the map stands in for the panel, with "Show details" to leave full screen for it. The
+  page's `Permissions-Policy` now allows `fullscreen` for itself (GH-4227).
+- `[Forecast]` The forecast chart shows MOSMIX's thunderstorm probability: a thin panel under the
+  precipitation (it goes with the Precipitation switch) draws each hour with a probability of 10 %
+  or more as a bar, as high as the probability and in one of three shades (from 10, 30 and 60 %),
+  so that colour is not the only cue. Hours under 10 %, which MOSMIX gives on calm days, are not
+  drawn, and a forecast with none has no panel. Where the panel is drawn, the readout says the
+  probability of every hour; a line under the chart says what the bars are, the table has a
+  column for it and the chart's description names the likeliest hour. It is the hourly
+  probability (`wwt`), which MOSMIX gives for every hour of the run; the 6, 12 and 24 hour ones
+  are not used. The compact day cards are unchanged (GH-4090).
+
+### Changed
+
+- `[All]` On a phone (below 40 rem) a card that is a child of the page, a chart, a table and the map
+  run edge to edge: no side margins, rounded corners or side hairlines, text keeps its 16 px gutter.
+  The "About" row of a tool is a small ⓘ beside the page title, with the same text; Escape closes it.
+  The map fills the window between the header and the tab bar. Tablets and desktop are unchanged
+  (GH-4227).
+- `[Stripes]` The table of the years is a fourth view, "Table", beside stripes, bars and bars with
+  a scale (`variant=table` in the link), full width as the forecast's table is; the "Show as table"
+  disclosure under the image is gone. In the table view the download is a CSV (with a UTF-8 mark for
+  Excel, the unit in the header, the reference, credit and licence as `#` lines); the image views
+  keep PNG, JPG and SVG, and print follows the view shown. The line under the chart is short, what
+  this station's colours are measured against ("Relative to the mean of 1971–2000 (spread from
+  1901–2000)", or the whole record for the number that has too few years); the method is in the
+  About text, with what the table's class and anomaly are; the whole sentence is in the CSV. The
+  widget's and the forecast's tables print whole too (GH-4233).
+- `[Navigation]` On a phone (below 40 rem) the top bar and the tab bar slide away while you scroll
+  down and come back when you scroll up or reach the top, so a page has the whole screen; a small
+  scroll does nothing, a focus in either bar brings both back, and with reduced motion they appear
+  and disappear without animation. They stay while the search, the Menu or a popover is open and on
+  the map. The top bar is 44 px, not 64: a smaller logo and name, and the search and settings as
+  44 px icon buttons. The search opens as a bar over the top bar. Wider screens are unchanged
+  (GH-4226).
+- `[Map]` The legend (what a filled and a hollow dot and a numbered disc are) is in the layers panel,
+  under the grouping switch, no longer a box at the map's foot; the map's description says it too for
+  a screen reader (GH-4227).
+- `[Forecast, Map, Widget]` The forecast's day cards (the compact view, the map panel's rows, the
+  widget's narrow frame) draw Yr's weather symbols, as the chart does, in the light or dark set of
+  the page, not Phosphor line icons. Their strength is that of the day's wettest hour, as the
+  chart's hours are (the rate of the block for a late day of 6, 12 or 24 hour totals), not of its
+  total. Yr has no symbol for wind, a dust or sand storm or a funnel cloud: the card draws the sky
+  of the day with a small wind or tornado badge. The CC BY 4.0 credit is under the cards wherever
+  the chart is not (GH-4193).
+- `[Map]` The layer switch and the grouping control, two rows over the map, are one round layers
+  button in the map's top right corner. It opens a small panel with the layers, the resolution and
+  dataset of the measurements, and a "Group stations" switch (disabled and on above 10,000
+  stations, with its note). Escape or a press outside closes it. Grouping is on or off, on by
+  default: the fine step is gone and the coarse one (radius 80, groups to zoom 9) is the one
+  grouping, so the zoom a click on a group goes to is 10 at most, not 8. The station pickers of
+  the Explorer, History, Forecast and Stripes, whose maps split their groups at the same zoom,
+  keep them to zoom 9 now, not 7 (GH-4209).
+
+### Fixed
+
+- `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
+  weather map: for a wind from the west north of the equator they are above the shaft (they were
+  below it), south of the equator below it. A station without a position has the northern side
+  (GH-4063).
+- `[SEO]` The HTML the server sends for a page is in the language the page then shows: its
+  `<html lang>`, title, description, `og:` tags and `<noscript>` text follow the visitor's
+  language cookie, else the first language of the browser's `Accept-Language` that the app has
+  (any of its 11, no longer only German and English), else German, as the app picks it at
+  startup. A request with no `Accept-Language` at all, which a crawler sends and a browser never
+  does, gets English, the language of the page a crawler renders. Before, a request in French or
+  with a cookie for it got German, and the page then showed another language than the HTML under
+  the same URL (GH-4106).
+- `[Forecast]` Under the fraction unit `0–1`, the cloud and snow-chance panels' middle tick is
+  written 0.5 and no longer as 1, which read as the top of the axis; `%` and oktas are unchanged
+  (GH-4197).
+- `[Widget]` Docs: the embedded widget's chart is 674 px high, 744 px with the thunderstorm panel,
+  not 540 px, and the frame needs about 850 to 950 px, so the example iframe is 1000 px high where
+  it was 700 and had a scroll bar; the day cards of a frame 40 rem wide or less are about 350 px
+  (GH-4197).
+- `[Forecast, Map, Widget]` A day's icon takes its sky from the day's mean cloud cover (cloudy
+  from 70 %, partly cloudy from 30 %, as the chart's hours do), no longer from MOSMIX's weather
+  codes 0 to 3. DWD defines those as how the clouds change (none, dissolving, unchanged, forming),
+  not how much sky is covered, so a day with code 3 at 62 to 74 % (the day as a whole at 56 to
+  74 %) showed a plain cloud over a chart of partly cloudy hours. On any day whose codes name no
+  weather, 0.5 mm of rain or more now decides rain, sleet or snow; an hour or a day with no cloud
+  cover is partly cloudy (GH-4190).
+- `[Map]` A click on a group of stations centres the map on the group. It centred on the middle of
+  the stations' box, which is far from the disc where they are not spread evenly (a town with
+  outliers to one side); it now centres on the disc, with the box grown round it so that all of the
+  stations are in view (GH-4209).
+- `[Map]` The OpenStreetMap credit is at the very bottom of the map, under the zoom buttons, not
+  above them (GH-4209).
+- `[Forecast]` Under the pressure unit kPa, the pressure panel's ticks are written with a decimal:
+  the middle tick of 100.9 to 101.9 reads 101.5, no longer 102, and the two ticks of a narrower
+  axis (a step of 0.3) no longer both read 101. hPa and Pa are unchanged, whole numbers (GH-4212).
+
+## [0.53.0] - 2026-11-17
+
+Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
+
+### Added
+
+- `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
+  are one disc with their number, which a click or tap zooms in on; a station that is alone stays a
+  dot, and the one picked stays in view above its group. A switch over the map sets how much is
+  grouped (None, Fine, Coarse: the radius of a group and the zoom from which every station is its
+  own dot; Fine by default); a layer of more than 10,000 stations is always grouped, cannot be set
+  to None, and says so. The groups are drawn on the map's canvas, so they are no stops of the
+  keyboard: the map's keys and buttons zoom in on them. On the measurements a place is one group
+  of the stations that report and those that have stopped, a ring filled for the share that
+  reports. The station pickers split their groups at the same zoom (GH-4079).
+- `[Map]` A change of layer keeps the station picked where it has a WMO number and one station of
+  the other layer has the same: that station is picked (the forecast point and the measuring
+  station of one place, which are up to some kilometres apart and number their stations
+  differently), the panel says it is the same station and why, and its other cards take the same
+  station of their kind instead of the nearest; between DWD's observations the station's id comes
+  first. A number that a station that has stopped keeps is not taken for the station that reports.
+  Where either has no number, or the number is on several stations, the station is picked again by
+  the place as before. Needs a backend that answers `wmo_id` for the stations (GH-4077).
+- `[Stripes]` The climate stripes can be drawn as bars, and as bars with a scale, with a switch
+  above the chart (kept in the link as `variant`). A bar is the year's anomaly from the mean the
+  colours are centred on (1971–2000, or the station's whole record), up for warm or wet, in the
+  colour of its class; with a scale it has a y axis in the unit, round years along the x axis and a
+  line saying what the bars are relative to. Window, title, availability line, source, camera,
+  downloads and print follow the variant shown (GH-4156).
+
+### Changed
+
+- `[Stripes]` The stripes' colours follow Ed Hawkins' method, as the backend classes them: 16
+  discrete colours from the mean of 1971–2000 in steps of 0.325 standard deviations of 1901–2000, no
+  longer a point between the coolest and the warmest year shown, so a year keeps its colour whatever
+  years the form asks for. A line under the chart says what the colours are relative to (the
+  station's whole record where it has too few years in a period); the table has an anomaly column;
+  the readout and the map panel's band follow. Needs the backend that answers `reference` (GH-4157).
+
+### Removed
+
+- `[Stripes]` The two options that drew a time series line and a trend line over the stripes and
+  the bars are gone, with their settings and the `show_timeseries` and `show_trendline` link
+  parameters (old links and stored settings still load; the lines are not drawn, and the readout no
+  longer has a trend row). As in Ed Hawkins' design: "All other superfluous information is removed
+  so that the changes in temperature are seen simply and undeniably" (Climate Lab Book, 2018). The
+  image of the backend already had none (GH-4170).
+
+### Fixed
+
+- `[Forecast, Map, Home]` The late days of a forecast no longer look dry. MOSMIX's hourly rain
+  amount is 0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still
+  carry rain, so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. Each 24 h window
+  now takes the finest series that adds up to DWD's total (hourly, then 6 or 12 h, never finer
+  again), drawn as blocks with a label where they change. A day's rain is its share of each block
+  (`≈`; `≥` where hours have no total), a day of 0.5 mm or more from the totals gets a rain icon,
+  "Will it rain tomorrow?" uses the same rain, and a day is partial only under 20 hours. (GH-4175)
+- `[Explorer, Forecast]` A chart's line breaks where rows are missing, not only where a row has an
+  empty value: a step of more than 1.5 times the usual one there (the resolution's interval, a
+  calendar month or year, or the series' own cadence, also by time of day for readings at fixed
+  hours; an irregular series is left whole) draws nothing across the gap. Before, the default
+  settings (no row for a missing value) joined the points on either side of hours or days with no
+  data. The forecast breaks at a fixed step of more than 3 h. The readout, the table and the
+  downloads are unchanged (GH-4100).
+- `[Forecast, Stripes]` A single selected station is named once by the station picker: the search
+  shows it, and the "Selected station" chip block under it is gone. On the map, which has no search,
+  one line names it, and a screen reader gets the station as the search's description. A single
+  station is replaced by another pick, no longer cleared by its chip. Several stations (Explorer,
+  History) keep their chips (GH-4151).
+- `[Stripes]` The gold data-availability line spans exactly the stripes that have a value: each run
+  of years from the left edge of its first stripe to the right edge of its last, and a year between
+  two gaps gets a bar as wide as its stripe. It stopped half a stripe short at each end of a run
+  and was missing under a lone year, in the chart, the camera and the downloaded images
+  (GH-4153).
+
+## [0.52.0] - 2026-11-16
+
+### Fixed
+
+- `[Explorer, Stripes, Forecast]` A chart's toolbar button that becomes unavailable while it has the
+  keyboard focus (Space on Reset zoom, Enter on Zoom in at its limit, Earlier or Later at an edge)
+  keeps the focus instead of dropping it to the top of the page. It is `aria-disabled`, looks as
+  before, and does nothing when pressed (GH-4101).
+- `[Forecast]` The chart's axis titles stand next to the tick labels of their own panel, and the
+  labels are measured by the ticks they draw and by the width of each character, so the plot
+  gets 12 px more width (240 px instead of 228 on a 390 px phone, in German). The bottom label of
+  an axis that lies closer to the first tick than a line of labels is high is left out, so the
+  pressure's 1.008 is no longer drawn over its 1.010 (GH-4132).
+- `[Forecast]` The panels and the horizon stay at the top of the toolbar, beside the view
+  switcher, in every view, and on a phone the pan and zoom buttons come last, so nothing above
+  them moves. In the compact view the day cards are one height with the weekday, icon, date,
+  temperatures and rain level across the strip; a dry day keeps the rain line's room (GH-4138).
+- `[Stripes]` The climate stripes keep their shape on every screen: their height follows their
+  width at 16:9 (kept between 160 and 480 px), with the title, years and availability line
+  on top, so a phone no longer gets a tall narrow block and a wide screen no flat band. The
+  camera's image has the same ratio, and the menu's image the chart's size on the page (GH-4133).
+
+## [0.51.1] - 2026-11-16
+
+### Changed
+
+- `[Forecast, Map]` The forecast's compact view and the map panel's day list show every day the
+  forecast has (10 for MOSMIX-L), not the first 7. The strip of cards scrolls sideways, and the
+  keyboard can scroll it: it is a region named after the station that takes the focus (GH-4127).
+
+### Fixed
+
+- `[Forecast]` The view switcher (chart, compact, table) keeps its place at the top of the toolbar
+  when the view changes, so it can be clicked again and again without moving the pointer. The
+  chart's pan and zoom buttons moved to a row of their own under it (GH-4124).
+
+## [0.51.0] - 2026-11-15
+
 ### Added
 
 - `[Forecast]` For the stations of DWD's snow forecast MOSMIX-SNOW (15 in the Bavarian Alps today, Zugspitzplatt
@@ -24,6 +608,30 @@ Types of changes:
   source named under the chart and the values in the readout and the table. Every other station
   looks as before. From May to October DWD publishes no snow forecast, and then no station has the
   panel (and none says why). Needs a backend with the dataset `hourly/snow`. (GH-4091)
+- `[Server]` With `NUXT_GOOGLE_SITE_VERIFICATION` set to the name Google Search Console gives
+  (`google54ae9a07758f51bd`), the server answers `/<name>.html` with the line Google looks for, to
+  verify the site by its HTML file. Empty by default, nothing changes; a value that is no such name
+  is ignored with a warning at start. See docs/usage/app.md (GH-4108).
+- `[Server]` Each provider's page (`/providers/dwd`, ...) has a title, description, canonical link
+  and `og:*` tags of its own (German and English in the server's head, every language of the app
+  once the script has run), and is in `sitemap.xml`; before, a crawler saw the home page's head on
+  all 22 and none in the sitemap. The list comes from the backend's `/api/providers`, kept for an
+  hour: a provider the backend gains is in within the hour or at the next restart, and an id it does
+  not have is as before. If the backend is down, the list read last is used; only a server that has
+  read none since it started writes the generic head and lists the fixed pages. The `<noscript>`
+  text of these pages names the provider (GH-4119).
+
+### Changed
+
+- `[Explorer]` The Explorer's chart is drawn with Apache ECharts instead of Plotly, which the
+  Explorer route no longer loads (159 KB less JavaScript, gzip). Its toolbar (earlier, later, zoom
+  out, zoom in, reset, camera) sits above the chart, and the legend turns a series off and on, also
+  from the keyboard (one series at a time: Plotly's double-click to isolate one is gone). The arrow
+  keys step through the values, `+`, `-` and `0` zoom, and the values at a moment are in a box that
+  the pointer can move onto and that Escape closes. The y axis follows the zoom, a missing value
+  breaks the line, and ten years of hourly values draw in about 60 % of the time with every peak
+  kept. Saved images keep their size and names; on the light page green, amber, cyan, lime and
+  orange are a step darker, so every line reads on white (GH-4096).
 
 ## [0.50.0] - 2026-11-14
 
@@ -2182,7 +2790,18 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.60.0...HEAD
+[0.60.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.59.0...app-v0.60.0
+[0.59.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.58.0...app-v0.59.0
+[0.58.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.57.0...app-v0.58.0
+[0.57.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...app-v0.57.0
+[0.56.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...app-v0.56.0
+[0.55.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.54.0...app-v0.55.0
+[0.54.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...app-v0.54.0
+[0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0
+[0.52.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.1...app-v0.52.0
+[0.51.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...app-v0.51.1
+[0.51.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...app-v0.51.0
 [0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
 [0.48.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.47.0...app-v0.48.0
@@ -2232,7 +2851,7 @@ Types of changes:
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.6.0...app-v0.7.0
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.5.0...app-v0.6.0
 [0.5.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.4.0...app-v0.5.0
-[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.3.0...app-v0.4.0
-[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.2.0...app-v0.3.0
-[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0...app-v0.2.0
+[0.4.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.3.0...app-v0.4.0
+[0.3.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.2.0...app-v0.3.0
+[0.2.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.1.0...app-v0.2.0
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0

@@ -31,6 +31,7 @@ from urllib.parse import urlsplit
 from wetterdienst.exceptions import ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import FETCH_AHEAD_MAX
+from wetterdienst.util.cancellation import current as current_cancellation
 from wetterdienst.util.network import _without_url_secrets, download_file, rate_limited
 
 if TYPE_CHECKING:
@@ -200,6 +201,9 @@ class FetchAhead:
         self._seen: set[str] = set()
         self._cache: dict[int, tuple[str, list[DatasetModel]] | None] = {}
         self._failed = threading.Event()
+        #: the cancellation of the request this walk is for, taken in the thread that consumes it: the threads that
+        #: fetch run in no copy of its context, and a file not begun when the answer is gone is not begun (GH-4429)
+        self._cancellation = current_cancellation()
         #: the 429 a fetch or a hook met, which `advance` raises: the first one, whichever thread met it
         self._rate_limited: ProviderRateLimitError | None = None
 
@@ -316,11 +320,15 @@ class FetchAhead:
         self._fetches[position] = job
         job.future = self._workers.submit(self._fetch, job)
 
+    def _abandoned(self) -> bool:
+        """Tell whether the answer of the request this reads for is gone, which ends the fetching, never a file."""
+        return self._cancellation is not None and self._cancellation.is_set()
+
     def _fetch(self, job: _Fetch) -> None:
         """Download the files of one station into the cache, and say nothing of what goes wrong."""
         try:
             for url in job.urls:
-                if job.stop.is_set() or self._failed.is_set():
+                if job.stop.is_set() or self._failed.is_set() or self._abandoned():
                     return
                 slot = _host_slot(url)
                 if not slot.acquire(blocking=False):

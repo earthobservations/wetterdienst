@@ -53,7 +53,7 @@ out are those, so it does not repeat `file-skipped`. Which stations it names:
 A request that names its stations by id (`stations=`, `filter_by_station_id`) has a third warning,
 `station-without-rows` (GH-3828): the ids that returned no rows while other stations of the request did.
 Its message names the window and what narrowed the request, as `parameter-without-rows` does, and does not say what
-the other stations have: at least one returned rows, but `sql_values` may cut them all away afterwards.
+the other stations have: at least one returned rows, and the stations named had none.
 
 - It is told for that selection alone (a point, a box, a name or a rank has empty stations as the ordinary case, and a
   ranked walk stops early), after a walk read to its end, so that a station never read is never named.
@@ -78,6 +78,7 @@ reaches `warn`. What its walk left out at the stations it read is told by `Estim
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import logging
 import re
 from typing import TYPE_CHECKING
@@ -89,10 +90,12 @@ from wetterdienst.util.response_warnings import (
     OTHER_WINDOW_LEFT_OUT,
     PARAMETER_WITHOUT_ROWS,
     SOURCE_DATA_LEFT_OUT,
+    SOURCE_FALLBACK,
     STATION_WITHOUT_ROWS,
     WINDOW_NOT_CLOSED,
     advise_on_skip_causes,
     collecting,
+    source_fallback_message,
     tell_details,
     tell_skip_causes,
     warn_response,
@@ -168,6 +171,11 @@ class ParameterRows:
         #: causes came (dicts for the order): what the advice of `file-skipped` is worded by
         self._skip_causes: dict[str, dict[SkipCause, None]] = {}
         self._skip_causes_of_all: dict[SkipCause, None] = {}
+        #: the stations whose file was read from the provider's secondary source (`note_source_fallback`), and why,
+        #: in the order they came, and the names of the two sources: what `source-fallback` tells. The secondary's file
+        #: may end earlier than the primary's, so these stations say nothing of what the source holds
+        self._fell_back: dict[str, dict[SkipCause, None]] = {}
+        self._fallback_sources: tuple[str, str] | None = None
         #: the stations the walk collected, which a file that serves every station of the request was let go for
         self._collected: dict[str, None] = {}
         #: the candidates a rank walk passed over for the next one (an empty frame, or below `skip_threshold`)
@@ -239,7 +247,15 @@ class ParameterRows:
         self._collected[station_id] = None
         if self._estimate is not None:
             self._estimate.collected(station_id)
-        return collecting(skipped, self._named, left_out, open_window)
+
+        return collecting(skipped, self._named, left_out, open_window, functools.partial(self._fall_back, station_id))
+
+    def _fall_back(self, station_id: str, cause: SkipCause, primary: str, secondary: str) -> None:
+        """Note that the file of the station was read from the provider's secondary source (`note_source_fallback`)."""
+        self._fell_back.setdefault(station_id, {})[cause] = None
+        self._fallback_sources = (primary, secondary)
+        if self._estimate is not None:
+            self._estimate.fell_back(station_id, cause, primary, secondary)
 
     def rejected(self, station_id: str, count: int, by_check: dict[str, int]) -> None:
         """Tell an estimate how many values of the station a hard plausibility check made null, by check."""
@@ -277,6 +293,7 @@ class ParameterRows:
         if not self._enabled:
             return
         self._warn_skipped(rank_filled=rank_filled)
+        self._warn_fell_back(rank_filled=rank_filled)
         self._warn_left_out()
         self._warn_open_window()
         if not self._skipped_all:
@@ -294,14 +311,13 @@ class ParameterRows:
         dropped (`station-skipped`), or whose values were left out for another window (`other-window-left-out`); an id
         the network has no station for was never in the walk (`unknown-station`).
 
-        The message says nothing of the other stations (`sql_values`, which cuts rows afterwards, may leave none of them
-        with rows in the answer), but what narrowed the request (`periods`, a run, a lead time) as
+        The message says nothing of the other stations, but what narrowed the request (`periods`, a run, a lead time) as
         `parameter-without-rows` does, since the values may be in what it left out. `there` refers to the window or to
         what narrowed the request, so a request with neither says none.
         """
         if self._asked is None or not self._returned:
             return
-        left_go = set(self._collected) if self._skipped_all else set(self._skipped)
+        left_go = (set(self._collected) if self._skipped_all else set(self._skipped)) | set(self._fell_back)
         stations = [
             station
             for station in self._asked
@@ -489,6 +505,27 @@ class ParameterRows:
             stations=stations[:MAX_STATIONS_LISTED],
         )
 
+    def _warn_fell_back(self, *, rank_filled: bool) -> None:
+        """Tell the stations whose file was read from the provider's secondary source, once, as `file-skipped` does.
+
+        One warning for the request: how many stations and the first ten, and that the secondary's files may be older
+        than the primary's (GH-4230). Not for the candidates a rank walk replaced when it `rank_filled`.
+        """
+        replaced = self._passed_over if rank_filled else set()
+        stations = [station for station in self._fell_back if station not in replaced]
+        if not stations or self._fallback_sources is None:
+            return
+        primary, secondary = self._fallback_sources
+        causes = [cause for station in stations for cause in self._fell_back[station]]
+        warn_response(
+            log,
+            SOURCE_FALLBACK,
+            source_fallback_message(
+                self._where(stations), many=len(stations) > 1, primary=primary, secondary=secondary, causes=causes
+            ),
+            stations=stations[:MAX_STATIONS_LISTED],
+        )
+
     @staticmethod
     def _where(stations: list[str]) -> str:
         """Name the stations as a warning lists them: all up to the limit, else how many and the first ones."""
@@ -503,11 +540,16 @@ class ParameterRows:
     def _stations_read(self, dataset: DatasetModel) -> list[str]:
         """Give the stations the walk read for a dataset, those whose file was let go left out.
 
-        A station whose file was let go says nothing of what the source holds. (A dataset that needs a window never
+        A station whose file was let go says nothing of what the source holds, nor one read from a secondary source
+        whose file may end earlier (`source-fallback`). (A dataset that needs a window never
         gets here without one: the reader refuses the request, GH-3562.)
         """
         key = (dataset.resolution.name, dataset.name)
-        return [station for station in self._examined.get(key, []) if station not in self._skipped]
+        return [
+            station
+            for station in self._examined.get(key, [])
+            if station not in self._skipped and station not in self._fell_back
+        ]
 
     def _tell(self, parameter: str, subject: str, stations: list[str], dataset: DatasetModel) -> None:
         """Say that the source has no values for `subject` at `stations`, in the window and as the request narrows."""
@@ -573,6 +615,10 @@ class EstimateLeftOut:
         #: the stations that let go a file every station is read from, and why: it is every station's while one of
         #: them stays
         self._files_of_all: dict[str, dict[SkipCause, None]] = {}
+        #: the stations whose file was read from the provider's secondary source, and why, and the names of the two
+        #: sources (`note_source_fallback`): told once, as `source-fallback`, never for each candidate
+        self._fell_back: dict[str, dict[SkipCause, None]] = {}
+        self._fallback_sources: tuple[str, str] | None = None
         #: the dates left out, by parameter (`resolution/dataset/parameter`) and then by station
         self._dates: dict[str, dict[str, int]] = {}
         #: the values a hard check made null, by station: the count, and the count by check
@@ -588,6 +634,11 @@ class EstimateLeftOut:
     def skipped(self, station_id: str, cause: SkipCause, *, whole_request: bool) -> None:
         """Note that the provider let a file go while the station was read, and why."""
         (self._files_of_all if whole_request else self._files).setdefault(station_id, {})[cause] = None
+
+    def fell_back(self, station_id: str, cause: SkipCause, primary: str, secondary: str) -> None:
+        """Note that the file of the station was read from the provider's secondary source, and why."""
+        self._fell_back.setdefault(station_id, {})[cause] = None
+        self._fallback_sources = (primary, secondary)
 
     def left_out(self, station_id: str, parameter: str, count: int) -> None:
         """Note that the provider left `count` dates of `parameter` out of the station: they are of another series."""
@@ -634,6 +685,7 @@ class EstimateLeftOut:
         self._collected.pop(station_id, None)
         self._files.pop(station_id, None)
         self._files_of_all.pop(station_id, None)
+        self._fell_back.pop(station_id, None)
         self._rejected.pop(station_id, None)
         for stations in self._dates.values():
             stations.pop(station_id, None)
@@ -643,7 +695,12 @@ class EstimateLeftOut:
         self._open = {window: stations for window, stations in self._open.items() if stations}
 
     def warn(self) -> None:
-        """Tell, in one warning, what was left out and at how many of the stations read; nothing if nothing was."""
+        """Tell, in one warning, what was left out and at how many of the stations read; nothing if nothing was.
+
+        The stations whose file came from the secondary source are told by a warning of their own, `source-fallback`,
+        once, with their number: nothing is left out there, the answer may only lack the most recent days.
+        """
+        self._warn_fell_back()
         files = list(self._collected if self._files_of_all else self._files)
         other = [station for station in self._collected if any(station in dates for dates in self._dates.values())]
         rejected = [station for station in self._collected if station in self._rejected]
@@ -698,6 +755,26 @@ class EstimateLeftOut:
                 f"estimate. {advise_on_skip_causes(causes)}"
             )
         warn_response(log, SOURCE_DATA_LEFT_OUT, " ".join(sentences), stations=affected[:MAX_STATIONS_LISTED])
+
+    def _warn_fell_back(self) -> None:
+        """Tell the stations read from the secondary source that the estimate used, once (`source-fallback`)."""
+        stations = [station for station in self._collected if station in self._fell_back]
+        if not stations or self._fallback_sources is None:
+            return
+        primary, secondary = self._fallback_sources
+        causes = [cause for station in stations for cause in self._fell_back[station]]
+        warn_response(
+            log,
+            SOURCE_FALLBACK,
+            source_fallback_message(
+                ParameterRows._where(stations),  # noqa: SLF001
+                many=len(stations) > 1,
+                primary=primary,
+                secondary=secondary,
+                causes=causes,
+            ),
+            stations=stations[:MAX_STATIONS_LISTED],
+        )
 
     @staticmethod
     def _count(stations: list[str]) -> str:

@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.188.0"
+version = "0.199.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -121,7 +121,6 @@ dependencies = [
     "pydantic-core>=2.18.4,<3",
     "pydantic-extra-types>=2.10.1,<3",
     "pydantic-settings>=2.14.0,<3",
-    "python-dateutil>=2.8.2,<3",
     "rapidfuzz>=3.1,<4",
     "stamina>=25.1.0,<27",
     "tabulate>=0.9,<1",
@@ -153,7 +152,9 @@ cratedb = [
     "sqlalchemy-cratedb>=0.40,<1",
 ]
 duckdb = [
-    "duckdb>=1.1.0,<2",
+    # >=1.5.3: the same release as the `sql` extra, so that one install holds both; <3: the export is
+    # tested on 1.5 and 2.0 (GH-4348)
+    "duckdb>=1.5.3,<3",
     "pandas>=2.2.2,<4",
 ]
 # kept for the installs that name it; `bufr` carries this and the reader both. The floor is the
@@ -204,7 +205,9 @@ mysql = [
     "sqlalchemy>=2,<3",
 ]
 pdf = [
-    "pypdf>=6.21.2,<7",
+    # 7.1.1 fixes denial-of-service advisories that `PdfReader` -> `extract_text()` reaches and 6.x never got
+    # (GHSA-5chg-c4f3-fw2p, -p3v2-r3fx-qpm6, -59jv-x5x2-gg4c, -7f8r-xhw3-553h, -cqpq-3wwr-f5p2); GH-4130, GH-4350
+    "pypdf>=7.1.1,<8",
 ]
 plotting = [
     # 6.3 keeps the offset of a timezone-aware timestamp when it takes a polars frame (through narwhals, no pandas)
@@ -230,21 +233,28 @@ radarplus = [
     "xradar>=0.8,<1",
 ]
 restapi = [
-    # >=0.142: ui/restapi.py passes `FastAPI(telemetry=...)`, which 0.142 added
-    "fastapi>=0.142,<1",
+    # >=0.142: ui/restapi.py passes `FastAPI(telemetry=...)`, which 0.142 added; >=0.163.2 for GHSA-f56c-v883-vx8r
+    # (denial of service: quadratic processing of query parameters, which every data route declares; GH-4351)
+    "fastapi>=0.163.2,<1",
     # ui/restapi.py imports starlette.exceptions.HTTPException and registers a handler for it; >=1.3: the first
-    # release whose starlette.testclient takes httpx2 (the project's dev group has httpx2 only, no httpx)
-    "starlette>=1.3,<2",
+    # release whose starlette.testclient takes httpx2 (the project's dev group has httpx2 only, no httpx);
+    # >=1.3.1 for GHSA-82w8-qh3p-5jfq (form limits ignored; no route here reads a form, GH-4351)
+    "starlette>=1.3.1,<2",
     "uvicorn[standard]>=0.30,<1",
 ]
 sql = [
-    "duckdb>=1.1.0,<2",
+    # >=1.5.3: the filter refuses an older DuckDB (`wetterdienst.io.sql_filter.MINIMUM_DUCKDB`); <3: the
+    # filter's restrictions are held by tests/test_sql_filter_connection.py on 1.5.3, 1.5.6 and 2.0 (GH-4348)
+    "duckdb>=1.5.3,<3",
 ]
 mcp = [
     "wetterdienst[restapi]",
     # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one;
     # >=4.1.2 for GHSA-vqqp-x5qm-5qp4 and GHSA-7xgj-8392-5q4r
     "fastmcp>=4.1.2,<5",
+    # >=2.14.2 for GHSA-3r8g-cqwr-jr29: mcp_types validates the `_meta` of a request as an aliased TypedDict with extra
+    # items, where before 2.14.2 a key under the field's python name replaced the validated one (GH-4378)
+    "pydantic>=2.14.2,<3",
     # ui/mcp.py builds the OpenAPIProvider's ASGI client with it; >=2.12 for CVE-2026-84379/80/82
     "httpx2>=2.12,<3",
 ]
@@ -345,6 +355,9 @@ coverage = [
     "coverage:parallel",
     "coverage:cflakes",
 ]
+# the offline selection with coverage, as `test:offline` runs it (serial, see there): what a pull request and a push to main
+# report to Codecov; the whole suite, remote tests included, is `coverage` and runs nightly
+"coverage:offline" = "uv run pytest --cov-report xml --cov wetterdienst tests/ -m 'not (remote or explorer)' --junitxml=junit-offline.xml"
 # the OpenAPI document as committed (tests/ui/openapi.snapshot.json), which a test holds the served one to: run after a
 # change to the contract, and read the diff
 "openapi:snapshot" = "uv run python -m tests.ui.openapi_snapshot"
@@ -450,10 +463,17 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "**/__init__.py" = ["F401", "D104"]
 "tests/*" = ["S101"]
 "benchmarks/*" = ["T20", "INP001"]
+# a command-line script that prints its answers, with figures written in the Unicode the models write them in
+"benchmarks/mcp/**/*.py" = ["T20", "EXE001", "RUF001"]
 "examples/*" = ["T20", "INP001"]
 # the command line imports what a command uses inside the command, so that `--help`, `--version` and a shell completion
 # load almost nothing (GH-3809); tests/ui/cli/test_cli_imports.py holds what the module imports
 "src/wetterdienst/ui/cli.py" = ["PLC0415"]
+# the parser of the row options builds the message of every refusal where it finds the fault (position, what was found,
+# what is allowed, what to write instead), which is its job; no message is made for a second raise
+"src/wetterdienst/model/row_selection.py" = ["EM101", "EM102", "TRY003"]
+"src/wetterdienst/model/option_grammar.py" = ["EM101", "EM102", "TRY003"]
+"src/wetterdienst/model/group_statistics.py" = ["EM101", "EM102", "TRY003"]
 
 [tool.deptry]
 known_first_party = ["wetterdienst"]
@@ -545,3 +565,9 @@ omit = [
 # Cooldown: ignore releases younger than this, so freshly published (and possibly
 # yanked or broken) versions never enter the lockfile.
 exclude-newer = "3 days"
+
+# The docs build needs Python 3.11.5 or later: every soupsieve release that fixes its advisories
+# (GHSA-7g44-g9rc-x53w, GHSA-6655-6qjp-jx7x, GHSA-mmhr-3c5m-f64f) does, and the package itself
+# stays on `>=3.11` (GH-4130)
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.11.5" }

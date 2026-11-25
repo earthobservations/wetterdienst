@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -18,6 +17,7 @@ from aiohttp import encode_basic_auth
 from wetterdienst.exceptions import CredentialMissingError, DownloadError, InvalidTimeIntervalError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
+from wetterdienst.model.open_window import incomplete_flag, leaves_open_out, no_open_window, served_at, tell_open_window
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
     Sentinel,
@@ -38,7 +38,7 @@ from wetterdienst.util.network import (
     drop_cached_file,
     raise_if_credential_rejected,
 )
-from wetterdienst.util.response_warnings import SkipCause, note_left_out, note_open_window, note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_left_out, note_skipped_download
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -95,6 +95,7 @@ _MetnoFrostMetadataSpec = {
     },
     "timezone": "Europe/Oslo",
     "auth": True,
+    "station_id_list": {"resolution": "hourly", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "10_minutes",
@@ -464,7 +465,7 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   (10 to 24 January 2026), in 1,014 of 1,068; 1,014 of their 1,030 readings of a speed of 0 have a direction of 0. It
 #   is null with `raw:0` beside a speed of 0 of the same reading and level, as every provider that writes a calm
 #   returns it (`calm`, GH-3833), and a 0 beside a speed above 0 stays. The dataset is requested whole, so its reading
-#   has the speed; the single and the discovery readers ask for the direction alone, and a 0 stays there. A station
+#   has the speed (a 404 is no data, and no reader asks for the direction alone, GH-4321). A station
 #   may measure the wind at several heights (`_prefer_standard_height`, GH-3844): the speed and the direction of a
 #   time are of one height (the 10 m one where it has both, else the nearest that has both), a calm or a -3 there is
 #   what the hour is, and the bearing of another height does not fill it; only where no height has both are they
@@ -692,9 +693,45 @@ _OPEN = "__open"
 # is read: Frost's snow depth, one reading a day at 06 UTC. The aggregates of a window (mean, maximum, minimum, sum) are
 # not
 _INSTANTANEOUS = ("surface_snow_thickness",)
-# the code of the token `completeness` for such a value, the one the Environment Agency's own flag uses for a value
-# based on incomplete data (`quality_legend.py`)
-_INCOMPLETE = "Incomplete"
+
+
+#: the fields of the sources list that the catalogue reads, and the ids it asks for besides them (GH-4070)
+_SOURCE_FIELDS = "id,name,validFrom,validTo,geometry,county,countryCode,masl"
+_SOURCE_ID_FIELDS = "wmoId,wigosId,icaoCodes"
+
+
+def _source_ids(df: pl.DataFrame) -> pl.DataFrame:
+    """Add `wmo_id`, `wigos_id` and `icao_id` to the sources, read from what Frost types them as (GH-4070).
+
+    Read live 2026-11-15 (4,183 sources): `wmoId` is an integer on 1,029 sources (4 digits on 863, 5 on 166, never 0),
+    which is the WMO number without its leading zero, so it is padded to five digits; `wigosId` a text on 1,621
+    (issuer 578 on 1,350, 20000 on 265, 22000 on 6) and `icaoCodes` a list on 164 (one code on 163, two on one), of
+    which the first is read. A column that is not typed so (a text in `icaoCodes`, a decimal in `wmoId`) is read as no
+    id, not guessed at, and a column no source has is a column of nulls.
+    """
+    columns = []
+    wmo = df.schema.get("wmoId")
+    if wmo is not None and (wmo.is_integer() or wmo == pl.String):
+        text = pl.col("wmoId").cast(pl.String).str.strip_chars()
+        columns.append(
+            pl.when(text.str.contains(r"^[0-9]{1,5}$") & text.str.contains(r"[1-9]"))
+            .then(text.str.zfill(5))
+            .alias("wmo_id")
+        )
+    else:
+        columns.append(pl.lit(None, dtype=pl.String).alias("wmo_id"))
+    columns.append(
+        pl.col("wigosId").alias("wigos_id")
+        if df.schema.get("wigosId") == pl.String
+        else pl.lit(None, dtype=pl.String).alias("wigos_id")
+    )
+    icao = df.schema.get("icaoCodes")
+    columns.append(
+        pl.col("icaoCodes").list.first().cast(pl.String).alias("icao_id")
+        if isinstance(icao, pl.List)
+        else pl.lit(None, dtype=pl.String).alias("icao_id")
+    )
+    return df.with_columns(columns)
 
 
 def _raise_if_rejected(file: File) -> None:
@@ -855,20 +892,6 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _served_at(file: File, asked_at: datetime) -> datetime:
-    """Give the time the answer in hand is of: when it was asked for, or when its copy was made if that was before.
-
-    ``asked_at`` is `_now` taken before the download began. An answer is cached for five minutes
-    (`CacheExpiry.FIVE_MINUTES`), so one read after a window closed may have been fetched before: Frost's state at 17:57
-    is no final value of a window that closes at 18:00, whoever reads it at 18:01. A copy that has no time (the cache is
-    off, a save was skipped, a download that is stubbed) is of the time the download began, and not of the time it
-    ended: a window that closes while the answer is on its way is not closed in it.
-    """
-    if file.cached_at is None:
-        return asked_at
-    return min(asked_at, datetime.fromtimestamp(file.cached_at, UTC))
-
-
 def _closes(df: pl.DataFrame, resolution: str) -> pl.Expr:
     """Give, for each observation of a daily, monthly or annual element, the time its value's window closes (GH-3856).
 
@@ -953,7 +976,7 @@ def _tell_left_out(
     (`resolution/dataset/parameter`) of each parameter that was asked for by the name Frost gives it, ``start`` and
     ``end`` the window the core cuts the answer to, and ``resolution`` the name of the resolution they were asked for.
     A date the returned series has is no date left out, and neither is one the returned series has but for its window
-    not having closed (``open_window``, the frame `_read_observations` gave, which `_tell_open_window` tells). The dates
+    not having closed (``open_window``, the frame `_read_observations` gave, which `tell_open_window` tells). The dates
     are compared by the key of the date (`_stamp_keys`) on both sides, and the window is cut on it: a stamp of the
     other series that is off midnight is the date of the returned one (GH-3865). The warning is `other-window-left-out`,
     and is why `parameter-without-rows` says nothing of such a parameter.
@@ -973,40 +996,14 @@ def _tell_left_out(
             note_left_out(names[parameter], count, _LEFT_OUT_BECAUSE[parameter])
 
 
-def _tell_open_window(
-    open_window: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, *, returned: bool
-) -> None:
-    """Tell the walk of the values, of the parameters asked for, whose window had not closed (GH-3856).
-
-    ``open_window`` is what `_read_observations` gave: the `parameter`, the `timestamp` (the key of the date) and the
-    time the window `closes`, one row for each. ``returned`` is whether they are in the answer (marked, `_OPEN`) or left
-    out of it (`_leaves_open_out`), so the warning says which. A value the core cuts off (beyond the window of the
-    request) is not counted. The warning is `window-not-closed`.
-    """
-    if open_window.is_empty():
-        return
-    inside = open_window.filter(pl.col("timestamp").is_between(start, end))
-    summary = inside.group_by("parameter").agg(pl.len().alias("count"), pl.col("closes").min())
-    for parameter, count, closes in summary.iter_rows():
-        if parameter in names:
-            note_open_window(names[parameter], count, closes, returned=returned)
-
-
-def _no_open_window() -> pl.DataFrame:
-    """Give the frame of the values of a window that had not closed (`_Read.open_window`) with none."""
-    return pl.DataFrame(
-        schema={"parameter": pl.String, "timestamp": pl.Datetime("us", "UTC"), "closes": pl.Datetime("us", "UTC")}
-    )
-
-
 def _leaves_open_out(resolution: str, *, estimate: bool) -> bool:
     """Give whether a value of a window that had not closed is left out of the answer, and not returned marked.
 
     A daily one always is: it looks like the day's (GH-3856). A monthly or annual one is returned marked
     `completeness:Incomplete` in `quality_flags`, which an estimate drops, so it is left out of an estimate and told as
-    such (GH-3883); `values` still returns it.
+    such (GH-3883); `values` still returns it (`leaves_open_out`).
     """
-    return resolution == _DAILY or (estimate and resolution in _PERIODS)
+    return resolution in _PERIODS and leaves_open_out(daily=resolution == _DAILY, estimate=estimate)
 
 
 def _tell_not_returned(
@@ -1019,15 +1016,15 @@ def _tell_not_returned(
     *,
     estimate: bool,
 ) -> None:
-    """Tell what a read of the observations left out of the answer or marked (`_tell_left_out`, `_tell_open_window`).
+    """Tell what a read of the observations left out of the answer or marked (`_tell_left_out`, `tell_open_window`).
 
-    ``kept`` is the frame the station returns (all the series of a discovery), whose dates a date left out is not.
+    ``kept`` is the frame the station returns, whose dates a date left out is not.
     ``estimate`` is whether the values are read for `interpolate` or `summarize` (`_leaves_open_out`).
     """
     leaves_out = _leaves_open_out(resolution, estimate=estimate)
     # a value of a window not closed that is left out is no date left out for another series (GH-3856)
     _tell_left_out(read.left_out, kept, names, start, end, resolution, read.open_window if leaves_out else None)
-    _tell_open_window(read.open_window, names, start, end, returned=not leaves_out)
+    tell_open_window(read.open_window, names, start, end, returned=not leaves_out)
 
 
 def _level(df: pl.DataFrame) -> pl.Expr:
@@ -1045,7 +1042,7 @@ class _Read(NamedTuple):
     frame: pl.DataFrame
     #: the dates of another series that was left out (`_left_out_dates`)
     left_out: pl.DataFrame
-    #: the values of a window that had not closed (`parameter`, `timestamp`, `closes`; `_tell_open_window`)
+    #: the values of a window that had not closed (`parameter`, `timestamp`, `closes`; `tell_open_window`)
     open_window: pl.DataFrame
 
 
@@ -1064,13 +1061,13 @@ def _read_observations(
     the expression of the name the rows are given, ``resolution`` the name of the resolution they were asked for and
     ``station_id`` the station they are of. The frame has the columns parameter, timestamp, value and quality flags.
     The other two are `_left_out_dates` and the values of a window that had not closed at ``served_at``, the time of
-    the answer (`_served_at`; GH-3856): of a daily one, which is left out, and of a monthly or annual one, which stays
+    the answer (`served_at`; GH-3856): of a daily one, which is left out, and of a monthly or annual one, which stays
     and has `completeness:Incomplete` in its quality flags, unless ``estimate``, which leaves it out too
     (`_leaves_open_out`).
     """
     left_out = _left_out_dates(df, parameter, resolution)
     df = _keep_standard_offset(df)
-    open_window = _no_open_window()
+    open_window = no_open_window()
     if not df.is_empty() and resolution in _PERIODS:
         df = df.with_columns(_closes(df, resolution).alias(_CLOSES))
         is_open = (pl.col(_CLOSES) > served_at).fill_null(value=False)
@@ -1164,9 +1161,8 @@ def _prefer_standard_height(df: pl.DataFrame) -> pl.DataFrame:
        that no bearing is lost.
 
     The speed and the direction are in the frame whatever was asked for, the dataset being read whole, so the speed of
-    a request for the speed alone is the speed of the pair too: it is the same for an hour in every request. The two
-    readers that read a parameter by itself (after a 404 of the whole dataset, where no data was found) have no pair to
-    see, and choose the speed, or the direction, as any other parameter. The gust is no part of the pair.
+    a request for the speed alone is the speed of the pair too: it is the same for an hour in every request. The gust
+    is no part of the pair.
 
     A parameter that is not in `_STANDARD_HEIGHT`, and a frame without `_LEVEL`, are as they were.
     """
@@ -1241,9 +1237,7 @@ def _decode_sentinels(df: pl.DataFrame, station_id: str | None = None) -> pl.Dat
     )
     quality = pl.col("quality_flags") if "quality_flags" in df.columns else None
     # a value of a window that had not closed (`_read_observations`) is incomplete; none that has is marked as complete
-    incomplete = (
-        pl.when(pl.col(_OPEN)).then(pl.lit(_INCOMPLETE)) if _OPEN in df.columns else pl.lit(None, dtype=pl.String)
-    )
+    incomplete = incomplete_flag(pl.col(_OPEN)) if _OPEN in df.columns else pl.lit(None, dtype=pl.String)
     decoded = df.with_columns(value.alias("value"), join_quality_flags(quality, completeness=incomplete, raw=raw))
     return decoded.drop(SPEED_BESIDE, _LEVEL, _OPEN, strict=False)
 
@@ -1257,22 +1251,6 @@ class MetnoFrostValues(TimeseriesValues):
         "&elements={element}"
         "&referencetime={start}/{end}"
         "&timeresolutions={time_resolution}"
-    )
-    _available_time_series_url = (
-        "https://frost.met.no/observations/availableTimeSeries/v0.jsonld"
-        "?sources={station_id}"
-        "&elements={element}"
-        "&timeresolutions={time_resolution}"
-    )
-    _observations_url_ts = (
-        "https://frost.met.no/observations/v0.jsonld"
-        "?sources={source_id}"
-        "&elements={element}"
-        "&referencetime={start}/{end}"
-        "&timeresolutions={time_resolution}"
-        "&timeseriesids={ts_id}"
-        "&performancecategories={perf_cats}"
-        "&exposurecategories={expo_cats}"
     )
 
     def _collect_station_parameter_or_dataset(
@@ -1327,18 +1305,15 @@ class MetnoFrostValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        # the status is read before the generic failure warning below: a 404 or 412 says there is
-        # nothing (or that a fallback applies), not that the request failed
+        # the status is read before the generic failure warning below: a 404 or 412 says there is nothing, not that
+        # the request failed
         # 412: no data for this station/elements/period combination
+        # 404: Frost's "No data found" for a window without data. The request asks every element of the dataset, so a
+        # 404 means that none has data. Asking an element alone found data in 196 of 208 (station, element,
+        # resolution) pairs and a 404 in 12, and the time-series form found none for those 12 (GH-3137, GH-4321)
         _raise_if_unanswered(file)
-        if file.status == 412:
+        if file.status in (404, 412):
             return pl.DataFrame()
-        # 404: Frost's "No data found" for a window without data. The elements are resolved one by one and then
-        # through the time series, which found data in none of the 12 such series of a sample of 208 (GH-3137)
-        if file.status == 404:
-            return self._collect_after_batch_404(
-                station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
-            )
         if isinstance(file.content, Exception):
             note_skipped_download(file.skip_cause)
             log.warning(f"Failed to download {url}: {file.content}")
@@ -1368,7 +1343,7 @@ class MetnoFrostValues(TimeseriesValues):
             pl.col("elementId"),
             dataset.resolution.name,
             station_id,
-            _served_at(file, asked_at),
+            served_at(file, asked_at),
             estimate=self._left_out_of_estimate is not None,
         )
         # the batch holds the whole dataset: what is told is of the parameters asked for
@@ -1387,274 +1362,6 @@ class MetnoFrostValues(TimeseriesValues):
             estimate=self._left_out_of_estimate is not None,
         )
         return read.frame
-
-    def _collect_after_batch_404(
-        self,
-        station_id: str,
-        dataset: DatasetModel,
-        batched: list[ParameterModel],
-        start_date: datetime,
-        end_date: datetime,
-        settings: Settings,
-        client_kwargs: dict,
-    ) -> pl.DataFrame:
-        """Resolve the requested parameters one by one after the request for `batched` 404'd.
-
-        Only the parameters that were asked for: the batch fetched the whole dataset, but its extra
-        rows are dropped later, so resolving them would spend requests on nothing. A batch of one
-        element is the single request itself, which just failed, so that goes straight to discovery.
-        """
-        requested = {
-            parameter.name_original
-            for parameter in self.sr.parameters
-            if (parameter.dataset.resolution.name, parameter.dataset.name) == (dataset.resolution.name, dataset.name)
-        }
-        resolve = self._collect_via_time_series_discovery if len(batched) == 1 else self._collect_single_parameter
-        frames = [
-            resolve(station_id, parameter, start_date, end_date, settings, client_kwargs)
-            for parameter in batched
-            if parameter.name_original in requested
-        ]
-        frames = [frame for frame in frames if not frame.is_empty()]
-        return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
-
-    def _collect_single_parameter(
-        self,
-        station_id: str,
-        parameter: ParameterModel,
-        start_date: datetime,
-        end_date: datetime,
-        settings: Settings,
-        client_kwargs: dict,
-    ) -> pl.DataFrame:
-        """Fetch a single parameter directly, falling back to time-series discovery on 404.
-
-        Used when a batched multi-element request 404s, to resolve each parameter
-        individually before the time series are asked for (`_collect_via_time_series_discovery`).
-        """
-        url = self._observations_url.format(
-            station_id=station_id,
-            element=parameter.name_original,
-            start=_frost_time(start_date),
-            end=_frost_end(end_date, parameter.dataset.resolution.name),
-            time_resolution=parameter.dataset.resolution.name_original,
-        )
-        log.info(f"Acquiring data from {url}")
-        asked_at = _now()
-        file = download_file(
-            url=url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        # the status before the body, as in `_collect_station_parameter_or_dataset`
-        # 412: no data for this station/element/period combination
-        _raise_if_unanswered(file)
-        if file.status == 412:
-            return pl.DataFrame()
-        # 404: no data in the window; the time series are asked for (see `_collect_via_time_series_discovery`)
-        if file.status == 404:
-            return self._collect_via_time_series_discovery(
-                station_id, parameter, start_date, end_date, settings, client_kwargs
-            )
-        if isinstance(file.content, Exception):
-            note_skipped_download(file.skip_cause)
-            log.warning(f"Failed to download {url}: {file.content}")
-            return pl.DataFrame()
-        # a 200 with no body
-        if file.is_empty:
-            note_skipped_download(SkipCause.MAINTENANCE)
-            log.warning(f"Frost answered {file.url} with an empty body")
-            return pl.DataFrame()
-
-        df = pl.read_json(file.content)
-        if not _has_observations(df):
-            return pl.DataFrame()
-
-        df = df.select(pl.col("data").explode(empty_as_null=True))
-        df = df.unnest("data")
-        df = df.with_columns(
-            pl.col("referenceTime")
-            .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-            .dt.replace_time_zone("UTC"),
-        )
-        df = df.explode("observations", empty_as_null=True)
-        df = df.unnest("observations")
-        # keep only matching elementId (the Frost response may include multiple elements)
-        df = df.filter(pl.col("elementId").eq(parameter.name_original))
-        read = _read_observations(
-            df,
-            pl.lit(parameter.name_original, dtype=pl.String),
-            parameter.dataset.resolution.name,
-            station_id,
-            _served_at(file, asked_at),
-            estimate=self._left_out_of_estimate is not None,
-        )
-        _tell_not_returned(
-            read,
-            read.frame,
-            {parameter.name_original: _full_name(parameter)},
-            start_date,
-            end_date,
-            parameter.dataset.resolution.name,
-            estimate=self._left_out_of_estimate is not None,
-        )
-        return read.frame
-
-    def _collect_via_time_series_discovery(  # noqa: C901
-        self,
-        station_id: str,
-        parameter_or_dataset: ParameterModel,
-        start_date: datetime,
-        end_date: datetime,
-        settings: Settings,
-        client_kwargs: dict,
-    ) -> pl.DataFrame:
-        """Fall back to availableTimeSeries discovery when the direct query returns 404.
-
-        The time series of an element carry a `timeseriesids`, `performancecategories` and `exposurecategories`
-        that the availableTimeSeries endpoint lists, and the query is asked once more with them. Frost's 404 is "No
-        data found" for a window without data, and it was the same 404 with them in each of the 12 series that
-        answered one in a sample of 208 (4 stations, 2026-11-06, GH-3137): the step has not been seen to find data
-        that the direct query did not.
-        """
-        element = parameter_or_dataset.name_original
-        resolution = parameter_or_dataset.dataset.resolution.name_original
-        resolution_name = parameter_or_dataset.dataset.resolution.name
-
-        avail_url = self._available_time_series_url.format(
-            station_id=station_id,
-            element=element,
-            time_resolution=resolution,
-        )
-        log.info(f"Discovering time series via {avail_url}")
-        avail_file = download_file(
-            url=avail_url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.ONE_HOUR,
-            client_kwargs=client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        # as for the observations below, a 404 or 412 says there is nothing, not that the request failed
-        _raise_if_unanswered(avail_file)
-        if avail_file.status in (404, 412):
-            return pl.DataFrame()
-        if isinstance(avail_file.content, Exception):
-            note_skipped_download(avail_file.skip_cause)
-            log.warning(f"Failed to download {avail_url}: {avail_file.content}")
-            return pl.DataFrame()
-        if avail_file.is_empty:
-            note_skipped_download(SkipCause.MAINTENANCE)
-            log.warning(f"Frost answered {avail_file.url} with an empty body")
-            return pl.DataFrame()
-
-        ts_list = json.loads(avail_file.content.read()).get("data", [])
-        frames = []
-        left_outs = []
-        open_windows = []
-        asked: set[str] = set()
-        for ts in ts_list:
-            valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=UTC)
-            valid_to_str = ts.get("validTo")
-            valid_to = (
-                datetime.fromisoformat(valid_to_str.rstrip("Z")).replace(tzinfo=UTC) if valid_to_str else end_date
-            )
-            range_start = max(start_date, valid_from)
-            range_end = min(end_date, valid_to)
-            # a series that starts after the end but on its date, as a daily snow depth read at 06:00 UTC, has
-            # values in the window (GH-2729)
-            if range_start >= _frost_end_exclusive(range_end, resolution_name):
-                continue
-
-            params = parse_qs(urlparse(ts["uri"]).query)
-            obs_url = self._observations_url_ts.format(
-                source_id=params.get("sources", [station_id])[0],
-                element=element,
-                start=_frost_time(range_start),
-                end=_frost_end(range_end, resolution_name),
-                time_resolution=resolution,
-                ts_id=params.get("timeseriesids", ["0"])[0],
-                perf_cats=params.get("performancecategories", [""])[0],
-                expo_cats=params.get("exposurecategories", [""])[0],
-            )
-            # the series of one element that differ in `timeOffset` only are listed apart and have one `timeseriesids`:
-            # their query is the same where their validity is, and answers the rows of every offset (GH-3832)
-            if obs_url in asked:
-                continue
-            asked.add(obs_url)
-            log.info(f"Acquiring data from {obs_url}")
-            asked_at = _now()
-            obs_file = download_file(
-                url=obs_url,
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
-            _raise_if_unanswered(obs_file)
-            # Frost's own "no data": 404 "No data was found for the query parameters" (a series the listing named
-            # may have a gap in the window), 412 "No available time series for the query parameters"
-            if obs_file.status in (404, 412):
-                continue
-            if isinstance(obs_file.content, Exception):
-                note_skipped_download(obs_file.skip_cause)
-                log.warning(f"Failed to download {obs_url}: {obs_file.content}")
-                continue
-            if obs_file.is_empty:
-                note_skipped_download(SkipCause.MAINTENANCE)
-                log.warning(f"Frost answered {obs_file.url} with an empty body")
-                continue
-
-            df = pl.read_json(obs_file.content)
-            if not _has_observations(df):
-                continue
-            df = df.select(pl.col("data").explode(empty_as_null=True)).unnest("data")
-            df = df.with_columns(
-                pl.col("referenceTime")
-                .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-                .dt.replace_time_zone("UTC"),
-            )
-            df = df.explode("observations", empty_as_null=True).unnest("observations")
-            df = df.filter(pl.col("elementId").eq(element))
-            read = _read_observations(
-                df,
-                pl.lit(element, dtype=pl.String),
-                resolution_name,
-                station_id,
-                _served_at(obs_file, asked_at),
-                estimate=self._left_out_of_estimate is not None,
-            )
-            left_outs.append(read.left_out)
-            open_windows.append(read.open_window)
-            if not read.frame.is_empty():
-                frames.append(read.frame)
-
-        kept = pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
-        # the series of one station are read apart: a `-1` of one can come first to a reading of another (idempotent)
-        if not kept.is_empty():
-            kept = _a_reading_beats_a_minus_one(kept)
-        # a date is left out when no series of the station returned it
-        read = _Read(
-            kept,
-            pl.concat([frame for frame in left_outs if not frame.is_empty()] or [pl.DataFrame()]).unique(),
-            pl.concat(open_windows).group_by("parameter", "timestamp").agg(pl.col("closes").min())
-            if open_windows
-            else _no_open_window(),
-        )
-        _tell_not_returned(
-            read,
-            kept,
-            {element: _full_name(parameter_or_dataset)},
-            start_date,
-            end_date,
-            resolution_name,
-            estimate=self._left_out_of_estimate is not None,
-        )
-        return kept
 
 
 def _probe_frost_credentials(settings: Settings) -> bool | None:
@@ -1746,7 +1453,11 @@ class MetnoFrostRequest(TimeseriesRequest):
     # now only (2,234 of the 4,179 on 2026-11-07), and `ids=` of a closed station is a 404 either way (GH-3847)
     _sources_url = (
         "https://frost.met.no/sources/v0.jsonld?types=SensorSystem&validtime=1700-01-01/now"
-        "&fields=id,name,validFrom,validTo,geometry,county,countryCode,masl"
+        f"&fields={_SOURCE_FIELDS},{_SOURCE_ID_FIELDS}"
+    )
+    # the same list without the ids, which is asked once if Frost answers the request above with a 400
+    _sources_url_without_ids = (
+        f"https://frost.met.no/sources/v0.jsonld?types=SensorSystem&validtime=1700-01-01/now&fields={_SOURCE_FIELDS}"
     )
     # the series Frost lists for the elements and resolutions the network declares: one request for every station,
     # 71,363 rows and 13.2 MB on 2026-11-07, about 30 s of which the server computes 8 and does not compress
@@ -1811,6 +1522,22 @@ class MetnoFrostRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        if file.status == HTTPStatus.BAD_REQUEST and self._sources_url != self._sources_url_without_ids:
+            # a field name Frost does not know is a 400 for the whole list: ask again without the ids, which are the
+            # only fields added after the catalogue worked, rather than lose every station (GH-4070)
+            log.warning(
+                "Frost refused the sources request with its ids (%s), asking again without them: "
+                "wmo_id, wigos_id and icao_id are null",
+                _SOURCE_ID_FIELDS,
+            )
+            file = download_file(
+                url=self._sources_url_without_ids,
+                cache_dir=settings.cache_dir,
+                ttl=CacheExpiry.METAINDEX,
+                client_kwargs=client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
         _raise_if_rejected(file)
         # the catalogue is one required file, so any other failure of it -- a 404 included -- is an
         # outage, which swallowed would read as a network without stations (GH-2599). A failed
@@ -1850,6 +1577,10 @@ class MetnoFrostRequest(TimeseriesRequest):
             # a station still in service has no validTo, which parses to null
             pl.col("validTo").str.to_datetime(format=_FROST_STAMP, time_unit="us").alias("_source_to"),
         )
+        # the ids of the `Source` schema: `wmoId` is the WMO number as an integer (1492 for 01492), `wigosId` the WSI
+        # (`0-20000-0-01492` of WMO's issuer for Oslo - Blindern; one of Norway's issuer 578 has a local part that is
+        # no WMO number), `icaoCodes` a list (GH-4070)
+        df = _source_ids(df)
         df = self._with_series_bounds(df.rename({"id": "station_id"}), settings, client_kwargs)
         df = df.rename({"name": "name", "county": "region", "countryCode": "country"})
         # Frost pads some names with a blank (`KVANNDALEN `), which a comparison of the name misses
@@ -1862,6 +1593,9 @@ class MetnoFrostRequest(TimeseriesRequest):
             "elevation",
             "start_timestamp",
             "end_timestamp",
+            "wmo_id",
+            "wigos_id",
+            "icao_id",
         )
         # one catalogue for every dataset: the core copies it over the request's datasets
         return df.lazy()

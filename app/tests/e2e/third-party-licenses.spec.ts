@@ -21,6 +21,7 @@ const NOT_IN_THE_BUNDLE: Record<string, string> = {
   '@tailwindcss/vite': 'a Vite plugin that runs in the build; the CSS it makes is tailwindcss\'s',
   '@vueuse/nuxt': 'a Nuxt module that registers the auto-imports of @vueuse/core; the code that runs is @vueuse/core\'s',
   'nuxt-security': 'a Nuxt module whose headers and middleware run on the server',
+  'vue': 'its one file in the client build is `export * from \'@vue/runtime-dom\'` and development-only code, which rolldown 1.2.19 and later leave out of the chunk (1.2.12 listed the file); the Vue code that runs is @vue/runtime-core, @vue/runtime-dom, @vue/reactivity and @vue/shared, each in the file with its own MIT notice',
 }
 
 /** Whether the lockfile has a package of exactly this name and version (a key of its `packages:` section) */
@@ -83,7 +84,7 @@ test.describe('the file', () => {
         expect(names.has(name), `${name} is a dependency that is not in /third-party-licenses.txt: add it to NOT_IN_THE_BUNDLE with the reason if it is not served to the browser`).toBe(true)
     }
     for (const name of Object.keys(NOT_IN_THE_BUNDLE))
-      expect(pkg.dependencies, `${name} is no dependency any more`).toHaveProperty(name)
+      expect(pkg.dependencies, `${name} is no dependency any more`).toHaveProperty([name])
 
     // the file is of this lockfile, not of an older install
     for (const entry of listed)
@@ -98,7 +99,7 @@ test.describe('the file', () => {
     expect(needsMoreThanNotice(notices).map(entry => `${entry.name}@${entry.version}: ${entry.license}`)).toEqual([])
   })
 
-  test('has the notices of the code inside the DuckDB, Plotly and marker cluster files', async ({ request }) => {
+  test('has the notices of the code inside the DuckDB and marker cluster files', async ({ request }) => {
     const text = await (await request.get('/third-party-licenses.txt')).text()
     test.skip(text === DEVELOPMENT_NOTICE, 'the development server has no bundle to read the notices from')
 
@@ -106,10 +107,6 @@ test.describe('the file', () => {
     const duckdb = byName.get('@duckdb/duckdb-wasm')!.body
     for (const needle of ['third_party/re2/LICENSE', 'third_party/zstd/LICENSE', 'third_party/mbedtls/LICENSE', 'js-sha256@0.11.1', 'ws@8.22.0'])
       expect(duckdb, needle).toContain(needle)
-    const plotly = byName.get('plotly.js-basic-dist-min')!.body
-    // the unminified bundle's packages, at least the ones with a notice of their own that used to be dropped
-    for (const needle of ['@plotly/d3@3.8.2', 'maplibre-gl@4.7.1', 'tinycolor2@1.4.2', 'native-promise-only 0.8.1 has no licence text of its own below'])
-      expect(plotly, needle).toContain(needle)
     expect(byName.get('leaflet.markercluster')!.body).toContain('literateprograms.org')
     expect(text).toContain('not a legal guarantee of completeness')
     // the code of the build tools that is in every chunk

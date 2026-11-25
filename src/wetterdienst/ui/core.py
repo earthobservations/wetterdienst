@@ -15,7 +15,13 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, LiteralString, cast
 
 import polars as pl
-from pydantic import BaseModel, Field, SkipValidation, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
 # pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
@@ -30,22 +36,20 @@ from wetterdienst.exceptions import (
     InvalidTimeIntervalError,
     NoInternetError,
     NoParametersFoundError,
-    NotEnoughDataError,
+    NoStationPositionsError,
     NotFoundError,
     ProviderRateLimitError,
     RequestError,
     StartDateEndDateError,
-    StationListingIncompleteError,
-    StationNotFoundError,
     UpstreamError,
 )
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by FastAPI
-from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
+from wetterdienst.model.group_statistics import MAX_MISSING, parse_statistics
 from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_aliases_resolved, with_normal_names
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
-from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means, leave_out_suspect
+from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
@@ -54,29 +58,35 @@ from wetterdienst.model.request import (
     limit_to_window,
     require_window,
 )
-from wetterdienst.model.result import _Station  # noqa: TC001, needed at runtime by pydantic
+from wetterdienst.model.row_selection import (
+    MAX_FIRST,
+    MAX_MAX_ROWS,
+    RowSelectionError,
+    parse_row_selection,
+    read_first,
+    read_max_rows,
+)
 from wetterdienst.model.station_ids import search_icao_id, search_wigos_id, search_wmo_id
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.provider.dwd.kostra.metadata import DURATIONS as KOSTRA_DURATIONS
+from wetterdienst.provider.dwd.kostra.metadata import RETURN_PERIODS as KOSTRA_RETURN_PERIODS
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
-from wetterdienst.util.extras import import_optional
 from wetterdienst.util.geo import LATITUDE_MAX, LATITUDE_MIN, LONGITUDE_MAX, LONGITUDE_MIN
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
-    from types import ModuleType
-
-    import altair as alt
 
     from wetterdienst.api import StandaloneRequest
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.result import (
         InterpolatedValuesResult,
         StationsResult,
         SummarizedValuesResult,
         ValuesResult,
     )
+    from wetterdienst.model.row_selection import RowOptions
     from wetterdienst.settings import Settings
 
 log = get_one_line_logger(__name__)
@@ -155,17 +165,28 @@ _IcaoIdField = Annotated[
         description="ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them."
     ),
 ]
+_RegionField = Annotated[
+    list[str] | None,
+    Field(
+        description="Region as the source lists it (state, province, département), comma-separated, e.g. "
+        "'Hamburg'; any case. Includes the stations the source files there that lie offshore."
+    ),
+]
 _StationIdField = Annotated[str, Field(description="Station id used as the reference location, e.g. '01048'.")]
 _StationIdOptField = Annotated[
     str | None,
-    Field(description="Station id used as the reference location, e.g. '01048'."),
+    Field(
+        description="Station id used as the reference location, e.g. '01048'. The answer is at that station's own "
+        "altitude, so no `elevation` is needed."
+    ),
 ]
 _NameField = Annotated[
     str | None,
     Field(
         description="Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` "
-        "the name is matched among the stations that have a record in that window. The best match is first, "
-        "equal matches ordered by station id."
+        "the name is matched among the stations that have a record in that window. A name that holds the whole "
+        "query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the "
+        "best match, equal scores the closer whole name first, then by station id."
     ),
 ]
 _NameThresholdField = Annotated[
@@ -227,17 +248,11 @@ _TopField = Annotated[
 ]
 _SqlField = Annotated[
     str | None,
-    Field(
-        description="SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API "
-        "and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
-    ),
+    Field(description="SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\"."),
 ]
 _SqlValuesField = Annotated[
     str | None,
-    Field(
-        description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0". The REST API '
-        "and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
-    ),
+    Field(description='SQL WHERE clause applied to the values, e.g. "temperature_air_max_2m < 2.0".'),
 ]
 _WithMetadataField = Annotated[
     bool,
@@ -374,6 +389,53 @@ _DropNullsField = Annotated[
     Field(
         description="Drop rows with null values from the output. "
         "Default: the server's WD_TS_DROP_NULLS if set, else true."
+    ),
+]
+
+_FilterField = Annotated[
+    str | None,
+    Field(
+        description="Keep the rows that meet every condition, joined by commas: column, operator, number. "
+        "Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date), or a requested parameter's "
+        "name (its unit; a row is then a timestamp where all hold, with every parameter's rows). Operators = != < <= "
+        "> >=; a list `a|b` with = and !=. A missing value never matches. No arithmetic: a difference of two "
+        "parameters can't be filtered. `value` needs one unit, shape=long and no name. Example: "
+        "`value<=-20,month=12|1|2`, `temperature_air_min_2m<0,wind_gust_max>=17.2`.",
+    ),
+]
+_SortField = Annotated[
+    str | None,
+    Field(
+        description="Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, "
+        "`timestamp`, `year`, `month`, `day`, `hour`, `station_id`, or a requested parameter's name (ranks "
+        "timestamps). Example: `-value` (highest first), `month,day`, `temperature_air_min_2m`.",
+    ),
+]
+_FirstField = Annotated[
+    int | None,
+    Field(
+        description="The first N rows of each group in the `sort` order, with every tie of the last "
+        "(`sort=value&first=1`: the extreme with all its ties; `max_rows` cuts them); needs `sort`. Give a "
+        "`timestamp` window that spans the record (`1883/2026`); `metadata.search` says what was searched.",
+        ge=1,
+        le=MAX_FIRST,
+    ),
+]
+_MaxRowsField = Annotated[
+    int | None,
+    Field(
+        description="Return at most this many rows of the whole answer, the first of its order (after `filter`, `sort` "
+        "and `first`), over all stations and parameters: for a short answer where many rows tie. What matched is still "
+        "counted in `metadata.search`, and a `rows-capped` warning says how many of how many are returned.",
+        ge=1,
+        le=MAX_MAX_ROWS,
+    ),
+]
+_ByField = Annotated[
+    str | None,
+    Field(
+        description="The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, "
+        "joined by commas, or `none` for all stations. Needs `first`. Example: `station_id,year`.",
     ),
 ]
 
@@ -664,7 +726,7 @@ RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
 
 
 #: the old names of `RENAMED_REQUEST_PARAMETERS` that each route took in 0.139.0, the release the renames are counted
-#: from, by route: the name of its MCP tool (`stations`, `stripes_values`), which is that of its REST path and of its
+#: from, by route: the name of its MCP tool (`stations`, `values`), which is that of its REST path and of its
 #: command (`coverage` was `about coverage` in 0.139.0). A route is told that an old name "was renamed" only if it had
 #: it: a route that already took `stations` and `periods` in 0.139.0 was never renamed from `period`, and a route
 #: added since had no old name at all. `tests/ui/test_renamed_routes.py` holds this to the parameters and options that
@@ -681,8 +743,6 @@ OLD_NAMES_OF_ROUTE: dict[str, frozenset[str]] = {
     "alerts": frozenset({"date"}),
     # the command `fields` only, which still takes all three
     "fields": frozenset({"dataset", "period", "resolution"}),
-    "stripes_values": frozenset({"station"}),
-    "stripes_image": frozenset({"station"}),
 }
 
 
@@ -691,11 +751,11 @@ def old_names_of_route(route: str) -> frozenset[str]:
     return OLD_NAMES_OF_ROUTE.get(route, frozenset())
 
 
-#: the options of a command that were spelled with an underscore in 0.139.0, by route as `OLD_NAMES_OF_ROUTE` has it
-#: (`stripes values` of that release is `stripes image` now): the command line spells them with hyphens, and
-#: `--convert_units` is told it "was renamed to --convert-units" only on a command that had it, not on `stations`,
-#: which spelled `--name-threshold` so already. `tests/ui/test_renamed_routes.py` holds it to the options of that
-#: release's code, as it does `OLD_NAMES_OF_ROUTE` (GH-3869)
+#: the options of a command that were spelled with an underscore in 0.139.0, by route as `OLD_NAMES_OF_ROUTE` has it:
+#: the command line spells them with hyphens, and `--convert_units` is told it "was renamed to --convert-units" only
+#: on a command that had it, not on `stations`, which spelled `--name-threshold` so already.
+#: `tests/ui/test_renamed_routes.py` holds it to the options of that release's code, as it does `OLD_NAMES_OF_ROUTE`
+#: (GH-3869)
 OLD_UNDERSCORE_OPTIONS_OF_ROUTE: dict[str, frozenset[str]] = {
     "stations": frozenset({"if_exists", "with_metadata"}),
     "issues": frozenset({"lead_time"}),
@@ -746,16 +806,6 @@ OLD_UNDERSCORE_OPTIONS_OF_ROUTE: dict[str, frozenset[str]] = {
         }
     ),
     "radar": frozenset({"country_name", "wmo_code"}),
-    "stripes_image": frozenset(
-        {
-            "end_year",
-            "name_threshold",
-            "show_data_availability",
-            "show_title",
-            "show_years",
-            "start_year",
-        }
-    ),
 }
 
 
@@ -777,10 +827,74 @@ REMOVED_REQUEST_PARAMETERS: dict[str, str] = {
     ),
 }
 
+_NO_SQL_ON_A_SERVER = (
+    "the REST API and the MCP tools no longer filter with SQL, which ran a caller's text in DuckDB on the server: "
+)
+_KEPT_ON_THE_COMMAND_LINE = "; the command line (`{option}`) and the library (`{function}`) keep it"
 
-def removed_parameter_message(name: str) -> str:
-    """Tell a caller that a parameter of `REMOVED_REQUEST_PARAMETERS` is gone, and what to do instead."""
-    return f"{name} was removed: {REMOVED_REQUEST_PARAMETERS[name]}"
+#: `sql` and `sql_values`, removed from the routes of a server, by the route that took them (as `OLD_NAMES_OF_ROUTE`
+#: names it), each with what that route offers instead. A route that never took one answers as for any parameter it
+#: does not know. The command line keeps both: its request models (`CliStationsRequest` and the others) have the
+#: fields
+REMOVED_ON_ROUTES: dict[str, dict[str, str]] = {
+    "sql": {
+        route: _NO_SQL_ON_A_SERVER
+        + "select the stations with the filters of the route (`stations`, `name`, `region`, `wmo_id`, `wigos_id`, "
+        "`icao_id`, a point with `rank` or `distance`, a bounding box), or filter the answer yourself"
+        + _KEPT_ON_THE_COMMAND_LINE.format(option="--sql", function="filter_by_sql")
+        for route in ("stations", "values")
+    },
+    "sql_values": {
+        "values": _NO_SQL_ON_A_SERVER
+        + "filter the answer yourself (the rows of `format=json`, `csv` or `ndjson`)"
+        + _KEPT_ON_THE_COMMAND_LINE.format(option="--sql-values", function="filtered_by_sql"),
+        **{
+            route: _NO_SQL_ON_A_SERVER
+            + "filter the answer yourself (the rows of `format=json` or `csv`)"
+            + _KEPT_ON_THE_COMMAND_LINE.format(option="--sql-values", function="filtered_by_sql")
+            for route in ("interpolate", "summarize")
+        },
+    },
+}
+
+
+#: names a caller of `values` may try for what `max_rows` and the other row options do, by name, with what to write
+#: instead. They never were parameters, so the answer is not "was renamed" or "was removed" but where to look
+#: (GH-4411)
+HINTED_ON_VALUES: dict[str, str] = {
+    "limit": (
+        "the most rows of an answer are `max_rows`; `limits` bounds values for the plausibility check, and `first` "
+        "keeps the first rows of each group"
+    ),
+    "offset": (
+        "there is no offset and no paging: `max_rows` keeps the first rows of the answer, and `filter`, `sort` and "
+        "`first` choose which they are"
+    ),
+}
+
+
+def hinted_parameter_message(name: str, route: str = "") -> str | None:
+    """Say what to write instead of a name that is no parameter of the route, None where there is no such hint."""
+    if route == "values" and name in HINTED_ON_VALUES:
+        return f"{name} is not a parameter of values: {HINTED_ON_VALUES[name]}"
+    return None
+
+
+def removed_parameter_text(name: str, route: str = "") -> str | None:
+    """Give what a caller of `route` is to do instead of a removed parameter, None if the route never took it."""
+    if name in REMOVED_ON_ROUTES:
+        return REMOVED_ON_ROUTES[name].get(route)
+    return REMOVED_REQUEST_PARAMETERS.get(name)
+
+
+def removed_parameter_message(name: str, route: str = "") -> str:
+    """Tell a caller of `route` that a removed parameter is gone, and what to do instead."""
+    return f"{name} was removed: {removed_parameter_text(name, route)}"
+
+
+def removed_parameter_names(route: str = "") -> list[str]:
+    """Give the removed parameters that `route` answers with their message, the ones it took."""
+    return [name for name in (*REMOVED_REQUEST_PARAMETERS, *REMOVED_ON_ROUTES) if removed_parameter_text(name, route)]
 
 
 class _RefusesRenamedParameters(BaseModel):
@@ -802,9 +916,14 @@ class _RefusesRenamedParameters(BaseModel):
                 if old in old_names_of_route(cls.route)
             ]
             errors += [
-                _rule_error("removed", removed_parameter_message(name), (name,), data[name])
-                for name in REMOVED_REQUEST_PARAMETERS
+                _rule_error("removed", removed_parameter_message(name, cls.route), (name,), data[name])
+                for name in removed_parameter_names(cls.route)
                 if name in data and name not in cls.model_fields
+            ]
+            errors += [
+                _rule_error("hinted", message, (name,), data[name])
+                for name in data
+                if name not in cls.model_fields and (message := hinted_parameter_message(name, cls.route))
             ]
             if errors:
                 raise ValidationError.from_exception_data(cls.__name__, errors)
@@ -917,7 +1036,7 @@ class Selection:
 
 
 #: the stations of `stations` and `values`: all, ids, the WMO, WIGOS or ICAO ids, a name, a point (with a rank or a
-#: distance), a box or SQL
+#: distance) or a box
 STATION_SELECTION = Selection(
     exactly_one_of=(
         ("all",),
@@ -926,26 +1045,29 @@ STATION_SELECTION = Selection(
         ("wigos_id",),
         ("icao_id",),
         ("name",),
+        ("region",),
         _POINT,
         ("left", "bottom", "right", "top"),
-        ("sql",),
     ),
     then=((_POINT, _POINT_MEASURES),),
     # a `rank` goes with a name as well as with a point: there it caps the fuzzy matches
     requires=(("distance", (_POINT,)), ("rank", (_POINT, ("name",)))),
 )
+#: the stations of the command line, which has `--sql` as well
+CLI_STATION_SELECTION = Selection(
+    exactly_one_of=(*STATION_SELECTION.exactly_one_of, ("sql",)),
+    then=STATION_SELECTION.then,
+    requires=STATION_SELECTION.requires,
+)
 #: the stations of `history`
 HISTORY_SELECTION = Selection(exactly_one_of=(("all",), ("stations",)))
 #: the reference of `interpolate` and `summarize`: a station, or a point, which needs no rank
 REFERENCE_SELECTION = Selection(exactly_one_of=(("station",), _POINT))
-#: the station of the climate stripes
-STRIPES_SELECTION = Selection(exactly_one_of=(("station",), ("name",)))
 
 #: one value for each parameter of a selection, as the schema of the parameter has it, a list as a list, which the
 #: document spells comma-separated (`explode: false`). A request gives a whole group of them, with a `rank` for the
 #: point, and the model accepts it (`tests/ui/test_surface_parity.py` makes each); the limits of the server still
-#: apply, such as the stations one request may read, and `sql` is refused with a 403 where the server does not
-#: enable it
+#: apply, such as the stations one request may read
 SELECTION_EXAMPLES: dict[str, Any] = {
     "all": True,
     "stations": ["01048", "04411"],
@@ -953,6 +1075,7 @@ SELECTION_EXAMPLES: dict[str, Any] = {
     "wigos_id": ["0-20000-0-10381"],
     "icao_id": ["EDDB", "EDDH"],
     "name": "Hamburg Fuhlsbüttel",
+    "region": ["Hamburg", "Bremen"],
     "latitude": 53.63,
     "longitude": 10.0,
     "rank": 3,
@@ -961,7 +1084,6 @@ SELECTION_EXAMPLES: dict[str, Any] = {
     "bottom": 53.4,
     "right": 10.5,
     "top": 53.9,
-    "sql": "region='Sachsen'",
     "station": "01048",
 }
 
@@ -1078,6 +1200,15 @@ class StationsRequest(_RefusesRenamedParameters):
         """Read the ICAO codes, in upper case."""
         return _read_station_codes(v, search_icao_id)
 
+    # the region the source lists a station under
+    region: _RegionField = None
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def validate_region(cls, v: str | list | None) -> list[str] | None:
+        """Read the regions as station ids are read: comma-separated or a list, a blank one selecting nothing."""
+        return _read_items(v)
+
     # station name
     name: _NameField = None
     name_threshold: _NameThresholdField = 0.8
@@ -1091,8 +1222,6 @@ class StationsRequest(_RefusesRenamedParameters):
     bottom: _BottomField = None
     right: _RightField = None
     top: _TopField = None
-    # sql
-    sql: _SqlField = None
 
     # the window the stations listed are to have a record in, as for `values` (GH-2635)
     timestamp: _StationsTimestampField = None
@@ -1270,6 +1399,15 @@ class ValuesRequest(_RefusesRenamedParameters):
         """Read the ICAO codes, in upper case."""
         return _read_station_codes(v, search_icao_id)
 
+    # the region the source lists a station under
+    region: _RegionField = None
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def validate_region(cls, v: str | list | None) -> list[str] | None:
+        """Read the regions as station ids are read: comma-separated or a list, a blank one selecting nothing."""
+        return _read_items(v)
+
     # station name
     name: _NameField = None
     name_threshold: _NameThresholdField = 0.8
@@ -1283,8 +1421,6 @@ class ValuesRequest(_RefusesRenamedParameters):
     bottom: _BottomField = None
     right: _RightField = None
     top: _TopField = None
-    # sql
-    sql: _SqlField = None
 
     with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithValueStationsField = False
@@ -1299,7 +1435,6 @@ class ValuesRequest(_RefusesRenamedParameters):
 
     # values
     timestamp: _TimestampOptField = None
-    sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
     shape: _ShapeField = "long"
     convert_units: _ConvertUnitsField = True
@@ -1321,6 +1456,13 @@ class ValuesRequest(_RefusesRenamedParameters):
     plausibility_relations: _PlausibilityRelationsField = "soft"
     limits: _LimitsField = None
 
+    # the rows of the answer (GH-4411): read by `RowSelection`, applied by the reader of the values
+    filter: _FilterField = None
+    sort: _SortField = None
+    first: _FirstField = None
+    by: _ByField = None
+    max_rows: _MaxRowsField = None
+
     @field_validator("unit_targets", "limits", mode="before")
     @classmethod
     def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
@@ -1331,8 +1473,260 @@ class ValuesRequest(_RefusesRenamedParameters):
             return v
         return _load_json(v)
 
+    @field_validator("filter", "sort", "by", mode="before")
+    @classmethod
+    def validate_row_option_is_given(cls, v: object) -> object:
+        """Read a row option left empty as none given, as an empty query parameter is."""
+        return None if isinstance(v, str) and not v else v
+
+    @field_validator("first", mode="before")
+    @classmethod
+    def validate_first(cls, v: object) -> object:
+        """Read `first` as a whole number, naming what is wrong where it is none."""
+        return None if v is None or v == "" else read_first(v)
+
+    @field_validator("max_rows", mode="before")
+    @classmethod
+    def validate_max_rows(cls, v: object) -> object:
+        """Read `max_rows` as a whole number, naming what is wrong where it is none."""
+        return None if v is None or v == "" else read_max_rows(v)
+
+    @model_validator(mode="after")
+    def check_row_options(self) -> ValuesRequest:
+        """Read the row options in full, and refuse one that cannot be read, located at the option it is in."""
+        try:
+            parse_row_selection(
+                filter=self.filter, sort=self.sort, first=self.first, by=self.by, max_rows=self.max_rows
+            )
+        except RowSelectionError as e:
+            value = getattr(self, e.option)
+            _raise_rule_errors(self, [_rule_error("row_selection", str(e), (e.option,), value)])
+        return self
+
     @model_validator(mode="after")
     def check_station_selection(self) -> ValuesRequest:
+        """Check that exactly one station selection is made."""
+        _raise_rule_errors(self, _check_selection(self, self.selection))
+        return self
+
+
+#: the stations of `statistics`: fewer selections than `values` (no bounding box, no WMO, WIGOS or ICAO list), which
+#: can be added later without a change of what is there
+STATISTICS_SELECTION = Selection(
+    exactly_one_of=(("all",), ("stations",), ("name",), ("region",), _POINT),
+    then=((_POINT, _POINT_MEASURES),),
+    requires=(("distance", (_POINT,)), ("rank", (_POINT, ("name",)))),
+)
+
+_AggregateField = Annotated[
+    str,
+    Field(
+        description="What to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `earliest`, "
+        "`latest`, comma-separated. `count` is the values that meet `filter`; `min`, `max`, `earliest` and `latest` "
+        "come with their date (`min_at`). A direction or a code has no mean or extreme; `sum` is for amounts and, "
+        "daily or hourly, temperatures (degree days). Example: `count`, `mean,max`.",
+    ),
+]
+_StatisticsByField = Annotated[
+    str | None,
+    Field(
+        description="The groups besides the series (a station and a parameter, never merged): `year`, `month`, `day`, "
+        "`hour` (UTC), comma-separated; none is one group per series. `month` puts every January together. "
+        "Example: `year`, `year,month`.",
+    ),
+]
+_StatisticsFilterField = Annotated[
+    str | None,
+    Field(
+        description="Conditions joined by commas: column, operator, number. `year`, `month`, `day`, `hour` (UTC) say "
+        "which values are looked at, `value` (in its unit) which of them count; a group with values and no match has "
+        "a `count` of 0. Operators = != < <= > >=; a list `a|b` with = and !=. Example: `value<0`, "
+        "`month=12|1|2,value>=25`.",
+    ),
+]
+_YearStartField = Annotated[
+    int | None,
+    Field(
+        ge=1,
+        le=12,
+        description="The month a `year` begins (default 1). The year is named by the year it ends in: 12 makes the "
+        "winter 2023/24 the year 2024, in `by`, `filter` and `sort`. Needs `year` in `by`.",
+    ),
+]
+_MaxMissingField = Annotated[
+    int | None,
+    Field(
+        ge=0,
+        le=MAX_MISSING,
+        description="How many values a group may lack and still be `complete`, with a `mean` and a `sum` (default 0). "
+        "Keep it 0 to rank; raise it only for a gap you accept (`gaps-allowed` counts what it lets in).",
+    ),
+]
+_HavingField = Annotated[
+    str | None,
+    Field(
+        description="Keep groups that meet conditions on the results, as `filter`: the aggregates, `searched`, "
+        "`expected`, `complete`. Example: `count>=100`, `complete`.",
+    ),
+]
+_StatisticsSortField = Annotated[
+    str | None,
+    Field(
+        description="Order of the groups: columns joined by commas, `-` before one for descending: the aggregates "
+        "asked for, the columns of `by`, `station_id`, `searched`, `expected`, `complete`. Example: `-mean`.",
+    ),
+]
+_StatisticsFirstField = Annotated[
+    int | None,
+    Field(
+        description="Keep the first N groups of the `sort` order, exactly N (a warning says how many more tie); needs "
+        "`sort`. `sort=-mean&first=5` with `by=year` is the five warmest years.",
+        ge=1,
+        le=MAX_FIRST,
+    ),
+]
+_PerField = Annotated[
+    Literal["station", "none"],
+    Field(
+        description="Over what `first` counts: `station` (each series) or `none` (all stations of a parameter, groups "
+        "with `rank`). Needs `first`.",
+    ),
+]
+_StatisticsMaxRowsField = Annotated[
+    int | None,
+    Field(
+        description="Return at most this many groups of the whole answer, the first of its order, after `first`.",
+        ge=1,
+        le=MAX_MAX_ROWS,
+    ),
+]
+_StatisticsFormatField = Annotated[
+    Literal["json", "csv", "ndjson"],
+    Field(
+        description="Output format: json (with the metadata block), csv (a row per group) or ndjson (a line per group)."
+    ),
+]
+
+
+class StatisticsRequest(_RefusesRenamedParameters):
+    """Statistics request: count, average, add up or take the extremes of the values per year, month, day or hour.
+
+    The selection of stations and the window are those of `values`, less the bounding box and the WMO, WIGOS and ICAO
+    lists; the shape is always long, the units those of `values`.
+    """
+
+    route: ClassVar[str] = "statistics"
+
+    model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = STATISTICS_SELECTION
+
+    provider: _ProviderField
+    network: _NetworkField
+    parameters: _ParametersField
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_parameters(cls, v: str | list) -> list[str]:
+        """Validate parameters."""
+        if isinstance(v, str):
+            return read_list(v)
+        parameters = []
+        for item in v:
+            if "," in item:
+                parameters.extend(read_list(item, separator=","))
+            else:
+                parameters.append(item)
+        return parameters
+
+    periods: _PeriodsField = None
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def validate_periods(cls, v: str | list | None) -> list[str] | None:
+        """Validate periods."""
+        if not v:
+            return None
+        if isinstance(v, str):
+            return read_list(v, separator=",")
+        periods = []
+        for item in v:
+            if "," in item:
+                periods.extend(read_list(item, separator=","))
+            else:
+                periods.append(item)
+        return periods
+
+    # the stations
+    all: _AllField = False
+    stations: _StationsField = None
+
+    @field_validator("stations", mode="before")
+    @classmethod
+    def validate_stations(cls, v: str | list | None) -> list[str] | None:
+        """Validate stations."""
+        return _read_items(v)
+
+    region: _RegionField = None
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def validate_region(cls, v: str | list | None) -> list[str] | None:
+        """Read the regions as station ids are read: comma-separated or a list, a blank one selecting nothing."""
+        return _read_items(v)
+
+    name: _NameField = None
+    latitude: _LatitudeField = None
+    longitude: _LongitudeField = None
+    rank: _RankField = None
+    distance: _DistanceField = None
+
+    # the window
+    timestamp: _TimestampOptField = None
+
+    # the statistics
+    aggregate: _AggregateField
+    by: _StatisticsByField = None
+    filter: _StatisticsFilterField = None
+    year_start: _YearStartField = None
+    max_missing: _MaxMissingField = None
+    having: _HavingField = None
+    sort: _StatisticsSortField = None
+    first: _StatisticsFirstField = None
+    per: _PerField = "station"
+    max_rows: _StatisticsMaxRowsField = None
+
+    format: _StatisticsFormatField = "json"
+    pretty: _PrettyField = False
+
+    @field_validator("by", "filter", "having", "sort", "year_start", "max_missing", "first", "max_rows", mode="before")
+    @classmethod
+    def validate_option_is_given(cls, v: object) -> object:
+        """Read an option left empty as none given, as an empty query parameter is."""
+        return None if isinstance(v, str) and not v.strip() else v
+
+    @model_validator(mode="after")
+    def check_statistics_options(self) -> StatisticsRequest:
+        """Read the options in full, and refuse one that cannot be read, located at the option it is in."""
+        try:
+            parse_statistics(
+                self.aggregate,
+                by=self.by,
+                filter=self.filter,
+                year_start=self.year_start,
+                max_missing=self.max_missing,
+                having=self.having,
+                sort=self.sort,
+                first=self.first,
+                per=self.per,
+                max_rows=self.max_rows,
+            )
+        except RowSelectionError as e:
+            value = getattr(self, e.option)
+            _raise_rule_errors(self, [_rule_error("row_selection", str(e), (e.option,), value)])
+        return self
+
+    @model_validator(mode="after")
+    def check_station_selection(self) -> StatisticsRequest:
         """Check that exactly one station selection is made."""
         _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
@@ -1394,8 +1788,6 @@ class InterpolationRequest(_RefusesRenamedParameters):
     latitude: _LatitudeField = None
     longitude: _LongitudeField = None
     elevation: _ElevationField = None
-    # sql
-    sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
     convert_units: _ConvertUnitsField = True
     unit_targets: _UnitTargetsField = None
@@ -1502,8 +1894,6 @@ class SummaryRequest(_RefusesRenamedParameters):
     latitude: _LatitudeField = None
     longitude: _LongitudeField = None
     elevation: _ElevationField = None
-    # sql
-    sql_values: _SqlValuesField = None
     humanize: _HumanizeField = True
     convert_units: _ConvertUnitsField = True
     unit_targets: _UnitTargetsField = None
@@ -1574,6 +1964,39 @@ class RestSummaryRequest(SummaryRequest):
     summary_station_distance_heterogeneous: _RestStationDistanceHeterogeneousField = None
     min_gain_of_value_pairs: _RestMinGainOfValuePairsField = 0.10
     num_additional_stations: _RestNumAdditionalStationsField = 3
+
+
+class CliStationsRequest(StationsRequest):
+    """The stations request of the command line: the one of the server, with `--sql` to select the stations by.
+
+    The REST API and the MCP tools do not take `sql`: it runs a caller's text in DuckDB on the server, and a caller
+    of a server is not the host's own user, which the command line's is.
+    """
+
+    selection: ClassVar[Selection] = CLI_STATION_SELECTION
+
+    sql: _SqlField = None
+
+
+class CliValuesRequest(ValuesRequest):
+    """The values request of the command line: the one of the server, with `--sql` and `--sql-values`."""
+
+    selection: ClassVar[Selection] = CLI_STATION_SELECTION
+
+    sql: _SqlField = None
+    sql_values: _SqlValuesField = None
+
+
+class CliInterpolationRequest(InterpolationRequest):
+    """The interpolation request of the command line: the library's, with `--sql-values`."""
+
+    sql_values: _SqlValuesField = None
+
+
+class CliSummaryRequest(SummaryRequest):
+    """The summary request of the command line: the library's, with `--sql-values`."""
+
+    sql_values: _SqlValuesField = None
 
 
 class SettingsRequest(BaseModel):
@@ -1647,10 +2070,11 @@ class IssuesRequest(_RefusesRenamedParameters):
     network: _NetworkField
     station: _StationIdField
     dataset: Annotated[
-        Literal["icon", "icon_eu"] | None,
+        Literal["icon", "icon_eu", "large", "small", "snow"] | None,
         Field(
-            description="DWD DMO product to list issues for ('icon' or 'icon_eu'), default 'icon'; "
-            "DMO only, refused for MOSMIX and SWSMOS.",
+            description="DWD product to list issues for: for DMO 'icon' or 'icon_eu' (default 'icon'), for MOSMIX "
+            "'large' (MOSMIX-L), 'small' (MOSMIX-S) or 'snow' (MOSMIX-SNOW), default 'large'; refused for SWSMOS "
+            "and where it names the product of the other network.",
         ),
     ] = None
     # not the shared `_LeadTimeField`: the data requests ignore a lead time outside DMO, but `get_issues`
@@ -1679,8 +2103,8 @@ class IssuesRequest(_RefusesRenamedParameters):
         return v
 
 
-# the query parameters of `/api/auth`, `/api/coverage`, `/api/glossary` and `/api/alerts`, and of
-# `/api/stripes/stations` below, each a model forbidding others as the other endpoints' requests
+# the query parameters of `/api/auth`, `/api/coverage`, `/api/glossary`, `/api/alerts` and `/api/storm-cells`, and of
+# each a model forbidding others as the other endpoints' requests
 # are: taken loose, a parameter the endpoint does not know was passed over, and the request answered
 # as if it had not been given it (GH-2479)
 class AuthRequest(_RefusesRenamedParameters):
@@ -1830,6 +2254,21 @@ class AlertsRequest(_RefusesRenamedParameters):
     ] = "json"
     pretty: _PrettyField = False
 
+    @field_validator("name")
+    @classmethod
+    def refuse_blank_name(cls, value: str | None) -> str | None:
+        """Refuse a name of only whitespace as a 422 of the `name` parameter; an empty one is none, as it always was."""
+        from wetterdienst.provider.dwd.alerts.place import BLANK_NAME, check_name  # noqa: PLC0415
+
+        try:
+            check_name(value)
+        except RequestError as e:
+            kind = "blank_name"
+            # the message names no field, as the rules over fields do (`Field required with latitude`): `loc` does
+            message = f"{BLANK_NAME[0].upper()}{BLANK_NAME[1:]}"
+            raise PydanticCustomError(kind, message) from e
+        return value
+
     @model_validator(mode="after")
     def check_point(self) -> AlertsRequest:
         """Check that latitude and longitude come together, as a point."""
@@ -1843,12 +2282,322 @@ class AlertsRequest(_RefusesRenamedParameters):
         return self
 
 
+_BOX = ("left", "bottom", "right", "top")
+
+
+class StormCellsRequest(_RefusesRenamedParameters):
+    """Request model for the thunderstorm cells of DWD (KONRAD3D)."""
+
+    route: ClassVar[str] = "storm_cells"
+
+    model_config = {"extra": "forbid"}
+
+    timestamp: Annotated[
+        str | None,
+        Field(
+            description="Instant in ISO 8601 (UTC if no offset): the newest scan at or before it, from DWD's rolling "
+            "window of about 48 hours. Without it, the newest scan, which is 5 to 10 minutes old when it appears."
+        ),
+    ] = None
+    latitude: Annotated[
+        float | None,
+        Field(
+            ge=LATITUDE_MIN,
+            le=LATITUDE_MAX,
+            description="With longitude, only the cells whose outline contains this point (an edge counts as "
+            "inside) or comes within `distance` of it: the reliable way to ask about one place.",
+        ),
+    ] = None
+    longitude: Annotated[
+        float | None,
+        Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Longitude of the point; given with latitude."),
+    ] = None
+    distance: Annotated[
+        float | None,
+        Field(
+            ge=0,
+            description="With a point, the kilometres from it within which the outline of a cell counts as near; 0 "
+            "(the default) for the cells that are over the point. Not given without a point.",
+        ),
+    ] = None
+    left: Annotated[
+        float | None,
+        Field(
+            ge=LONGITUDE_MIN,
+            le=LONGITUDE_MAX,
+            description="Western longitude of a box: with bottom, right and top, only the cells whose outline "
+            "reaches into it. Not with a point.",
+        ),
+    ] = None
+    bottom: Annotated[
+        float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Southern latitude of the box.")
+    ] = None
+    right: Annotated[
+        float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Eastern longitude of the box.")
+    ] = None
+    top: Annotated[
+        float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Northern latitude of the box.")
+    ] = None
+    min_severity: Annotated[
+        int | None,
+        Field(
+            ge=0,
+            le=3,
+            description="Only the cells of this severity and above: 0 weak, 1 moderate, 2 severe, 3 extreme.",
+        ),
+    ] = None
+    track: Annotated[
+        bool,
+        Field(
+            description="Give each cell its forecast `track`: 12 positions of its centre, 5 to 60 minutes ahead, "
+            "with their uncertainty (about 1.6 KB of JSON a cell). False leaves it out; `direction_degrees` stays."
+        ),
+    ] = True
+    geometry: Annotated[
+        Literal["outline", "centroid"],
+        Field(
+            description="The `geometry` of each cell: 'outline' (the polygon of its outline, some hundred to two "
+            "thousand characters) or 'centroid' (the point of its centre, which a long list fits in). A place is "
+            "always matched against the outline."
+        ),
+    ] = "outline"
+    format: Annotated[
+        Literal["json", "geojson", "csv"],
+        Field(description="Output format: json, geojson (a feature collection) or csv."),
+    ] = "json"
+    pretty: _PrettyField = False
+
+    @model_validator(mode="after")
+    def check_place(self) -> StormCellsRequest:
+        """Check the place: a point and a box are whole, not given together, and `distance` is of a point."""
+        errors: list[InitErrorDetails] = []
+        point = [field for field in _POINT if _is_set(self, field)]
+        box = [field for field in _BOX if _is_set(self, field)]
+        for given, group in ((point, _POINT), (box, _BOX)):
+            if given and len(given) < len(group):
+                errors.extend(
+                    _rule_error(
+                        "missing_with", f"Field required with {join_names(given)}", (field,), required_with=given
+                    )
+                    for field in group
+                    if field not in given
+                )
+        if self.distance is not None and not point:
+            needs = [list(_POINT)]
+            errors.append(
+                _rule_error("requires", requires_message((_POINT,)), ("distance",), self.distance, requires=needs)
+            )
+        if point and box:
+            one_of = [list(_POINT), list(_BOX)]
+            for field, other in ((point[0], box[0]), (box[0], point[0])):
+                message = f"Cannot be combined with {other}, give a point or a box"
+                errors.append(
+                    _rule_error(
+                        "mutually_exclusive",
+                        message,
+                        (field,),
+                        getattr(self, field),
+                        conflicts_with=[other],
+                        one_of=one_of,
+                    )
+                )
+        _raise_rule_errors(self, errors)
+        return self
+
+
+class StationIdsRequest(_RefusesRenamedParameters):
+    """Request model for the search of one WMO number, WIGOS identifier or ICAO code at every provider (GH-4075)."""
+
+    route: ClassVar[str] = "station-ids"
+
+    model_config = {"extra": "forbid"}
+
+    wmo_id: Annotated[
+        list[str] | None,
+        Field(
+            description="WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. The "
+            "WIGOS identifier '0-20000-0-<number>' of every one is searched too.",
+        ),
+    ] = None
+    wigos_id: Annotated[
+        list[str] | None,
+        Field(
+            description="WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. "
+            "One of WMO's own issuer, '0-20000-0-<number>', is the WMO number as well and finds the stations that "
+            "have it.",
+        ),
+    ] = None
+    icao_id: Annotated[
+        list[str] | None,
+        Field(
+            description="ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. The WMO numbers of the stations "
+            "found are searched too, so 'EDDH' finds the stations that list Hamburg's aerodrome by its WMO number "
+            "only.",
+        ),
+    ] = None
+    format: Annotated[
+        Literal["json", "csv"],
+        Field(description="Output format: json (with the metadata block) or csv (the table alone)."),
+    ] = "json"
+    pretty: _PrettyField = False
+
+    @field_validator("wmo_id", mode="before")
+    @classmethod
+    def validate_wmo_id(cls, v: str | int | list | None) -> list[str] | None:
+        """Read the WMO numbers, five digits each."""
+        return _read_station_codes(v, search_wmo_id)
+
+    @field_validator("wigos_id", mode="before")
+    @classmethod
+    def validate_wigos_id(cls, v: str | list | None) -> list[str] | None:
+        """Read the WIGOS station identifiers, in the notation of the `wigos_id` column."""
+        return _read_station_codes(v, search_wigos_id)
+
+    @field_validator("icao_id", mode="before")
+    @classmethod
+    def validate_icao_id(cls, v: str | list | None) -> list[str] | None:
+        """Read the ICAO codes, in upper case."""
+        return _read_station_codes(v, search_icao_id)
+
+    @model_validator(mode="after")
+    def check_an_id_is_given(self) -> StationIdsRequest:
+        """Refuse a search that names no id."""
+        if not (self.wmo_id or self.wigos_id or self.icao_id):
+            message = "At least one of `wmo_id`, `wigos_id` and `icao_id` is required"
+            _raise_rule_errors(
+                self, [_rule_error("missing_one_of", message, one_of=[["wmo_id"], ["wigos_id"], ["icao_id"]])]
+            )
+        return self
+
+
+class KostraRequest(_RefusesRenamedParameters):
+    """Request model for the KOSTRA-DWD-2020 design rainfall (return periods of heavy rain) of DWD at a point."""
+
+    route: ClassVar[str] = "kostra"
+
+    model_config = {"extra": "forbid"}
+
+    latitude: Annotated[
+        float,
+        Field(
+            ge=LATITUDE_MIN,
+            le=LATITUDE_MAX,
+            description="Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point "
+            "outside it, or in the sea, is refused.",
+        ),
+    ]
+    longitude: Annotated[
+        float,
+        Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Longitude of the point."),
+    ]
+    duration: Annotated[
+        int | None,
+        Field(
+            json_schema_extra={"anyOf": [{"type": "integer", "enum": list(KOSTRA_DURATIONS)}, {"type": "null"}]},
+            description="Only this duration of the rain, in minutes: "
+            f"{', '.join(str(duration) for duration in KOSTRA_DURATIONS)} (5 minutes to 7 days). Without it all 22, "
+            "for which 22 tables of DWD are read (2 s the first time, then from the cache): give the one you need.",
+        ),
+    ] = None
+    return_period: Annotated[
+        int | None,
+        Field(
+            json_schema_extra={"anyOf": [{"type": "integer", "enum": list(KOSTRA_RETURN_PERIODS)}, {"type": "null"}]},
+            description="Only this return period, in years: "
+            f"{', '.join(str(period) for period in KOSTRA_RETURN_PERIODS)}. Without it all nine.",
+        ),
+    ] = None
+    format: Annotated[
+        Literal["json", "csv"],
+        Field(description="Output format: json (with the cell and the metadata block) or csv (the table alone)."),
+    ] = "json"
+    pretty: _PrettyField = False
+
+    @field_validator("duration")
+    @classmethod
+    def check_duration(cls, v: int | None) -> int | None:
+        """Refuse a duration DWD publishes no table for, naming the ones it does."""
+        if v is not None and v not in KOSTRA_DURATIONS:
+            msg = f"Input should be one of {', '.join(str(duration) for duration in KOSTRA_DURATIONS)} (minutes)"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("return_period")
+    @classmethod
+    def check_return_period(cls, v: int | None) -> int | None:
+        """Refuse a return period DWD publishes no values for, naming the ones it does."""
+        if v is not None and v not in KOSTRA_RETURN_PERIODS:
+            msg = f"Input should be one of {', '.join(str(period) for period in KOSTRA_RETURN_PERIODS)} (years)"
+            raise ValueError(msg)
+        return v
+
+
+class RadarFramesRequest(_RefusesRenamedParameters):
+    """Request model for the list of the frames of DWD's precipitation radar (RV composite)."""
+
+    route: ClassVar[str] = "radar_frames"
+
+    model_config = {"extra": "forbid"}
+
+    product: Annotated[
+        Literal["rv"],
+        Field(
+            description="The radar product: `rv`, DWD's RV composite, the precipitation of every 5 minutes over "
+            "Germany from the radar analysis, and DWD's forecast of the next two hours."
+        ),
+    ] = "rv"
+    past: Annotated[
+        int,
+        Field(
+            ge=0,
+            le=360,
+            description="How many minutes before the newest run the loop of analysis frames reaches back: one frame "
+            "every 5 minutes, so the 120 of the default are 25 frames with the newest. DWD keeps about 48 hours.",
+        ),
+    ] = 120
+    forecast: Annotated[
+        bool,
+        Field(
+            description="Add the 24 frames of DWD's forecast of the newest run, 5 to 120 minutes after it. False for "
+            "the analysis alone."
+        ),
+    ] = True
+    pretty: _PrettyField = False
+
+
+class RadarFrameRequest(_RefusesRenamedParameters):
+    """Request model for one frame of DWD's precipitation radar, as an image."""
+
+    route: ClassVar[str] = "radar_frame"
+
+    model_config = {"extra": "forbid"}
+
+    product: Annotated[Literal["rv"], Field(description="The radar product, as for the list of frames.")] = "rv"
+    time: Annotated[
+        str,
+        Field(
+            description="The time the frame is valid at, ISO 8601 in UTC (`2026-11-19T21:10:00Z`; one without an "
+            "offset is UTC), a multiple of 5 minutes: the `time` of a frame of the list of frames. A time up to the "
+            "newest run is the radar analysis, a later one DWD's forecast of the newest run."
+        ),
+    ]
+    run: Annotated[
+        str | None,
+        Field(
+            description="The run the frame is read from, the `run` of a frame of the list of frames, ISO 8601 in UTC. "
+            "With it the frame is the same for as long as DWD keeps the run (about 48 hours), so an answer may be "
+            "reused; without it a forecast frame is that of the newest run, which changes every 5 minutes."
+        ),
+    ] = None
+
+
 def failure_status(e: BaseException) -> int:
     """Tell the HTTP status a failure is answered with, from its place in the `WetterdienstError` hierarchy.
 
     The one table every surface reads (REST, the MCP tools through REST, the command line)::
 
         RequestError, OverflowError          400  the request cannot be served as phrased
+        NoStationPositionsError              422  a map of stations none of which has a position
         NotFoundError                        404  a provider, network, station or issue that does not exist
         ConfigurationError                   501  a credential or optional dependency this installation lacks
         NotImplementedError                  501  something wetterdienst does not do for a network, e.g. history
@@ -1859,7 +2608,9 @@ def failure_status(e: BaseException) -> int:
         anything else                        500  our bug
 
     A `RequestError` -- a date, period, parameter, bounding box, point or issue that cannot be
-    served as given -- is a 400, and a `NotFoundError` a 404. An `OverflowError` is a 400 as well: it
+    served as given -- is a 400, and a `NotFoundError` a 404. A `NoStationPositionsError` is the one request error
+    that is a 422: the request is well formed and its `format` is one these stations cannot be given in, as a
+    parameter a network does not take would be (GH-4206). An `OverflowError` is a 400 as well: it
     is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a provider converts it
     to its own zone, an issue a negative offset carries past year 9999 -- and the dates on the way
     that come that close are the request's. A `ConfigurationError`, a credential or an optional
@@ -1881,6 +2632,8 @@ def failure_status(e: BaseException) -> int:
     """
     if isinstance(e, NotFoundError):
         return 404
+    if isinstance(e, NoStationPositionsError):
+        return 422
     if isinstance(e, (RequestError, OverflowError)):
         return 400
     if isinstance(e, (ConfigurationError, NotImplementedError)):
@@ -1913,20 +2666,21 @@ def timed_out(e: BaseException) -> bool:
 def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
     """Tell the status of a failure that is the request's own, which the caller can rephrase, else None.
 
-    Beyond the hierarchy (`failure_status`): the caller's own `sql` or `sql_values` is the only SQL
-    run on the way, so a DuckDB error about the statement -- its syntax, a column or function it
-    names, a value it compares -- is theirs, a 400. So, where the request carries a clause, are the
+    Beyond the hierarchy (`failure_status`): the caller's own `--sql` or `--sql-values` of the command line (the
+    REST API and the MCP tools take none) is the only SQL run on the way, so a DuckDB error about the statement --
+    its syntax, a column or function it names, a value it compares -- is theirs, a 400. So, where the request
+    carries a clause, are the
     refusals of the connection the clause runs on (`wetterdienst.io.sql_filter.filter_by_sql`): a file, URL or
     extension it may not touch (`PermissionException`), more memory than the limit sized to the
-    frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as an
-    outer join on a correlated column (`NotSupportedError`), and an extension DuckDB would install
+    frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as a
+    time zone it does not know (`NotSupportedError`), and an extension DuckDB would install
     on the fly, refused with the bare `duckdb.Error`. Every DuckDB error derives from that one, so
     only the exact class counts: an `InternalException` or an `IOException` fails inside DuckDB and
     stays a 500, and so does DuckDB running out of memory for a request without a clause. DuckDB is
     optional, and an error of its can only be raised once it has been imported.
     """
     status = failure_status(e)
-    if status in (400, 404):
+    if status in (400, 404, 422):
         return status
     duckdb = sys.modules.get("duckdb")
     if duckdb is None:
@@ -2131,6 +2885,11 @@ def get_glossary(
     return entries
 
 
+#: The products `issues` lists for DWD MOSMIX, the datasets of the network; the other values of `IssuesRequest.dataset`
+#: are DMO's.
+MOSMIX_ISSUE_DATASETS = ("large", "small", "snow")
+
+
 def get_issues(
     api: type,
     request: IssuesRequest,
@@ -2138,8 +2897,10 @@ def get_issues(
 ) -> list[str]:
     """Return available issue datetimes as UTC ISO strings for provider/network/station.
 
-    Supported: DWD MOSMIX (MOSMIX_L single-station), DWD DMO (ICON single-station) and DWD SWSMOS.
-    One SWSMOS run file holds every road station, so its runs are the same whatever the station.
+    Supported: DWD MOSMIX (`dataset` large, the default, small or snow), DWD DMO (ICON single-station) and DWD
+    SWSMOS. One SWSMOS run file holds every road station, so its runs are the same whatever the station, and so are
+    those of MOSMIX-S and MOSMIX-SNOW; MOSMIX-L has a directory per station. The MOSMIX product is passed through
+    as the DMO product is, rather than left to chance (GH-4093).
 
     The DMO product and lead time are passed through rather than left to chance: a run exists for a
     product, and this listed one product's directory whatever the caller went on to ask for, so it
@@ -2150,20 +2911,33 @@ def get_issues(
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
 
-    dmo_only = {"dataset": request.dataset, "lead_time": request.lead_time}
-    given = sorted(name for name, value in dmo_only.items() if value is not None)
-    if given and issubclass(api, (DwdMosmixRequest, DwdSwsmosRequest)):
-        # named rather than ignored: silently answering a different question than the one asked is
-        # the fault this whole path is being fixed for
-        msg = f"{', '.join(given)} applies to DWD DMO only (got {api.__name__})"
+    options = {"dataset": request.dataset, "lead_time": request.lead_time}
+    # named rather than ignored: silently answering a different question than the one asked is
+    # the fault this whole path is being fixed for. The lead time is DMO's alone; a product is named by the network
+    # that has it, and what each accepts is told
+    if request.lead_time is not None and issubclass(api, (DwdMosmixRequest, DwdSwsmosRequest)):
+        msg = f"lead_time applies to DWD DMO only (got {api.__name__})"
         raise InvalidEnumerationError(msg)
+    if request.dataset is not None:
+        if issubclass(api, DwdSwsmosRequest):
+            msg = "dataset does not apply to DWD SWSMOS"
+            raise InvalidEnumerationError(msg)
+        if issubclass(api, DwdMosmixRequest) and request.dataset not in MOSMIX_ISSUE_DATASETS:
+            msg = f"dataset '{request.dataset}' is a DWD DMO product; DWD MOSMIX lists large, small or snow"
+            raise InvalidEnumerationError(msg)
+        if issubclass(api, DwdDmoRequest) and request.dataset in MOSMIX_ISSUE_DATASETS:
+            msg = f"dataset '{request.dataset}' is a DWD MOSMIX product; DWD DMO lists icon or icon_eu"
+            raise InvalidEnumerationError(msg)
     if issubclass(api, DwdMosmixRequest):
-        issues = DwdMosmixRequest.available_issues(request.station, settings)
+        # passed only where given, so that the default is `available_issues`' own: MOSMIX-L
+        issues = DwdMosmixRequest.available_issues(
+            request.station, settings, **({"dataset": request.dataset} if request.dataset is not None else {})
+        )
     elif issubclass(api, DwdDmoRequest):
         issues = DwdDmoRequest.available_issues(
             request.station,
             settings,
-            **{name: value for name, value in dmo_only.items() if value is not None},
+            **{name: value for name, value in options.items() if value is not None},
         )
     elif issubclass(api, DwdSwsmosRequest):
         issues = DwdSwsmosRequest.available_issues(settings)
@@ -2175,9 +2949,9 @@ def get_issues(
 
 
 def resolve_network(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
-    """Resolve the network a UI is asked about, a standalone one (dwd/radar, dwd/alerts) too.
+    """Resolve the network a UI is asked about, a standalone one (dwd/radar, dwd/alerts, dwd/storm_cells) too.
 
-    `Wetterdienst.resolve` is for the timeseries networks and `resolve_standalone` for the other two.
+    `Wetterdienst.resolve` is for the timeseries networks and `resolve_standalone` for the other three.
     The surfaces take both kinds by name -- `providers` lists them, `auth` and `issues` answer for them, and
     the timeseries commands refuse them (`check_timeseries_api`) -- so this picks the one that applies.
 
@@ -2201,7 +2975,7 @@ def check_timeseries_api(
 ) -> type[TimeseriesRequest]:
     """Refuse a network the timeseries commands cannot serve, before any request is built.
 
-    A standalone network (dwd/radar, dwd/alerts) has no metadata model, so there are no parameters to
+    A standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) has no metadata model, so there are no parameters to
     resolve: `ApiNotFoundError`, which the callers word with where the networks are listed. With
     `history`, a network without station history is refused with `NotImplementedError` before its
     station catalogue is downloaded to find that out.
@@ -2259,7 +3033,12 @@ def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
 
 def _get_stations_request(
     api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
+    request: StationsRequest
+    | ValuesRequest
+    | InterpolationRequest
+    | SummaryRequest
+    | HistoryRequest
+    | StatisticsRequest,
     timestamp: str | None,
     settings: Settings,
     options: Options | None = None,
@@ -2327,7 +3106,7 @@ def _get_stations_request(
 
 
 def _filter_by_station_code(
-    r: TimeseriesRequest, request: StationsRequest | ValuesRequest | HistoryRequest
+    r: TimeseriesRequest, request: StationsRequest | ValuesRequest | HistoryRequest | StatisticsRequest
 ) -> StationsResult | None:
     """Select the stations by the WMO number, WIGOS identifier or ICAO code the request names, None if it names none."""
     if wmo_id := getattr(request, "wmo_id", None):
@@ -2341,7 +3120,7 @@ def _filter_by_station_code(
 
 def get_stations(
     api: type[TimeseriesRequest],
-    request: StationsRequest | ValuesRequest | HistoryRequest,
+    request: StationsRequest | ValuesRequest | HistoryRequest | StatisticsRequest,
     timestamp: str | None,
     settings: Settings,
     options: Options | None = None,
@@ -2365,6 +3144,9 @@ def get_stations(
 
         if (by_id := _filter_by_station_code(r, request)) is not None:
             return by_id
+
+        if region := getattr(request, "region", None):
+            return r.filter_by_region(region)
 
         name: str | None = getattr(request, "name", None)
         if name:
@@ -2452,17 +3234,28 @@ def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
     return stations
 
 
+def row_options_of(request: ValuesRequest) -> RowOptions:
+    """Give the row options a values request names, as the keywords of the reader: those given, none for none."""
+    rows: RowOptions = {}
+    for name in ("filter", "sort", "first", "by", "max_rows"):
+        if (value := getattr(request, name, None)) is not None:
+            rows[name] = value
+    return rows
+
+
 def get_values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
     settings: Settings,
     options: Options | None = None,
     check: Callable[[StationsResult], None] | None = None,
+    held_rows_limit: int | None = None,
 ) -> ValuesResult:
     """Get values based on request.
 
     `check` is given the stations selected before any value is downloaded, and refuses the request by raising:
-    the limits of the REST API are applied there (GH-3065).
+    the limits of the REST API are applied there (GH-3065). `held_rows_limit` is the most rows of the choice of
+    `filter`, `sort`, `first` and `by` that may pile up as the stations are read (`RowsOverLimitError`).
     """
     stations_ = get_stations(
         api=api,
@@ -2477,7 +3270,9 @@ def get_values(
     # TODO: Add stream-based processing here.
     # a `ValueError` from the values -- a provider refusing a request it cannot serve as phrased
     # (`ParameterNotCarriedError`), or a parse failure -- propagates: reporting it is the caller's
-    values_ = stations_.values().all()
+    reader = stations_.values()
+    reader._held_rows_limit = held_rows_limit  # noqa: SLF001
+    values_ = reader.all(**row_options_of(request))
 
     if values_.df.is_empty():
         # nothing to filter, and nothing more to say about it. An empty window is the caller's
@@ -2486,11 +3281,54 @@ def get_values(
         # CLI print the same sentence twice
         return values_
 
-    if request.sql_values:
-        log.info(f"Filtering with SQL: {request.sql_values}")
-        values_ = values_.filtered_by_sql(request.sql_values)
+    if sql_values := getattr(request, "sql_values", None):
+        log.info(f"Filtering with SQL: {sql_values}")
+        values_ = values_.filtered_by_sql(sql_values)
 
     return values_
+
+
+def statistics_options_of(request: StatisticsRequest) -> dict[str, Any]:
+    """Give the options a statistics request names, as the keywords of `TimeseriesValues.statistics`."""
+    return {
+        "by": request.by,
+        "filter": request.filter,
+        "year_start": request.year_start,
+        "max_missing": request.max_missing,
+        "having": request.having,
+        "sort": request.sort,
+        "first": request.first,
+        "per": request.per,
+        "max_rows": request.max_rows,
+    }
+
+
+def get_statistics(
+    api: type[TimeseriesRequest],
+    request: StatisticsRequest,
+    settings: Settings,
+    options: Options | None = None,
+    check: Callable[[StationsResult], None] | None = None,
+    held_groups_limit: int | None = None,
+) -> StatisticsResult:
+    """Get the statistics a request names: the stations are selected, read one at a time and reduced to their groups.
+
+    `check` is given the stations selected before any value is downloaded, and refuses the request by raising: the
+    limits of the REST API are applied there. `held_groups_limit` is the most groups that may pile up as the stations
+    are read (`GroupsOverLimitError`).
+    """
+    stations_ = get_stations(
+        api=api,
+        request=request,
+        timestamp=request.timestamp,
+        settings=settings,
+        options=options,
+    )
+    if check is not None:
+        check(stations_)
+    reader = stations_.values()
+    reader._held_rows_limit = held_groups_limit  # noqa: SLF001
+    return reader.statistics(request.aggregate, **statistics_options_of(request))
 
 
 def get_interpolate(
@@ -2520,9 +3358,9 @@ def get_interpolate(
         msg = f"{type(request).__name__} gives neither a point nor a station"
         raise AssertionError(msg)
 
-    if request.sql_values:
-        log.info(f"Filtering with SQL: {request.sql_values}")
-        values_ = values_.filtered_by_sql(request.sql_values)
+    if sql_values := getattr(request, "sql_values", None):
+        log.info(f"Filtering with SQL: {sql_values}")
+        values_ = values_.filtered_by_sql(sql_values)
 
     return values_
 
@@ -2550,387 +3388,11 @@ def get_summarize(
         msg = f"{type(request).__name__} gives neither a point nor a station"
         raise AssertionError(msg)
 
-    if request.sql_values:
-        log.info(f"Filtering with SQL: {request.sql_values}")
-        values_ = values_.filtered_by_sql(request.sql_values)
+    if sql_values := getattr(request, "sql_values", None):
+        log.info(f"Filtering with SQL: {sql_values}")
+        values_ = values_.filtered_by_sql(sql_values)
 
     return values_
-
-
-class StripesSeries(BaseModel):
-    """What a series of climate stripes is of: the station, the parameter and the unit of its values."""
-
-    model_config = {"extra": "forbid"}
-
-    # the station as the stations listing has it, which is what the OpenAPI document says of it; the row is
-    # sent as it is and not read back through the model (`SkipValidation`), so the answer is what it always was
-    station: Annotated[_Station, SkipValidation]
-    resolution: str
-    dataset: str
-    parameter: str
-    # the unit `value` comes in, named as `/api/values` names one in its settings' `unit_targets`;
-    # the request's `unit_targets` (GH-3980) and the server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it,
-    # the latter two since GH-2372
-    unit: str
-
-
-class StripesData(BaseModel):
-    """Climate stripes data: what the series is of, and its values."""
-
-    model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
-
-    series: StripesSeries
-    df: pl.DataFrame
-
-
-# Type definitions for CLIMATE_STRIPES_CONFIG
-StripesKind = Literal["temperature", "precipitation"]
-
-
-class StripesStationsRequest(_RefusesRenamedParameters):
-    """Request model for listing the stations climate stripes are made for, forbidding other parameters (GH-2479)."""
-
-    route: ClassVar[str] = "stripes_stations"
-
-    model_config = {"extra": "forbid"}
-
-    kind: Annotated[
-        StripesKind,
-        Field(description="temperature (annual mean air temperature) or precipitation (annual amount)."),
-    ]
-    active: Annotated[
-        bool, Field(description="Only the stations that still report, i.e. have data in the recent period.")
-    ] = True
-    format: Annotated[
-        Literal["json", "geojson", "csv"],
-        Field(description="Output format: json, geojson (a feature collection) or csv."),
-    ] = "json"
-    pretty: _PrettyField = False
-
-
-class StripesRequest(_RefusesRenamedParameters):
-    """The station and the years climate stripes are made for, shared by their values and their image.
-
-    Like the other request models, it states its rules once for the CLI, the REST API and MCP, which
-    each checked them by hand before, and answered a refusal in a shape of their own (GH-2060).
-    """
-
-    model_config = {"extra": "forbid"}
-    selection: ClassVar[Selection] = STRIPES_SELECTION
-
-    kind: Annotated[
-        StripesKind,
-        Field(description="temperature (annual mean air temperature) or precipitation (annual amount)."),
-    ]
-    station: Annotated[str | None, Field(description="Station id, e.g. '01048'; give this or name.")] = None
-    name: Annotated[
-        str | None,
-        Field(description="Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."),
-    ] = None
-    # as for stations and values, and the CLI's --name-threshold
-    name_threshold: _NameThresholdField = 0.8
-    start_year: Annotated[int | None, Field(description="First year. Default: the station's first.")] = None
-    end_year: Annotated[
-        int | None,
-        Field(description="Last year, after start_year. Default: the station's last."),
-    ] = None
-
-    @model_validator(mode="after")
-    def check_station_and_years(self) -> StripesRequest:
-        """Check exactly one of station or name is given, and a year range that ends after it starts."""
-        errors = _check_selection(self, self.selection)
-        if self.start_year is not None and self.end_year is not None and self.end_year <= self.start_year:
-            message = f"Input should be greater than start_year ({self.start_year})"
-            errors.append(
-                _rule_error(
-                    "greater_than_field",
-                    message,
-                    ("end_year",),
-                    self.end_year,
-                    field="start_year",
-                    gt=self.start_year,
-                ),
-            )
-        _raise_rule_errors(self, errors)
-        return self
-
-
-class StripesValuesRequest(StripesRequest):
-    """A request for the values climate stripes are made of."""
-
-    route: ClassVar[str] = "stripes_values"
-
-    format: Annotated[Literal["json", "csv"], Field(description="Output format.")] = "json"
-    pretty: _PrettyField = False
-    unit_targets: Annotated[
-        dict[str, str] | None,
-        Field(
-            description="The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, "
-            "e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is "
-            "reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if "
-            "set. The colours of the stripes image are relative and are the same in any unit."
-        ),
-    ] = None
-
-    @field_validator("unit_targets", mode="before")
-    @classmethod
-    def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
-        """Validate unit targets: a mapping, or the JSON text of one."""
-        if not v:
-            return None
-        if isinstance(v, dict):
-            return v
-        return _load_json(v)
-
-
-class StripesImageRequest(StripesRequest):
-    """A request for a climate stripes image."""
-
-    route: ClassVar[str] = "stripes_image"
-
-    show_title: Annotated[bool, Field(description="Show the station name.")] = True
-    show_years: Annotated[bool, Field(description="Show the first and last year.")] = True
-    show_data_availability: Annotated[bool, Field(description="Mark the years without data.")] = True
-    format: Annotated[Literal["png", "jpg", "svg", "pdf"], Field(description="Image format.")] = "png"
-    dpi: Annotated[int, Field(gt=0, description="Resolution in dots per inch.")] = 300
-
-
-class StripesConfigItem(TypedDict):
-    """Configuration item for climate stripes."""
-
-    request: Callable[..., DwdObservationRequest]
-    #: the colours of the stripes as hex, evenly spaced stops from `value_scaled` 0, the highest year, to 1, the lowest
-    colors: tuple[str, ...]
-
-
-class StripesConfig(TypedDict):
-    """Configuration for climate stripes by kind."""
-
-    temperature: StripesConfigItem
-    precipitation: StripesConfigItem
-
-
-def _get_stripes_options(unit_targets: Mapping[str, str] | None = None) -> Options:
-    """Give the options the stripes read a station's values with.
-
-    `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
-    record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
-    left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
-    with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
-    outrank the environment's variables, a malformed one included.
-
-    `unit_targets` is laid over the ones the environment sets, as for `/api/values`, an entry it gives
-    winning (GH-3980). The colours are relative, so the unit changes the numbers of the answer, not the stripes.
-    """
-    options = Options(shape="long", skip_empty=False)
-    return overlay_options(options, {"unit_targets": dict(unit_targets)}) if unit_targets else options
-
-
-def _get_stripes_temperature_request(
-    periods: Period = Period.HISTORICAL, unit_targets: Mapping[str, str] | None = None
-) -> DwdObservationRequest:
-    """Give the request the temperature stripes list their stations and read their values with."""
-    return DwdObservationRequest(
-        parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
-        periods=periods,
-        options=_get_stripes_options(unit_targets),
-    )
-
-
-def _get_stripes_precipitation_request(
-    periods: Period = Period.HISTORICAL, unit_targets: Mapping[str, str] | None = None
-) -> DwdObservationRequest:
-    """Give the request the precipitation stripes list their stations and read their values with."""
-    return DwdObservationRequest(
-        parameters=[("annual", "precipitation_more", "precipitation_amount")],
-        periods=periods,
-        options=_get_stripes_options(unit_targets),
-    )
-
-
-#: ColorBrewer's 11-class RdBu, from the dark red of the highest year to the dark blue of the lowest: the ramp the
-#: stripes always had (Plotly's `RdBu`), which Vega's schemes of the like names are not
-_RD_BU = (
-    "#67001f",
-    "#b2182b",
-    "#d6604d",
-    "#f4a582",
-    "#fddbc7",
-    "#f7f7f7",
-    "#d1e5f0",
-    "#92c5de",
-    "#4393c3",
-    "#2166ac",
-    "#053061",
-)
-#: ColorBrewer's 11-class BrBG from brown to teal (Plotly's `BrBG`), which the precipitation stripes take reversed
-_BR_BG = (
-    "#543005",
-    "#8c510a",
-    "#bf812d",
-    "#dfc27d",
-    "#f6e8c3",
-    "#f5f5f5",
-    "#c7eae5",
-    "#80cdc1",
-    "#35978f",
-    "#01665e",
-    "#003c30",
-)
-
-CLIMATE_STRIPES_CONFIG: StripesConfig = {
-    "temperature": {
-        "request": _get_stripes_temperature_request,
-        "colors": _RD_BU,
-    },
-    "precipitation": {
-        "request": _get_stripes_precipitation_request,
-        # reversed, as `value_scaled` puts the wettest year at 0: brown for dry, teal for wet (GH-2063)
-        "colors": _BR_BG[::-1],
-    },
-}
-
-
-def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> StationsResult:
-    request = CLIMATE_STRIPES_CONFIG[kind]["request"]
-    stations = request(Period.HISTORICAL).all()
-    if active:
-        station_ids_active = request(Period.RECENT).all().df.select("station_id")
-        stations = replace(stations, df=stations.df.join(station_ids_active, on="station_id"))
-    return stations
-
-
-def _get_stripes_data(stripes: StripesRequest) -> StripesData:
-    """Get stripes data for station in Germany, for a request its model has checked.
-
-    The `unit_targets` of a request for the values name the unit they are returned in, as for `/api/values`
-    (GH-3980); the colour of a year, scaled over the years, is the same in any unit. The image has none.
-
-    Returns StripesData with metadata and dataframe.
-    """
-    kind, start_year, end_year = stripes.kind, stripes.start_year, stripes.end_year
-    unit_targets = stripes.unit_targets if isinstance(stripes, StripesValuesRequest) else None
-    request = CLIMATE_STRIPES_CONFIG[kind]["request"](Period.HISTORICAL, unit_targets=unit_targets)
-
-    if stripes.station:
-        stations = request.filter_by_station_id(stripes.station)
-    elif stripes.name:
-        stations = request.filter_by_name(stripes.name, threshold=stripes.name_threshold)
-    else:
-        # not reached: the request model refuses a request with neither
-        msg = f"{type(stripes).__name__} gives neither a station nor a name"
-        raise AssertionError(msg)
-
-    # asked of the list rather than caught from indexing it, so an `IndexError` from building the
-    # list is not taken for an unknown station
-    found = stations.to_dict()["stations"]
-    if not found:
-        if stripes.station and (gaps := request._gaps_that_may_list(stripes.station)):  # noqa: SLF001
-            # not known to be unknown: the lookup went without a listing the station may be in (GH-3834)
-            raise StationListingIncompleteError(stripes.station, gaps)
-        parameter = "station_id" if stripes.station else "name"
-        msg = f"No station with a {parameter} similar to '{stripes.station or stripes.name}' found"
-        raise StationNotFoundError(msg)
-    station = found[0]
-
-    # a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676)
-    df = leave_out_suspect(stations.values().all().df).sort("timestamp")
-    df = df.set_sorted("timestamp")
-    df = df.select("timestamp", "value")
-    # a station that returns no rows has no first and last year to upsample between (polars raises
-    # `ComputeError`); left empty, it is refused below as having data for no year (GH-2369)
-    if not df.is_empty():
-        df = df.upsample("timestamp", every="1y")
-    recorded = df.filter(pl.col("value").is_not_null()).get_column("timestamp").dt.year()
-    if start_year is not None:
-        df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
-    if end_year is not None:
-        df = df.filter(pl.col("timestamp").dt.year().le(end_year))
-
-    # a range holding no year with data drew empty stripes, and one holding a single year stripes of
-    # one colour
-    years_with_data = df.filter(pl.col("value").is_not_null()).get_column("timestamp")
-    if len(years_with_data) < 2:
-        record = f"from {recorded.min()} to {recorded.max()}" if len(recorded) else "for no year"
-        msg = (
-            f"At least two years with data are required to create climate stripes; station "
-            f"{station['station_id']} has data {record}"
-        )
-        raise NotEnoughDataError(msg)
-    # from the first year with data to the last: a start or end year falling in a gap of the record
-    # would otherwise label the stripes with a year none of them shows
-    df = df.filter(pl.col("timestamp").is_between(years_with_data.min(), years_with_data.max()))
-
-    # scaled over the years asked for, so they span the whole colour map rather than the part the
-    # station's whole record would leave them; 0 is the highest value, 1 the lowest. Years all of one
-    # value take the middle of the map rather than dividing by a range of zero
-    value, lowest, highest = pl.col("value"), pl.col("value").min(), pl.col("value").max()
-    df = df.with_columns(
-        pl.when(value.is_null())
-        .then(None)
-        .when(highest == lowest)
-        .then(0.5)
-        .otherwise(1 - (value - lowest) / (highest - lowest))
-        .alias("value_scaled"),
-        pl.when(value.is_not_null()).then(-0.02).otherwise(None).alias("availability"),
-    )
-
-    # named by the one parameter the values were read for, as is their unit: the target of its
-    # quantity where they were converted, the unit the source publishes them in where not
-    from wetterdienst.core.util import _values_unit  # noqa: PLC0415
-
-    (parameter_model,) = stations.parameters
-    series = StripesSeries(
-        station=station,
-        resolution=parameter_model.dataset.resolution.name,
-        dataset=parameter_model.dataset.name,
-        parameter=parameter_model.name,
-        unit=_values_unit(
-            parameter_model,
-            stations.values().unit_converter,
-            convert_units=stations.options.convert_units,
-        ),
-    )
-
-    return StripesData(series=series, df=df)
-
-
-def _require_plotting() -> ModuleType:
-    """Give Altair, or raise the `MissingDependencyError` that says to install the `plotting` extra.
-
-    Asked before a station's record is downloaded, so that a server without the extra refuses at once (GH-3581).
-    """
-    return import_optional("altair", "Plotting warming stripes", extra="plotting")
-
-
-def _plot_stripes(stripes: StripesImageRequest) -> alt.TopLevelMixin:
-    """Create warming stripes for station in Germany, for a request its model has checked."""
-    _require_plotting()
-    return _draw_stripes(_get_stripes_data(stripes), stripes)
-
-
-def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> alt.TopLevelMixin:
-    """Draw the warming stripes of data `_get_stripes_data` has read, so that the caller can tell whose they are.
-
-    Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
-    """
-    _require_plotting()
-    from wetterdienst.io.charts import stripes_chart  # noqa: PLC0415 -- the `plotting` extra
-
-    station = stripes_data.series.station
-    config = CLIMATE_STRIPES_CONFIG[stripes.kind]
-    return stripes_chart(
-        stripes_data.df,
-        colors=config["colors"],
-        title=(
-            f"Climate stripes ({stripes.kind}) for {station['name']}, Germany ({station['station_id']})"
-            if stripes.show_title
-            else None
-        ),
-        source="Source: Deutscher Wetterdienst",
-        show_years=stripes.show_years,
-        show_data_availability=stripes.show_data_availability,
-    )
 
 
 def set_logging_level(*, debug: bool) -> None:

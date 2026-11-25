@@ -38,14 +38,16 @@ describe('security headers', () => {
     expect(referrerPolicy).toBe('strict-origin-when-cross-origin')
   })
 
-  it('lets the page itself, and no other origin, use the Geolocation API (GH-3651), and leaves the other features off', async () => {
+  it('lets the page itself, and no other origin, use the Geolocation API (GH-3651) and the Fullscreen API (GH-4227), and leaves the other features off', async () => {
     const config = await loadConfig()
     const permissions = config.security?.headers?.permissionsPolicy
 
     // nuxt-security's default is `geolocation=()`, which blocks "Use my location" in every browser
     expect(permissions.geolocation).toEqual(['self'])
-    // only geolocation is set here: camera, microphone, screen capture and fullscreen are the module's defaults
-    expect(Object.keys(permissions)).toEqual(['geolocation'])
+    // the module's `fullscreen=()` would switch the API off for the map's full-screen button
+    expect(permissions.fullscreen).toEqual(['self'])
+    // only these two are set here: camera, microphone and screen capture are the module's defaults
+    expect(Object.keys(permissions).sort()).toEqual(['fullscreen', 'geolocation'])
   })
 
   it('allows OpenStreetMap tile images in the CSP', async () => {
@@ -186,11 +188,11 @@ describe('the rate limit in the runtime config', () => {
     vi.resetModules()
   })
 
-  it('is on, at 300 requests in 300 seconds, counting the address of the connection', async () => {
+  it('is on, at 300 requests in 300 seconds (1000 for the frame images of the radar), counting the address of the connection', async () => {
     vi.stubEnv('WD_E2E', '')
     const { rateLimit } = (await loadConfig()).runtimeConfig
 
-    expect(rateLimit).toEqual({ enabled: true, tokens: 300, windowSeconds: 300, clientIpHeader: '' })
+    expect(rateLimit).toEqual({ enabled: true, tokens: 300, windowSeconds: 300, frameTokens: 1000, clientIpHeader: '' })
   })
 
   it('is off in the e2e suite\'s own build, and nowhere else', async () => {

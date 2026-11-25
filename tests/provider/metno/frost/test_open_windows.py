@@ -30,17 +30,8 @@ if TYPE_CHECKING:
 UTC = dt.UTC
 DATE = dt.datetime(2026, 11, 7, tzinfo=UTC)
 CODE = "window-not-closed"
-PATHS = ["batch", "single", "discovery"]
 HOUR = dt.timedelta(hours=1)
 MINUTE = dt.timedelta(minutes=1)
-AVAILABLE = {
-    "data": [
-        {
-            "validFrom": "1940-01-01T00:00:00Z",
-            "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0",
-        }
-    ]
-}
 
 
 def _at(monkeypatch: pytest.MonkeyPatch, moment: dt.datetime) -> None:
@@ -50,7 +41,6 @@ def _at(monkeypatch: pytest.MonkeyPatch, moment: dt.datetime) -> None:
 
 def _read(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     resolution: str,
     name: str,
     element: str,
@@ -58,14 +48,10 @@ def _read(
     start: dt.datetime,
     end: dt.datetime,
 ) -> MetnoFrostValues:
-    """Give the values of `name` at SN18700, which Frost answers with `readings` (stamp, offset, value) by `path`."""
+    """Give the values of `name` at SN18700, which Frost answers with `readings` (stamp, offset, value)."""
     answer = _offset_answer(element, readings)
     requested = [(resolution, "data", name)]
-    if path == "single":
-        # the single reader is reached by a parameter of a dataset whose batch 404s
-        helper = {"annual": "cloud_cover_total_mean"}.get(resolution, "wind_speed_mean")
-        requested.append((resolution, "data", helper if name != helper else "temperature_air_mean_2m"))
-    values, _ = _values(monkeypatch, _answered_by(path, answer, AVAILABLE), requested, start=start, end=end)
+    values, _ = _values(monkeypatch, _answered_by(answer), requested, start=start, end=end)
     return values
 
 
@@ -96,7 +82,6 @@ MOMENTS = [
 
 def _check_daily(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     series: tuple[str, str, str, dt.timedelta],
     moment: dt.timedelta,
     *,
@@ -109,7 +94,7 @@ def _check_daily(
     base = 1000.0 if "pressure" in name else 1.0
     readings = [(_stamp(previous), offset, base), (_stamp(DATE), offset, base + 1)]
     _at(monkeypatch, DATE + closes_after + moment)
-    values = _read(monkeypatch, path, "daily", name, element, readings, previous, DATE)
+    values = _read(monkeypatch, "daily", name, element, readings, previous, DATE)
     begin_response()
 
     df = values.all().df.filter(pl.col("parameter") == name).sort("timestamp")
@@ -150,33 +135,16 @@ def test_metno_frost_a_daily_value_of_an_open_window_is_left_out_and_told(
     `PT0H` mean and every other daily element). The value of the day before has closed at every time of the test. A
     window that closes at the time of the request is closed.
     """
-    _check_daily(monkeypatch, "batch", (element, offset, name, closes_after), moment, open_=open_)
+    _check_daily(monkeypatch, (element, offset, name, closes_after), moment, open_=open_)
 
 
-@pytest.mark.parametrize("path", ["single", "discovery"])
-@pytest.mark.parametrize("series", [DAILY[0].values[:4], DAILY[2].values[:4]], ids=["max-PT18H", "sum-PT6H"])
-@pytest.mark.parametrize(("moment", "open_"), [MOMENTS[1].values, MOMENTS[2].values], ids=["open", "closed"])
-def test_metno_frost_the_single_and_the_discovery_reader_leave_an_open_daily_value_out_too(
-    monkeypatch: pytest.MonkeyPatch,
-    path: str,
-    series: tuple[str, str, str, dt.timedelta],
-    moment: dt.timedelta,
-    *,
-    open_: bool,
-) -> None:
-    """Test that the three readers (the batch above, the single parameter and the time series discovery) agree."""
-    _check_daily(monkeypatch, path, series, moment, open_=open_)
-
-
-@pytest.mark.parametrize("path", PATHS)
 def test_metno_frost_a_station_whose_only_value_is_open_has_rows_told_by_the_open_window(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that an answer emptied by an open window says that, and not that the source has no values."""
     _at(monkeypatch, DATE + 10 * HOUR)
     values = _read(
         monkeypatch,
-        path,
         "daily",
         "temperature_air_max_2m",
         "max(air_temperature P1D)",
@@ -208,7 +176,6 @@ def test_metno_frost_the_snow_depth_is_a_reading_of_an_instant_and_is_never_open
     _at(monkeypatch, DATE + (hour + 1) * HOUR)
     values = _read(
         monkeypatch,
-        "batch",
         "daily",
         "snow_depth",
         "surface_snow_thickness",
@@ -222,9 +189,8 @@ def test_metno_frost_the_snow_depth_is_a_reading_of_an_instant_and_is_never_open
     assert _told(CODE) == []
 
 
-@pytest.mark.parametrize("path", PATHS)
 def test_metno_frost_a_date_left_out_as_open_is_not_told_again_as_another_window(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that a date whose `PT6H` value is open and whose `PT18H` value exists is told once, as open."""
     previous = DATE - dt.timedelta(days=1)
@@ -236,7 +202,7 @@ def test_metno_frost_a_date_left_out_as_open_is_not_told_again_as_another_window
     ]
     _at(monkeypatch, DATE + 5 * HOUR)
     values = _read(
-        monkeypatch, path, "daily", "precipitation_amount", "sum(precipitation_amount P1D)", readings, previous, DATE
+        monkeypatch, "daily", "precipitation_amount", "sum(precipitation_amount P1D)", readings, previous, DATE
     )
     begin_response()
 
@@ -255,7 +221,6 @@ def test_metno_frost_an_open_date_beyond_the_window_of_the_request_is_not_counte
     _at(monkeypatch, DATE + 5 * HOUR)
     values = _read(
         monkeypatch,
-        "batch",
         "daily",
         "temperature_air_mean_2m",
         "mean(air_temperature P1D)",
@@ -281,7 +246,6 @@ def test_metno_frost_an_open_precipitation_stamped_off_midnight_is_the_window_of
     _at(monkeypatch, DATE + 6 * HOUR + 30 * MINUTE)
     values = _read(
         monkeypatch,
-        "batch",
         "daily",
         "precipitation_amount",
         "sum(precipitation_amount P1D)",
@@ -334,7 +298,6 @@ PERIODS = {
 
 def _check_monthly(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     series: tuple[str, str, str, dt.datetime],
     moment: dt.timedelta,
     *,
@@ -346,7 +309,7 @@ def _check_monthly(
     october, november = PERIODS[resolution]
     readings = [(_stamp(october), offset, 1.0), (_stamp(november), offset, 2.0)]
     _at(monkeypatch, closes + moment)
-    values = _read(monkeypatch, path, resolution, name, element, readings, october, november)
+    values = _read(monkeypatch, resolution, name, element, readings, october, november)
     begin_response()
 
     df = values.all().df.filter(pl.col("parameter") == name).sort("timestamp")
@@ -386,17 +349,7 @@ def test_metno_frost_a_monthly_value_of_an_open_window_is_returned_marked_and_to
     UTC of its last day (Frost: the window of the month "lasts continuously from the last day of the previous month"
     at the offset). October is closed at every time of the test and carries no token.
     """
-    _check_monthly(monkeypatch, "batch", (element, offset, name, closes), moment, open_=open_)
-
-
-@pytest.mark.parametrize("path", ["single", "discovery"])
-@pytest.mark.parametrize(("moment", "open_"), [MOMENTS[1].values, MOMENTS[2].values], ids=["open", "closed"])
-def test_metno_frost_the_single_and_the_discovery_reader_mark_an_open_month_too(
-    monkeypatch: pytest.MonkeyPatch, path: str, moment: dt.timedelta, *, open_: bool
-) -> None:
-    """Test that the single parameter reader and the time series discovery mark the month as the batch does."""
-    series = MONTHLY[1].values
-    _check_monthly(monkeypatch, path, series, moment, open_=open_)
+    _check_monthly(monkeypatch, (element, offset, name, closes), moment, open_=open_)
 
 
 # the annual series: the calendar year closes at the end of the year, the other offsets on 31 December (Frost has the
@@ -443,16 +396,7 @@ def test_metno_frost_an_annual_value_of_an_open_window_is_returned_marked_and_to
     The calendar year closes at the end of the year, the `PT6H` sum at 06 UTC and the `PT18H` extremes at 18 UTC of 31
     December. The year before is closed at every time of the test and carries no token.
     """
-    _check_monthly(monkeypatch, "batch", (element, offset, name, closes), moment, open_=open_, resolution="annual")
-
-
-@pytest.mark.parametrize("path", ["single", "discovery"])
-def test_metno_frost_the_single_and_the_discovery_reader_mark_an_open_year_too(
-    monkeypatch: pytest.MonkeyPatch, path: str
-) -> None:
-    """Test that the single parameter reader and the time series discovery mark the year as the batch does."""
-    element, offset, name, closes = ANNUAL[1].values
-    _check_monthly(monkeypatch, path, (element, offset, name, closes), -MINUTE, open_=True, resolution="annual")
+    _check_monthly(monkeypatch, (element, offset, name, closes), moment, open_=open_, resolution="annual")
 
 
 def test_metno_frost_the_token_of_an_open_month_comes_after_the_quality_code_and_before_the_raw_text(
@@ -580,7 +524,6 @@ def test_metno_frost_a_cached_copy_is_of_the_time_it_was_made(
     assert len(_told(CODE)) == (1 if open_ else 0)
 
 
-@pytest.mark.parametrize("path", PATHS)
 @pytest.mark.parametrize(
     ("asked", "open_"),
     [
@@ -589,7 +532,7 @@ def test_metno_frost_a_cached_copy_is_of_the_time_it_was_made(
     ],
 )
 def test_metno_frost_a_window_that_closes_while_the_answer_is_on_its_way_is_open_in_it(
-    monkeypatch: pytest.MonkeyPatch, path: str, asked: dt.timedelta, *, open_: bool
+    monkeypatch: pytest.MonkeyPatch, asked: dt.timedelta, *, open_: bool
 ) -> None:
     """Test that the time of an answer with no copy time is when it was asked for, not when the download ended.
 
@@ -599,18 +542,16 @@ def test_metno_frost_a_window_that_closes_while_the_answer_is_on_its_way_is_open
     answer = _offset_answer("max(air_temperature P1D)", [(_stamp(DATE), "PT18H", 2.0)])
     clock = [DATE + 18 * HOUR + asked]
     monkeypatch.setattr(frost_api, "_now", lambda: clock[0])
-    served = _answered_by(path, answer, AVAILABLE)
+    served = _answered_by(answer)
 
     def slow(url: str) -> File:
-        # the download that brings the observations takes two minutes (the 404 of the batch and the listing do not)
+        # the download that brings the observations takes two minutes
         file = served(url)
-        if file.status == 200 and "availableTimeSeries" not in url:
+        if file.status == 200:
             clock[0] += 2 * MINUTE
         return file
 
     requested = [("daily", "data", "temperature_air_max_2m")]
-    if path == "single":
-        requested.append(("daily", "data", "wind_speed_mean"))
     values, _ = _values(monkeypatch, slow, requested, start=DATE, end=DATE)
     begin_response()
 

@@ -26,7 +26,7 @@
 | {term}`wind_speed_mean` | FG | Monthly mean wind speed, representative for 10 meters, in meters per second. | m/s |
 | {term}`wind_speed_min` | FHN | Monthly minimum hourly wind speed, representative for 10 meters, in meters per second. | m/s |
 | {term}`wind_speed_max` | FHX | Monthly maximum hourly wind speed, representative for 10 meters, in meters per second. | m/s |
-| {term}`wind_gust_max` | FXX | Monthly maximum wind gust, representative for 10 meters, in meters per second. | m/s |
+| {term}`wind_gust_max` | FXX | Monthly maximum wind gust, representative for 10 meters, in meters per second. Highest 3 second mean of the year (as KNMI writes it; the value is the month's). | m/s |
 | {term}`wind_direction_mean` | DDVEC | Monthly vector mean wind direction, representative for 10 meters, in degrees. Wind direction has been weighted with wind speed during aggregation. 360=north; 90=east; 180=south; 270=west; 0=calm/variable. | ° |
 | {term}`precipitation_amount` | RH | Monthly precipitation amount, in millimeters. | mm |
 | {term}`precipitation_amount_max` | RHX | Monthly maximum hourly precipitation amount. | mm |

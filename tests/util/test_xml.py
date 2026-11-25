@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from lxml.etree import XMLParser, fromstring, iterparse, tostring
+from lxml.etree import HTMLParser, XMLParser, fromstring, iterparse, tostring
 
 import wetterdienst
 from tests.provider.dwd.alerts.test_parser import CAP_XML
@@ -434,3 +434,32 @@ def test_the_scan_finds_a_parser_built_outside_the_helper(source: str) -> None:
 def test_the_scan_leaves_alone_what_parses_nothing(source: str) -> None:
     """An element is typed under `if TYPE_CHECKING`, and `xml.sax.saxutils` only writes."""
     assert _parsers_built_outside_the_helper(source) == []
+
+
+def test_an_html_page_is_read_with_the_options_it_takes_of_the_safe_ones(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`parse_html` gives the HTML parser the network and size options by name, and the page's encoding (GH-4073)."""
+    given: list[dict[str, object]] = []
+
+    def parser(**kwargs: object) -> object:
+        given.append(kwargs)
+        return HTMLParser(**kwargs)
+
+    monkeypatch.setattr(wd_xml, "HTMLParser", parser)
+    root = wd_xml.parse_html("<table><tr><td>Hamburg-Fuhlsb\xfcttel</td></tr></table>".encode("latin-1"), "iso-8859-1")
+    assert root.findtext(".//td") == "Hamburg-Fuhlsbüttel"
+    assert given == [
+        {
+            "encoding": "iso-8859-1",
+            "no_network": SAFE_OPTIONS["no_network"],
+            "huge_tree": SAFE_OPTIONS["huge_tree"],
+            "remove_comments": True,
+            "remove_pis": True,
+        }
+    ]
+
+
+@pytest.mark.parametrize("content", [b"", b"   \n"])
+def test_an_empty_page_is_no_html_document(content: bytes) -> None:
+    """An empty page is a `ValueError`, not a missing tree for the reader to trip over."""
+    with pytest.raises(ValueError, match="no HTML document"):
+        wd_xml.parse_html(content)

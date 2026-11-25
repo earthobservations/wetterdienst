@@ -1,43 +1,55 @@
+import type { StripesInput } from '../../app/utils/stripes-model'
 import { describe, expect, it } from 'vitest'
-import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, zoomWindow } from '../../app/utils/stripes-model'
+import { anomalyAxis, availabilityRuns, buildStripesModel, clampWindow, fullWindow, isStripesDrawing, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VIEW_QUERY, STRIPES_VIEWS, stripesViewFromQuery, stripesYearFromQuery, visibleYears, yearTicks, zoomWindow } from '../../app/utils/stripes-model'
+import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
-const answer = (years: number[], value = (year: number) => year / 100) => years.map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: value(year) }))
+const input = (timestamp: string | null, value: number | null, anomaly: number | null = null, stripe_class: number | null = null): StripesInput => ({ timestamp, value, anomaly, stripe_class })
+
+function answer(years: number[], value = (year: number) => year / 100) {
+  const items = stripesAnswer(years.map(year => ({ year, value: value(year) })))
+  return { values: items.values, reference: items.reference }
+}
 
 describe('buildStripesModel', () => {
   it('has no model where nothing can be drawn', () => {
     expect(buildStripesModel([])).toBeNull()
-    expect(buildStripesModel([{ timestamp: '2000-01-01T00:00:00+00:00', value: null }, { timestamp: null, value: 3 }])).toBeNull()
+    expect(buildStripesModel([input('2000-01-01T00:00:00+00:00', null), input(null, 3, 0, 8)])).toBeNull()
   })
 
-  it('reads each year in UTC, from the years with a value, and places the values between the lowest and the highest', () => {
+  it('reads each year in UTC, from the years with a value, with the anomaly and class the answer gives them', () => {
     const model = buildStripesModel([
-      { timestamp: '2001-01-01T00:00:00+00:00', value: 10 },
-      { timestamp: '2002-01-01T00:00:00+00:00', value: null },
-      { timestamp: '2003-01-01T00:00:00+00:00', value: 20 },
-      { timestamp: '2004-01-01T00:00:00+00:00', value: 15 },
+      input('2001-01-01T00:00:00+00:00', 10, 0, 8),
+      input('2002-01-01T00:00:00+00:00', null),
+      input('2003-01-01T00:00:00+00:00', 11, 1, 11),
+      input('2004-01-01T00:00:00+00:00', 9, -1, 4),
     ])!
     expect(model.years).toEqual([2001, 2003, 2004])
-    expect(model.normalized).toEqual([0, 1, 0.5])
-    expect([model.minYear, model.maxYear, model.min, model.max]).toEqual([2001, 2004, 10, 20])
+    expect(model.classes).toEqual([8, 11, 4])
+    expect(model.anomalies).toEqual([0, 1, -1])
+    expect([model.minYear, model.maxYear]).toEqual([2001, 2004])
     // the availability line is broken where a year has no value
     expect(model.availability).toEqual([-0.02, null, -0.02, -0.02])
   })
 
-  it('puts years that are all alike in the middle of the scale, not at NaN', () => {
-    const model = buildStripesModel(answer([2000, 2001], () => 7))!
-    expect(model.normalized).toEqual([0.5, 0.5])
-    expect(model.normalizedTrend.every(Number.isFinite)).toBe(true)
+  it('does not class a year by the years shown: a window of the record leaves each year its class', () => {
+    const record = recordOf(1950, 2020, year => 8 + (year - 1950) * 0.04 + (year % 2 ? 0.3 : -0.3))
+    const whole = stripesAnswer(record)
+    const window = stripesAnswer(record, { start: 2005, end: 2015 })
+    const modelOf = (data: typeof whole) => buildStripesModel(data.values)!
+    const all = modelOf(whole)
+    const part = modelOf(window)
+    expect(part.years).toEqual(Array.from({ length: 11 }, (_, index) => 2005 + index))
+    expect(part.classes).toEqual(all.classes.slice(all.years.indexOf(2005), all.years.indexOf(2015) + 1))
+    expect(part.anomalies).toEqual(all.anomalies.slice(all.years.indexOf(2005), all.years.indexOf(2015) + 1))
   })
 
-  it('draws the least-squares line through the years', () => {
-    const model = buildStripesModel(answer([2000, 2001, 2002, 2003], year => 2 * (year - 2000) + 1))!
-    expect(model.trend.map(value => Math.round(value * 1e6) / 1e6)).toEqual([1, 3, 5, 7])
-    expect(model.normalizedTrend.map(value => Math.round(value * 1e6) / 1e6)).toEqual([0, 1 / 3, 2 / 3, 1].map(value => Math.round(value * 1e6) / 1e6))
-  })
-
-  it('does not divide by nothing for a single year', () => {
-    const model = buildStripesModel(answer([2000]))!
-    expect(model.trend).toEqual([20])
+  it('draws the classes of a long record as the backend would give them', () => {
+    const data = answer(Array.from({ length: 120 }, (_, index) => 1901 + index), year => 8 + (year - 1901) * 0.02)
+    const model = buildStripesModel(data.values)!
+    // warming from below the mean of 1971 to 2000 to above it, with the classes rising with it
+    expect(model.classes[0]).toBe(0)
+    expect(model.classes.at(-1)).toBeGreaterThan(8)
+    expect(model.classes).toEqual([...model.classes].sort((a, b) => a - b))
   })
 })
 
@@ -98,5 +110,146 @@ describe('the window of years', () => {
   it('tells windows apart by a hundredth of a year', () => {
     expect(sameWindow({ start: 1, end: 2 }, { start: 1.001, end: 2 })).toBe(true)
     expect(sameWindow({ start: 1, end: 2 }, { start: 1.1, end: 2 })).toBe(false)
+  })
+})
+
+describe('anomalyAxis (GH-4156)', () => {
+  it('runs from the lowest to the highest anomaly rounded out to a round step, zero in it', () => {
+    const axis = anomalyAxis([-1.7, 0.3, 2.04, -0.6])
+    expect(axis).toMatchObject({ min: -2, max: 3, step: 1, decimals: 0 })
+    expect(axis.ticks).toEqual([-2, -1, 0, 1, 2, 3])
+    // a step of a half is written with a decimal
+    const fine = anomalyAxis([-0.7, 1.2, 0.1])
+    expect(fine).toMatchObject({ min: -1, max: 1.5, step: 0.5, decimals: 1 })
+    expect(fine.ticks).toEqual([-1, -0.5, 0, 0.5, 1, 1.5])
+  })
+
+  it('has about five intervals whatever the unit: millimetres of precipitation step in hundreds and need no decimals', () => {
+    const axis = anomalyAxis([-310, 250, 40])
+    expect(axis).toMatchObject({ min: -400, max: 400, step: 200, decimals: 0 })
+    expect(axis.ticks).toEqual([-400, -200, 0, 200, 400])
+  })
+
+  it('takes zero as an end where the anomalies are all on one side of it', () => {
+    expect(anomalyAxis([0.4, 1.1, 2.2])).toMatchObject({ min: 0, max: 2.5 })
+    expect(anomalyAxis([-0.4, -1.1])).toMatchObject({ min: -1.5, max: 0 })
+  })
+
+  it('still has a range where every anomaly is nought', () => {
+    const axis = anomalyAxis([0, 0])
+    expect(axis.max).toBeGreaterThan(axis.min)
+    expect(axis.ticks).toContain(0)
+  })
+
+  it('writes a step below a tenth with the decimals it needs', () => {
+    expect(anomalyAxis([-0.03, 0.04]).decimals).toBe(2)
+    expect(anomalyAxis([-0.03, 0.04]).step).toBeCloseTo(0.02)
+  })
+})
+
+describe('yearTicks (GH-4156)', () => {
+  it('names the multiples of ten in a record of seventy-five years on a phone and a desktop', () => {
+    expect(yearTicks({ start: 1949.5, end: 2024.5 }, 664)).toEqual([1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020])
+    // a narrower plot makes the step coarser, never a label on top of another
+    expect(yearTicks({ start: 1949.5, end: 2024.5 }, 320)).toEqual([1960, 1980, 2000, 2020])
+  })
+
+  it('names a year only where the middle of its bar is in the window', () => {
+    // 2020 is the middle of a bar that ends at 2020.5, which is the window's end: in; 1950 ends at 1950.5: out
+    expect(yearTicks({ start: 1950.5, end: 2020.5 }, 600)).toEqual([1960, 1970, 1980, 1990, 2000, 2010, 2020])
+  })
+
+  it('gets finer as the window is zoomed in, down to every year', () => {
+    expect(yearTicks({ start: 1999.5, end: 2020.5 }, 664)).toEqual([2000, 2002, 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020])
+    const zoomed = yearTicks({ start: 2009.5, end: 2019.5 }, 664)
+    expect(zoomed).toEqual([2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019])
+  })
+
+  it('is empty where there is no window or no room', () => {
+    expect(yearTicks({ start: 2000, end: 2000 }, 600)).toEqual([])
+    expect(yearTicks({ start: 1950, end: 2000 }, 0)).toEqual([])
+  })
+})
+
+describe('availabilityRuns (GH-4153)', () => {
+  /** The runs of the years of an answer that has a value for `years` */
+  const runsOf = (years: number[]) => {
+    const data = answer(years)
+    const model = buildStripesModel(data.values)!
+    return availabilityRuns(model.availability, model.minYear)
+  }
+
+  it('is one run for years without a gap', () => {
+    expect(runsOf([2000, 2001, 2002, 2003])).toEqual([{ first: 2000, last: 2003 }])
+    expect(runsOf([2000])).toEqual([{ first: 2000, last: 2000 }])
+  })
+
+  it('has a run of one year for a lone year at the start, in the middle and at the end', () => {
+    // 1944, a gap, a run, a gap, a lone year, a gap, a run of two (the shape of the station of GH-4153), then a lone year at the end
+    expect(runsOf([1944, 1946, 1947, 1948, 1950, 1952, 1953, 1955])).toEqual([
+      { first: 1944, last: 1944 },
+      { first: 1946, last: 1948 },
+      { first: 1950, last: 1950 },
+      { first: 1952, last: 1953 },
+      { first: 1955, last: 1955 },
+    ])
+  })
+
+  it('has a run of two years that is two stripes wide, not a point', () => {
+    expect(runsOf([2000, 2001, 2003])).toEqual([{ first: 2000, last: 2001 }, { first: 2003, last: 2003 }])
+  })
+
+  it('has one run of one year where only one year has a value among years that have none', () => {
+    const availability = [null, null, -0.02, null, null]
+    expect(availabilityRuns(availability, 1990)).toEqual([{ first: 1992, last: 1992 }])
+  })
+
+  it('has no run where no year has a value, and tells every gap of years from a run (a gap of one year splits two runs)', () => {
+    expect(availabilityRuns([], 2000)).toEqual([])
+    expect(availabilityRuns([null, null], 2000)).toEqual([])
+    expect(availabilityRuns([-0.02, null, -0.02], 2000)).toEqual([{ first: 2000, last: 2000 }, { first: 2002, last: 2002 }])
+  })
+})
+
+describe('the views of the stripes page (GH-4233)', () => {
+  it('has the three drawings and the table, the table the fourth', () => {
+    expect([...STRIPES_VIEWS]).toEqual(['stripes', 'bars', 'barsScale', 'table'])
+  })
+
+  it('writes each view in the link as its own name, the bars with a scale as bars_scale', () => {
+    expect(STRIPES_VIEW_QUERY).toEqual({ stripes: 'stripes', bars: 'bars', barsScale: 'bars_scale', table: 'table' })
+  })
+
+  it.each([
+    ['stripes', 'stripes'],
+    ['bars', 'bars'],
+    ['bars_scale', 'barsScale'],
+    ['table', 'table'],
+    [['table', 'bars'], 'table'],
+  ] as const)('reads variant=%s of the link as the view %s', (value, view) => {
+    expect(stripesViewFromQuery(value)).toBe(view)
+  })
+
+  it.each([undefined, null, '', 'pie', 'Table', 'barsScale', 42, []])('takes the stripes for a variant of the link that is none (%j)', (value) => {
+    expect(stripesViewFromQuery(value)).toBe('stripes')
+  })
+
+  it('names the views that are a drawing, which have a chart, a toolbar and an image to save: all but the table', () => {
+    expect(STRIPES_VIEWS.filter(isStripesDrawing)).toEqual(['stripes', 'bars', 'barsScale'])
+  })
+})
+
+describe('stripesYearFromQuery', () => {
+  it.each([
+    ['2000', 2000],
+    [' 1950 ', 1950],
+    ['0', 0],
+    [['1990', '2005'], 1990],
+  ])('reads %j of the link as the year %s', (value, year) => {
+    expect(stripesYearFromQuery(value)).toBe(year)
+  })
+
+  it.each([undefined, null, '', ' ', 'abc', '2000.5', '1e3', '0x10', '2000a', 'NaN', 'Infinity', '99999999999999999999', [], ['abc', '2000'], [null, '2000'], 2000])('reads %j of the link as none', (value) => {
+    expect(stripesYearFromQuery(value)).toBeNull()
   })
 })

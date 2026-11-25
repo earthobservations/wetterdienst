@@ -3,16 +3,23 @@ import { defineConfig, devices } from '@playwright/test'
 
 // the port the app is served on; the default is the app's own, E2E_PORT lets a run beside a dev server use another
 const PORT = process.env.E2E_PORT || '4000'
+// the stand-in for Photon the app's server asks for places (tests/e2e/mock-photon.mjs): 100 above the app's port, so that runs on two ports do not meet
+const PHOTON_PORT = process.env.E2E_PHOTON_PORT || String(Number(PORT) + 100)
 
 // the specs that print pages to a PDF (the sizes of the charts' text; the icons and labels of a print without
 // background graphics): they run in Chromium, the others in Firefox
 const PDF_SPEC = /(chart-print|print-backgrounds)\.spec\.ts$/
 
+// the specs of the narrow layout and the map's full screen (GH-4227), which needs the browser's Fullscreen API to be there (and, to
+// test the app's own, to be taken away), which Playwright's headless Chromium has and its Firefox does not, and of the bars of a
+// phone that hide on scroll (GH-4226), whose slide (an animated registered property) is measured in Chromium: they run in Chromium
+const CHROMIUM_SPEC = /(phone-fullscreen|bars-hide)\.spec\.ts$/
+
 // the spec of the dialogs on a phone: a touch drag as touch events of Chromium's input (CDP `Input.dispatchTouchEvent`),
 // which only Chromium can be told to make, so it runs in a Chromium of its own, as a Pixel 7
 const TOUCH_SPECS = /dialog-touch-scroll\.spec\.ts$/
 
-// The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
+// The accessibility scan (445 tests, most of them a page load and a scan: about 20 minutes on three workers, several
 // times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md).
 // A project's own `testIgnore` replaces the top-level one, so every project carries this list.
 const A11Y_IGNORE = process.env.A11Y === '1' ? [] : ['**/accessibility.spec.ts']
@@ -43,9 +50,9 @@ export default defineConfig({
         { name: 'chromium-touch', use: { ...devices['Pixel 7'], channel: 'chrome' }, testMatch: TOUCH_SPECS, testIgnore: A11Y_IGNORE },
       ]
     : [
-        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: [...A11Y_IGNORE, PDF_SPEC, TOUCH_SPECS] },
-        // the print spec measures a PDF, and `page.pdf` is Chromium's alone
-        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testMatch: PDF_SPEC, testIgnore: A11Y_IGNORE },
+        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: [...A11Y_IGNORE, PDF_SPEC, CHROMIUM_SPEC, TOUCH_SPECS] },
+        // the print spec measures a PDF, and `page.pdf` is Chromium's alone; the full-screen spec needs its Fullscreen API
+        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testMatch: [PDF_SPEC, CHROMIUM_SPEC], testIgnore: A11Y_IGNORE },
         // the dialogs on a phone, by touch
         { name: 'chromium-touch', use: { ...devices['Pixel 7'] }, testMatch: TOUCH_SPECS, testIgnore: A11Y_IGNORE },
         // Uncomment to test in multiple browsers:
@@ -55,15 +62,26 @@ export default defineConfig({
         // },
       ],
 
-  webServer: {
-    // In CI, test against the real production build (catches bundling/build
-    // regressions the dev server would never surface); locally, keep the fast
-    // dev-server iteration loop.
-    command: process.env.CI ? `npm run build && npm run preview -- --port ${PORT}` : `npm run dev -- --port ${PORT}`,
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    // read by nuxt.config.ts at build and start: the rate limiter is off for the suite's own server
-    env: { WD_E2E: '1' },
-    timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
-  },
+  webServer: [
+    {
+      // In CI, test against the real production build (catches bundling/build
+      // regressions the dev server would never surface); locally, keep the fast
+      // dev-server iteration loop.
+      command: process.env.CI ? `npm run build && npm run preview -- --port ${PORT}` : `npm run dev -- --port ${PORT}`,
+      url: `http://localhost:${PORT}`,
+      reuseExistingServer: !process.env.CI,
+      // read by nuxt.config.ts at build and start: the rate limiter is off for the suite's own server. The search of places asks
+      // the stand-in for Photon below, never komoot's public server (GH-3790).
+      // A server that is reused instead of started does not get this, and `tests/e2e/global-setup.ts` stops the run unless that server says
+      // (`NUXT_PLACES_E2E=1`, `GET /_search/places?probe=1`) that it asks the stand-in.
+      env: { WD_E2E: '1', NUXT_PLACES_PHOTON_BASE: `http://127.0.0.1:${PHOTON_PORT}/api/`, NUXT_PLACES_E2E: '1' },
+      timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
+    },
+    {
+      // the stand-in for Photon (tests/e2e/mock-photon.mjs): the app's server asks it for places, and the tests read what it was asked
+      command: `node tests/e2e/mock-photon.mjs ${PHOTON_PORT}`,
+      url: `http://127.0.0.1:${PHOTON_PORT}/__health`,
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 })

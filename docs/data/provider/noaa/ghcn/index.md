@@ -23,6 +23,80 @@ leave such a station out, as they do a station with no elevation, instead of bri
 from a height of 0 m ([interpolation at an elevation](../../../../usage/interpolation.md#elevation),
 GH-3708). A station at 12.0 m is a height and is corrected.
 
+## Lost signs in the station lists
+
+Both station lists have lost the sign of some stations' coordinates: 48 stations (UK, Spain, France, Algeria, Burkina
+Faso and others) are listed east of Greenwich where they lie west of it, 6 to 4,571 km off, and 7 are listed north of
+the equator where they lie south of it. The daily list (`ghcnd-stations.txt`) and the hourly list
+(`ghcnh-station-list.csv`) have it, sometimes the same station in only one of them. Each was checked against two or
+more other sources (ECA&D, the other GHCN list, ISD history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET); ECA&D's
+key-less station lists carry the true west position of the UKE, SPE and FRE ids.
+
+NOAA NCEI was sent a report of every position corrected here on 2026-11-01 and has not answered (2026-11-22). The
+reader corrects them from a table in `provider/noaa/ghcn/api.py` (`LOST_LONGITUDE_SIGN_STATIONS`,
+`LOST_LATITUDE_SIGN_STATIONS`). A row is changed only while the list still gives exactly the position the table
+recorded when the station was checked, so a list that NOAA corrects, or moves, is read as NOAA gives it, and an id the
+list uses for another station is not touched. The table stays until NOAA has fixed its lists. Each correction is listed
+in [Migrating](../../../../usage/migrating.md) with the release that made it.
+
+The table is not complete. A station was found by comparing the daily with the hourly list (a latitude within 0.06
+degree and a longitude that agrees only with the sign reversed), which finds only a station that has a partner in the
+other list within a few km. Three more were seen and are not corrected, as two independent sources do not yet agree on
+them: Gecitkale, Yulinu/Takokagyn (RSM00025187) and Shemya. Check a position that looks wrong against a second source,
+and report it as an issue.
+
+## `TAXN` is not served
+
+The readme of GHCN-Daily (v3.35) defines `TAXN` as "Average daily temperature computed as (TMAX+TMIN)/2.0". Nothing is
+published under it: `ghcnd-inventory.txt` has no `TAXN` row among its 144 elements, and the whole of
+`by_year/2026.csv.gz` (27.2 million rows) has none (read 2026-11-08). So there is nothing to serve, and
+`temperature_air_mean_2m` (`TAVG`) is the daily mean the files hold. A mean of the two extremes you can compute from the
+`TMAX` and `TMIN` that are served ([GH-3762](https://github.com/earthobservations/wetterdienst/issues/3762)).
+
+## The daily station list for some parameters
+
+The daily list reads `ghcnd-inventory.txt`, which gives the first and last year of each element of each station. A
+request for the whole `daily/data` lists every station the inventory has a line for, from the first year of any of its
+elements to the last. A request that names some parameters (`daily/data/precipitation_amount`) lists only the stations
+whose inventory has at least one of their elements (`name_original`: `PRCP`), and `start_timestamp` and `end_timestamp`
+are the span of those: 1 January of the first year, and 31 December of the last, or none where the last year is the one
+running. With several parameters a station is listed for any of them, and the span runs from the earliest first year to
+the latest last year of the elements it has; no element counts with another. A station asked for by id that has none
+of the named elements is no station of the request: `values` answers empty with the `unknown-station` warning, and
+`interpolate` and `summarize` by its id raise a 404. The whole dataset has no such filter, and a latitude and longitude
+need no id.
+
+## Where the daily files are read
+
+`daily` reads the per-station files of NCEI, `https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/<id>.csv.gz`
+(gzipped, one row for each reading, none for a reading that is missing), which are current for every station. A file is
+kept for 12 hours. NCEI's `access/<id>.csv` files are not read: they answered 403 (2026-08-04) and 404 (2026-11-18).
+
+**The AWS mirror, as a fallback.** When NCEI fails for a station (any failure but a 429: a 404, a 5xx, a reset or a
+timeout, no connection, a body that is no by_station file), its file is read from the AWS Open Data bucket
+`noaa-ghcn-pds` (`csv.gz/by_station/<id>.csv.gz`), which NOAA maintains and which serves the station list and the
+inventory too. The answer carries one warning for the request, `source-fallback`, that gives how many stations were read
+so (and the first ten) and says their values come from the mirror and may be older; those stations are not told to have
+no values (`parameter-without-rows`, `station-without-rows`), as the mirror's file may only end earlier. A 429 is never a
+reason to fall back: it is raised as the `ProviderRateLimitError`. Where the mirror does not help, only a 404 of both is
+a station without a file, left out with a `file-skipped` warning; any other failure is raised, NCEI's if it answered.
+
+NCEI is asked once and for no more than 10 seconds of silence, so that the mirror is read inside the 60 seconds of a REST
+request even when NCEI hangs; once NCEI failed (but for a 404, which is one station's) the rest of the walk goes straight
+to the mirror, and the next request asks NCEI again. The cache is keyed by the URL, so the copy of the mirror is a file
+of its own and is not served once NCEI answers again.
+
+The mirror's files are not all up to date: those of an alphabetical block of ids, from `USR0000CJUA` to `ZI000067991`
+(4,650 files, of which 4,533 were written on 2025-02-09 and 117 on 2023-12-27), have not been rewritten since, so they
+end on or before that date (USW00094728, New York City Central Park, on 2025-02-05; USS0054K01S, McNeil River, on
+2025-02-06). The block is not only the United States: it holds all `USW` and `USS` stations and others such as `UZM`
+(Uzbekistan), `VMM` (Vietnam), `VQ1` and `VQC` (Virgin Islands) and `UV` (Burkina Faso). The later days exist in the
+mirror's `by_year` and `parquet` files, which the library does not read (read 2026-11-18).
+
+**Environment Canada.** GHCNd v3.35 (2026-10-01) indexes Environment Canada's stations with network code `N`
+(`CAN01012475`) where network `0` (`CA001012475`) was used. The rules of the reader for these stations (a peak gust
+WSFG of 0 below 31 km/h is not reported, and the direction beside it) read the source flag `C` of the row, not the id.
+
 ## One reading an hour
 
 The hourly files hold every report of a station, and `hourly` returns one reading for each parameter
@@ -147,7 +221,7 @@ of source 382 (deleted, missing, an accumulation).
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`, except
 for the milder level (`Suspect`, `R` of source 382 and `f` of a derived humidity), which stays `suspect:source`; the default is `soft`, which keeps the value and writes
-`suspect:source` for both, so interpolation, summaries, climate stripes and `skip_empty` leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+`suspect:source` for both, so interpolation, summaries and `skip_empty` leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License
 

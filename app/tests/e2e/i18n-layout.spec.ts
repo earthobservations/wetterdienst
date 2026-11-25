@@ -19,7 +19,7 @@ import { ApiFailure, defaultHandlers, mockBackend } from './accessibility/mock-b
 // Each page is loaded once and measured at every width.
 
 const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl', 'de-hh', 'it', 'fr'] as const
-const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
+const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/glossary', '/measurement', '/methods', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
 // every language the app has, and the pages that failed at a phone's width (GH-3845, GH-3858)
 const ALL_LANGUAGES = ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const
 const OTHER_LANGUAGES = ALL_LANGUAGES.filter(language => !(LONG_LANGUAGES as readonly string[]).includes(language))
@@ -305,7 +305,8 @@ LONG_LANGUAGES.forEach((language) => {
       await page.goto(path)
       await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 30_000 })
       await expect(page.locator('[data-testid="map-center"]')).toBeVisible()
-      await expect(page.locator('[data-station-chip]').first()).toBeVisible()
+      // what names the picked station: the explorer's chip, and for one station (the forecast, the stripes) the line on the map
+      await expect(page.locator('[data-station-chip], [data-testid="station-picker-selected"]').first()).toBeVisible()
       await settle(page)
       // The picker itself, not the page around it (the explorer's date range and result table have their own 320 px,
       // GH-3845): nothing of it overflows its box or reaches past the window. The map's tiles reach past its box by design.
@@ -359,12 +360,41 @@ LONG_LANGUAGES.forEach((language) => {
   }
 })
 
-// The header with five tools (GH-3650) in every language the app has: Italian and French were the tightest, at 1024 and
+// The stripes in each of their four views (GH-4233), with the switch, the short line under the chart, the download button and, in the
+// table, its header and note: the switch's labels (the longest of them "Barres avec échelle", "Sloupce se stupnicí", and the table's)
+// are among the longest texts on the page. The backend is the accessibility spec's, answered in the browser.
+const STRIPES_VIEWS = [
+  { variant: 'stripes', ready: '.sc-canvas[data-drawn="true"]' },
+  { variant: 'bars_scale', ready: '.sc-canvas[data-drawn="true"]' },
+  { variant: 'table', ready: 'table' },
+] as const
+
+LONG_LANGUAGES.forEach((language) => {
+  for (const { variant, ready } of STRIPES_VIEWS) {
+    test(`the stripes' ${variant} view in ${language} fits at ${VIEWPORTS.map(viewport => `${viewport.width}px`).join(' and ')}`, async ({ page, context, baseURL }) => {
+      const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+      await mockBackend(page, baseURL!)
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: VIEWPORTS[0]!.width, height: VIEWPORTS[0]!.height })
+      await page.goto(`/stripes?kind=temperature&station=00011&variant=${variant}`)
+      await page.getByRole('button', { name: catalog.common.fetch, exact: true }).click()
+      await expect(page.locator(ready).first()).toBeVisible({ timeout: 30_000 })
+
+      for (const viewport of VIEWPORTS) {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height })
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        expect(await offendersOf(page), `the ${variant} view in ${language} on a ${viewport.name} (${viewport.width}px)`).toEqual([])
+      }
+    })
+  }
+})
+
+// The header with six tools (GH-3650, GH-3788) in every language the app has: Italian and French were the tightest, at 1024 and
 // 1280 px (the settings button ended at 1033 and 1310 px with the fifth tab), where the header holds the search too.
 // The page is measured as it first comes, with the typeface not yet there, which is the narrower of its two faces' margins.
 test.describe('the header', () => {
   for (const language of ALL_LANGUAGES) {
-    test(`holds the five tools, the reference, the search and the settings in ${language} at 1024 and 1280 px`, async ({ page, context, baseURL }) => {
+    test(`holds the six tools, the reference, the search and the settings in ${language} at 1024 and 1280 px`, async ({ page, context, baseURL }) => {
       await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
       await mockBackend(page, baseURL!)
       await page.goto('/history')

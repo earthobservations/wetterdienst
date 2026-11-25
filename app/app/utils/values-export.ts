@@ -66,27 +66,45 @@ export function exportColumns(values: Row[], order: string[]): string[] {
  *
  * @param values - The rows
  * @param columns - The columns to write
+ * @param comments - Lines to put before the header as `#` comments (the provider's credit and the processing note of a file; GH-4255),
+ * each one line of text, as the stripes' table file writes them; none for the copy of rows to the clipboard
  * @returns The CSV text, or an empty string for no rows
  * @example
  * valuesToCsv([{ station_id: '01048', value: 1.5 }], ['station_id', 'value'])
  * // 'station_id,value\n01048,1.5'
  */
-export function valuesToCsv(values: Row[], columns: string[]): string {
+export function valuesToCsv(values: Row[], columns: string[], comments: readonly string[] = []): string {
   if (!values.length)
     return ''
   const rows = values.map(row => columns.map(column => csvField(field(row, column))).join(','))
+  // a line break in a comment would end it: the comment is one line
+  const header = comments.map(comment => comment.replace(/\s+/g, ' ').trim()).filter(Boolean).map(comment => `# ${comment}`)
   // a query panel names an unaliased column after its expression, `round(avg("value"), 2)`
-  return [columns.map(csvField).join(','), ...rows].join('\n')
+  return [...header, columns.map(csvField).join(','), ...rows].join('\n')
 }
 
 /**
- * Write rows as JSON, `{ "values": [...] }` as the REST API answers, compact as it answers by default.
+ * The credit and the note of a file of values (GH-4255), as the `metadata` of the REST API's answer holds them where they are
+ * the same: `provider` has the credit line and the licence the provider states, and `processing_note` what wetterdienst did to
+ * the data (in the language of the page, which the API's note is not: that one is English). `provider` is left out where the
+ * terms are not known (the list of providers did not come): `license: null` in that block says the provider states none, which
+ * is not what an unknown is
+ */
+export interface ValuesFileMetadata {
+  provider?: { attribution: string | null, license: { name: string, url: string } | null }
+  processing_note: string
+}
+
+/**
+ * Write rows as JSON, `{ "values": [...] }` as the REST API answers, compact as it answers by default. With `metadata`
+ * the object has a `metadata` member before `values`, as the API's answer has: a reader that takes `values` finds the same rows.
  *
  * @param values - The rows
  * @param columns - The columns to write
+ * @param metadata - The credit and the note, written as the `metadata` member; none for no member
  * @returns The JSON text
  */
-export function valuesToJson(values: Row[], columns: string[]): string {
+export function valuesToJson(values: Row[], columns: string[], metadata?: ValuesFileMetadata): string {
   const rows = values.map(row => Object.fromEntries(columns.map(column => [column, field(row, column) ?? null])))
-  return JSON.stringify({ values: rows })
+  return JSON.stringify(metadata ? { metadata, values: rows } : { values: rows })
 }

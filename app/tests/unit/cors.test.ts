@@ -105,6 +105,11 @@ describe('the middleware', () => {
     expect(preflight.headers.get('access-control-allow-origin')).toBe('https://a.example')
     expect(preflight.headers.get('access-control-allow-methods')).toContain('POST')
     expect(preflight.headers.get('access-control-allow-headers')).toBe('content-type, mcp-session-id')
+
+    // a browser client of /mcp reads the session the backend opens
+    expect(preflight.headers.get('access-control-expose-headers')).toContain('mcp-session-id')
+    const initialized = await fetch(`${app}/mcp/v1`, { method: 'POST', body: '{}', headers: { origin: 'https://a.example' } })
+    expect(initialized.headers.get('access-control-expose-headers')).toContain('mcp-session-id')
   })
 
   it('keeps allowing every origin possible, for an operator that wants what the app did before', async () => {

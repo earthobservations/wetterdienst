@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The one way the library reads XML a provider sent (GH-3350).
+"""The one way the library reads XML, and the HTML of a page, a provider sent (GH-3350).
 
 Every provider that parses XML does it here, so that what a document may make the parser do is written down once
 and not left to a default of lxml, which has changed between releases and differs between `iterparse`, `fromstring`
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from lxml.etree import XMLParser, fromstring, iterparse
+from lxml.etree import HTMLParser, XMLParser, fromstring, iterparse
 
 if TYPE_CHECKING:
     from typing import BinaryIO
@@ -37,6 +37,42 @@ SAFE_OPTIONS: dict[str, bool] = {
 def xml_parser() -> XMLParser:
     """Give a parser for one document, with the options of `SAFE_OPTIONS`."""
     return XMLParser(**SAFE_OPTIONS)
+
+
+def html_parser(encoding: str | None = None) -> HTMLParser:
+    """Give a parser for one HTML page, with the options of `SAFE_OPTIONS` that an HTML parser takes.
+
+    libxml2's HTML parser reads no DTD and replaces no entity of the page's own; what is left to say is that it fetches
+    nothing from the network, keeps the limits on the depth of a tree and the length of a text, and drops what is no
+    content (comments, processing instructions). `encoding` is the page's, for a page that is served as one and
+    declares another (DWD's Stationslexikon is ISO-8859-1).
+    """
+    return HTMLParser(
+        encoding=encoding,
+        no_network=SAFE_OPTIONS["no_network"],
+        huge_tree=SAFE_OPTIONS["huge_tree"],
+        remove_comments=True,
+        remove_pis=True,
+    )
+
+
+def parse_html(content: bytes, encoding: str | None = None) -> _Element:
+    """Parse a whole HTML page and give its root element, with the options of `html_parser`.
+
+    Raises:
+        ValueError: the content holds no HTML document (it is empty, or markup the parser cannot make a tree of).
+
+    """
+    try:
+        root = fromstring(content, parser=html_parser(encoding))
+    except (SyntaxError, ValueError) as error:
+        msg = f"no HTML document: {error}"
+        raise ValueError(msg) from error
+    if root is None:
+        # the parser answers an empty or blank page with no tree rather than an error
+        msg = "no HTML document: the page is empty"
+        raise ValueError(msg)
+    return root
 
 
 def parse_xml(content: bytes | str) -> _Element:

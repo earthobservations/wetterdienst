@@ -8,7 +8,7 @@ import { hourFormatter } from '../../app/utils/format'
 import { METEOGRAM_SERIES, meteogramSnowQuery, meteogramUnitsKey, MOSMIX_SNOW_METEOGRAM, snowStationsQuery } from '../../app/utils/meteogram'
 import { chartLayout, GUTTER_RIGHT, HOUR_MS, PANEL_HEIGHT, plotWidthFor } from '../../app/utils/meteogram-geometry'
 import { buildMeteogramModel, readoutValue } from '../../app/utils/meteogram-model'
-import { buildMeteogramOption, gutterLeftFor, toneColor } from '../../app/utils/meteogram-option'
+import { buildMeteogramOption, gutterLeftFor, LABEL_MARGIN, LABEL_SLACK_PX, labelWidthFor, labelWidthOf, tickFormatter, tickInterval, tickLabelsOf, TITLE_LEFT, TITLE_LINE_PX, TITLE_LINES, TITLE_TO_LABELS, toneColor } from '../../app/utils/meteogram-option'
 import { buildSeries, isSnowStep, snowSeries } from '../../app/utils/meteogram-series'
 import { meteogramTable } from '../../app/utils/meteogram-summary'
 import { meteogramUnits, snowChanceAmount } from '../../app/utils/meteogram-units'
@@ -35,7 +35,7 @@ function joined(options: { snow?: ReturnType<typeof snowForecastValues>, hours?:
   return new Map([...forecast, ...snow])
 }
 
-function input(overrides: Partial<ModelInput> & { units?: Record<string, string> } = {}): ModelInput {
+function input(overrides: Partial<Omit<ModelInput, 'units'>> & { units?: Record<string, string> } = {}): ModelInput {
   const { units = UNITS, ...rest } = overrides
   return {
     series: joined(),
@@ -371,6 +371,109 @@ describe('the snow panel drawn', () => {
     expect(build().m.axes.snow!.decimals).toBe(1)
   })
 
+  it('writes the ticks of the cloud and the chance in the decimals of the unit: 0.5 under the fraction is not "1" (GH-4197)', () => {
+    const fractionUnits = (unit: string) => ({ ...UNITS, ...Object.fromEntries(['cloud_cover_total', 'cloud_cover_below_2km', 'cloud_cover_between_2km_and_7km', 'cloud_cover_above_7km', 'probability_snow_depth_new_gt_10cm_last_24h'].map(name => [name, unit])) })
+    const ticks = (unit: string) => {
+      const { axes } = model({ units: fractionUnits(unit) })
+      return [axes.cloud!, axes.snowChance!].map(axis => ({ decimals: axis.decimals, range: axis.range, ticks: [axis.range[0], (axis.range[0] + axis.range[1]) / 2, axis.range[1]].map(tickFormatter(axis)), labels: tickLabelsOf(axis) }))
+    }
+    // the axis is [0, 1] and its middle gridline is 0.5: written with no decimals it would read "1", the same as the top
+    for (const axis of ticks('-')) {
+      expect(axis.range).toEqual([0, 1])
+      expect(axis.decimals).toBe(1)
+      expect(axis.ticks).toEqual(['0', '0.5', '1'])
+      expect(axis.labels).toEqual(['0', '0.5'])
+    }
+    // a percent has none: 0, 50 and 100
+    for (const axis of ticks('%')) {
+      expect(axis.decimals).toBe(0)
+      expect(axis.ticks).toEqual(['0', '50', '100'])
+    }
+    // the okta: 0, 4 and 8, for the cloud cover and the chance alike
+    for (const axis of ticks('1/8')) {
+      expect(axis.decimals).toBe(0)
+      expect(axis.ticks).toEqual(['0', '4', '8'])
+    }
+  })
+
+  // the pressure of the forecast, replaced by a flat run from `low` to `high` in `unit` (the axis is that ± 2 hPa)
+  const forecastOfPressure = joined({ hours: 24 })
+  const pressure = (unit: string, low: number, high: number) => {
+    const series = new Map(forecastOfPressure)
+    const x = series.get('pressure_air_sea_level')!.x
+    series.set('pressure_air_sea_level', { x, y: x.map((_, i) => i === 0 ? low : i === 1 ? high : (low + high) / 2) })
+    const { axes } = model({ series, units: { ...UNITS, pressure_air_sea_level: unit } })
+    return axes.pressure!
+  }
+  // the ticks as the chart draws them: the multiples of the step in the range, as written and as they are
+  const ticksOf = (axis: ReturnType<typeof pressure>) => {
+    const [min, max] = axis.range
+    const step = tickInterval(max - min, axis.splits)
+    const format = tickFormatter(axis)
+    const out: { value: number, label: string }[] = []
+    for (let k = Math.ceil(min / step - 1e-9); k * step < max + step * 1e-9; k++)
+      out.push({ value: k * step, label: format(k * step) })
+    return out
+  }
+
+  it('writes the pressure ticks in the decimals of the unit: 101.5 kPa is not "102" (GH-4212)', () => {
+    // the range of the issue: 100.9 to 101.9 (the data 101.1 to 101.7), whose middle tick is 101.5
+    const issue = pressure('kPa', 101.1, 101.7)
+    expect(issue.decimals).toBe(1)
+    expect(issue.range[0]).toBeCloseTo(100.9, 9)
+    expect(issue.range[1]).toBeCloseTo(101.9, 9)
+    expect(ticksOf(issue).map(tick => tick.label)).toEqual(['101', '101.5'])
+    // (the bottom, 100.9, is left out: it lies too near the tick 101 to be written beside it)
+    expect(tickLabelsOf(issue)).toEqual(['101', '101.5'])
+    // a narrower axis (data 101.1 to 101.45, so 100.9 to 101.65) has the step 0.3: its ticks 101.1 and 101.4 both read "101" before
+    const stepThree = pressure('kPa', 101.1, 101.45)
+    expect(tickInterval(stepThree.range[1] - stepThree.range[0], stepThree.splits)).toBeCloseTo(0.3, 9)
+    expect(ticksOf(stepThree).map(tick => tick.label)).toEqual(['101.1', '101.4'])
+
+    // the hectopascal and the pascal stay whole numbers: their step is a whole number, from 2 up
+    for (const [unit, scale] of [['hPa', 10], ['Pa', 1000]] as const) {
+      const axis = pressure(unit, 101.1 * scale, 101.2 * scale)
+      expect(axis.decimals).toBe(0)
+      // (the library writes 1,011 for 1011)
+      expect(ticksOf(axis).map(tick => tick.label.replaceAll(',', ''))).toEqual(ticksOf(axis).map(tick => String(tick.value)))
+    }
+  })
+
+  // every range from a flat run to a spread of three kPa (30 hPa, 3000 Pa), at steps that are no round numbers: the ticks (and the
+  // labels the chart draws) are distinct, and each reads back as the value it stands for at the decimals shown. A test for each
+  // unit: each is about 170 models of the chart, which is a third of a second, and a loaded machine ran the three of them as one
+  // test out of its 5 s
+  it.each([['kPa', 1], ['hPa', 10], ['Pa', 1000]] as const)('writes the pressure ticks of every range distinct, and as the values they stand for, in %s', (unit, scale) => {
+    for (let low = 99.07; low <= 103.01; low += 0.41) {
+      for (let spread = 0; spread <= 3; spread += 0.1875) {
+        const axis = pressure(unit, low * scale, (low + spread) * scale)
+        const ticks = ticksOf(axis)
+        expect(ticks.length).toBeGreaterThanOrEqual(1)
+        expect(new Set(ticks.map(tick => tick.label)).size).toBe(ticks.length)
+        const labels = tickLabelsOf(axis)
+        expect(new Set(labels).size).toBe(labels.length)
+        for (const tick of ticks)
+          expect(Math.abs(Number(tick.label.replaceAll(',', '')) - tick.value)).toBeLessThan(1e-9 * Math.max(1, Math.abs(tick.value)))
+      }
+    }
+  })
+
+  it('leaves the gutter room for the pressure ticks written with their decimals (GH-4212)', () => {
+    const kilopascal = (unit: string) => {
+      const series = joined({ hours: 24 })
+      const x = series.get('pressure_air_sea_level')!.x
+      series.set('pressure_air_sea_level', { x, y: x.map((_, i) => i === 0 ? 101.1 : 101.7) })
+      return model({ series, units: { ...UNITS, pressure_air_sea_level: unit } })
+    }
+    const m = kilopascal('kPa')
+    const axis = m.axes.pressure!
+    // "101.5" is the widest label of the two
+    expect(tickLabelsOf(axis)).toEqual(['101', '101.5'])
+    expect(labelWidthFor(axis)).toBe(labelWidthOf('101.5') + LABEL_SLACK_PX)
+    expect(labelWidthFor(axis)).toBeGreaterThan(labelWidthOf('102') + LABEL_SLACK_PX)
+    expect(gutterLeftFor(m)).toBeGreaterThanOrEqual(TITLE_LEFT + TITLE_LINES * TITLE_LINE_PX + TITLE_TO_LABELS + labelWidthFor(axis) + LABEL_MARGIN)
+  })
+
   it('draws the snow depth and the chance as straight segments and not as a smooth curve', () => {
     const { option } = build()
     const byId = (id: string) => option.series.find((s: any) => s.id === id)
@@ -384,7 +487,7 @@ describe('the snow panel drawn', () => {
     const { option } = build()
     const byId = (id: string) => option.series.find((s: any) => s.id === id)
     expect(byId('snowNew')).toMatchObject({ type: 'bar', stack: 'snow', xAxisIndex: 3, yAxisIndex: 3 })
-    expect(byId('rain')).toMatchObject({ type: 'bar', stack: 'precip', xAxisIndex: 2 })
+    expect(byId('rain')).toMatchObject({ type: 'custom', xAxisIndex: 2 })
     expect(byId('snowDepth')).toMatchObject({ type: 'line', xAxisIndex: 4 })
     expect(byId('snowChance')).toMatchObject({ type: 'line', xAxisIndex: 5 })
     // each stamp of the bars has a point, so that a bar is as wide as the steps are apart (three hours)

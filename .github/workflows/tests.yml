@@ -1,11 +1,18 @@
 name: Tests
 
+# What runs where (GH-4214). The offline selection is the check that blocks, so it runs on every pull
+# request and every push to main. The remote suite is a network-bound matrix of ten jobs that cannot
+# block (upstream outages turn it red whatever a change does) and costs about 465 runner-minutes, so
+# a pull request runs one leg of it (Ubuntu, the newest Python, the leg that has the KNMI EDR key)
+# and the whole matrix runs nightly on main and on request. The path filters below belong to the
+# pull request and push events; a schedule and a dispatch run everything.
+#
 # The matrix is ten jobs of a network-bound suite, so it is worth being precise about what can
 # actually change its outcome. Beyond the obvious sources and tests that is the documentation -
 # tests/test_docs.py checks the pages under docs against the metadata model and the settings, and
 # tests/test_docs_samples.py runs their code samples against the command line and the REST API -
 # and three root files: the README is doctested and CITATION.cff is tied to it and to the changelog.
-# The suite also reaches into the app, in one place: tests/metadata/test_resolution.py reads the
+# The suite also reaches into the app, in two places: tests/metadata/test_resolution.py reads the
 # resolution union in app/shared/types/api.ts, to catch a resolution that gained a name here but
 # not there, and tests/model/test_app_unit_target_defaults.py reads app/tests/unit/unit-target-defaults.json,
 # the app's default unit of each type. Those two entries are the whole of the app it reads - a test that
@@ -27,6 +34,9 @@ on:
       - 'README.md'
       - 'CHANGELOG.md'
       - 'CITATION.cff'
+      # tests/ui/test_mcp_benchmark_cases.py and test_mcp_benchmark_scripts.py hold the manual MCP benchmark (its
+      # runbook, cases, prompt and scripts) to the code and to itself; it is run by hand, so nothing else would
+      - 'benchmarks/mcp/**'
       # tests/test_docs.py ties the extras the image installs to the ones docs/usage/docker.md lists
       - 'docker/Dockerfile'
       - '.github/workflows/install.sh'
@@ -47,43 +57,69 @@ on:
       - 'README.md'
       - 'CHANGELOG.md'
       - 'CITATION.cff'
+      # tests/ui/test_mcp_benchmark_cases.py and test_mcp_benchmark_scripts.py hold the manual MCP benchmark (its
+      # runbook, cases, prompt and scripts) to the code and to itself; it is run by hand, so nothing else would
+      - 'benchmarks/mcp/**'
       # tests/test_docs.py ties the extras the image installs to the ones docs/usage/docker.md lists
       - 'docker/Dockerfile'
       - '.github/workflows/install.sh'
       - '.github/workflows/tests.yml'
 
-  # Allow job to be triggered manually.
+  # The whole remote matrix, on main, at an hour when no other workflow runs (codeql Fri 04:26,
+  # docs Mon 05:17, vulnerable Mon 03:41, docker-cleanup 00:00)
+  schedule:
+    - cron: '23 2 * * *'
+
+  # Allow job to be triggered manually: the whole remote matrix, as the schedule runs it.
   workflow_dispatch:
 
-# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started.
+# The nightly and manual runs have a group of their own: a run of two hours would otherwise hold the
+# pushes to main back (a group runs one at a time) or be replaced by one of them
 concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 'full' || 'ci' }}
 
 permissions: {}
 
 jobs:
-  tests:
+  # The remote matrix. Not on a push to main: the offline jobs below are what a push needs, and the
+  # whole matrix runs nightly. A pull request gets the Ubuntu / newest Python leg only, so an upstream
+  # change that breaks a provider shows on the change that touches it; the rest of the matrix is for a
+  # regression that only one OS or one Python has, which the nightly run finds a day later.
+  #
+  # `matrix` is read from an expression because a job-level `if` cannot see the matrix, and this way
+  # the legs that are not wanted are never created (a skipped leg would still be a check on the pull
+  # request). The names of the legs are the same on either path.
+  remote:
+    if: ${{ github.event_name != 'push' }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 180
+    # On about 18 recent runs of main an Ubuntu or Windows leg took 45 to 49 minutes when it ran normally and 71
+    # to 113 when it failed; a macOS leg 43 to 179, commonly 102 to 114 (HDF5 and the extras are built from source
+    # on Python 3.15 there). A leg that goes past the limit was red anyway, so only its tail is lost; a flat 45
+    # would cancel nearly every leg
+    timeout-minutes: ${{ startsWith(matrix.os, 'macos-') && 120 || 60 }}
 
     strategy:
-      matrix:
-        os: [ "ubuntu-latest" ]
-        # h5py, duckdb, numcodecs and pyyaml have no 3.15 wheel and are built from source
-        python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
-        include:
-          # stays on 3.14: h5py is in the dev group that `uv sync` installs, has no cp315 wheel, and
-          # windows-latest has no HDF5 to build it against. Move it to 3.15 when h5py ships a cp315
-          # Windows wheel (the macOS legs below install HDF5 with brew)
-          - os: "windows-latest"
-            python-version: "3.14"
-          - os: "macos-15-intel" # x86_64 (Intel, macOS 15)
-            python-version: "3.15"
-          - os: "macos-26" # arm64 (Apple Silicon, macOS 26 Tahoe)
-            python-version: "3.15"
-          - os: "macos-26-intel" # x86_64 (Intel, macOS 26 Tahoe)
-            python-version: "3.15"
+      # h5py, numcodecs and pyyaml have no 3.15 wheel and are built from source (duckdb 2 has one, an abi3 wheel).
+      # The windows-latest leg stays on 3.14: h5py is in the dev group that `uv sync` installs, has no cp315
+      # wheel, and windows-latest has no HDF5 to build it against. Move it to 3.15 when h5py ships a cp315
+      # Windows wheel (the macOS legs install HDF5 with brew).
+      # macos-15-intel is x86_64 (Intel, macOS 15), macos-26 arm64 (Apple Silicon, macOS 26 Tahoe),
+      # macos-26-intel x86_64 (Intel, macOS 26 Tahoe)
+      matrix: >-
+        ${{ fromJSON(github.event_name == 'pull_request'
+        && '{"include":[{"os":"ubuntu-latest","python-version":"3.15"}]}'
+        || '{"include":[
+        {"os":"ubuntu-latest","python-version":"3.11"},
+        {"os":"ubuntu-latest","python-version":"3.12"},
+        {"os":"ubuntu-latest","python-version":"3.13"},
+        {"os":"ubuntu-latest","python-version":"3.14"},
+        {"os":"ubuntu-latest","python-version":"3.15"},
+        {"os":"windows-latest","python-version":"3.14"},
+        {"os":"macos-15-intel","python-version":"3.15"},
+        {"os":"macos-26","python-version":"3.15"},
+        {"os":"macos-26-intel","python-version":"3.15"}]}') }}
 
     continue-on-error: true
 
@@ -95,7 +131,8 @@ jobs:
       run:
         shell: bash
 
-    name: Python ${{ matrix.python-version }} on OS ${{ matrix.os }}
+    # no `name`: where the job is skipped (a push to main) the matrix is not expanded, and a name made of it is shown as its
+    # text; without one GitHub writes `remote (ubuntu-latest, 3.15)` for a leg and `remote` for the skipped job
     steps:
       - name: Acquire sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -181,7 +218,8 @@ jobs:
   minimum-versions:
     name: Minimum dependency versions
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # the remote run took up to 53 minutes, the offline selection is a fraction of it
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 120 || 45 }}
 
     continue-on-error: true
 
@@ -217,10 +255,19 @@ jobs:
       - name: Show resolved versions
         run: uv pip list
 
+      # What it checks is the floors of the dependencies, not the upstream, so a pull request and a push
+      # to main run the offline selection (no credentials: nothing it selects reaches a provider); the
+      # remote suite runs nightly and on request (GH-4214)
+      - name: Run the offline selection
+        if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
+        run: |
+          uv run poe "test:offline"
+
       # the provider keys are given to this step alone: `uv sync` builds packages of the lock, and
       # apt, brew and `install.sh` run code that is not ours; none of them may see the keys.
       # No KNMI EDR key: the remote tests of `knmi/observation` run in one leg of the matrix above (GH-4046)
       - name: Run tests
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         env:
           WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
           WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
@@ -238,6 +285,9 @@ jobs:
   # for that reason. Nothing in the repo's ruleset requires it, though - there is no
   # `required_status_checks` rule - so it reports rather than stops a merge.
   offline:
+    # the nightly run is the remote one; a push to main has run these already as a pull request, but
+    # the squash is a commit nobody has run them on
+    if: ${{ github.event_name != 'schedule' }}
     name: Offline selection on ${{ matrix.os }} / Python ${{ matrix.python-version }}${{ matrix.polars && format(' / polars {0}', matrix.polars) || '' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -259,7 +309,7 @@ jobs:
           # the lock resolves the newest polars (2.x), which every other leg runs; the floor the
           # project claims (`polars[calamine]>=1.43.2`) is run here, so that code only the newest
           # polars understands fails a job that blocks, not the "Minimum dependency versions" one
-          # that cannot (it is `continue-on-error` and runs the remote tests). 1.43.0 and 1.43.1 are
+          # that cannot (it is `continue-on-error`). 1.43.0 and 1.43.1 are
           # yanked on PyPI, so 1.43.2 is the oldest an install can get
           - os: "ubuntu-latest"
             python-version: "3.14"

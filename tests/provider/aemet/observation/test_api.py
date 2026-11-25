@@ -126,6 +126,9 @@ def test_aemet_observation_stations() -> None:
                 "elevation": 667.0,
                 "name": "MADRID, RETIRO",
                 "region": "MADRID",
+                "wmo_id": "08222",
+                "wigos_id": None,
+                "icao_id": None,
             }
         ],
         schema={
@@ -139,6 +142,9 @@ def test_aemet_observation_stations() -> None:
             "elevation": pl.Float64,
             "name": pl.String,
             "region": pl.String,
+            "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
         },
         orient="row",
     )
@@ -191,7 +197,7 @@ def test_aemet_observation_values_daily(monkeypatch: pytest.MonkeyPatch) -> None
     assert value_on("humidity_relative_max", day1) == pytest.approx(80.0)
     assert value_on("humidity_relative_min", day1) == pytest.approx(48.0)
 
-    # 2020-01-02 has dir=99 (calm/variable), which AEMET encodes with a sentinel value
+    # 2020-01-02 has dir=99 (variable direction), which AEMET encodes with a sentinel value
     # rather than an actual direction. The parser must turn that into a null rather than
     # a bogus 990°; with the default drop_nulls=True, a null value means no row at all.
     day2 = dt.datetime(2020, 1, 2, tzinfo=UTC)
@@ -725,6 +731,14 @@ def _not_skipped(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         return _values_or_skip(_daily_request, monkeypatch)
     except pytest.skip.Exception as skipped:
         return pytest.fail(f"skipped: {skipped}")
+
+
+def test_aemet_observation_daily_wind_direction_88_is_no_data() -> None:
+    """Test that the 88 of the wind direction ("sin dato") is null with its text, as the 99 is, and not 880 degrees."""
+    direction, raw = parse_wind_direction("v")
+    df = pl.DataFrame({"v": ["88", "99", "08", "36", "0"]}).select(direction.alias("direction"), raw.alias("raw"))
+    assert df.get_column("direction").to_list() == [None, None, 80.0, 360.0, 0.0]
+    assert df.get_column("raw").to_list() == ["88", "99", None, None, None]
 
 
 @pytest.mark.parametrize(

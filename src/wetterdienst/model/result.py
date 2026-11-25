@@ -30,7 +30,7 @@ from pydantic import ConfigDict, with_config
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
 
-from wetterdienst.exceptions import UnknownFormatError
+from wetterdienst.exceptions import NoStationPositionsError, UnknownFormatError
 from wetterdienst.io import charts
 from wetterdienst.io.charts import DEFAULT_HEIGHT, DEFAULT_WIDTH
 from wetterdienst.io.export import (
@@ -50,16 +50,18 @@ from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.json_util import dumps_json, json_indent
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping, Sequence
     from collections.abc import Set as AbstractSet
     from types import FunctionType
 
     import altair as alt
 
     from wetterdienst import Settings
+    from wetterdienst.model.group_statistics import StatisticsResult
     from wetterdienst.model.history import History, TimeseriesHistory
     from wetterdienst.model.metadata import LicenseModel, ParameterModel, ProviderTerms
     from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.row_selection import Searched
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
 
@@ -73,6 +75,7 @@ class StationsFilter(Enum):
     ALL = "all"
     BY_STATION_ID = "by_station_id"
     BY_NAME = "by_name"
+    BY_REGION = "by_region"
     BY_WMO_ID = "by_wmo_id"
     BY_WIGOS_ID = "by_wigos_id"
     BY_ICAO_ID = "by_icao_id"
@@ -258,13 +261,15 @@ def describe_provider(
     data_updated_at: datetime | None = None,
     *,
     derived: bool = False,
-    image: bool = False,
+    calculated: str | None = None,
+    image_note: str | None = None,
 ) -> _Metadata:
     """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
 
     And `data_updated_at`, the date the source states for the data, where the answer has one, and the
     `processing_note` that says what wetterdienst did to it, with `derived` for values that were selected or calculated
-    and `image` for an image drawn from them (GH-2567).
+    (GH-2567); `calculated` adds the sentence of numbers calculated from them besides, and `image_note` what the note
+    says of an image drawn from them.
     """
     return {
         "provider": {
@@ -278,7 +283,7 @@ def describe_provider(
         },
         "producer": describe_producer(),
         "data_updated_at": None if data_updated_at is None else format_timestamp(data_updated_at),
-        "processing_note": processing_note(derived=derived, image=image),
+        "processing_note": processing_note(derived=derived, calculated=calculated, image_note=image_note),
     }
 
 
@@ -677,7 +682,15 @@ class StationsResult(_EqualByFields, ExportMixin):
         return {"data": collection}
 
     def to_plot(self) -> alt.TopLevelMixin:
-        """Create an Altair chart of the stations: points on the borders of the countries, a colour for each dataset."""
+        """Create an Altair chart of the stations: points on the borders of the countries, a colour for each dataset.
+
+        The stations without a position are left out of the map.
+
+        Raises:
+            NoStationPositionsError: where stations are listed and none has a position (`dwd/pollen`), so there is
+                nothing to draw; a `RequestError`, which the REST API answers with a 422.
+
+        """
         return self._map(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 
     def _map(self, width: int, height: int) -> alt.TopLevelMixin:
@@ -685,6 +698,11 @@ class StationsResult(_EqualByFields, ExportMixin):
         df = self.df
         if df.is_empty():
             return charts.empty_chart()
+        # the stations without a position are left out of the map; with none that has one there is nothing to draw, and
+        # the extent of the map cannot be fitted (GH-4206)
+        df = df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())
+        if df.is_empty():
+            raise NoStationPositionsError
         # in a fixed order: the stations of several datasets are joined in the order the lists came, and the one drawn
         # last is on top where they overlap
         df = df.sort("resolution", "dataset", "station_id", descending=[False, True, False]).select(
@@ -697,12 +715,16 @@ class StationsResult(_EqualByFields, ExportMixin):
         return charts.stations_chart(df, center=center, zoom=zoom, width=width, height=height)
 
     def _map_view(self, width: int, height: int) -> tuple[dict[str, float], float]:
-        """Centre and zoom of the station map that show every station in a picture of `width` x `height` pixels."""
+        """Centre and zoom of the station map that show every station with a position in a `width` x `height` picture.
+
+        A station that lacks a latitude or a longitude is not on the map, so it does not widen it (GH-4206).
+        """
+        placed = self.df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())
         return _fit_map_view(
-            cast("float", self.df["longitude"].min()),
-            cast("float", self.df["longitude"].max()),
-            cast("float", self.df["latitude"].min()),
-            cast("float", self.df["latitude"].max()),
+            cast("float", placed["longitude"].min()),
+            cast("float", placed["longitude"].max()),
+            cast("float", placed["latitude"].min()),
+            cast("float", placed["latitude"].max()),
             max(1, width - _MAP_MARGIN["l"] - _MAP_MARGIN["r"]),
             max(1, height - _MAP_MARGIN["t"] - _MAP_MARGIN["b"]),
         )
@@ -1031,10 +1053,157 @@ class _ValuesOgcFeatureCollection(_ValuesOgcFeatureCollectionBody):
 
 @dataclass(frozen=True, kw_only=True, eq=False)
 class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDict], _ValuesDict]):
-    """Result class for values."""
+    """Result class for values.
+
+    `search` is what the options `filter`, `sort`, `first` and `by` looked at, per station and series, where the
+    values were read with them or `selected_rows` chose the rows; None where no row option was given.
+    """
 
     stations: StationsResult
     df: pl.DataFrame
+    search: Searched | None = None
+
+    def selected_rows(
+        self,
+        *,
+        filter: str | None = None,  # noqa: A002
+        sort: str | None = None,
+        first: int | str | None = None,
+        by: str | None = None,
+        max_rows: int | str | None = None,
+    ) -> Self:
+        """Choose the rows of this result as `filter`, `sort`, `first` and `by` say, and return a new result of them.
+
+        The same choice as `stations.values().all(filter=..., ...)` makes, over the rows this result holds, by the same
+        function (`RowSelection`), so the two give the same rows; asked of the reader it is done station by station
+        as the values arrive and holds only the rows chosen, asked of the result the rows are held already. This
+        result is left as it is. `search` of the new result counts what this one holds: the values it was read with,
+        if it was read with options, are counted as that read did.
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read.
+            RowSelectionRefusedError: `value` in the wide shape, in a condition over parameters of different units,
+                or beside a parameter's name; names with parameters of several resolutions.
+
+        """
+        from wetterdienst.model.row_selection import (  # noqa: PLC0415
+            ParameterNames,
+            RowSelectionRefusedError,
+            Searched,
+            parse_row_selection,
+            searched_of,
+            station_names,
+        )
+
+        options = self.stations.options
+        converter = UnitConverter()
+        converter.update_targets(options.unit_targets)
+
+        def symbol(parameter: ParameterModel) -> str:
+            if options.convert_units:
+                return converter.targets[parameter.unit_type].symbol
+            return converter.get_unit(parameter.unit, parameter.unit_type).symbol
+
+        names = ParameterNames.of(self.stations.parameters, humanize=options.humanize)
+        selection = parse_row_selection(
+            filter=filter, sort=sort, first=first, by=by, max_rows=max_rows, parameters=names
+        )
+        if selection is None:
+            return self
+        if "parameter" not in self.df.columns:
+            selection.refuse_wide()
+        if self.df.is_empty() and "station_id" not in self.df.columns:
+            msg = "This result holds no values to choose rows from."
+            raise RowSelectionRefusedError(msg)
+        selection.refuse_for(self.stations.parameters, symbol)
+        matching = selection.matching(self.df)
+        df = selection.cap(matching)
+        window = (self.stations.start, self.stations.end)
+        # what is searched is what this result holds, long or wide, whatever read it: a result that was cut already
+        # has no more values than the ones it holds
+        searched = searched_of(
+            self.df,
+            window,
+            names=station_names(self.stations.df),
+            forecast=self.stations.request.metadata.kind == "forecast",
+        )
+        report = Searched(series=searched, selection=selection, window=window)
+        report = report.with_matched(matching).with_returned(df)
+        report.warn_if_capped()
+        return replace(self, df=df, search=report)
+
+    def statistics(
+        self,
+        aggregate: str | Sequence[str],
+        *,
+        by: str | Sequence[str] | None = None,
+        filter: str | None = None,  # noqa: A002
+        year_start: int | str | None = None,
+        max_missing: int | str | None = None,
+        having: str | None = None,
+        sort: str | None = None,
+        first: int | str | None = None,
+        per: str | None = None,
+        max_rows: int | str | None = None,
+    ) -> StatisticsResult:
+        """Count, average, add up or take the extremes of the values this result holds per year, month, day or hour.
+
+        The same function as `stations.values().statistics(...)` makes (`model/group_statistics.py`, which has the
+        options and the rules), over the rows this result holds, station by station: asked of the reader it is done as
+        the values arrive and only the groups are held, asked of the result the rows are held already. This result is
+        left as it is. The rows must be in the long shape.
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read.
+            RowSelectionRefusedError: an option that cannot be applied to a series of this result, or rows in the wide
+                shape.
+
+        """
+        from wetterdienst.model.group_statistics import parse_statistics, statistics_of_frame  # noqa: PLC0415
+        from wetterdienst.model.row_selection import RowSelectionRefusedError  # noqa: PLC0415
+
+        plan = parse_statistics(
+            aggregate,
+            by=by,
+            filter=filter,
+            year_start=year_start,
+            max_missing=max_missing,
+            having=having,
+            sort=sort,
+            first=first,
+            per=per,
+            max_rows=max_rows,
+        )
+        if "parameter" not in self.df.columns:
+            msg = (
+                "`statistics` needs the long shape, where a row is one value of one parameter; this result is wide. "
+                "Read the values with shape=long."
+            )
+            raise RowSelectionRefusedError(msg)
+        options = self.stations.options
+        converter = UnitConverter()
+        converter.update_targets(options.unit_targets)
+
+        def symbol(parameter: ParameterModel) -> str:
+            if options.convert_units:
+                return converter.targets[parameter.unit_type].symbol
+            return converter.get_unit(parameter.unit, parameter.unit_type).symbol
+
+        return statistics_of_frame(self.stations, self.df, plan, unit_symbol=symbol)
+
+    def filtered_by_date(self, date: str) -> Self:
+        """Filter values by date or date interval as `_ValuesResult.filtered_by_date` does, without the report.
+
+        The rows left are not those `search` counted, so the new result has none.
+        """
+        return replace(super().filtered_by_date(date), search=None)
+
+    def filtered_by_sql(self, sql: str) -> Self:
+        """Filter the frame with a WHERE clause as `_ValuesResult.filtered_by_sql` does, without the report.
+
+        The rows left are not those `search` counted, so the new result has none.
+        """
+        return replace(super().filtered_by_sql(sql), search=None)
 
     def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
         """Format values as OGC feature collection."""

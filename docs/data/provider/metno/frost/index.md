@@ -49,7 +49,7 @@ is old costs a station that closed since a place in the searches of a window (it
 since keeps the dates of its source. The first request with an empty cache takes about 35 s (36.7 s on 2026-11-07, 30 of
 them for the series), the later ones are served from the cache, which the series fill once a week: a REST API or MCP server
 with the default `WD_RESTAPI_TIMEOUT` of 60 s answers the first with a 504 `request-timeout` only when Frost is slower than
-that, and the work goes on, so the next request finds the cache full. An answer of Frost that is no list (a page of a proxy,
+that, and the work stops at the next file it would download (the files it had fetched are cached), so the next request goes on from there. An answer of Frost that is no list (a page of a proxy,
 no `data`, no series) is raised as a `DownloadError` and is not kept.
 
 If Frost does not answer that request, `stations` raises the `DownloadError` or `NoInternetError` of the failure and does
@@ -82,6 +82,14 @@ the refusal once more to read why, and raises an `InvalidTimeIntervalError` (a `
 names the estimate and says to narrow the window, where it used to say that the client ID was invalid. A 403 that does not
 say so stays a `CredentialRejectedError`.
 
+Frost answers a window with no data with a 404 ("No data was found for the query parameters") or a 412 ("No available
+time series for the query parameters"). Both are no data: the request of the dataset is asked once and the answer is
+empty (the maintainer's decision of 2026-11-23, GH-4321). That request asks every element of the dataset, so a 404
+means that none has data. A 404 was once followed by a request for each parameter and by the listing of the time
+series. For 208 (station, element, resolution) pairs at 4 stations (2026-11-06, GH-3137), asking an element alone had
+data in 196 and answered 404 in 12, and the time-series form found data in none of those 12, so nothing is lost by not
+asking.
+
 ## The two series of the daily and monthly precipitation sum
 
 Frost keeps several series of an element at a station that differ in `timeOffset` only: "Sometimes multiple timeseries are
@@ -112,9 +120,9 @@ the core keeps the first row of a reading. The 18-18 UTC sum was returned under 
 | SN18700, 2023-08-07 | 61.7 | 9.5 |
 | SN39040, 1951-08-05 | 79.3 | 12.1 |
 
-All three readers (the batch, the single parameter and the time series discovery) now return the rows of the `PT6H`
-series alone, for the daily and the monthly sum. The choice is made on the `timeOffset` of the rows of the answer. It is
-not made by asking Frost for `timeoffsets`, because the request holds every element of the dataset:
+The reader returns the rows of the `PT6H` series alone, for the daily and the monthly sum. The choice is made on the
+`timeOffset` of the rows of the answer. It is not made by asking Frost for `timeoffsets`, because the request holds
+every element of the dataset:
 
 - `timeoffsets=PT6H` leaves out each element that has no `PT6H` series. At SN50540 for ten days of January 2024 the
   batch of the 12 daily elements (the request of the reader) gave 140 rows without it, and with it 30: the
@@ -126,12 +134,11 @@ not made by asking Frost for `timeoffsets`, because the request holds every elem
 
 A date that only the 18-18 series has is not returned: it would be a sum of another window under this one's name. The
 answer says so, with an `other-window-left-out` warning that names the parameter, the stations and the number of dates
-left out at each (the first ten stations), in the batch, the single and the discovery reading alike, and counts only the
-dates within the window asked for. It is no "the source has no values": `parameter-without-rows` does not name a
-parameter, nor a dataset asked for whole, that this warning names, because the source has those values. So an answer
-with fewer rows than the source holds at a station never reads as no data; see
-[the response metadata](../../../../usage/restapi.md#response-metadata). `timeoffsets=default` would return the 18-18 sum
-at those dates, under the name of the 06-06 one.
+left out at each (the first ten stations), and counts only the dates within the window asked for. It is no "the source
+has no values": `parameter-without-rows` does not name a parameter, nor a dataset asked for whole, that this warning
+names, because the source has those values. So an answer with fewer rows than the source holds at a station never reads
+as no data; see [the response metadata](../../../../usage/restapi.md#response-metadata). `timeoffsets=default` would
+return the 18-18 sum at those dates, under the name of the 06-06 one.
 
 ### What changes
 
@@ -221,16 +228,16 @@ older series; 1,834,176 station-days of the maximum and 2,098,007 of the minimum
 has a gap. The window of one parameter changed along the series of a station, and from station to station: 133 and 138
 stations of the station list have `PT18H` only.
 
-The maintainer decided on 2026-11-07 that the extremes are strict, like the precipitation sums: only `PT18H` is returned.
-All three readers (the batch, the single parameter and the time series discovery) keep the rows of `PT18H` of these two
-elements and leave out the others, chosen on the `timeOffset` of each row, not by `timeoffsets`. So the answer does not
-depend on the window asked for, and a station without a `PT18H` series returns no extremes (Frost's listing has 9 such
-stations for the maximum, with `PT0H` only, and 9 for the minimum, with `PT6H` only; none of them is in the station
-list, whose 683 stations of each element all have `PT18H`: 550 with both series and 133 with `PT18H` only for the maximum,
-545 and 138 for the minimum). A date that only another series has is not returned, and the answer says so with an
-`other-window-left-out` warning (the same code as for the precipitation, with the dates at each station, and never
-`parameter-without-rows`). SN60850 has no `PT18H` value on 2022-09-27: a request of that day returns nothing and
-says so, as does one of 2022-09-20 to 09-30, which returns the dates that have it.
+The maintainer decided on 2026-11-07 that the extremes are strict, like the precipitation sums: only `PT18H` is
+returned. The reader keeps the rows of `PT18H` of these two elements and leaves out the others, chosen on the
+`timeOffset` of each row, not by `timeoffsets`. So the answer does not depend on the window asked for, and a station
+without a `PT18H` series returns no extremes (Frost's listing has 9 such stations for the maximum, with `PT0H` only, and
+9 for the minimum, with `PT6H` only; none of them is in the station list, whose 683 stations of each element all have
+`PT18H`: 550 with both series and 133 with `PT18H` only for the maximum, 545 and 138 for the minimum). A date that only
+another series has is not returned, and the answer says so with an `other-window-left-out` warning (the same code as for
+the precipitation, with the dates at each station, and never `parameter-without-rows`). SN60850 has no `PT18H` value on
+2022-09-27: a request of that day returns nothing and says so, as does one of 2022-09-20 to 09-30, which returns the
+dates that have it.
 
 ### What changes
 
@@ -332,7 +339,7 @@ is stamped at, and a series stamped off midnight is the date of its stamp. The s
 the one its element names where it gives none, or `PT0H`. The time is UTC when the station is read, or when the answer was
 cached if that was before (Frost's answers are kept for five minutes, and a copy made at 17:57 is not the final value of a
 window that closes at 18:00): a window that closes at that time is closed. A date whose window is open is therefore left
-out by every reader, and the next request after the closing time returns it.
+out by the reader, and the next request after the closing time returns it.
 
 - **A month is open until the last day.** The monthly `PT6H` sum of November runs from 06 UTC on 31 October to 06 UTC on
   30 November ("the observation period lasts continuously from the previous date at 06 UTC to current date 06 UTC", for the
@@ -513,7 +520,7 @@ The code is kept as a `raw:` token, as snow depth's is, and a reading with a `ra
   `rejected:limits`.
 - A `-1` of quality 7 comes back as `7,raw:-1` at `0.0`, where a measured reading of quality 7 is `7,suspect:source` (or
   `null` with `7,rejected:source,raw:0.5` under `plausibility={"source": "hard"}`; the decoded `0.0` stays under both).
-  `leave_out_suspect`, which interpolation, summaries, stripes and `skip_empty` apply, nulls the measured one and keeps
+  `leave_out_suspect`, which interpolation, summaries and `skip_empty` apply, nulls the measured one and keeps
   the decoded `0.0`.
 
 Read the `raw:-1` token to tell the two zeros apart.
@@ -536,7 +543,7 @@ core kept the first row of a time that had a value. Which height a value came fr
 
 **Decided on 2026-11-07: for each time, the standard height of Frost is served where it has a value, otherwise the other
 height.** The standard height is the one `levels=default` answers ("this will exclude any data which is not measured at a
-standard level for each element", Frost's [concepts](https://frost.met.no/concepts2.html#default-level-and-timeoffset)):
+standard level for each element", Frost's [concepts](https://frost.met.no/concepts2.html#level-offset-filter)):
 
 | element | standard height | also at |
 |---|---|---|
@@ -572,13 +579,12 @@ bearing where 10 m had a speed and no bearing). The height of the pair is, in th
    1993-12 (the speed at 2 m, every third hour, the bearing at 10 m, every hour: all 48 bearings of 1993-06-01 to 03 at
    SN92120 are served, 16 of them beside a 2 m speed of that hour), and SN49490 for 4 days in 2013.
 
-A calm or a `-3` is a bearing: a height whose bearing is a calm has both, and is the pair, `null` with `raw:0` or `raw:-3`,
-and no other height fills it (as since GH-3833). The gust is no part of the pair. The speed and the bearing are read from
-the answer of the whole dataset, whatever parameters were asked for, so the speed of a request for the speed alone is the
-speed of the pair too: the same hour has the same speed in every request, and the speed is the 2 m one, not the 10 m one,
-at an hour where 10 m has a speed and no bearing. Only where Frost answers the whole dataset with a 404 and each parameter
-is read by itself (the case in which no data was found in 12 of 12 series sampled) there is no pair to see: the speed is the
-10 m one first, and the bearing the 10 m one first, or the nearest that has a value, as in step 3.
+A calm or a `-3` is a bearing: a height whose bearing is a calm has both, and is the pair, `null` with `raw:0` or
+`raw:-3`, and no other height fills it (as since GH-3833). The gust is no part of the pair. The speed and the bearing
+are read from the answer of the whole dataset, whatever parameters were asked for, so the speed of a request for the
+speed alone is the speed of the pair too: the same hour has the same speed in every request, and the speed is the 2 m
+one, not the 10 m one, at an hour where 10 m has a speed and no bearing. A parameter is never read by itself since the
+404 is no data (GH-4321), so the pair is always there to see.
 
 What it changes, from a live sample of 2026-11-08 (the hours where the heights read differently, counted from Frost's own
 rows; `before` is the code of 2026-11-08, `main` at #3871):
@@ -635,14 +641,13 @@ exists (276 foreign and 463 Norwegian readings, about twice the neighbouring deg
 stands beside a speed of 0 in 359 of 372 readings. At the 20 Norwegian stations with most zeros in 10 to 24 January 2026
 (chosen for them, so the first figure is not a share of all) it does so in 1,014 of 1,068, and 1,014 of the 1,030
 readings of a speed of 0 have a direction of 0. So Frost writes a calm as 0, and a `0` beside a speed of 0 of the same
-time and height is a calm: `null` with `raw:0`, as for the providers listed for the calm in
-[Special values](../../../special_values.md#wind). A `0` beside a speed above 0 stays `0.0` (54 of the 1,068 zeros
-of the Norwegian sample are not beside a speed of 0, and may be north), and so does a `0` read without its speed, which
-happens only when Frost answers the request for the whole dataset with a 404 and each parameter is asked for by itself.
-A station may measure the wind at several heights: the speed and the bearing of a time are of one height, and a calm or a
-`-3` there is the answer for the hour, which no other height fills (see
-[Sensors at several heights](#sensors-at-several-heights); [the hourly page](hourly.md) has the details). The `0` was returned as `0.0`
-before (GH-3833).
+time and height is a calm: `null` with `raw:0`, as for the providers listed for the calm in [Special
+values](../../../special_values.md#wind). A `0` beside a speed above 0 stays `0.0` (54 of the 1,068 zeros of the
+Norwegian sample are not beside a speed of 0, and may be north), and so does a `0` at a time and height where the speed
+is null (the request is for the whole dataset, so the speed is read whenever Frost has it). A station may measure the
+wind at several heights: the speed and the bearing of a time are of one height, and a calm or a `-3` there is the answer
+for the hour, which no other height fills (see [Sensors at several heights](#sensors-at-several-heights); [the hourly
+page](hourly.md) has the details). The `0` was returned as `0.0` before (GH-3833).
 
 The rows of Frost's table for elements that are not read here (`low_type_cloud_area_fraction`, `cloud_area_fraction1`
 and `cloud_base_height` `-3`; `max` and `min(surface_snow_thickness P1M)` `-1`; `snow_coverage_type` `-1`, its monthly
@@ -665,7 +670,7 @@ Those are a degree of confidence, a treatment or a model, no verdict, and are no
 mapping rests on the documentation and was not probed live.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
-default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation and summaries leave it
 out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License

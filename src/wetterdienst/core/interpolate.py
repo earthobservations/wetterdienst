@@ -46,6 +46,7 @@ from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.model.parameter_rows import EstimateLeftOut
 from wetterdienst.model.plausibility import leave_out_suspect
 from wetterdienst.model.schema import INTERPOLATED_SCHEMA, select_schema
+from wetterdienst.util.cancellation import check as check_cancelled
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
@@ -470,6 +471,8 @@ def calculate_interpolation(
         valid_station_groups = groups_of[param_stations]
         results = []
         for row in param_data.values.select(pl.all().exclude("timestamp")).iter_rows(named=True):
+            # one row of a long series is a scipy call; the work ends between two when the request's answer is gone
+            check_cancelled()
             results.append(
                 apply_interpolation(
                     row,

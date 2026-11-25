@@ -113,7 +113,7 @@ request class, and nothing is imported until it is asked for, so listing the reg
 | Call | Does |
 | --- | --- |
 | `Wetterdienst.resolve(provider, network)` | the request class of a timeseries network; `ApiNotFoundError` if it is not in the registry, or is a standalone network |
-| `Wetterdienst.resolve_standalone(provider, network)` | the request class of `dwd/radar` or `dwd/alerts`, which have no stations, no values and no metadata model (`Wetterdienst.standalone`) |
+| `Wetterdienst.resolve_standalone(provider, network)` | the request class of `dwd/radar`, `dwd/alerts` or `dwd/storm_cells`, which have no stations, no values and no metadata model (`Wetterdienst.standalone`) |
 | `Wetterdienst.discover()` | what every network is (`name_short`, country, URL, `kind`, whether it needs credentials and has them, whether any dataset requires a date), without downloading anything; a network that cannot be imported is left out with a logged warning |
 | `Wetterdienst.get_provider_names()`, `get_network_names(provider)` | the names |
 | `Wetterdienst.is_configured(api)`, `is_valid(api)` | whether the credentials of a provider are present, and whether the provider accepts them (this one asks the provider) |
@@ -183,8 +183,8 @@ core does the rest.
 - The `value` is in the unit the metadata declares; the sentinel of the source for "no reading" is mapped to null in
   the provider, and what the source wrote is kept as a `raw:` token of `quality_flags` (`wetterdienst.model.quality_flags`).
 
-`dwd/radar` and `dwd/alerts` are the exceptions: standalone networks with their own request classes
-(`DwdRadarValues`, `DwdWeatherAlertRequest`) and results, resolved with `resolve_standalone`.
+`dwd/radar`, `dwd/alerts` and `dwd/storm_cells` are the exceptions: standalone networks with their own request classes
+(`DwdRadarValues`, `DwdWeatherAlertRequest`, `DwdStormCellsRequest`) and results, resolved with `resolve_standalone`.
 
 ## The network layer
 
@@ -275,7 +275,8 @@ releases are gone: `Settings` refuses them with an error that names the option t
 may be combined, which options a request takes), `get_stations`, `get_values`, `get_interpolate`, `get_summarize`, the
 resolution of provider and network through the registry, and `failure_status()`, the table that turns an exception
 into the HTTP status a REST call answers (the command line reads it to tell a refusal, a usage error, from an outage).
-`_caller_refusal_status` adds to it the DuckDB errors of a caller's own `sql` clause, which are a 400:
+`_caller_refusal_status` adds to it the DuckDB errors of a caller's own `--sql` or `--sql-values` clause of the
+command line (the REST API and the MCP tools take none), which are a 400:
 
 ```text
 RequestError, OverflowError   400      NotFoundError            404      ConfigurationError, NotImplementedError  501

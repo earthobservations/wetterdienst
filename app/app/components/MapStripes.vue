@@ -3,14 +3,22 @@ import type { StripesValuesResponse } from '#shared/types/api'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
 import { STRIPES_KIND } from '~/utils/map-tool'
-import { COLOR_MAPS, stripeColour, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { stripeColour, stripesMethodNote, stripesMirrorNote, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { fetchStripes, stripesFetch } from '~/utils/stripes-source'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 // The climate stripes of a station, as a band of colour in the map's panel (GH-3650): one stripe a year, drawn in
-// plain elements with the stripes page's colour scale. The page, which the link under the band opens, has the chart,
+// plain elements, each in the colour of the class of its year (the stripes page's scale, GH-4157, calculated by the app, GH-4258). The page, which the link under the band opens, has the chart,
 // its options and the table of the years. The band is a picture of what the sentence under it says, in words.
+//
+// A station of NOAA's GHCN daily (`ghcn`, GH-4078) is asked for with its provider and network, and its years are built from the days:
+// the line under the sentence says how a day's temperature was made (the midrange of the daily maximum and minimum, no 24-hour mean).
+// A station that has no stripes (a 400: too few years with data) is refused by the app (`stripesFromRecord`, as the backend's stripes refused it), which is not a failure of the request but the
+// answer, said as "no stripes", and raised as `none` for the card to take its link away; DWD's stations are listed by their having
+// stripes, so for them a refusal stays the failure it is.
 
-const props = defineProps<{ stationId: string, stationName: string }>()
+const props = defineProps<{ stationId: string, stationName: string, ghcn?: boolean }>()
+const emit = defineEmits<{ none: [mirrorNote: string] }>()
 
 const { t, locale } = useI18n()
 
@@ -19,31 +27,56 @@ const { t, locale } = useI18n()
 const { settings } = useSettings()
 const unitTargets = computed(() => JSON.stringify(stripesUnitTargets(STRIPES_KIND, settings.value.units)))
 
-const { data, pending, error, refresh } = useFetch<StripesValuesResponse>('/api/stripes/values', {
-  query: computed(() => ({ kind: STRIPES_KIND, station: props.stationId, format: 'json', unit_targets: unitTargets.value })),
-  key: computed(() => `map-stripes-${props.stationId}-${unitTargets.value}`),
-  ...API_FETCH,
+// the stripes are made by the app from the annual values of the API, or of its own server for GHCN's days (GH-4258)
+const { data, pending, error, refresh } = useAsyncData(
+  computed(() => `map-stripes-${props.ghcn ? 'ghcn-' : ''}${props.stationId}-${unitTargets.value}`),
+  () => fetchStripes(stripesFetch, {
+    source: props.ghcn ? 'ghcn' : 'dwd',
+    kind: STRIPES_KIND,
+    station: { station_id: props.stationId, name: props.stationName },
+    unitTargets: JSON.parse(unitTargets.value),
+  }),
+)
+
+/** The stripes could not be made of this station of GHCN daily: it has no stripes (400, or 404, 422), which is no failure to try again */
+const refused = computed(() => props.ghcn && [400, 404, 422].includes((error.value as { statusCode?: number } | null)?.statusCode ?? 0))
+/** Where the record of a refused station was read from the mirror of NOAA's data on AWS, whose file may be the reason it is too short (GH-4390): the line that says so, else an empty text */
+// (the error of `useAsyncData` is an H3 error wrapping the one thrown, which is its `cause`)
+const refusedMirrorNote = computed(() => {
+  const failure = error.value as { mirror?: StripesValuesResponse['mirror'], cause?: { mirror?: StripesValuesResponse['mirror'] } } | null
+  return refused.value ? stripesMirrorNote(failure?.mirror ?? failure?.cause?.mirror, t) : ''
 })
+watch(refused, (now) => {
+  if (now)
+    emit('none', refusedMirrorNote.value)
+}, { immediate: true })
 
 const years = computed(() => stripeYears(data.value?.values ?? []))
-const range = computed(() => {
-  const values = years.value.map(year => year.value)
-  return { min: Math.min(...values), max: Math.max(...values) }
-})
 const stripes = computed(() => years.value.map(year => ({
   year: year.year,
-  colour: stripeColour(COLOR_MAPS.temperature, range.value.max > range.value.min ? (year.value - range.value.min) / (range.value.max - range.value.min) : 0.5),
+  colour: stripeColour(STRIPES_KIND, year.stripeClass),
 })))
 const unit = computed(() => data.value?.series.unit ? unitSymbol(data.value.series.unit) : '')
-const summary = computed(() => years.value.length
-  ? t('stripes.summary', stripesSummaryParams(years.value, value => `${formatNumber(value, locale.value, 1)} ${unit.value}`.trim()))
+const summary = computed(() => years.value.length && data.value
+  ? `${t('stripes.summary', stripesSummaryParams(years.value, value => `${formatNumber(value, locale.value, 1)} ${unit.value}`.trim()))} ${stripesReferenceText(data.value.reference, t, value => formatNumber(value, locale.value, 1))}`
   : '')
+const methodNote = computed(() => stripesMethodNote(data.value?.series.method, t))
+// the days were read from the mirror of NOAA's data on AWS, whose file may end early (GH-4390)
+const mirrorNote = computed(() => stripesMirrorNote(data.value?.mirror, t))
 const descriptionId = useId()
 </script>
 
 <template>
   <div data-testid="map-stripes">
     <div v-if="pending && !years.length" class="h-14 rounded-lg bg-elevated motion-safe:animate-pulse" role="status" :aria-label="t('common.loading')" />
+    <template v-else-if="refused">
+      <p class="text-sm text-muted" data-testid="map-stripes-refused">
+        {{ t('mapTool.stripesNone') }}
+      </p>
+      <p v-if="refusedMirrorNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-refused-mirror">
+        {{ refusedMirrorNote }}
+      </p>
+    </template>
     <div v-else-if="error" class="flex flex-col items-start gap-2">
       <p role="alert" class="text-sm text-error">
         {{ describeFetchError(error) }}
@@ -57,6 +90,20 @@ const descriptionId = useId()
       <figcaption :id="descriptionId" class="mt-1.5 text-xs text-muted">
         {{ summary }}
       </figcaption>
+      <!-- how a day's temperature was made, for a station of GHCN daily (no 24-hour mean) -->
+      <p v-if="methodNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-method">
+        {{ methodNote }}
+      </p>
+      <!-- the days came from the mirror of NOAA's data on AWS (NCEI did not give the station's file): the most recent may be missing, and the record may end early -->
+      <p v-if="mirrorNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-mirror">
+        {{ mirrorNote }}
+      </p>
+      <!-- whose data the band is made of, and what was done to it, from the terms the answer it was made of carries (GH-4255) -->
+      <ProviderCredit
+        :terms="data?.metadata?.provider"
+        :fallback="ghcn ? t('stripes.plotSourceGhcn') : t('stripes.plotSource')"
+        class="mt-2" data-testid="map-stripes-credit"
+      />
     </figure>
     <p v-else class="text-sm text-muted">
       {{ t('mapTool.stripesNone') }}

@@ -24,7 +24,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from typing import Self
 
 
@@ -164,16 +164,88 @@ class ProductOutOfSeasonError(IssueNotFoundError):
     """
 
 
-class NotEnoughDataError(RequestError):
-    """Raised when what a request selects holds too little data to answer it."""
-
-
 class ProviderNotFoundError(NotFoundError):
     """Raised when a provider is not found in the provider list."""
 
 
 class StationNotFoundError(NotFoundError):
     """Raised when a station is not found in the station list."""
+
+
+class StationLacksParametersError(RequestError):
+    """Raised when a station is asked for by its id and is known, but has none of the requested parameters.
+
+    `interpolate_by_station_id` and `summarize_by_station_id` look the id up in the station list of the request, and
+    for a provider whose list depends on the parameters (`noaa/ghcn` daily, GH-4270) a station that has other
+    measurements is not in it. That is not a `StationNotFoundError`, which says that the id is wrong: the station
+    exists and the caller changes the parameters, not the id. A `RequestError` (400, `request-refused`): the
+    request is understood and cannot be served as phrased. `values` by id says the same as an `unknown-station`
+    warning, which an answer has a place for.
+
+    `station_id` is the id asked for, `parameters` the requested ones as `resolution/dataset/parameter`
+    (`resolution/dataset` where every parameter of the dataset was asked for).
+    """
+
+    def __init__(self, station_id: str, parameters: list[str]) -> None:
+        """Keep the id and the parameters, and name them in the message."""
+        self.station_id = station_id
+        self.parameters = list(parameters)
+        super().__init__(
+            f"Station {station_id} exists but has none of the requested parameters ({', '.join(self.parameters)}). "
+            "Change the parameters, not the station."
+        )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the id and the parameters, not from the message in `args`, so the error pickles."""
+        return type(self), (self.station_id, self.parameters), self.__dict__
+
+
+class UnknownRegionError(RequestError):
+    """Raised when a region a request selects stations by is none of the regions the station list has (GH-4418).
+
+    A `RequestError` (400, `request-refused`): the caller rephrases it with a region of the list. It is not an empty
+    answer, which a caller could not tell from a region that has no station in the window of the request.
+
+    `unknown` are the regions asked for that the list does not have, `known` the regions it has, as it writes them,
+    and `hints` the closest of those to each region asked for, where any is close.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        unknown: Sequence[str] = (),
+        known: Sequence[str] = (),
+        hints: Mapping[str, Sequence[str]] | None = None,
+    ) -> None:
+        """Keep the regions asked for, the ones there are and the closest to each, and say it in the message."""
+        self.unknown = list(unknown)
+        self.known = list(known)
+        self.hints = {region: list(names) for region, names in (hints or {}).items()}
+        super().__init__(message)
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the message and what it keeps, not from the message alone in `args`, so the error pickles."""
+        return _rebuild_unknown_region, (type(self), self.args[0], self.unknown, self.known, self.hints), self.__dict__
+
+
+class NoRegionsError(UnknownRegionError):
+    """Raised when stations are selected by region from a network whose stations have none (GH-4418).
+
+    A provider that names no sub-national unit for its stations has no region to select by: `known` is empty.
+    Told apart from `UnknownRegionError` for the reason it gives, which is not a misspelled region.
+    """
+
+
+def _rebuild_unknown_region(
+    cls: type[UnknownRegionError],
+    message: str,
+    unknown: Sequence[str],
+    known: Sequence[str],
+    hints: Mapping[str, Sequence[str]],
+) -> UnknownRegionError:
+    """Rebuild a pickled `UnknownRegionError` (keyword-only arguments cannot go through `args`)."""
+    return cls(message, unknown=unknown, known=known, hints=hints)
 
 
 class ApiNotFoundError(NotFoundError):
@@ -257,10 +329,10 @@ class StationListingIncompleteError(UpstreamError):
 
     `dwd/observation` and `dwd/derived` look the stations up in directories of DWD's server, and go on without one
     that came back empty or missing, or that lists no description of its stations: the answer is partial, and says so
-    with a `file-skipped` warning. An estimate (`interpolate`, `summarize`) or the stripes ask for one station by its
-    id, and have no answer to put the warning in. A station that is not found then may be unknown, or one that only
-    the skipped directory lists: the request is valid, the cause is upstream, and a 404 would say that the station
-    does not exist. So it is this, a 502 over REST, which names the directories.
+    with a `file-skipped` warning. An estimate (`interpolate`, `summarize`) asks for one station by its id, and has
+    no answer to put the warning in. A station that is not found then may be unknown, or one that only the skipped
+    directory lists: the request is valid, the cause is upstream, and a 404 would say that the station does not
+    exist. So it is this, a 502 over REST, which names the directories.
 
     `station_id` is the id asked for, `gaps` the directories the lookup went without, each with the reason. Not a
     `StationNotFoundError`: it is the provider's side that failed, and the same request can succeed once DWD has
@@ -282,6 +354,44 @@ class StationListingIncompleteError(UpstreamError):
         return type(self), (self.station_id, self.gaps), self.__dict__
 
 
+class RegionListingIncompleteError(StationListingIncompleteError):
+    """Raised when stations are selected by region, none is found, and the lookup went without a listing (GH-4418).
+
+    The region of a station that only a skipped directory lists is not in the list the request selects among, so a
+    region that is not found, or a list that came back empty, may be one the provider has: the request is valid and
+    the cause is upstream, as for a station asked for by its id (`StationListingIncompleteError`, a 502). A region
+    that is found is answered, with the `file-skipped` warning the lookup has recorded. Not an `UnknownRegionError`,
+    which says the region is none of the provider's.
+
+    `regions` are the regions asked for that were not found (none where the list came back empty), `gaps` the
+    directories the lookup went without, each with the reason; `station_id` is the text of the regions.
+    """
+
+    def __init__(self, regions: Sequence[str], gaps: dict[str, str]) -> None:
+        """Keep the regions and the directories, and name them in the message."""
+        self.regions = list(regions)
+        self.gaps = dict(gaps)
+        self.station_id = ", ".join(self.regions)
+        from wetterdienst.model.regions import shown_in_log  # noqa: PLC0415
+
+        went_without = " and ".join(f"the directory {directory} ({reason})" for directory, reason in self.gaps.items())
+        # as the refusal of an unknown region writes them: at most twenty, cleaned and cut; `regions` has them all
+        what = (
+            f"the region{'s' if len(self.regions) > 1 else ''} {shown_in_log(self.regions)}"
+            if self.regions
+            else "any region"
+        )
+        UpstreamError.__init__(
+            self,
+            f"No station found for {what}. The lookup of the stations went without {went_without}, so a station that "
+            "only it lists is not found, and this may be one. Try again later.",
+        )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the regions and the directories, not from the message in `args`, so the error pickles."""
+        return type(self), (self.regions, self.gaps), self.__dict__
+
+
 class MissingDependencyError(ConfigurationError, ImportError):
     """Raised when something needs an optional dependency that is not installed.
 
@@ -292,6 +402,14 @@ class MissingDependencyError(ConfigurationError, ImportError):
     whole of what there is to say, so the command line prints it as one line and the REST API
     answers 501, as the deployment's lack and not the request's fault. Raised through
     `wetterdienst.util.extras.import_optional`.
+    """
+
+
+class UnsupportedDependencyError(MissingDependencyError):
+    """Raised when an optional dependency is installed but is older than the release the feature needs.
+
+    A `MissingDependencyError`, so that it is answered as that is: one line on the command line, with the message that
+    names the release found and the oldest that is accepted.
     """
 
 
@@ -328,6 +446,22 @@ class CredentialRejectedError(ConfigurationError, PermissionError):
 
 class NoStationsWithElevationError(RequestError):
     """Raised when an elevation is asked about and no station in reach reports one of its own."""
+
+
+class NoStationPositionsError(RequestError):
+    """Raised when a map of stations is asked for and none of the stations has a position to be drawn at.
+
+    The REST API answers it with a 422 (`failure_status`): the request is well formed, and the format asked for
+    is one these stations cannot be given in. The ones that can are json, csv and geojson. Stations of which only
+    some have a position are drawn without the others, which is no error.
+    """
+
+    def __init__(
+        self,
+        message: str = "These stations have no position, so no map can be drawn; ask for json, csv or geojson instead.",
+    ) -> None:
+        """Say that no map can be drawn and which formats to ask for instead."""
+        super().__init__(message)
 
 
 class ParameterNotCarriedError(RequestError):

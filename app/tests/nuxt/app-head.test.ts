@@ -81,7 +81,7 @@ describe('the head of the page', { timeout: 15_000 }, () => {
     await openApp('/stripes')
 
     await eventually(() => expect(document.title).toBe('Klimastreifen - Wetterdienst'))
-    expect(metaContent('meta[name="description"]')).toEqual(['Klimastreifen für Temperatur oder Niederschlag einer DWD-Station.'])
+    expect(metaContent('meta[name="description"]')).toEqual(['Klimastreifen für Temperatur oder Niederschlag einer Station des Deutschen Wetterdienstes (DWD) oder von NOAA GHCN daily.'])
     expect(metaContent('meta[property="og:locale"]')).toEqual(['de_DE'])
     expect(document.documentElement.lang).toBe('de')
   })

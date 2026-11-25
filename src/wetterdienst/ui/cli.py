@@ -28,6 +28,8 @@ from wetterdienst.exceptions import (
     MetadataNotFoundError,
     MissingDependencyError,
     NoInternetError,
+    NoStationPositionsError,
+    RequestError,
     ReversedTimeIntervalError,
 )
 from wetterdienst.io.formats import FORMATS, names_of
@@ -94,7 +96,6 @@ def _deferred(module: str, name: str) -> Callable[..., Any]:
 if TYPE_CHECKING:
     # the real functions to a type checker, which holds a call to their signatures, a misspelled keyword included
     from wetterdienst.ui.core import (
-        _plot_stripes,
         get_auth,
         get_glossary,
         get_interpolate,
@@ -113,7 +114,6 @@ else:
     get_summarize = _deferred("wetterdienst.ui.core", "get_summarize")
     get_values = _deferred("wetterdienst.ui.core", "get_values")
     set_logging_level = _deferred("wetterdienst.ui.core", "set_logging_level")
-    _plot_stripes = _deferred("wetterdienst.ui.core", "_plot_stripes")
 
 
 # Shell completion is click's own (`_WETTERDIENST_COMPLETE`, see docs/usage/cli.md). It imports this module and nothing
@@ -287,6 +287,32 @@ def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
     )
 
 
+#: what to use instead of the options `--limit` and `--offset`, which `values` has not, in the words of its options
+_HINTED_ON_THE_COMMAND_LINE = {
+    "--limit": (
+        "the most rows of an answer are --max-rows; --limits bounds values for the plausibility check, and --first "
+        "keeps the first rows of each group"
+    ),
+    "--offset": (
+        "there is no offset and no paging: --max-rows keeps the first rows of the answer, and --filter, --sort and "
+        "--first choose which they are"
+    ),
+}
+
+
+def _hinted_opt(option: str) -> Callable[[_CommandT], _CommandT]:
+    """Refuse an option that `values` has not, naming what to use instead, where click only says there is none."""
+
+    def refuse(ctx: click.Context, _param: click.Parameter, value: object) -> None:
+        if value is not None:
+            msg = f"{option} is not an option of values: {_HINTED_ON_THE_COMMAND_LINE[option]}"
+            raise click.UsageError(msg, ctx)
+
+    return click.option(
+        option, type=click.STRING, is_flag=False, flag_value="", hidden=True, expose_value=False, callback=refuse
+    )
+
+
 def _bool_opt(
     name: str,
     *,
@@ -323,7 +349,7 @@ start_date_renamed_opt = _renamed_opt("--start-date", "--start")
 end_date_renamed_opt = _renamed_opt("--end-date", "--end")
 
 # station selection for `stations` and `values`: exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id,
-# --name, a point
+# --name, --region, a point
 # or a bounding box, --sql. The request models enforce it, so the CLI, REST API and MCP share it
 all_opt = _bool_opt("--all", dest="all_", default=False, help="Select all stations. Default: false")
 stations_opt = click.option(
@@ -356,6 +382,15 @@ icao_id_opt = click.option(
     help=(
         "Select stations by ICAO location indicator (four letters, any case), comma-separated: every station that "
         "has one of them. Example: EDDH,EDDB"
+    ),
+)
+region_opt = click.option(
+    "--region",
+    type=click.STRING,
+    help=(
+        "Select stations by the region their source lists them under (a state, province, département), "
+        "comma-separated, any case: every station of it, those not on land included. An unknown region is refused "
+        "and the regions there are named. Example: Hamburg"
     ),
 )
 name_opt = click.option(
@@ -484,6 +519,94 @@ limits_opt = click.option(
         "WD_TS_LIMITS if set, else none; a name given here replaces the one of WD_TS_LIMITS"
     ),
 )
+
+
+def _given_once(ctx: click.Context, param: click.Parameter, value: tuple[Any, ...]) -> Any:  # noqa: ANN401
+    """Read an option of the row options that is given once: twice is refused, where click would keep the last."""
+    if len(value) > 1:
+        name = param.opts[0]
+        if name == "--filter":
+            hint = "join the conditions with a comma: --filter='value<=-20,month=12'"
+        elif name in {"--first", "--max-rows"}:
+            hint = f"give one number to {name}"
+        else:
+            hint = f"give one value of {name}, columns joined by commas"
+        msg = f"{name} is given {len(value)} times and a command takes it once: {hint}."
+        raise click.UsageError(msg, ctx)
+    return value[0] if value else None
+
+
+def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Add `--filter`, `--sort`, `--first` and `--by` to a command: the rows of the answer (GH-4411)."""
+    options = (
+        click.option(
+            "--filter",
+            "filter_",
+            type=click.STRING,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "Keep only the rows that meet every condition, joined by commas: column, operator, number. Columns: "
+                "value, year, month, day, hour (UTC; a daily value's own date), or the name of a requested parameter "
+                "(in its unit; then a row is a timestamp: all conditions must hold at it, and every parameter's rows "
+                "at those timestamps come back). Operators: = != < <= > >=; a list a|b with = and !=. A missing value "
+                "never matches. A value condition needs parameters of one unit and no name. Example: "
+                "value<=-20,month=12|1|2 or temperature_air_min_2m<0,wind_gust_max>=17.2 (quote it: < and | are the "
+                "shell's)"
+            ),
+        ),
+        click.option(
+            "--sort",
+            type=click.STRING,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "Order of the answer: columns joined by commas, - before one for descending. Columns: value, "
+                "timestamp, year, month, day, hour, station_id, or the name of a requested parameter (orders and ranks "
+                "the timestamps by it). Example: --sort=-value (highest first)"
+            ),
+        ),
+        click.option(
+            "--first",
+            type=click.INT,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "Return only the first N rows of each group in the --sort order, the ties of the last one included "
+                "(needs --sort). --sort=value --first=1 is the lowest value of each station in the --timestamp "
+                "window with all its ties (--max-rows cuts ties). The whole window is read, and metadata.search says "
+                "from when to when."
+            ),
+        ),
+        click.option(
+            "--by",
+            type=click.STRING,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "The groups --first counts in: station_id (the default), year, month, day, hour, joined "
+                "by commas, or none for all stations together; a parameter is always its own group (needs --first)"
+            ),
+        ),
+        click.option(
+            "--max-rows",
+            "max_rows",
+            type=click.INT,
+            multiple=True,
+            callback=_given_once,
+            help=(
+                "Return at most this many rows of the whole answer, the first of its order (after --filter, --sort "
+                "and --first), over all stations and parameters: for a short answer where many rows tie. What "
+                "matched is still counted in metadata.search, and a rows-capped warning says how many are returned"
+            ),
+        ),
+        _hinted_opt("--limit"),
+        _hinted_opt("--offset"),
+    )
+    for option in reversed(options):
+        func = option(func)
+    return func
+
 
 sql_values_opt = click.option(
     "--sql-values",
@@ -707,7 +830,7 @@ _PROVIDERS_HINT = "`wetterdienst providers` lists the available ones."
 
 
 def get_api(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
-    """Get API for provider and network, of a standalone network (dwd/radar, dwd/alerts) too.
+    """Get API for provider and network, of a standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) too.
 
     A provider or network that does not exist is the command line's mistake, so it is a usage error
     naming where the existing ones are listed, as the REST API answers it with a 404 and that hint.
@@ -724,7 +847,7 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest] | Standalone
 def get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
     """Get the API of a network the timeseries commands serve, refusing one they cannot.
 
-    A standalone network (dwd/radar, dwd/alerts) or, with `history`, a network without station
+    A standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) or, with `history`, a network without station
     history is the command line's mistake, so a usage error naming the cause, as the REST API answers
     it with a 404.
     """
@@ -997,8 +1120,10 @@ STATIONS_EXAMPLES = r"""
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
         --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-05
 
-    # stations by region, or by a pattern in their name
-    wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --sql="region='Sachsen'"
+    # the stations their source lists under a region, those not on land included
+    wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --region=Hamburg
+
+    # stations by a pattern in their name
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
         --sql="lower(name) LIKE lower('%dresden%')"
 
@@ -1043,6 +1168,17 @@ VALUES_EXAMPLES = r"""
     wetterdienst values --provider=dwd --network=observation \
         --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_2m \
         --timestamp=2020-06-15T12/2020-06-16T12 --stations=1048,4411 --shape=wide
+
+    # the rows of the whole record that the answer is about: the lowest and the coldest day of every year
+    wetterdienst values --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+        --sort=value --first=1
+    wetterdienst values --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+        --sort=value --first=1 --by=station_id,year
+    wetterdienst values --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+        --filter='value<=-20' --sort=-timestamp
 
     # the days with a wind gust above 20 m/s, one row per value or, filtering on the column, one per day
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
@@ -1146,17 +1282,66 @@ ALERTS_EXAMPLES = r"""
     wetterdienst alerts --format=geojson --target=file://alerts.geojson
 """
 
-STRIPES_EXAMPLES = r"""
-    # warming stripes for a station, by id or by name
-    wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
-    wetterdienst stripes image --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
+STORM_CELLS_EXAMPLES = r"""
+    # the cells of the newest radar scan, as JSON: every cell of Germany, and most scans have none
+    wetterdienst storm-cells
 
-    # for the years 2000 to 2020
-    wetterdienst stripes image --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
-        > warming_stripes.png
+    # the cells over a place or within 25 km of it, without the track: a few KB
+    wetterdienst storm-cells --latitude=52.52 --longitude=13.40 --distance=25 --track=false
 
-    # precipitation stripes, to a file
-    wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
+    # the cells in a box (left, bottom, right, top), severe ones and above, as points of their centres
+    wetterdienst storm-cells --left=8 --bottom=47.5 --right=13.8 --top=50.6 --min-severity=2 --geometry=centroid
+
+    # the cells of a past scan: replace YYYY-MM-DDTHH:MM with a time within the last ~48 hours, all DWD keeps
+    wetterdienst storm-cells --timestamp=YYYY-MM-DDTHH:MM
+
+    # to a GeoJSON file
+    wetterdienst storm-cells --format=geojson --target=file://cells.geojson
+"""
+
+STATION_IDS_EXAMPLES = r"""
+    # the station with WMO number 10381 at every provider that lists it: DWD, NOAA GHCN, ... (about 9 s the first time)
+    wetterdienst station-ids --wmo-id=10381
+
+    # an aerodrome by its ICAO code: also the stations that list its WMO number only
+    wetterdienst station-ids --icao-id=EDDH
+
+    # a WIGOS identifier, as CSV; the identifier of WMO's issuer is the WMO number as well
+    wetterdienst station-ids --wigos-id=0-20000-0-10381 --format=csv
+"""
+
+KOSTRA_EXAMPLES = r"""
+    # the 60-minute rain that comes once in 100 years at a point in Berlin: the depth (mm), the intensity (l/(s ha))
+    # and DWD's uncertainty (+- %), as JSON with the grid cell
+    wetterdienst kostra --latitude=52.52 --longitude=13.40 --duration=60 --return-period=100
+
+    # every return period of one duration, as CSV
+    wetterdienst kostra --latitude=48.14 --longitude=11.58 --duration=120 --format=csv
+
+    # the whole table of the cell: 22 durations and 9 return periods (22 files of DWD: 2 s the first time)
+    wetterdienst kostra --latitude=53.55 --longitude=9.99
+"""
+
+STATISTICS_EXAMPLES = r"""
+    # the frost days of each year at Potsdam, 1961 to 1990, with their mean over the years under over_groups
+    wetterdienst statistics --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_min_2m --stations=03987 --timestamp=1961/1990 \
+        --filter='value<0' --aggregate=count --by=year
+
+    # the five warmest years of the record, the mean of each (a year that is not over has no mean)
+    wetterdienst statistics --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_mean_2m --stations=03987 \
+        --aggregate=mean --by=year --sort=-mean --first=5
+
+    # the coldest winters: December to February, a year named by the year its season ends in
+    wetterdienst statistics --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/temperature_air_mean_2m --stations=03987 \
+        --filter='month=12|1|2' --year-start=12 --aggregate=mean --by=year --sort=mean --first=3
+
+    # the rain of each month as CSV, the wettest first
+    wetterdienst statistics --provider=dwd --network=observation \
+        --parameters=daily/climate_summary/precipitation_amount --stations=03987 \
+        --aggregate=sum --by=year,month --sort=-sum --first=10 --format=csv
 """
 
 
@@ -1343,8 +1528,17 @@ def _target_path(target: str) -> str:
         raise click.ClickException(str(e)) from e
 
 
-def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str | None:
-    """Check the `--target` of `alerts` before the fetch and give it as `to_target` takes it, a `file://` URI.
+def _alerts_target(
+    target: str | None,
+    fmt: str,
+    *,
+    with_metadata: bool,
+    formats: Mapping[str, str] | None = None,
+    noun: str = "alerts",
+) -> str | None:
+    """Check the `--target` of `alerts` (`storm-cells` too: its `formats` and `noun`) before the fetch.
+
+    It is given back as `to_target` takes it, a `file://` URI.
 
     The extension decides what is written, as it does for `stations` and `values`, so an explicit `--format` that
     names another format is a usage error instead of one of the two silently winning. `--with-metadata` writes beside
@@ -1357,6 +1551,7 @@ def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str 
     """
     from wetterdienst.io.sinks import ALERT_FILE_FORMATS
 
+    formats = ALERT_FILE_FORMATS if formats is None else formats
     if not target:
         if with_metadata:
             msg = (
@@ -1366,21 +1561,18 @@ def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str 
             raise click.UsageError(msg)
         return None
     path = _target_path(target)
-    extension = next((ext for ext in ALERT_FILE_FORMATS if path.lower().endswith(ext)), None)
+    extension = next((ext for ext in formats if path.lower().endswith(ext)), None)
     if extension is None:
         msg = (
-            f"{path!r} is none of the files alerts are written as ({', '.join(ALERT_FILE_FORMATS)}): the extension "
+            f"{path!r} is none of the files {noun} are written as ({', '.join(formats)}): the extension "
             "decides the format. Leave out --target to write to stdout"
         )
         raise click.BadParameter(msg, param_hint="--target")
     context = click.get_current_context()
-    if (
-        context.get_parameter_source("fmt") is not ParameterSource.DEFAULT
-        and fmt.lower() != ALERT_FILE_FORMATS[extension]
-    ):
+    if context.get_parameter_source("fmt") is not ParameterSource.DEFAULT and fmt.lower() != formats[extension]:
         msg = (
             f"--format={fmt.lower()} does not match {extension}, which is written as "
-            f"{ALERT_FILE_FORMATS[extension]}: the extension decides what --target holds"
+            f"{formats[extension]}: the extension decides what --target holds"
         )
         raise click.BadParameter(msg, param_hint="--format")
     # a file named without the scheme is read as a path, `%` and all: only the two characters the URI reads are written
@@ -1403,7 +1595,7 @@ def _refuse_non_file_target(target: str | None, command: str) -> None:
 
 
 def _route_of(ctx: click.Context) -> str:
-    """Name the route a command is, as its MCP tool is: `stations`, `stripes_image`, `coverage`."""
+    """Name the route a command is, as its MCP tool is: `stations`, `coverage`."""
     names = []
     while ctx.parent is not None:
         names.append(ctx.info_name or "")
@@ -1521,6 +1713,10 @@ class _Cli(_Group):
             # such as rendering an image: the message names what to install, and is the whole of it
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
+        except NoStationPositionsError as e:
+            # a map of stations none of which has a position: the format is the command line's to change, as for any
+            # refusal, so one line and exit 2, not a traceback (GH-4206)
+            raise click.UsageError(str(e)) from e
         except NoInternetError as e:
             # whatever the command was fetching: no connection to the provider could be made, which
             # is told in the one line it is, naming the URL, and not as a traceback. An empty result
@@ -1632,7 +1828,8 @@ def coverage(
 
     --provider and --network are required; `providers` lists the providers and their networks, with
     their `kind` (`observation`, `forecast` or `derived` for a timeseries network, which has stations and
-    values, and `radar` or `alerts` for a standalone one, which `stations` and `values` refuse) and whether
+    values, and `radar`, `alerts` or `storm_cells` for a standalone one, which `stations` and `values`
+    refuse) and whether
     they need credentials and have them. A parameter's `unit` is the unit its values come
     back in when no unit target is given (the one `glossary` gives; `degree_celsius`, `percent` for a
     percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
@@ -1877,6 +2074,7 @@ def fields(
 @wmo_id_opt
 @wigos_id_opt
 @icao_id_opt
+@region_opt
 @name_opt
 @name_threshold_opt
 @latitude_opt
@@ -1911,6 +2109,7 @@ def stations(
     wmo_id: str,
     wigos_id: str,
     icao_id: str,
+    region: str,
     name: str,
     name_threshold: float,
     latitude: float,
@@ -1935,7 +2134,7 @@ def stations(
 ) -> None:
     """Acquire stations.
 
-    Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
+    Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name, --region,
     --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql. Given a
     window, with --timestamp or --start / --end, only the stations whose record overlaps it are listed.
 
@@ -1943,12 +2142,12 @@ def stations(
     and exits 0. A station id of --stations the network has no station for is named in a warning and left out.
     """
     from wetterdienst import Settings
-    from wetterdienst.ui.core import StationsRequest, limit_stations_to_rank, limit_stations_to_window
+    from wetterdienst.ui.core import CliStationsRequest, limit_stations_to_rank, limit_stations_to_window
     from wetterdienst.ui.render import render_stations
 
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     request = _validate_request(
-        StationsRequest,
+        CliStationsRequest,
         {
             "provider": provider,
             "network": network,
@@ -1960,6 +2159,7 @@ def stations(
             "wmo_id": wmo_id,
             "wigos_id": wigos_id,
             "icao_id": icao_id,
+            "region": region,
             "name": name,
             "name_threshold": name_threshold,
             "latitude": latitude,
@@ -2029,9 +2229,10 @@ def stations(
 @click.option("--station", type=click.STRING, required=True, help="Station id to list the model runs of.")
 @click.option(
     "--dataset",
-    type=click.Choice(["icon", "icon_eu"]),
+    type=click.Choice(["icon", "icon_eu", "large", "small", "snow"]),
     default=None,
-    help="DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon",
+    help="DWD product: DMO icon or icon_eu (default icon), MOSMIX large, small or snow (default large); "
+    "refused for SWSMOS and for the other network's product.",
 )
 @click.option(
     "--lead-time",
@@ -2052,9 +2253,10 @@ def issues_cmd(
 
     Currently supported: --provider dwd --network mosmix|dmo|swsmos
 
-    A DMO run exists for a product, so --dataset and --lead-time decide which runs are listed. They
-    default to what a `values` request defaults to, which is what makes the answer one that request
-    accepts.
+    A run exists for a product, so --dataset (and for DMO --lead-time) decide which runs are listed.
+    They default to what a `values` request defaults to, which is what makes the answer one that
+    request accepts. For MOSMIX-S and MOSMIX-SNOW one run is every station's, so the station only
+    has to be an id; MOSMIX-L has a directory per station.
     """
     from wetterdienst import Settings
     from wetterdienst.ui.core import IssuesRequest
@@ -2225,6 +2427,7 @@ def history(
 @wmo_id_opt
 @wigos_id_opt
 @icao_id_opt
+@region_opt
 @name_opt
 @name_threshold_opt
 @latitude_opt
@@ -2277,6 +2480,7 @@ def history(
 @station_window_end_buffer_opt
 @plausibility_opts
 @limits_opt
+@_row_options_opts
 @stream_format_opt
 @width_opt
 @height_opt
@@ -2302,6 +2506,7 @@ def values(
     wmo_id: str,
     wigos_id: str,
     icao_id: str,
+    region: str,
     name: str,
     name_threshold: float,
     latitude: float,
@@ -2340,6 +2545,11 @@ def values(
     plausibility_step: Mode,
     plausibility_relations: Mode,
     limits: dict[str, Any] | None,
+    filter_: str | None,
+    sort: str | None,
+    first: int | None,
+    by: str | None,
+    max_rows: int | None,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
     with_stations: bool,  # noqa: FBT001
@@ -2348,15 +2558,15 @@ def values(
     """Acquire data.
 
     Select the stations with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
-    --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
+    --region, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
     from wetterdienst import Settings
-    from wetterdienst.ui.core import PLAUSIBILITY_OPTIONS, ValuesRequest
+    from wetterdienst.ui.core import PLAUSIBILITY_OPTIONS, CliValuesRequest
     from wetterdienst.ui.render import ValuesSettings, ndjson_refusal
 
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     request = _validate_request(
-        ValuesRequest,
+        CliValuesRequest,
         {
             "provider": provider,
             "network": network,
@@ -2370,6 +2580,7 @@ def values(
             "wmo_id": wmo_id,
             "wigos_id": wigos_id,
             "icao_id": icao_id,
+            "region": region,
             "name": name,
             "name_threshold": name_threshold,
             "latitude": latitude,
@@ -2406,6 +2617,11 @@ def values(
             "plausibility_step": plausibility_step,
             "plausibility_relations": plausibility_relations,
             "limits": limits,
+            "filter": filter_,
+            "sort": sort,
+            "first": first,
+            "by": by,
+            "max_rows": max_rows,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
@@ -2521,7 +2737,7 @@ def interpolate(
     Give the point as exactly one of --station or --latitude/--longitude.
     """
     from wetterdienst import Settings
-    from wetterdienst.ui.core import InterpolationRequest
+    from wetterdienst.ui.core import CliInterpolationRequest
     from wetterdienst.ui.render import InterpolationSettings
 
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
@@ -2529,7 +2745,7 @@ def interpolate(
         msg = "Provide either --timestamp or --start / --end."
         raise click.UsageError(msg)
     request = _validate_request(
-        InterpolationRequest,
+        CliInterpolationRequest,
         {
             "provider": provider,
             "network": network,
@@ -2672,7 +2888,7 @@ def summarize(
     Give the point as exactly one of --station or --latitude/--longitude.
     """
     from wetterdienst import Settings
-    from wetterdienst.ui.core import SummaryRequest
+    from wetterdienst.ui.core import CliSummaryRequest
     from wetterdienst.ui.render import SummarySettings
 
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
@@ -2680,7 +2896,7 @@ def summarize(
         msg = "Provide either --timestamp or --start / --end."
         raise click.UsageError(msg)
     request = _validate_request(
-        SummaryRequest,
+        CliSummaryRequest,
         {
             "provider": provider,
             "network": network,
@@ -2793,6 +3009,7 @@ def radar(
     Select the sites with exactly one of --dwd, --all, --odim-code, --wmo-code or --country-name.
     """
     from wetterdienst import Settings
+    from wetterdienst.provider.eumetnet.opera.sites import OPERA_CREDIT_LINE
 
     # an empty code or country, e.g. from an unset shell variable, selects nothing rather than a lookup
     _require_one_of(
@@ -2819,6 +3036,32 @@ def radar(
     output = json.dumps(data, indent=indent)
 
     print(output)  # noqa: T201
+    # the sites are EUMETNET OPERA's database, to be credited with its source page where they are passed on
+    # (GH-4200); on stderr, so that stdout stays the JSON
+    click.echo(OPERA_CREDIT_LINE, err=True)
+
+
+def _check_alerts_place(latitude: float | None, longitude: float | None, name: str | None) -> None:
+    """Refuse a point that is half or off the Earth, and a name of only whitespace, as usage errors naming the option.
+
+    Before the timestamp's refusal below, which is the one `ValueError` the request's own construction is blamed for.
+    """
+    from wetterdienst.provider.dwd.alerts.place import BLANK_NAME, check_name, check_point
+
+    if (latitude is None) != (longitude is None):
+        msg = "--latitude and --longitude are given together"
+        raise click.UsageError(msg)
+    # click bounds the point, and lets NaN through, which is no place on Earth and not the timestamp's to blame
+    try:
+        check_point(latitude, longitude)
+    except ValueError as e:
+        raise click.BadParameter(str(e), param_hint="--latitude/--longitude") from e
+    # a name of only whitespace names no area, and is not the timestamp's to blame either
+    try:
+        check_name(name)
+    except ValueError as e:
+        # the option is the subject, as `--latitude/--longitude` are above
+        raise click.BadParameter(BLANK_NAME, param_hint="--name") from e
 
 
 @cli.command("alerts", epilog=_examples(ALERTS_EXAMPLES))
@@ -2926,7 +3169,6 @@ def alerts(
     """
     from wetterdienst import Settings
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
-    from wetterdienst.provider.dwd.alerts.place import check_point
     from wetterdienst.ui.render import render_alerts
 
     _apply_log_level(debug=debug)
@@ -2938,14 +3180,7 @@ def alerts(
     # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
     # variable is a `ValueError`, and not the command line's to fix
     settings = Settings()
-    if (latitude is None) != (longitude is None):
-        msg = "--latitude and --longitude are given together"
-        raise click.UsageError(msg)
-    # click bounds the point, and lets NaN through, which is no place on Earth and not the timestamp's to blame
-    try:
-        check_point(latitude, longitude)
-    except ValueError as e:
-        raise click.BadParameter(str(e), param_hint="--latitude/--longitude") from e
+    _check_alerts_place(latitude, longitude, name)
     # granularity, language and format are click's, so only the timestamp reaches this refusal:
     # one that does not parse, or one an offset carries out of what a datetime holds
     try:
@@ -2992,14 +3227,60 @@ def alerts(
     print(output)  # noqa: T201
 
 
-@cli.group("stripes", cls=_Group)
-def stripes() -> None:
-    """Climate stripes."""
-
-
-@stripes.command("stations")
-@click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
-@_bool_opt("--active", default=True, help="Only stations still reporting. Default: true")
+@cli.command("storm-cells", epilog=_examples(STORM_CELLS_EXAMPLES))
+@click.option(
+    "--timestamp",
+    type=click.STRING,
+    default=None,
+    help=(
+        "Point in time (ISO 8601, UTC if no offset): the newest scan at or before it. Defaults to the newest scan. "
+        "Must fall within DWD's rolling ~48-hour window."
+    ),
+)
+@click.option(
+    "--latitude",
+    type=click.FloatRange(-90, 90),
+    help=(
+        "With --longitude, only the cells whose outline contains this point (an edge counts as inside) or comes "
+        "within --distance of it."
+    ),
+)
+@click.option("--longitude", type=click.FloatRange(-180, 180), help="Longitude of the point; given with --latitude.")
+@click.option(
+    "--distance",
+    type=click.FloatRange(min=0),
+    help=(
+        "With a point, the kilometres from it within which the outline of a cell counts as near. Default: 0, the "
+        "cells over the point."
+    ),
+)
+@click.option(
+    "--left",
+    type=click.FloatRange(-180, 180),
+    help="Western longitude of a box: with --bottom, --right and --top, only the cells whose outline reaches into it.",
+)
+@click.option("--bottom", type=click.FloatRange(-90, 90), help="Southern latitude of the box.")
+@click.option("--right", type=click.FloatRange(-180, 180), help="Eastern longitude of the box.")
+@click.option("--top", type=click.FloatRange(-90, 90), help="Northern latitude of the box.")
+@click.option(
+    "--min-severity",
+    type=click.IntRange(0, 3),
+    help="Only the cells of this severity and above: 0 weak, 1 moderate, 2 severe, 3 extreme.",
+)
+@_bool_opt(
+    "--track",
+    default=True,
+    help=(
+        "Give each cell its forecast track, 12 positions to 60 minutes ahead (1.6 KB of JSON a cell). "
+        "--track=false leaves it out. Default: true"
+    ),
+)
+@click.option(
+    "--geometry",
+    type=click.Choice(["outline", "centroid"], case_sensitive=False),
+    default="outline",
+    help="The geometry of each cell: its outline polygon, or the point of its centre. Default: outline",
+)
 @click.option(
     "--format",
     "fmt",
@@ -3007,139 +3288,527 @@ def stripes() -> None:
     default="json",
     help="Output format. Default: json",
 )
+@click.option(
+    "--target",
+    type=click.STRING,
+    help=(
+        "Write the cells to this file instead of stdout, in the format its extension names: .json, .geojson or "
+        ".csv. Databases are refused. A scan without a cell still writes the file. Example: file://cells.geojson"
+    ),
+)
+@click.option(
+    "--if-exists",
+    type=click.Choice(["replace", "append", "fail", "skip"]),
+    default="replace",
+    help=(
+        "What to do when the --target file is there: 'replace' (default), 'fail' or 'skip'. A file takes "
+        "no 'append'. Default: replace"
+    ),
+)
 @pretty_opt
+@_bool_opt(
+    "--with-metadata",
+    default=False,
+    help=(
+        "Write the metadata block (provider, licence, credit line, date of the data) beside the --target file as "
+        "<file>.metadata.json. A .json or .geojson file holds it already; a .csv file does not. Needs --target. "
+        "Default: false"
+    ),
+)
 @debug_opt
-def stripes_stations(
-    kind: str,
-    active: bool,  # noqa: FBT001
+def storm_cells(
+    timestamp: str | None,
+    latitude: float | None,
+    longitude: float | None,
+    distance: float | None,
+    left: float | None,
+    bottom: float | None,
+    right: float | None,
+    top: float | None,
+    min_severity: int | None,
+    track: bool,  # noqa: FBT001
+    geometry: str,
     fmt: str,
+    target: str,
+    if_exists: Literal["replace", "append", "fail", "skip"],
     pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """List stations for climate stripes."""
-    from wetterdienst.ui.core import StripesStationsRequest, _get_stripes_stations
-    from wetterdienst.ui.render import render_stripes_stations
-    from wetterdienst.ui.response_metadata import result_metadata
+    """Acquire DWD's thunderstorm cells (KONRAD3D).
+
+    Returns the cells of the newest radar scan (or of the newest at or before --timestamp), one row per cell: its
+    severity, warning flags for hail, heavy rain and gusts, size, speed, the direction of its motion, its outline
+    and its forecast track. Every cell of Germany, unless --latitude, --longitude and --distance, or --left,
+    --bottom, --right and --top name a place. An empty result is an answer: no cell was there (most scans hold
+    none), or none is in the place; its warnings say which, and that the scan is old.
+
+    With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
+    """
+    from wetterdienst import Settings
+    from wetterdienst.io.sinks import STORM_CELLS_FILE_FORMATS
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest
+    from wetterdienst.ui.core import StormCellsRequest
+    from wetterdienst.ui.render import render_storm_cells
 
     _apply_log_level(debug=debug)
     begin_response()
-    if kind not in ["temperature", "precipitation"]:
-        msg = f"Invalid kind '{kind}'"
-        raise click.ClickException(msg)
 
-    stations = _get_stripes_stations(kind=kind, active=active)
-
-    request = StripesStationsRequest.model_validate({"kind": kind, "active": active, "format": fmt, "pretty": pretty})
-    metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
-    _echo(render_stripes_stations(stations, request, metadata))
-
-
-@stripes.command("image", epilog=_examples(STRIPES_EXAMPLES))
-@click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
-@click.option("--station", type=click.STRING, help="Station id, instead of --name.")
-@click.option("--name", type=click.STRING, help="Station name, matched fuzzily, instead of --station.")
-@click.option("--name-threshold", type=click.FLOAT, default=0.80, help="Minimum fuzzy-match score. Default: 0.8")
-@click.option("--start-year", type=click.INT, help="First year. Default: the station's first")
-@click.option("--end-year", type=click.INT, help="Last year. Default: the station's last")
-@_bool_opt("--show-title", default=True, help="Show the station name. Default: true")
-@_bool_opt("--show-years", default=True, help="Show the first and last year. Default: true")
-@_bool_opt("--show-data-availability", default=True, help="Mark the years without data. Default: true")
-@click.option(
-    "--format",
-    "fmt",
-    type=click.Choice(["png", "jpg", "svg", "pdf"], case_sensitive=False),
-    default="png",
-    help="Image format. Default: png",
-)
-@click.option("--dpi", type=click.IntRange(min=0, min_open=True), default=300, help="Resolution. Default: 300")
-@click.option(
-    "--target",
-    # a string, not a `Path`: a `Path` collapses the `//` of a URI before it can be refused
-    type=click.Path(dir_okay=False, path_type=str),
-    help="Write the image to this local file instead of stdout.",
-)
-@debug_opt
-def stripes_image(
-    kind: Literal["temperature", "precipitation"],
-    station: str,
-    name: str,
-    start_year: int,
-    end_year: int,
-    name_threshold: float,
-    show_title: bool,  # noqa: FBT001
-    show_years: bool,  # noqa: FBT001
-    show_data_availability: bool,  # noqa: FBT001
-    fmt: str,
-    dpi: int,
-    target: str | None,
-    debug: bool,  # noqa: FBT001
-) -> None:
-    """Create the climate stripes image for a specific station.
-
-    Select the station with exactly one of --station or --name.
-    """
-    from wetterdienst import Settings
-    from wetterdienst.io.export import render_image, require_vl_convert
-    from wetterdienst.ui.core import StripesImageRequest
-
-    # the image is written with `Path.write_bytes`, so only a local path is a target: a URI, `file://` included,
-    # would be written to the path read off it (`s3:/bucket/...`) once the station is fetched and the plot rendered
-    if target and "://" in target:
-        msg = "only a local path is supported here, not a URI."
-        raise click.BadParameter(msg, param_hint="--target")
-    # `is not None`: an empty `--target=` is a path to refuse below, not the absence of one that writes to stdout
-    target_path = Path(target) if target is not None else None
-    request = _validate_request(
-        StripesImageRequest,
-        {
-            "kind": kind,
-            "station": station,
-            "name": name,
-            "name_threshold": name_threshold,
-            "start_year": start_year,
-            "end_year": end_year,
-            "show_title": show_title,
-            "show_years": show_years,
-            "show_data_availability": show_data_availability,
-            "format": fmt,
-            "dpi": dpi,
-        },
+    _refuse_non_file_target(target, "storm-cells")
+    target_url = _alerts_target(
+        target, fmt, with_metadata=with_metadata, formats=STORM_CELLS_FILE_FORMATS, noun="storm cells"
     )
-    # the suffix, dot included, so `stripespng` is refused; `.jpeg` is as usual for JPEG as `.jpg`
-    suffixes = (".jpg", ".jpeg") if fmt == "jpg" else (f".{fmt}",)
-    if target_path is not None and target_path.suffix.lower() not in suffixes:
-        msg = f"must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
-        raise click.BadParameter(msg, param_hint="--target")
 
-    _apply_log_level(debug=debug)
-
-    # the provider request builds its settings from the environment inside the catch-all below:
-    # checked here first, a malformed `WD_*` setting is told by its variable
-    Settings()
+    # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
+    # variable is a `ValueError`, and not the command line's to fix
+    settings = Settings()
+    # the place, told in the terms of the options (a half point, a point and a box together, a distance of no point)
+    asked = {
+        "timestamp": timestamp,
+        "latitude": latitude,
+        "longitude": longitude,
+        "distance": distance,
+        "left": left,
+        "bottom": bottom,
+        "right": right,
+        "top": top,
+        "min_severity": min_severity,
+        "track": track,
+        "geometry": geometry.lower(),
+        "format": fmt.lower(),
+        "pretty": pretty,
+    }
+    validated = _validate_request(StormCellsRequest, {key: value for key, value in asked.items() if value is not None})
     try:
-        chart = _plot_stripes(request)
+        request = DwdStormCellsRequest(
+            timestamp=validated.timestamp,
+            latitude=validated.latitude,
+            longitude=validated.longitude,
+            distance=validated.distance,
+            left=validated.left,
+            bottom=validated.bottom,
+            right=validated.right,
+            top=validated.top,
+            min_severity=validated.min_severity,
+            track=validated.track,
+            geometry=validated.geometry,
+            settings=settings,
+        )
+    except (ValueError, OverflowError) as e:
+        # a timestamp that does not parse, one an offset carries out of what a datetime holds, or a box that is no box
+        raise click.UsageError(str(e)) from e
+
+    try:
+        result = request.query()
+    except InvalidTimeIntervalError as e:
+        # a time before DWD's rolling window, the one refusal of the request's own `query` raises;
+        # any other `ValueError` comes from DWD's files (a time or a polygon it cannot read)
+        raise click.BadParameter(str(e), param_hint="--timestamp") from e
+    except NoInternetError:
+        # told by `_Cli.invoke` in one line
+        raise
     except Exception as e:
-        # a station that is not found, or years holding too little data, is told in one line, as
-        # `/api/stripes/image` answers it with a 4xx; an upstream failure keeps its traceback
-        _refuse_if_callers(e, request)
-        log.exception("Error while plotting warming stripes")
+        log.exception("Failed to acquire storm cells")
         raise click.ClickException(str(e)) from e
 
-    require_vl_convert()
-    image = render_image(chart, fmt, scale=dpi / 100)
-
-    if target_path is not None:
-        # rendered outside the handler: the renderer can raise an `OSError` of its own, which says nothing about
-        # --target
+    if target_url:
+        # a scan without a cell is written as it is, as no cell is an answer a file should say, where a table of
+        # stations or values is left alone (a schedule that rewrites the file must not keep the cells of the run before)
         try:
-            target_path.write_bytes(image)
+            result.to_target(target_url, if_exists=if_exists, with_metadata=with_metadata, pretty=pretty)
+        except (ExportRefusedError, MissingDependencyError) as e:
+            # a refusal, the message the whole of it: `--if-exists=fail` on a file that is there, `append`
+            raise click.ClickException(str(e)) from e
         except OSError as e:
-            # a directory that does not exist or cannot be written; `--target` itself refuses a directory
+            # a directory that does not exist or cannot be written, or a path naming a directory
             msg = f"Could not write --target: {e}"
             raise click.ClickException(msg) from e
         return
 
-    click.echo(image, nl=False)
+    output, _ = render_storm_cells(result, fmt, pretty=pretty)
+    print(output)  # noqa: T201
+
+
+@cli.command("station-ids", epilog=_examples(STATION_IDS_EXAMPLES))
+@click.option(
+    "--wmo-id",
+    "wmo_id",
+    type=click.STRING,
+    help=(
+        "Search by WMO number (five digits), comma-separated. The WIGOS identifier 0-20000-0-<number> of each is "
+        "searched too. Example: 10381,10147"
+    ),
+)
+@click.option(
+    "--wigos-id",
+    "wigos_id",
+    type=click.STRING,
+    help=(
+        "Search by WIGOS station identifier, comma-separated. One of WMO's issuer, 0-20000-0-<number>, is the WMO "
+        "number as well. Example: 0-20000-0-10381"
+    ),
+)
+@click.option(
+    "--icao-id",
+    "icao_id",
+    type=click.STRING,
+    help=(
+        "Search by ICAO location indicator (four letters, any case), comma-separated. The WMO numbers of the stations "
+        "found are searched too. Example: EDDH,EDDB"
+    ),
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "csv"], case_sensitive=False),
+    default="json",
+    help="Output format: json (with the metadata block) or csv (the table alone). Default: json",
+)
+@pretty_opt
+@debug_opt
+def station_ids(
+    wmo_id: str | None,
+    wigos_id: str | None,
+    icao_id: str | None,
+    fmt: str,
+    pretty: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Find one WMO number, WIGOS identifier or ICAO code at every provider that has it.
+
+    Asks the station list of every network that publishes the ids with its stations, all at once, and writes one row
+    for each station that carries one of them: provider, network, the resolution and dataset of the list, station_id,
+    name, position, the three ids, and which id matched (matched_by) and whether it was the id asked for or an
+    equivalent one (match). The ids are equivalent: the WIGOS identifier 0-20000-0-10381 and the WMO number 10381 find
+    each other, and an ICAO code also searches the WMO numbers of the stations it finds. A network that cannot be read,
+    needs credentials that are not set, or is rate-limited by its provider, is left out and named in a warning; if
+    every network that was asked failed or was rate-limited the command fails.
+
+    The first search reads about 30 MB of station lists and takes about 9 s on a good connection, longer on a slow
+    one; the next is served from the cache in about a second.
+    """
+    from wetterdienst import Settings
+    from wetterdienst.core.station_search import find_stations_by_id
+    from wetterdienst.ui.core import StationIdsRequest
+    from wetterdienst.ui.render import render_station_ids
+
+    asked = {"wmo_id": wmo_id, "wigos_id": wigos_id, "icao_id": icao_id, "format": fmt.lower(), "pretty": pretty}
+    request = _validate_request(StationIdsRequest, {key: value for key, value in asked.items() if value is not None})
+    _apply_log_level(debug=debug)
+    begin_response()
+
+    # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
+    settings = Settings()
+    try:
+        result = find_stations_by_id(
+            wmo_id=request.wmo_id, wigos_id=request.wigos_id, icao_id=request.icao_id, settings=settings
+        )
+    except Exception as e:
+        _refuse_if_callers(e, request)
+        log.exception("Failed to find the stations.")
+        sys.exit(1)
+
+    output, _ = render_station_ids(result, request.format, pretty=request.pretty)
+    _echo(output)
+
+
+@cli.command("kostra", epilog=_examples(KOSTRA_EXAMPLES))
+@click.option(
+    "--latitude",
+    type=click.FloatRange(-90, 90),
+    required=True,
+    help="Latitude of the point. DWD's grid covers Germany and a border of about 10 km.",
+)
+@click.option("--longitude", type=click.FloatRange(-180, 180), required=True, help="Longitude of the point.")
+@click.option(
+    "--duration",
+    type=click.INT,
+    default=None,
+    help=(
+        "Only this duration of the rain, in minutes: 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 540, 720, "
+        "1080, 1440, 2880, 4320, 5760, 7200, 8640 or 10080 (7 days). Without it all 22 are read: 22 files of DWD, "
+        "which takes 2 s the first time and is then served from the cache."
+    ),
+)
+@click.option(
+    "--return-period",
+    type=click.INT,
+    default=None,
+    help="Only this return period, in years: 1, 2, 3, 5, 10, 20, 30, 50 or 100. Default: all nine.",
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "csv"], case_sensitive=False),
+    default="json",
+    help="Output format: json (with the cell and the metadata block) or csv (the table alone). Default: json",
+)
+@pretty_opt
+@debug_opt
+def kostra(
+    latitude: float,
+    longitude: float,
+    duration: int | None,
+    return_period: int | None,
+    fmt: str,
+    pretty: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Acquire DWD's design rainfall (KOSTRA: return periods of heavy rain) at a point.
+
+    Reads KOSTRA-DWD-2020 and returns the table of the cell of DWD's 5 km grid that holds the point: for each
+    duration of a rain (5 minutes to 7 days) and each return period (1 to 100 years), its depth in mm, its intensity
+    in l/(s ha) and DWD's uncertainty in plus-minus percent, with the cell's INDEX_RC and the position of its centre.
+    Pass --duration, and --return-period, for the one value you need: a duration reads one table of DWD, without it
+    all 22 are read. A point outside Germany and a border of about 10 km, or in the sea, is refused.
+    """
+    from wetterdienst import Settings
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest
+    from wetterdienst.ui.core import KostraRequest
+    from wetterdienst.ui.render import render_kostra
+
+    _apply_log_level(debug=debug)
+    begin_response()
+
+    # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
+    # variable is a `ValueError`, and not the command line's to fix
+    settings = Settings()
+    asked = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "duration": duration,
+        "return_period": return_period,
+        "format": fmt.lower(),
+        "pretty": pretty,
+    }
+    validated = _validate_request(KostraRequest, {key: value for key, value in asked.items() if value is not None})
+    try:
+        result = DwdKostraRequest(
+            latitude=validated.latitude,
+            longitude=validated.longitude,
+            duration=validated.duration,
+            return_period=validated.return_period,
+            settings=settings,
+        ).query()
+    except RequestError as e:
+        # a point outside the grid or in a cell without values: the command line's to change, so one line and exit 2
+        raise click.UsageError(str(e)) from e
+    except NoInternetError:
+        # told by `_Cli.invoke` in one line
+        raise
+    except Exception as e:
+        log.exception("Failed to acquire KOSTRA statistics")
+        raise click.ClickException(str(e)) from e
+
+    output, _ = render_kostra(result, fmt, pretty=pretty)
+    print(output)  # noqa: T201
+
+
+@cli.command("statistics", epilog=_examples(STATISTICS_EXAMPLES))
+@provider_opt
+@network_opt
+@parameters_opt
+@periods_opt
+@timestamp_opt
+@all_opt
+@stations_opt
+@region_opt
+@name_opt
+@latitude_opt
+@longitude_opt
+@rank_opt
+@distance_opt
+@click.option(
+    "--aggregate",
+    type=click.STRING,
+    required=True,
+    help=(
+        "What to compute per group: one to five of count, mean, sum, min, max, earliest, latest, comma-separated. "
+        "count is the values that meet --filter, earliest and latest the first and last of them in time; min, max, "
+        "earliest and latest come with their date (min_at). A direction or a code has no mean or extreme; sum is for "
+        "amounts and, daily "
+        "or hourly, temperatures (degree days). Example: count or mean,max"
+    ),
+)
+@click.option(
+    "--by",
+    type=click.STRING,
+    help=(
+        "The groups, besides the series (a station and a parameter, never merged): year, month, day, hour (UTC), "
+        "comma-separated; none is one group per series. year,month is a group a month, month puts every January "
+        "together. Example: year"
+    ),
+)
+@click.option(
+    "--filter",
+    "filter_",
+    type=click.STRING,
+    help=(
+        "Conditions joined by commas: column, operator, number. year, month, day, hour (UTC) say which values are "
+        "looked at, value (in its unit) which of them count. Operators = != < <= > >=; a list a|b with = and !=. A "
+        "time condition changes expected, a value condition does not: a group with values and no match has a count "
+        "of 0. Example: 'value<0' or 'month=12|1|2,value>=25' (quote it: < and | are the shell's)"
+    ),
+)
+@click.option(
+    "--year-start",
+    "year_start",
+    type=click.IntRange(1, 12),
+    help=(
+        "The month a year begins, 1 to 12 (default 1). The year is named by the year it ends in: 12 makes the winter "
+        "2023/24 the year 2024, in --by, --filter and --sort. Needs year in --by"
+    ),
+)
+@click.option(
+    "--max-missing",
+    "max_missing",
+    type=click.IntRange(0, 10000),
+    help=(
+        "How many values a group may lack and still be complete, with a mean and a sum (default 0: a group with a "
+        "gap, a year that is not over or a year the window cuts has none). Keep it 0 to rank; raise it only for a gap "
+        "you accept: the warning gaps-allowed counts what it lets in"
+    ),
+)
+@click.option(
+    "--having",
+    type=click.STRING,
+    help=(
+        "Keep the groups that meet conditions on the results, written as --filter: the aggregates asked for, "
+        "searched, expected, complete (the word alone is complete=1). Example: 'count>=100' or 'searched<360' or "
+        "complete"
+    ),
+)
+@click.option(
+    "--sort",
+    type=click.STRING,
+    help=(
+        "Order of the groups: columns joined by commas, - before one for descending: the aggregates asked for, the "
+        "columns of --by, station_id, searched, expected, complete. A null comes last. Example: --sort=-mean"
+    ),
+)
+@click.option(
+    "--first",
+    type=click.IntRange(min=1),
+    help=(
+        "Keep the first N groups of the --sort order, exactly N (a warning says how many more tie): --sort=-mean "
+        "--first=5 with --by=year is the five warmest years. Needs --sort; counts in each series unless --per says "
+        "otherwise"
+    ),
+)
+@click.option(
+    "--per",
+    type=click.Choice(["station", "none"]),
+    default="station",
+    help=(
+        "Over what --first counts: station (each series) or none (the stations of one parameter together, each "
+        "group with its rank). Default: station"
+    ),
+)
+@click.option(
+    "--max-rows",
+    "max_rows",
+    type=click.IntRange(min=1),
+    help="Return at most this many groups of the whole answer, the first of its order, after --first",
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "csv", "ndjson"], case_sensitive=False),
+    default="json",
+    help=(
+        "Output format: json (with the metadata block), csv (a row per group) or ndjson (a line per group, then the "
+        "end). Default: json"
+    ),
+)
+@pretty_opt
+@debug_opt
+def statistics(
+    provider: str,
+    network: str,
+    parameters: str,
+    periods: str | None,
+    timestamp: str | None,
+    all_: bool,  # noqa: FBT001
+    stations: str | None,
+    region: str | None,
+    name: str | None,
+    latitude: float | None,
+    longitude: float | None,
+    rank: int | None,
+    distance: float | None,
+    aggregate: str,
+    by: str | None,
+    filter_: str | None,
+    year_start: int | None,
+    max_missing: int | None,
+    having: str | None,
+    sort: str | None,
+    first: int | None,
+    per: str,
+    max_rows: int | None,
+    fmt: str,
+    pretty: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Count, average, add up or take the extremes of each station's values per year, month, day or hour.
+
+    Select the stations with exactly one of --all, --stations, --region, --name, or --latitude/--longitude with --rank
+    or --distance. Each group says how many values it has (searched) and should have (expected): a group with a gap,
+    and a year that is not over, has no mean or sum unless --max-missing allows it. --having, --sort and --first choose
+    among the groups, and over_groups has the minimum, maximum and mean over a series' complete groups.
+    """
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import StatisticsRequest, get_statistics
+    from wetterdienst.ui.render import render_statistics
+
+    request = _validate_request(
+        StatisticsRequest,
+        {
+            "provider": provider,
+            "network": network,
+            "parameters": parameters,
+            "periods": periods,
+            "timestamp": timestamp,
+            "all": all_,
+            "stations": stations,
+            "region": region,
+            "name": name,
+            "latitude": latitude,
+            "longitude": longitude,
+            "rank": rank,
+            "distance": distance,
+            "aggregate": aggregate,
+            "by": by,
+            "filter": filter_,
+            "year_start": year_start,
+            "max_missing": max_missing,
+            "having": having,
+            "sort": sort,
+            "first": first,
+            "per": per,
+            "max_rows": max_rows,
+            "format": fmt.lower(),
+            "pretty": pretty,
+        },
+    )
+    _apply_log_level(debug=debug)
+    begin_response()
+
+    api = get_timeseries_api(request.provider, request.network)
+
+    # built first: a malformed host setting is not the command line's to fix, whatever the options say
+    settings = Settings()
+    # the shape is always long
+    options = _build_options({"shape": ("shape", "long")})
+
+    result = _collect_or_exit(
+        get_statistics, api=api, request=request, settings=settings, options=options, what="statistics"
+    )
+    log_counted_warnings(log)
+    if not result.series:
+        log.warning(NO_DATA)
+    output, _ = render_statistics(result, request)
+    _echo(output)
 
 
 if __name__ == "__main__":

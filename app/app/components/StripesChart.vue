@@ -2,8 +2,8 @@
 import type { ECharts } from 'echarts/core'
 /**
  * The climate stripes (GH-4068), drawn by Apache ECharts as SVG: a stripe for each year, the optional availability line,
- * timeseries and trend, and the title, the years and the source. The chart is as wide as the column gives it (up to the
- * cap of `.app-chart`) and at a fixed height, as it always was.
+ * and the title, the years and the source. The chart is as wide as the column gives it (up to the
+ * cap of `.app-chart`) and as high as that width gives it at a fixed ratio of the stripes (`STRIPES_RATIO`, GH-4133).
  *
  * Where the pointer can do more than the keyboard, the keyboard can do the same (WCAG 2.1.1, 2.5.7): the chart is one
  * tab stop whose arrow keys step through the years, whose `+`, `-` and `0` zoom, and whose toolbar's buttons do what a
@@ -14,29 +14,54 @@ import type { ECharts } from 'echarts/core'
  */
 import type { StripesKind } from '#shared/types/api'
 import type { ImageFormat } from '~/utils/chart-image'
-import type { StripesInput, YearWindow } from '~/utils/stripes-model'
+import type { StripesReferenceView } from '~/utils/stripes'
+import type { StripesInput, StripesVariant, StripesView, YearWindow } from '~/utils/stripes-model'
 import type { StripesDisplay, StripesOptionInput } from '~/utils/stripes-option'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { readDocumentChartTheme } from '~/utils/chart-theme'
-import { formatNumber } from '~/utils/format'
-import { COLOR_MAPS, stripeClass, stripeColour, wrapChartTitle } from '~/utils/stripes'
-import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, zoomWindow } from '~/utils/stripes-model'
-import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, STRIPES_FONT_FAMILY, STRIPES_HEIGHT, STRIPES_HEIGHT_TITLE, stripesLayout, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
+import { formatNumber, formatSigned } from '~/utils/format'
+import { processingNote } from '~/utils/processing-note'
+import { barsSubtitle, stripeBand, stripeColour, stripesReferenceText, wrapChartTitle } from '~/utils/stripes'
+import { buildStripesModel, clampWindow, fullWindow, isStripesDrawing, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VIEWS, zoomWindow } from '~/utils/stripes-model'
+import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, frameOf, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, SUBTITLE_SIZE, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   values: readonly StripesInput[]
+  /** what the values' classes are relative to: what the line under the chart, the bars' subtitle and the image's caption say */
+  reference: StripesReferenceView
   kind: StripesKind
   /** the unit's symbol, which the readout names the values in */
   unit: string
   title: string
   display: StripesDisplay
+  /**
+   * What is shown of the years: stripes, bars, bars with a scale (GH-4156) or the table (GH-4233); the switch above asks the page to change it.
+   * The table is drawn by the page, under the switch: this component draws nothing then and has no toolbar.
+   */
+  variant?: StripesView
   /** the figure's name, and the element that describes it */
   label?: string
   describedBy?: string
   /** the name of the camera's file, without its extension */
   cameraFile: string
-}>()
+  /** the source line under the stripes where it is not DWD's (NOAA's GHCN daily, GH-4078) */
+  sourceText?: string
+  /** how the day's temperature was made, for a station of GHCN daily: one short line of a saved image, under what the colours are relative to (GH-4078) */
+  methodLine?: string
+  /** A line of a saved image on where the days came from where that is not NOAA's own file: the mirror on AWS, whose file may end early (GH-4390) */
+  noticeLine?: string
+}>(), { variant: 'stripes' })
+const emit = defineEmits<{ 'update:variant': [variant: StripesView] }>()
+
+/** Whether a chart is shown: the table is the one view that has none */
+const drawing = computed(() => isStripesDrawing(props.variant))
+// how the years are drawn: the one chosen last, kept while the table is shown, so that the image and the camera are of what the chart goes back to
+const chartVariant = ref<StripesVariant>(isStripesDrawing(props.variant) ? props.variant : 'stripes')
+watch(() => props.variant, (next) => {
+  if (isStripesDrawing(next))
+    chartVariant.value = next
+})
 
 const { t, locale } = useI18n()
 const toast = useToast()
@@ -77,11 +102,25 @@ function measure() {
   const measured = rootEl.value?.clientWidth ?? 0
   width.value = measured > 0 ? measured : 800
 }
-const height = computed(() => props.display.showTitle ? STRIPES_HEIGHT_TITLE : STRIPES_HEIGHT)
 const font = `${TITLE_SIZE}px ${STRIPES_FONT_FAMILY}`
 // a title that does not fit the chart's width is broken into lines (GH-3961)
-const titleLines = computed(() => props.display.showTitle ? wrapChartTitle(props.title, width.value - 2 * TITLE_PADDING, font).text.split('<br>') : [])
-const layout = computed(() => stripesLayout(props.display, width.value, height.value, titleLines.value.length))
+function titleLinesFor(chartWidth: number): string[] {
+  return props.display.showTitle ? wrapChartTitle(props.title, chartWidth - 2 * TITLE_PADDING, font).text.split('<br>') : []
+}
+const titleLines = computed(() => titleLinesFor(width.value))
+// what the bars with a scale are relative to, under the title and broken into the lines its width needs (the others have none)
+const subtitleFont = `${SUBTITLE_SIZE}px ${STRIPES_FONT_FAMILY}`
+function subtitleLinesFor(chartWidth: number): string[] {
+  return chartVariant.value === 'barsScale' ? wrapChartTitle(barsSubtitle(props.reference, props.unit, t), chartWidth - 2 * TITLE_PADDING, subtitleFont).text.split('<br>') : []
+}
+const subtitleLines = computed(() => subtitleLinesFor(width.value))
+const frame = computed(() => frameOf({ variant: chartVariant.value, subtitleLines: subtitleLines.value }))
+// the stripes keep their shape: the chart is as high as its width gives it, the title and the years on top (GH-4133); the bars are as high
+const height = computed(() => stripesChartHeight(props.display, width.value, titleLines.value.length, { frame: frame.value }))
+const layout = computed(() => stripesLayout(props.display, width.value, height.value, titleLines.value.length, 0, frame.value))
+const variantOptions = computed(() => STRIPES_VIEWS.map(value => ({ value, label: t(`stripes.variant.${value}`) })))
+/** The numbers of the bars' y axis, with their sign, in the language of the page */
+const formatTick = (value: number, decimals: number) => value === 0 ? formatNumber(0, locale.value, 0) : formatSigned(value, locale.value, decimals)
 
 // -- the window of years the chart shows --------------------------------------------------------------------------
 
@@ -136,14 +175,13 @@ watch(bounds, (next, previous) => {
 function formatValue(value: number): string {
   return `${formatNumber(value, locale.value, 2)} ${props.unit}`.trim()
 }
-const trendShown = computed(() => props.display.showTrendline && props.display.showTimeseries)
 
 function rowOf(year: number | null) {
   const m = model.value
   if (!m || year === null)
     return null
   const index = m.years.indexOf(year)
-  return index < 0 ? null : { year, index, value: m.values[index]!, trend: m.trend[index]! }
+  return index < 0 ? null : { year, index, value: m.values[index]!, stripeClass: m.classes[index]!, anomaly: m.anomalies[index]! }
 }
 
 const outerPx = computed(() => width.value)
@@ -168,12 +206,11 @@ const readout = computed(() => {
   if (!m || !row || !cursorBox.value)
     return null
   const rows = [{ id: 'value', label: t('stripes.hoverValue'), value: formatValue(row.value) }]
-  if (trendShown.value)
-    rows.push({ id: 'trend', label: t('stripes.hoverTrend'), value: formatValue(row.trend) })
-  rows.push({ id: 'class', label: t('stripes.table.class'), value: t(`stripes.table.classes.${props.kind}.${stripeClass(row.value, m.min, m.max)}`) })
+  // the class as `stripes-scale.ts` gives it, with how far the year lies from the mean of the reference
+  rows.push({ id: 'class', label: t('stripes.table.class'), value: `${t(`stripes.table.classes.${props.kind}.${stripeBand(row.stripeClass)}`)} (${formatSigned(row.anomaly, locale.value, 1)} ${props.unit})`.trim() })
   return {
     year: String(row.year),
-    colour: stripeColour(COLOR_MAPS[props.kind], m.normalized[row.index]!),
+    colour: stripeColour(props.kind, row.stripeClass),
     rows,
   }
 })
@@ -229,10 +266,7 @@ function readoutSentence(year: number): string {
   const row = rowOf(year)
   if (!row)
     return ''
-  const parts = [`${t('stripes.hoverValue')}${t('common.colon')} ${formatValue(row.value)}`]
-  if (trendShown.value)
-    parts.push(`${t('stripes.hoverTrend')}${t('common.colon')} ${formatValue(row.trend)}`)
-  return `${row.year}${t('common.colon')} ${parts.join('; ')}`
+  return `${row.year}${t('common.colon')} ${t('stripes.hoverValue')}${t('common.colon')} ${formatValue(row.value)}`
 }
 
 // Escape closes the readout wherever the pointer or the focus is, and is left to whatever else it closes (a dialog)
@@ -252,6 +286,14 @@ watch(() => readout.value !== null, (open) => {
 interface Drag { x0: number, x1: number, active: boolean }
 const drag = ref<Drag | null>(null)
 let suppressClick = false
+
+// the table has no crosshair: it is not left standing for the chart to find again
+watch(drawing, (shown) => {
+  if (!shown) {
+    cursor.value = null
+    drag.value = null
+  }
+})
 
 function stageX(event: PointerEvent | MouseEvent): number {
   return event.clientX - (stageEl.value?.getBoundingClientRect().left ?? 0)
@@ -482,7 +524,10 @@ function optionInput(over: Partial<StripesOptionInput> = {}): StripesOptionInput
     window: win.value,
     titleLines: titleLines.value,
     availabilityText: t('stripes.plotDataAvailability'),
-    sourceText: t('stripes.plotSource'),
+    sourceText: props.sourceText ?? t('stripes.plotSource'),
+    variant: chartVariant.value,
+    subtitleLines: subtitleLines.value,
+    formatTick,
     ...over,
   }
 }
@@ -491,7 +536,7 @@ let isRendering = false
 let renderPending = false
 // what the chart on the page was drawn from: a drawing for the same is none
 let drawnFrom: unknown[] | null = null
-const drawInputs = () => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value]
+const drawInputs = () => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value, chartVariant.value, subtitleLines.value.join('\n'), drawing.value]
 
 async function render() {
   if (isRendering) {
@@ -578,7 +623,7 @@ async function draw() {
   performance.mark('stripes:drawn')
 }
 
-watch(() => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value], () => void render())
+watch(() => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value, chartVariant.value, subtitleLines.value.join('\n'), drawing.value], () => void render())
 // the window moves without drawing the chart again: the zoom, and the years named at the ends of it
 watch(win, () => {
   const input = optionInput()
@@ -600,21 +645,36 @@ onBeforeUnmount(() => {
   disposeChart()
 })
 
+/** What the colours are relative to, in the short form a saved image carries under its source */
+function referenceCaption() {
+  return stripesReferenceText(props.reference, t, value => formatNumber(value, locale.value, 1), 'stripes.plotReference')
+}
+
 // -- saving the image ---------------------------------------------------------------------------------------------
 
 /**
  * Saves the stripes as a file of `width` by `height` px (times `scale`, for a raster image). A saved image is always the
  * light one, whatever the page shows: the stripes are drawn again, off screen, in the light theme, laid out for the width
  * of the image (its title is broken into lines where the image is narrow, not where the page is), in the range the stripes
- * are zoomed to.
+ * are zoomed to. It says what its colours are relative to under the source, in lines as many as its width needs, which
+ * make it higher than `height` (the image's own, from the title to the source) by their room (GH-4157).
  */
 async function save(options: { format: ImageFormat, filename: string, width: number, height: number, scale: number }) {
-  const { format, filename, width: imageWidth, height: imageHeight, scale } = options
+  const { format, filename, width: imageWidth, scale } = options
   const light = readDocumentChartTheme('light')
-  const lines = props.display.showTitle ? wrapChartTitle(props.title, imageWidth - 2 * TITLE_PADDING, font).text.split('<br>') : []
+  const lines = titleLinesFor(imageWidth)
+  const wrapped = (text: string) => wrapChartTitle(text, imageWidth - 40, `14px ${STRIPES_FONT_FAMILY}`).text.split('<br>')
+  // the note of what wetterdienst did to the data comes directly under the source, and with it: no source line, no note (GH-3799)
+  const extraLines = [
+    ...(props.display.showSource ? wrapped(processingNote(t)) : []),
+    ...wrapped(referenceCaption()),
+    ...(props.methodLine ? wrapped(props.methodLine) : []),
+    ...(props.noticeLine ? wrapped(props.noticeLine) : []),
+  ]
+  const imageHeight = options.height + extraLinesHeight(props.display, extraLines.length)
   // the paper is part of the image: a vector with dark text on nothing is unreadable on a dark page that shows it
   const paper = light.paper || '#ffffff'
-  const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines, background: paper })
+  const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines, background: paper, extraLines, subtitleLines: subtitleLinesFor(imageWidth) })
   if (!input)
     return
   const lib = await loadChartCode()
@@ -631,13 +691,13 @@ async function save(options: { format: ImageFormat, filename: string, width: num
   downloadBlob(blob, `${filename}.${format}`)
 }
 
-/** The camera of the toolbar: a PNG of a fixed size, whatever the width of the page */
+/** The camera of the toolbar: a PNG of a fixed width, whatever the width of the page, with the stripes in the shape they have on the page (not held to its least and most) */
 function saveCamera() {
   void save({
     format: 'png',
     filename: props.cameraFile,
     width: CAMERA_WIDTH,
-    height: props.display.showTitle ? 700 : 600,
+    height: stripesChartHeight(props.display, CAMERA_WIDTH, titleLinesFor(CAMERA_WIDTH).length, { clamp: false, frame: frameOf({ variant: chartVariant.value, subtitleLines: subtitleLinesFor(CAMERA_WIDTH) }) }),
     scale: CAMERA_SCALE,
   }).catch((error: unknown) => {
     console.error('The chart image could not be saved', error)
@@ -645,7 +705,7 @@ function saveCamera() {
   })
 }
 
-defineExpose({ save, resetZoom, zoomIn, zoomOut, shift, win, atStart, atEnd, atMaxZoom, atMinZoom, renderFailed, renderFailures, width })
+defineExpose({ save, resetZoom, zoomIn, zoomOut, shift, win, atStart, atEnd, atMaxZoom, atMinZoom, renderFailed, renderFailures, width, height })
 
 const selectionStyle = computed(() => {
   const d = drag.value
@@ -657,7 +717,7 @@ const selectionStyle = computed(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="stripes-chart app-chart">
+  <div ref="rootEl" class="stripes-chart app-chart bleed-in bleed-chart">
     <div
       v-if="renderFailed"
       ref="chartNotice"
@@ -677,36 +737,45 @@ const selectionStyle = computed(() => {
       <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
     </div>
 
-    <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
-    <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
-    <div ref="toolbarEl" class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
-      <UButton
-        icon="i-ph-caret-left" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :disabled="atStart" @click="shift(-0.5)"
+    <!-- the way to draw the years (GH-4156) and the buttons to the chart: on one row where they fit, the switch at the left -->
+    <div class="sc-controls">
+      <SegmentedControl
+        :model-value="variant"
+        :options="variantOptions"
+        :label="t('stripes.variant.label')"
+        @update:model-value="emit('update:variant', $event)"
       />
-      <UButton
-        icon="i-ph-caret-right" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.later')" :aria-label="t('stripes.chart.later')" :disabled="atEnd" @click="shift(0.5)"
-      />
-      <UButton
-        icon="i-ph-magnifying-glass-minus" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.zoomOut')" :aria-label="t('stripes.chart.zoomOut')" :disabled="atMinZoom" @click="zoomOut()"
-      />
-      <UButton
-        icon="i-ph-magnifying-glass-plus" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.zoomIn')" :aria-label="t('stripes.chart.zoomIn')" :disabled="atMaxZoom" @click="zoomIn()"
-      />
-      <UButton
-        icon="i-ph-arrow-counter-clockwise" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.resetZoom')" :aria-label="t('stripes.chart.resetZoom')" :disabled="atMinZoom" @click="resetZoom()"
-      />
-      <UButton
-        icon="i-ph-camera" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.savePng')" :aria-label="t('stripes.chart.savePng')" @click="saveCamera()"
-      />
+      <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
+      <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
+      <div v-if="drawing" ref="toolbarEl" class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
+        <ChartToolButton
+          icon="i-ph-caret-left"
+          :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :unavailable="atStart" @click="shift(-0.5)"
+        />
+        <ChartToolButton
+          icon="i-ph-caret-right"
+          :title="t('stripes.chart.later')" :aria-label="t('stripes.chart.later')" :unavailable="atEnd" @click="shift(0.5)"
+        />
+        <ChartToolButton
+          icon="i-ph-magnifying-glass-minus"
+          :title="t('stripes.chart.zoomOut')" :aria-label="t('stripes.chart.zoomOut')" :unavailable="atMinZoom" @click="zoomOut()"
+        />
+        <ChartToolButton
+          icon="i-ph-magnifying-glass-plus"
+          :title="t('stripes.chart.zoomIn')" :aria-label="t('stripes.chart.zoomIn')" :unavailable="atMaxZoom" @click="zoomIn()"
+        />
+        <ChartToolButton
+          icon="i-ph-arrow-counter-clockwise"
+          :title="t('stripes.chart.resetZoom')" :aria-label="t('stripes.chart.resetZoom')" :unavailable="atMinZoom" @click="resetZoom()"
+        />
+        <UButton
+          icon="i-ph-camera" size="sm" variant="outline" color="neutral" class="shrink-0"
+          :title="t('stripes.chart.savePng')" :aria-label="t('stripes.chart.savePng')" @click="saveCamera()"
+        />
+      </div>
     </div>
 
-    <div ref="scrollerEl" class="sc-scroller" :style="{ height: `${height}px` }" :inert="renderFailed || undefined">
+    <div v-if="drawing" ref="scrollerEl" class="sc-scroller" :style="{ height: `${height}px` }" :inert="renderFailed || undefined">
       <!-- a figure, as the app's other charts, and no landmark; one tab stop for the whole chart (Chartability) -->
       <div
         ref="stageEl"
@@ -768,11 +837,11 @@ const selectionStyle = computed(() => {
         </div>
       </div>
     </div>
-    <p :id="hintId" class="sr-only">
+    <p v-if="drawing" :id="hintId" class="sr-only">
       {{ t('stripes.chart.keysHint') }}
     </p>
     <!-- said when a key steps the crosshair, and not for a pointer's hover -->
-    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="stripes-announce">
+    <p v-if="drawing" class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="stripes-announce">
       {{ announcement }}
     </p>
   </div>
@@ -782,12 +851,46 @@ const selectionStyle = computed(() => {
 .stripes-chart {
   position: relative;
 }
+.sc-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+/* The switch of the four views is as wide as its labels need, and no wider than the chart. On a phone (below 30 rem) it is two rows of two
+   segments, as wide as the chart: four labels in a row ("Barres avec échelle", "Sloupce se stupnicí", "Streifen", "Tabelle") did not fit 320 px
+   in Firefox, whose text is a few px wider than Chromium's, and a segment of half the chart's width has room for any of them, with a margin.
+   A label may still wrap onto a second line, never run past its segment, and a segment is 44 px high, the app's own measure of a target. The
+   keys are the group's (the DOM order, left to right and down) and do not change with the layout. */
+.sc-controls :deep([role='radiogroup']) {
+  max-width: 100%;
+}
+.sc-controls :deep([role='radio']) {
+  min-width: 0;
+}
+@media (max-width: 30rem) {
+  .sc-controls :deep([role='radiogroup']) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .sc-controls :deep([role='radio']) {
+    justify-content: center;
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 .sc-toolbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.25rem;
-  padding-bottom: 0.5rem;
+  margin-left: auto;
 }
 .sc-scroller {
   position: relative;

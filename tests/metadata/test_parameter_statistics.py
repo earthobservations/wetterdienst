@@ -337,9 +337,19 @@ _MEAN_WORD = re.compile(r"(?<![a-z])(?:mean(?!(?:\s+|_)sea(?![a-z]))|averag\w*|a
 # hourly sheets, which give the mean value of the 1 minute interval ending ten minutes before the hour
 _MEAN_WINDOW = re.compile(
     r"(?<![\d.])(\d+)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average)|\b(?:mean|average) over (\d+)[ -]?min(?:ute)?s?\b"
-    r"|\b(?:mean|average) value of the (\d+)[ -]?min(?:ute)?s? interval\b",
+    r"|\b(?:mean|average) value of the (\d+)[ -]?min(?:ute)?s? interval\b"
+    # no number is one minute: KNMI's 10-minute "Past minute mean air temperature at 1.50 meters"
+    r"|\bpast (minute)[ -]*(?:mean|average)\b",
     re.IGNORECASE,
 )
+
+
+def _mean_window_of(match: re.Match[str]) -> int:
+    """Return the minutes of a `_MEAN_WINDOW` match: the number it states, or 1 for "past minute mean"."""
+    number = next((g for g in match.groups() if g and g.isdigit()), None)
+    return int(number) if number is not None else 1
+
+
 # the minutes a value of the resolution covers, for the resolutions that are a fixed number of them
 _INTERVAL_MINUTES = {
     "1_minute": 1,
@@ -366,7 +376,7 @@ def _states_a_mean(evidence: str, resolution: str) -> bool:
         return False
     interval = _INTERVAL_MINUTES.get(resolution)
     for match in _MEAN_WINDOW.finditer(evidence):
-        if interval is not None and int(match.group(1) or match.group(2) or match.group(3)) < interval:
+        if interval is not None and _mean_window_of(match) < interval:
             return False
     return True
 
@@ -533,8 +543,9 @@ def test_a_spot_name_behaves_as_the_mean_name_beside_it() -> None:
         )
         if counterpart not in PARAMETERS:
             # no dataset declares the mean radiant temperature, so the table has no entry to be kept in step with:
-            # DWD's urban 10-minute set only has the reading (GH-2614, GH-2651)
-            if name != "temperature_radiant_2m":
+            # DWD's urban 10-minute set only has the reading (GH-2614, GH-2651). The same for the air temperature at
+            # 10 cm: KNMI's `tg` is a 1-minute reading and no source states a mean there (GH-4330)
+            if name not in ("temperature_radiant_2m", "temperature_air_0_1m"):
                 wrong.append(f"{name}: has no {counterpart}")
             continue
         for field in ("unit_type", "interpolation", "zero_inflated", "lapse_rate"):

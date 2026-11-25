@@ -37,6 +37,9 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -46,12 +49,22 @@ DWD_MOSMIX_L_PATH = "weather/local_forecasts/mos/MOSMIX_L/all_stations/kml/"
 DWD_MOSMIX_L_SINGLE_PATH = "weather/local_forecasts/mos/MOSMIX_L/single_stations/{station_id}/kml/"
 DWD_MOSMIX_SNOW_PATH = "weather/local_forecasts/mos/MOSMIX-SNOW_S/all_stations/kml/"
 
+#: Where the runs of each dataset are listed (`DwdMosmixRequest.available_issues`): MOSMIX-L from the directory of
+#: one station, MOSMIX-S and MOSMIX-SNOW from the directory of all stations, which is every station's.
+_ISSUE_PATHS = {
+    "large": DWD_MOSMIX_L_SINGLE_PATH,
+    "small": DWD_MOSMIX_S_PATH,
+    "snow": DWD_MOSMIX_SNOW_PATH,
+}
+
 #: The 15 stations of the MOSMIX-SNOW run of 2026-11-14 19 UTC (the offline fixture,
 #: `tests/provider/dwd/mosmix/MOSMIX-SNOW_S_2026111419_48.kmz`), all in the Bavarian Alps. Not what the stations of the
 #: dataset are: those are the stations the newest run names (`DwdMosmixRequest._snow_station_ids`), so that a station
 #: DWD adds is reachable. This is the answer only where no run can be read, which is out of season (the directory is
 #: empty from May to October) or when it could not be listed or read. The MOSMIX catalogue lists 37 `Z9xx` stations and
-#: cannot say which are the run's. `test_dwd_mosmix_snow` holds this list to the live run, so a change is noticed.
+#: cannot say which are the run's. `test_dwd_mosmix_snow` holds this list to the live run, so a change is noticed;
+#: re-check then the extent of `hourly/snow` in `metadata.py` (national DE; an Austrian station makes it regional
+#: DE/AT), which the live catalogue check would not notice, since its box covers Austrian border areas.
 MOSMIX_SNOW_STATION_IDS = (
     "Z901",
     "Z905",
@@ -92,6 +105,8 @@ class DwdForecastDate(Enum):
 # first; until then the rule matches what can actually be read
 _FORECAST_FILE = r"\.kmz$"
 _LATEST_FILE = re.compile(r"LATEST.*" + _FORECAST_FILE, re.IGNORECASE)
+# the alias of any product, for what a listing is counted as: MOSMIX-SNOW's is `aktuell`, which no run is read from
+_ALIAS_FILE = re.compile(r"(?:LATEST|aktuell).*" + _FORECAST_FILE, re.IGNORECASE)
 
 
 def _run_stamp_of(url: str) -> str | None:
@@ -155,9 +170,59 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         from typing import cast  # noqa: PLC0415
 
         super().__post_init__()
+        # one parsed file per dataset of the request, so that small + large (+ snow) parse each file once and not
+        # the other dataset's again at every station (GH-4093)
         self.kml = KMLReader(
             station_ids=self.sr.station_id.to_list(),
             settings=cast("Settings", self.sr.request.settings),
+            keep_parsed=len(self.sr.request._requested_datasets),  # noqa: SLF001
+        )
+        # the file each dataset was read from for the station in hand (`_collect_station_data` starts it afresh)
+        self._file_urls: dict[str, str] = {}
+
+    def _collect_station_data(self, station_id: str, available_datasets: list[DatasetModel]) -> pl.DataFrame:
+        """Collect the station's data, forgetting the files of the station before it.
+
+        A dataset that is not available for this station is never read, and would keep the file of the station before
+        it for `_given_timestamps`.
+        """
+        self._file_urls.clear()
+        return super()._collect_station_data(station_id, available_datasets)
+
+    def _read_run(self, file_url: str, dataset: DatasetModel) -> None:
+        """Read the run of a dataset and remember it as the file of the station in hand (`_given_timestamps`)."""
+        steps_of = self._steps_of(dataset)
+        if steps_of is None:
+            self.kml.read(file_url)
+        else:
+            self.kml.read(file_url, steps_of)
+        self._file_urls[dataset.name] = file_url
+
+    def _steps_of(self, dataset: DatasetModel) -> list[str] | None:
+        """Name the elements of a dataset whose steps `skip_empty` needs from the file, or None for none."""
+        from typing import cast  # noqa: PLC0415
+
+        if not self.sr.options.skip_empty:
+            return None
+        return [p.name_original for p in cast("Iterable[ParameterModel]", self.sr.parameters) if p.dataset == dataset]
+
+    def _given_timestamps(self, parameter: ParameterModel) -> pl.Series | None:
+        """Name the steps at which some station of the file the station was read from has a value of the element.
+
+        MOSMIX gives some elements at some steps only (`TX` and `TN` every 12th, `TM` every 24th, MOSMIX-SNOW's `SnCv`
+        every 3rd; `Sa3` every 3rd step early on and hourly after that, differing by element and station), and writes
+        `-` for such a step as for a value that is missing. A step at which no station of the file has a value is one
+        the product does not give: the cadence is read from the file, and `skip_empty` measures a station against it
+        (GH-4093). The file of a single station has that station only, so every step it has a value at counts.
+        """
+        url = self._file_urls.get(parameter.dataset.name)
+        if url is None:
+            return None
+        steps = self.kml.given_timesteps(url, parameter.name_original)
+        if steps is None:
+            return None
+        return pl.Series("timestamp", steps, dtype=pl.String).str.to_datetime(
+            format="%Y-%m-%dT%H:%M:%S%.fZ", time_zone="UTC"
         )
 
     @property
@@ -233,7 +298,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         # -- and `one_station_only=False` raises rather than answering `None`, which is why there
         # is no empty-frame branch here where `read_mosmix_large` has one
         file_url = cast("str", self.get_url_for_date(url, date, one_station_only=False))
-        self.kml.read(file_url)
+        self._read_run(file_url, DwdMosmixMetadata.hourly.small)
         return self.kml.get_station_forecast(station_id)
 
     def read_mosmix_large(
@@ -252,7 +317,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         file_url = self.get_url_for_date(url, date, one_station_only=not all_stations)
         if not file_url:
             return pl.DataFrame()
-        self.kml.read(file_url)
+        self._read_run(file_url, DwdMosmixMetadata.hourly.large)
         return self.kml.get_station_forecast(station_id)
 
     def read_mosmix_snow(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
@@ -265,7 +330,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
 
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_SNOW_PATH)
         file_url = cast("str", self.get_url_for_date(url, date, one_station_only=False, seasonal=True))
-        self.kml.read(file_url)
+        self._read_run(file_url, DwdMosmixMetadata.hourly.snow)
         return self.kml.get_station_forecast(station_id)
 
     def get_url_for_date(
@@ -399,19 +464,36 @@ class DwdMosmixRequest(TimeseriesRequest):
     station_group: DwdMosmixStationGroup = DwdMosmixStationGroup.SINGLE_STATIONS
 
     _url = MOSMIX_STATION_CATALOGUE_URL
-    # per request, not per class: the stations of the newest MOSMIX-SNOW run, read once (`_snow_station_ids`)
-    _snow_stations: set[str] | None = dataclasses.field(default=None, repr=False, compare=False)
+    # per request, not per class: the stations of the newest MOSMIX-SNOW run, read once (`_snow_station_ids`); the
+    # request sets it, so it is no constructor argument (`init=False`)
+    _snow_stations: set[str] | None = dataclasses.field(default=None, init=False, repr=False, compare=False)
 
     @classmethod
-    def available_issues(cls, station_id: str, settings: Settings) -> list[dt.datetime]:
-        """Return datetimes for which MOSMIX L single-station files exist on DWD's server.
+    def available_issues(cls, station_id: str, settings: Settings, dataset: str = "large") -> list[dt.datetime]:
+        """Return datetimes for which the files of a MOSMIX product exist on DWD's server.
+
+        `dataset` names the product, as the datasets of the network do: `large` (MOSMIX-L, the default), `small`
+        (MOSMIX-S) or `snow` (MOSMIX-SNOW). MOSMIX-L is listed from the directory of the one station, which is what a
+        request reads by default (`DwdMosmixStationGroup.SINGLE_STATIONS`). MOSMIX-S and MOSMIX-SNOW are published as
+        one file of all stations per run, so their runs are the same whatever `station_id` is, as for SWSMOS.
 
         The list is sorted in ascending order and contains only unique UTC datetimes.
-        Only MOSMIX_L single-station files are considered; the LATEST symlink is excluded.
+        The LATEST symlink is excluded.
+
+        Raises:
+            InvalidEnumerationError: `dataset` is none of the three.
+
         """
-        url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_SINGLE_PATH.format(station_id=station_id))
+        if dataset not in _ISSUE_PATHS:
+            msg = f"dataset must be one of {', '.join(_ISSUE_PATHS)} for DWD MOSMIX issues (got {dataset!r})"
+            raise InvalidEnumerationError(msg)
+        url = urljoin("https://opendata.dwd.de", _ISSUE_PATHS[dataset].format(station_id=station_id))
         urls = list_remote_files_fsspec(url, settings, CacheExpiry.NO_CACHE)
         if not urls:
+            if dataset == "snow":
+                # empty from May to October, which is the season and no product that moved
+                log.warning(out_of_season_message(url, dt.datetime.now(dt.UTC).month))
+                return []
             # a directory that exists and holds nothing has no issues to name, which is an answer
             # rather than the `invalid series dtype: expected String, got null` an empty frame used
             # to raise here. Reached by a station whose directory DWD has emptied or retired, and
@@ -439,7 +521,8 @@ class DwdMosmixRequest(TimeseriesRequest):
             # only its alias tomorrow is a retention change worth seeing -- not because `info`
             # would go unheard, which it would not: `setup_logging` runs `basicConfig(level=INFO)`
             # for both the CLI and the REST API, so `info` reaches exactly those two
-            aliases = sum(1 for listed in urls if _LATEST_FILE.search(listed.rsplit("/", 1)[-1]))
+            # MOSMIX-SNOW names its alias `..._aktuell_48.kmz`, MOSMIX-S and -L `..._LATEST_...`
+            aliases = sum(1 for listed in urls if _ALIAS_FILE.search(listed.rsplit("/", 1)[-1]))
             log.warning(
                 f"No dated run listed within {url} ({len(urls)} entries, {aliases} of them the LATEST alias)",
             )

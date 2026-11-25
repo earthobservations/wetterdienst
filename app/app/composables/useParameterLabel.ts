@@ -9,6 +9,7 @@ import * as glossaryIt from '~~/i18n/glossary/it'
 import * as glossaryLb from '~~/i18n/glossary/lb'
 import * as glossaryNl from '~~/i18n/glossary/nl'
 import * as glossaryPl from '~~/i18n/glossary/pl'
+import { prettifyId } from '~/utils/prettify-id'
 
 /** One curated catalog per UI locale; `tests/unit/i18n-parity.test.ts` keeps their keys in step. */
 const glossaries: Record<string, typeof glossaryEn> = {
@@ -42,20 +43,12 @@ export function useParameterLabel() {
 
   const glossary = computed(() => glossaries[locale.value] ?? glossaryEn)
 
-  function prettify(id: string): string {
-    return id
-      .replace(/_/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/\b\w/g, c => c.toUpperCase())
-  }
-
   function lookup(map: Record<string, string>, id?: string | null): string {
     if (!id)
       return ''
     if (!settings.value.friendlyLabels)
       return id
-    return map[id] ?? prettify(id)
+    return map[id] ?? prettifyId(id)
   }
 
   const parameterLabel = (id?: string | null) => lookup(glossary.value.parameters, id)

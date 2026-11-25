@@ -3,6 +3,7 @@ import * as process from 'node:process'
 import tailwindcss from '@tailwindcss/vite'
 import { ICON_SCAN } from './icon-scan'
 import { RATE_LIMIT_DEFAULTS } from './server/utils/rateLimit'
+import { DEFAULT_LOCALE, LANGUAGE_COOKIE, LOCALES } from './shared/utils/locales'
 import { DEFAULT_SITE_URL } from './shared/utils/seo'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -114,26 +115,14 @@ export default defineNuxtConfig({
   ],
 
   i18n: {
-    locales: [
-      { code: 'de', language: 'de-DE', name: 'Deutsch', file: 'de.json' },
-      { code: 'en', language: 'en-GB', name: 'English', file: 'en.json' },
-      { code: 'fr', language: 'fr-FR', name: 'Français', file: 'fr.json' },
-      { code: 'es', language: 'es-ES', name: 'Español', file: 'es.json' },
-      { code: 'it', language: 'it-IT', name: 'Italiano', file: 'it.json' },
-      { code: 'pl', language: 'pl-PL', name: 'Polski', file: 'pl.json' },
-      { code: 'nl', language: 'nl-NL', name: 'Nederlands', file: 'nl.json' },
-      { code: 'cs', language: 'cs-CZ', name: 'Čeština', file: 'cs.json' },
-      { code: 'da', language: 'da-DK', name: 'Dansk', file: 'da.json' },
-      { code: 'lb', language: 'lb-LU', name: 'Lëtzebuergesch', file: 'lb.json' },
-      { code: 'de-hh', language: 'de-DE', name: 'Hamburgisch', file: 'de-hh.json' },
-    ],
-    defaultLocale: 'de',
+    locales: LOCALES.map(locale => ({ ...locale })),
+    defaultLocale: DEFAULT_LOCALE,
     strategy: 'no_prefix',
     vueI18n: 'i18n.config.ts',
     detectBrowserLanguage: {
       useCookie: true,
-      cookieKey: 'wd_lang',
-      fallbackLocale: 'de',
+      cookieKey: LANGUAGE_COOKIE,
+      fallbackLocale: DEFAULT_LOCALE,
       redirectOn: 'root',
     },
   },
@@ -179,6 +168,8 @@ export default defineNuxtConfig({
       enabled: process.env.WD_E2E !== '1',
       tokens: RATE_LIMIT_DEFAULTS.tokens,
       windowSeconds: RATE_LIMIT_DEFAULTS.windowSeconds,
+      // the images of the radar's frames have a bucket of their own (`NUXT_RATE_LIMIT_FRAME_TOKENS`, GH-3788)
+      frameTokens: RATE_LIMIT_DEFAULTS.frameTokens,
       clientIpHeader: '',
     },
     // The origins whose pages may read the app's answers, a list separated by commas (`NUXT_CORS_ALLOWED_ORIGINS`):
@@ -188,6 +179,22 @@ export default defineNuxtConfig({
     // carries it, and set at run time by `NUXT_API_BASE` (GH-3096). Empty means: the old `NUXT_PUBLIC_API_BASE`
     // if that is set (deprecated), else `http://localhost:7890/api`.
     apiBase: '',
+    // The name Google Search Console gives for the verification file of an HTML-file property, `google54ae9a07758f51bd`
+    // (a trailing `.html` is accepted): the server then answers `/<name>.html` with the line Google expects
+    // (`server/middleware/google-site-verification.ts`, GH-4108). Private and set at run time by
+    // `NUXT_GOOGLE_SITE_VERIFICATION`; empty, nothing is answered, and a value that is no name is ignored with a warning.
+    // Not a file of `public/`, which every build and every self-hosted instance would serve as its own.
+    googleSiteVerification: '',
+    // The search of places by name (GH-3790, GH-3791): this server asks Photon (photon.komoot.io) for them, for the search of the header
+    // (`server/utils/placesSearch.ts`). `NUXT_PLACES_SEARCH=off` is the operator's switch: the route then asks nobody and the search shows
+    // no places (`on`, `true`, `1`, `yes` and `enabled` leave it on; any other text switches it off, so that a typing mistake never leaves
+    // it running). `NUXT_PLACES_PHOTON_BASE` is the address of Photon's API, empty for komoot's public server: a self-hosted Photon, or the
+    // stand-in the end-to-end tests ask (`tests/e2e/mock-photon.mjs`, which `playwright.config.ts` sets it to).
+    placesSearch: 'on',
+    placesPhotonBase: '',
+    // `NUXT_PLACES_E2E=1`, set by the end-to-end suite for its own server only: `GET /_search/places?probe=1` then says where the server would send its
+    // requests, which the suite checks to be its stand-in before it runs, so that no test can reach komoot's server (`tests/e2e/global-setup.ts`).
+    placesE2e: '',
     public: {
       // The address the app is reached at, for what names the pages to the outside: the canonical link and `og:url` of
       // each page, the sitemap and `robots.txt` (`shared/utils/seo.ts`, GH-3497). Public, because the page writes the
@@ -201,7 +208,7 @@ export default defineNuxtConfig({
       tailwindcss() as any,
     ],
     optimizeDeps: {
-      include: ['leaflet', 'leaflet.markercluster', 'plotly.js-basic-dist-min'],
+      include: ['leaflet', 'leaflet.markercluster'],
     },
     build: {
       rollupOptions: {
@@ -247,6 +254,15 @@ export default defineNuxtConfig({
     // `rolldownOptions.output.minify.compress.dropConsole`: the app reports a failed chart, map or DuckDB query
     // with `console.error` on purpose (the specs assert it), and that is what a bug report needs from a browser.
     removeLoggers: false,
+    // nuxt-security's `xssValidator` is off for the whole app (GH-4364). For a POST it calls h3's `readBody`, which
+    // reads the whole body into memory before any route runs, on any path, one that does not exist included, and
+    // its `requestSizeLimiter` looks only at a declared `Content-Length` of a POST, PUT or DELETE: a chunked body
+    // of 16 MiB was read whole. Nothing needs it. The app's server takes a body in one route only, `/mcp`
+    // (JSON-RPC, which the backend validates; its proxy caps what it reads, `server/utils/mcpProxy.ts`); the
+    // `/api` proxy and every other route are GET and read none. It is no defence against injection either: the
+    // page escapes what it shows (Vue), and the Content-Security-Policy below is what limits a script on a page. For a GET it
+    // only filtered the query, which no route of the app puts in a page unescaped.
+    xssValidator: false,
     headers: {
       // nuxt-security defaults this to 'no-referrer', which strips the Referer
       // header. OpenStreetMap's tile servers reject refererless requests
@@ -255,13 +271,16 @@ export default defineNuxtConfig({
       // nuxt-security's default switches the browser's Geolocation API off for the page (`geolocation=()`), which
       // would make "Use my location" (GH-3651) fail as a refusal that no setting of the browser can undo. The page
       // itself may ask (on the reader's press, and the browser asks the reader); no frame of another origin may.
-      // Camera, microphone, screen capture and fullscreen stay as the module has them.
-      permissionsPolicy: { geolocation: ['self'] },
+      // The module's default for fullscreen is `fullscreen=()`, which switches the Fullscreen API off for the page: the full-screen
+      // button of the map (GH-4227) would then always be the app's own covering of the page, which is the fall-back of a browser
+      // that has no API for an element. The page itself may ask (on the reader's press); no frame of another origin may.
+      // Camera, microphone and screen capture stay as the module has them.
+      permissionsPolicy: { geolocation: ['self'], fullscreen: ['self'] },
       contentSecurityPolicy: {
         // No script, worker or request goes to a CDN (GH-3094): DuckDB-wasm (`QueryPanel.vue`) and Swagger UI
         // (`/docs`) are the app's own files, and the browser calls only this origin; the backend is reached by
         // the server's proxies, and the icons come from `/_nuxt_icon` (GH-3111).
-        // No `'unsafe-eval'`: nothing evaluates a string (Plotly, Leaflet, Vue and the i18n messages run under
+        // No `'unsafe-eval'`: nothing evaluates a string (ECharts, Leaflet, Vue and the i18n messages run under
         // this policy; Zod probed it, see `useSettings.ts`). `'wasm-unsafe-eval'` is for DuckDB's module, which
         // the worker compiles: Chrome gives a worker the policy of its script, which has none, but a browser
         // that gives it the page's needs it, and it allows WebAssembly, no string.
@@ -292,6 +311,13 @@ export default defineNuxtConfig({
     // of the app now (GH-3094), a blob of the page's own before, which took the page's policy. nuxt-security sets
     // it for the page only, so the assets say it themselves.
     '/_nuxt/**': { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless' } },
+    // The `/mcp` proxy owns the limit of a request body (`MAX_BODY_BYTES`, the backend's 4 MiB) and forwards the
+    // body of a POST (JSON-RPC, which the backend validates) as it came. nuxt-security's `requestSizeLimiter`
+    // answers 413 from 2,000,000 bytes, below the backend's limit, so it is off here (GH-4362). Its `xssValidator`
+    // is off for the whole app, see `security` above (GH-4364).
+    // (`/mcp/**` matches `/mcp` as well; the plain key is belt and braces)
+    '/mcp': { security: { requestSizeLimiter: false } },
+    '/mcp/**': { security: { requestSizeLimiter: false } },
     // Who may frame `/widget` is not a rule of this list: see `server/plugins/widget-frame.ts`.
   },
 

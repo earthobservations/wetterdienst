@@ -5,9 +5,11 @@
 /**
  * The default limit, the one place it is written: 300 requests in 300 seconds for each client, that is
  * 60 a minute. An operator changes it at run time with `NUXT_RATE_LIMIT_TOKENS` and
- * `NUXT_RATE_LIMIT_WINDOW_SECONDS` (`runtimeConfig.rateLimit` in `nuxt.config.ts` reads these).
+ * `NUXT_RATE_LIMIT_WINDOW_SECONDS` (`runtimeConfig.rateLimit` in `nuxt.config.ts` reads these). The images of the radar's
+ * frames (`radar/frame`, GH-3788) have a bucket of their own, `frameTokens` in the same window: one page of the Radar tool asks for
+ * 49 of them, which the browser then keeps for an hour, and a loop that was refused its frames would be broken.
  */
-export const RATE_LIMIT_DEFAULTS = { tokens: 300, windowSeconds: 300 } as const
+export const RATE_LIMIT_DEFAULTS = { tokens: 300, windowSeconds: 300, frameTokens: 1000 } as const
 
 /**
  * What the app serves from the catalogue of the backend: small, the same for every caller, and asked for
@@ -20,7 +22,10 @@ const CATALOGUE_ROUTES: ReadonlySet<string> = new Set(['version', 'settings', 'p
  * Whether a request is counted against the limit of its client.
  *
  * The pages, the assets and the proxied `/docs` and `/openapi.json` are not. Under `/api` (and its pinned
- * `/api/v1`) and `/mcp` every route is, but the catalogue ones. The path is read as the router reads it, as
+ * `/api/v1`) and `/mcp` every route is, but the catalogue ones, and so is every route of `/_ghcn`, the app's own server's routes for
+ * NOAA's GHCN daily: the list of its stations for the map (GH-4267), the annual values of its stripes and the list of the stations
+ * of its stripes (GH-4258), which read the backend's stations and days, and of `/_search`, the stations and the places the search of the header
+ * finds by name (GH-3790), which match the lists that the server keeps and ask Photon. The path is read as the router reads it, as
  * written: only a catalogue route spelled exactly, with nothing in front of it or behind it (a single trailing
  * slash aside), is left out. `/api/version/../values` is not `version`: the proxy resolves it to a route of
  * its own, which this does not know, and what is not known is counted.
@@ -33,7 +38,8 @@ export function isLimited(path: string): boolean {
     return true
   const pathname = path.split('?')[0]!.replace(/(?<=.)\/$/, '')
   const [, first, ...rest] = pathname.split('/')
-  if (first === 'mcp')
+  // the routes of the app's own server that read the backend and work on it (`/_ghcn/*`: map-stations, annual and stations; `/_search/*`: the stations the search finds)
+  if (first === 'mcp' || first === '_ghcn' || first === '_search')
     return true
   if (first !== 'api')
     return false
@@ -137,4 +143,23 @@ export function createRateLimiter() {
 export function positiveInteger(value: unknown, fallback: number): number {
   const number = Number(value)
   return Number.isInteger(number) && number >= 1 ? number : fallback
+}
+
+/** The bucket a counted request goes into: the images of the radar's frames have their own (GH-3788), every other counted route shares one */
+export type LimitBucket = 'frames' | 'shared'
+
+/**
+ * Which bucket a request is counted in, or null where it is not counted at all (`isLimited`). `radar/frame` is read as `isLimited`
+ * reads a catalogue route: exactly, under `/api` or `/api/v1`, so `/api/radar/frame/../values` is the shared bucket's.
+ *
+ * @param path The request's path and query, as `event.path`
+ * @returns The bucket, or null
+ */
+export function bucketOf(path: string): LimitBucket | null {
+  if (!isLimited(path))
+    return null
+  const pathname = path.split('?')[0]!.replace(/(?<=.)\/$/, '')
+  const [, first, ...rest] = pathname.split('/')
+  const route = first === 'api' && rest[0] === 'v1' ? rest.slice(1) : rest
+  return first === 'api' && route.length === 2 && route[0] === 'radar' && route[1] === 'frame' ? 'frames' : 'shared'
 }

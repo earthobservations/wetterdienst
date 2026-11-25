@@ -1,85 +1,226 @@
-import type { StripesKind } from '#shared/types/api'
+import type { StripesKind, StripesValuesResponse } from '#shared/types/api'
 
-/** The classes a stripe is put in by its colour: fifths of the range between the lowest and the highest year shown */
+/**
+ * The words a stripe's class is told in, for the table and the readout: the 16 classes of the colour scale in five bands,
+ * symmetric round the centre. Not a second scale: the class is the one `stripes-scale.ts` calculates (`stripe_class`, 0 to 15, from the lowest
+ * value to the highest), these only name it.
+ */
 export const STRIPE_CLASSES = ['veryLow', 'low', 'middle', 'high', 'veryHigh'] as const
 export type StripeClass = (typeof STRIPE_CLASSES)[number]
 
+/** How many colours the scale has: 8 below the centre and 8 above (`reference.classes`) */
+export const STRIPE_CLASS_COUNT = 16
+
 /**
- * The class of a year's stripe, as its colour is chosen: the value's place between the lowest and the
- * highest year drawn (the stripes' colour scale runs over that range), in fifths. A series whose years are
- * all alike is in the middle.
+ * The band of a class: the classes 0 to 2 (beyond 1.6 standard deviations below the centre) are very low, 3 to 6 low, the
+ * two next to the centre (within a third of a standard deviation of it) the middle, and the upper half is the mirror.
  */
-export function stripeClass(value: number, min: number, max: number): StripeClass {
-  if (max <= min)
+export function stripeBand(stripeClass: number): StripeClass {
+  if (stripeClass <= 2)
+    return 'veryLow'
+  if (stripeClass <= 6)
+    return 'low'
+  if (stripeClass <= 8)
     return 'middle'
-  const fifth = Math.floor((value - min) / (max - min) * STRIPE_CLASSES.length)
-  return STRIPE_CLASSES[Math.min(STRIPE_CLASSES.length - 1, Math.max(0, fifth))]!
+  if (stripeClass <= 12)
+    return 'high'
+  return 'veryHigh'
 }
 
 export interface StripeYear {
   year: number
   value: number
+  /** the year's distance from the mean of the reference, in the unit of the value */
+  anomaly: number
+  /** 0 (the lowest) to 15, as `stripes-scale.ts` classes the year: the colour of its stripe */
+  stripeClass: number
   class: StripeClass
 }
 
-/**
- * The years a chart of climate stripes draws, as the table that stands for it lists them: each with its value
- * and class. Years without a value are not drawn, so they are not here; each year is read in UTC, as the
- * stripes read it.
- */
-export function stripeYears(values: { timestamp: string | null, value: number | null }[]): StripeYear[] {
-  const drawn = values.filter((item): item is { timestamp: string, value: number } => item.value !== null && item.timestamp !== null)
-  const numbers = drawn.map(item => item.value)
-  const min = Math.min(...numbers)
-  const max = Math.max(...numbers)
-  return drawn.map(item => ({
-    year: new Date(item.timestamp).getUTCFullYear(),
-    value: item.value,
-    class: stripeClass(item.value, min, max),
-  }))
+/** A value of the stripes of a station, as far as the stripes read it */
+export interface StripesValueInput {
+  timestamp: string | null
+  value: number | null
+  anomaly: number | null
+  stripe_class: number | null
 }
 
-/** The colour scales of the stripes, from the lowest year (0) to the highest (1): the stripes page's and the map panel's */
-export const COLOR_MAPS: Record<StripesKind, Array<[number, string]>> = {
+/**
+ * The years a chart of climate stripes draws, as the table that stands for it lists them: each with its value, its anomaly
+ * and its class, which the app calculates (`stripes-scale.ts`) against the station's whole record and not against the years shown.
+ * Years without a value are not drawn, so they are not here; each year is read in UTC, as the stripes read it.
+ */
+export function stripeYears(values: readonly StripesValueInput[]): StripeYear[] {
+  return values
+    .filter((item): item is { timestamp: string, value: number, anomaly: number, stripe_class: number } => item.value !== null && item.timestamp !== null && item.anomaly !== null && item.stripe_class !== null)
+    .map(item => ({
+      year: new Date(item.timestamp).getUTCFullYear(),
+      value: item.value,
+      anomaly: item.anomaly,
+      stripeClass: item.stripe_class,
+      class: stripeBand(item.stripe_class),
+    }))
+}
+
+/**
+ * What the temperature of a station of NOAA's GHCN daily is built from (GH-4078, GH-4222): the years are calculated from the days, and
+ * a day's temperature is the midrange of the daily maximum and minimum, which is no 24-hour mean, for every day of the record, or
+ * the source's own mean (TAVG) at a station that has no day with both. The answer says which as `series.method`; DWD's own annual
+ * values and the precipitation have none, and nothing is said of them (an empty text).
+ */
+export function stripesMethodNote(
+  method: 'midrange' | 'tavg' | null | undefined,
+  t: (key: string, params?: Record<string, unknown>) => string,
+): string {
+  if (method === 'midrange')
+    return t('stripes.methodMidrange')
+  if (method === 'tavg')
+    return t('stripes.methodTavg')
+  return ''
+}
+
+/**
+ * The line that says a station of GHCN daily was read from the mirror of NOAA's data on AWS (GH-4390): NCEI did not give the station's file (it was down, or answered a 404 for that station), so the
+ * backend took the days from the mirror, whose file may end earlier, and the most recent days may be missing. Where the record ends
+ * before the last complete year the line says in which year it ends. An empty text for stripes made of NOAA's own file, and for DWD's.
+ *
+ * @param mirror - The answer's `mirror`, as `stripes-source.ts` sets it
+ * @param t - Translates a key
+ * @param thisYear - The year it is; a record that ends in the year before it is complete as far as the years go
+ */
+export function stripesMirrorNote(
+  mirror: StripesValuesResponse['mirror'],
+  t: (key: string, params?: Record<string, unknown>) => string,
+  thisYear = new Date().getUTCFullYear(),
+): string {
+  if (!mirror)
+    return ''
+  return mirror.last_year !== null && mirror.last_year < thisYear - 1
+    ? t('stripes.mirrorNoteEnds', { year: mirror.last_year })
+    : t('stripes.mirrorNote')
+}
+
+/** What the answer's `reference` says of one number of it: the years it was calculated from, and whether the whole record stood in for the period of the method */
+export interface StripesReferenceStatView {
+  first_year: number
+  last_year: number
+  fallback: boolean
+}
+
+/** The part of the answer's `reference` the sentence under the stripes reads */
+export interface StripesReferenceView {
+  centre: StripesReferenceStatView
+  spread: StripesReferenceStatView
+  range_sigma: number
+}
+
+/**
+ * The sentence that says what the colours of a set of stripes are relative to (`stripes.reference`): the mean of 1971 to 2000
+ * and the standard deviation of 1901 to 2000, or the whole record of a station that has too few years in them
+ * (`stripes.referenceWhole`), each with the years of the answer.
+ *
+ * @param reference - What the answer says the classes are relative to
+ * @param t - Writes the sentence in the language of the page
+ * @param format - Writes the number of standard deviations the scale reaches to either side, 2.6
+ * @param key - The sentence: the whole one under the chart (`stripes.reference`), or the short one of a saved image (`stripes.plotReference`)
+ */
+export function stripesReferenceText(
+  reference: StripesReferenceView,
+  t: (key: string, params?: Record<string, unknown>) => string,
+  format: (value: number) => string,
+  key: 'stripes.reference' | 'stripes.plotReference' = 'stripes.reference',
+): string {
+  return t(key, { centre: referencePeriod(reference.centre, t), spread: referencePeriod(reference.spread, t), sigma: format(reference.range_sigma) })
+}
+
+/**
+ * The short line under the chart (GH-4233): only what this station's colours are measured against, not how the scale is made
+ * (the page's About text says that, the same for every station). For the stripes and the table the mean of the reference
+ * and the years the spread is from (`stripes.referenceShort.stripes`); for the bars the mean they are drawn from
+ * (`stripes.referenceShort.bars`). Where the station has too few years in the periods of the method, so that its whole record
+ * stands in for both, it says so with the years of the record (`...Whole`). Where only one of the two stands in, that one is
+ * written as `the whole record, 1976–2024` (`stripes.referenceShort.record`), with no parentheses of its own, since the line has
+ * them around the spread.
+ */
+export function stripesReferenceShort(
+  reference: StripesReferenceView,
+  t: (key: string, params?: Record<string, unknown>) => string,
+  drawing: 'stripes' | 'bars' = 'stripes',
+): string {
+  const { centre, spread } = reference
+  if (centre.fallback && spread.fallback && centre.first_year === spread.first_year && centre.last_year === spread.last_year)
+    return t(`stripes.referenceShort.${drawing}Whole`, { from: centre.first_year, to: centre.last_year })
+  const period = (stat: StripesReferenceStatView) => stat.fallback
+    ? t('stripes.referenceShort.record', { from: stat.first_year, to: stat.last_year })
+    : `${stat.first_year}–${stat.last_year}`
+  return t(`stripes.referenceShort.${drawing}`, { centre: period(centre), spread: period(spread) })
+}
+
+/** The years one number of the reference was calculated from: the period of the method (`1971–2000`), or the whole record where the station had too few years in it */
+export function referencePeriod(stat: StripesReferenceStatView, t: (key: string, params?: Record<string, unknown>) => string): string {
+  return stat.fallback
+    ? t('stripes.referenceWhole', { from: stat.first_year, to: stat.last_year })
+    : `${stat.first_year}–${stat.last_year}`
+}
+
+/**
+ * What the bars with a scale are relative to, written under their title (`stripes.barsRelativeTo`): the mean of the reference's
+ * period, the same the colours are centred on, with the unit of the anomalies in brackets, `[°C]`, where there is one.
+ */
+export function barsSubtitle(reference: StripesReferenceView, unit: string, t: (key: string, params?: Record<string, unknown>) => string): string {
+  const text = t('stripes.barsRelativeTo', { period: referencePeriod(reference.centre, t) })
+  return unit ? `${text} [${unit}]` : text
+}
+
+/**
+ * The 16 colours of the stripes, from the lowest class (0) to the highest (15), which `tests/unit/stripes.test.ts` holds to their sources
+ * (the backend's image had the same until it was removed, GH-4258). Temperature: the eight most saturated classes of
+ * ColorBrewer's 9-class Blues, below the mean of the reference, and Reds above it, as Ed Hawkins' stripes have them.
+ * Precipitation: the two halves of ColorBrewer's BrBG, brown for dry and teal for wet, eight sampled along each.
+ */
+export const STRIPE_PALETTES: Record<StripesKind, readonly string[]> = {
   temperature: [
-    [0, 'rgb(5,48,97)'],
-    [0.2, 'rgb(33,102,172)'],
-    [0.4, 'rgb(146,197,222)'],
-    [0.5, 'rgb(247,247,247)'],
-    [0.6, 'rgb(253,219,199)'],
-    [0.8, 'rgb(239,138,98)'],
-    [1, 'rgb(178,24,43)'],
+    '#08306b',
+    '#08519c',
+    '#2171b5',
+    '#4292c6',
+    '#6baed6',
+    '#9ecae1',
+    '#c6dbef',
+    '#deebf7',
+    '#fee0d2',
+    '#fcbba1',
+    '#fc9272',
+    '#fb6a4a',
+    '#ef3b2c',
+    '#cb181d',
+    '#a50f15',
+    '#67000d',
   ],
   precipitation: [
-    [0, 'rgb(84,48,5)'],
-    [0.2, 'rgb(140,81,10)'],
-    [0.4, 'rgb(191,129,45)'],
-    [0.5, 'rgb(246,232,195)'],
-    [0.6, 'rgb(199,234,229)'],
-    [0.8, 'rgb(90,180,172)'],
-    [1, 'rgb(1,102,94)'],
+    '#543005',
+    '#744308',
+    '#93580f',
+    '#b07323',
+    '#c89444',
+    '#dab972',
+    '#e9d29b',
+    '#f6e8c3',
+    '#c7eae5',
+    '#9ed9d0',
+    '#75c5ba',
+    '#4aa69d',
+    '#268981',
+    '#086d65',
+    '#01544a',
+    '#003c30',
   ],
 }
 
-/**
- * The colour of a point of a scale, 0 to 1, mixed between the two stops around it (the scale's colours in RGB, as the stripes have always been drawn).
- *
- * @example
- * stripeColour(COLOR_MAPS.temperature, 0.5) // 'rgb(247, 247, 247)'
- */
-export function stripeColour(scale: Array<[number, string]>, position: number): string {
-  const at = Math.min(1, Math.max(0, position))
-  const rgb = (css: string) => css.match(/\d+/g)!.map(Number)
-  for (let index = 1; index < scale.length; index++) {
-    const [stop, colour] = scale[index]!
-    if (at <= stop) {
-      const [previous, previousColour] = scale[index - 1]!
-      const share = stop === previous ? 0 : (at - previous) / (stop - previous)
-      const [a, b] = [rgb(previousColour), rgb(colour)]
-      return `rgb(${a.map((channel, i) => Math.round(channel + (b[i]! - channel) * share)).join(', ')})`
-    }
-  }
-  return `rgb(${rgb(scale[scale.length - 1]![1]).join(', ')})`
+/** The colour of a class of the scale, 0 to 15 (a class outside them takes the end it lies at) */
+export function stripeColour(kind: StripesKind, stripeClass: number): string {
+  const palette = STRIPE_PALETTES[kind]
+  return palette[Math.min(palette.length - 1, Math.max(0, Math.round(stripeClass)))]!
 }
 
 /**
@@ -124,8 +265,8 @@ export const measureWithCanvas: TextMeasure = (text, font) => {
 
 /**
  * `text` broken into lines no wider than `width` px in `font` (a CSS font shorthand such as `16px Arial, sans-serif`),
- * joined with the `<br>` Plotly's titles take: a title as wide as the chart is cut off by its edges where the chart is
- * narrow (320 px: GH-3961). Breaks at spaces. A word wider than a line is broken after its `-` and `/` (kept at the end
+ * joined with `<br>`, which the stripes' chart splits again: a title as wide as the chart is cut off by its edges where
+ * the chart is narrow (320 px: GH-3961). Breaks at spaces. A word wider than a line is broken after its `-` and `/` (kept at the end
  * of the line: `Mallersdorf-` / `Pfaffenberg-`), and one without either stays whole on a line of its own. The width is
  * measured with `measure` (the canvas's, in the font the chart draws with); where that has none the width of a
  * character is estimated at 0.5 em, a little above what a title in Arial measures (0.47 em), so that a line is rather

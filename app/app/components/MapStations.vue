@@ -4,6 +4,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { GROUPING } from '~/utils/map-cluster'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 
 const props = defineProps<{
@@ -46,6 +47,11 @@ const selectedIcon = L.icon({
   shadowSize: [54, 54],
   className: 'wd-marker-selected',
 })
+
+/** The zoom from which every station of the picker is its own marker: the map tool's (GROUPING), so that the two separate at the same zoom */
+const PICKER_SEPARATE_FROM = GROUPING.separateFrom
+/** The radius of a group of the picker at a zoom, in pixels: the map tool's (GROUPING, GH-4241) outside the separation zoom, so that a place looks alike on every map, and one pixel from it, which only markers on one place share */
+const pickerClusterRadius = (zoom: number): number => zoom < PICKER_SEPARATE_FROM ? GROUPING.radius : 1
 
 const { t } = useI18n()
 
@@ -119,6 +125,10 @@ async function createMarkers() {
   try {
     result = await useLMarkerCluster({
       leafletObject: { addLayer: () => leafletMap } as unknown as L.Map,
+      // the groups of the map tool (GH-4079) split up at the same zoom: from it a group is only what lies on one place, within a
+      // pixel. Not `disableClusteringAtZoom`, which would draw such markers over each other, past the zoom where a click on
+      // their group spiderfies them (`spiderfyOnMaxZoom`, on by default). The radius is the map tool's (GROUPING.radius)
+      options: { maxClusterRadius: pickerClusterRadius, spiderfyOnMaxZoom: true },
       markers: stations.map(station => ({
         name: station.name,
         lat: station.latitude,

@@ -283,6 +283,7 @@ describe('address', () => {
   // word that only looks like one. An entry that no longer matches is stale and fails.
   const FORMAL_OK: Record<string, Record<string, string>> = {
     cs: { 'language.inclusiveHint': 'a welcome to everyone, which is a plural by meaning ("Vítejte všichni")' },
+    de: { 'radar.about1': 'Sie = die Formel (die Z-R-Beziehung), kein Du-Sie: ein Satz des Textes, nicht an den Leser gerichtet' },
   }
 
   const prose = (text: string) => text.replace(/\{[^{}]*\}/g, '')
@@ -335,7 +336,12 @@ interface Same { en?: string[], de?: string[], why: string }
 
 const UI_SAME: Record<string, Same> = {
   'common.colon': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: 'punctuation: a colon is a colon (fr sets a no-break space before it)' },
+  'shell.resultsIn': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: 'punctuation and two names, no word: the group, a colon and its count (fr sets a no-break space before the colon)' },
   'common.all': { en: ['de-hh'], de: ['da'], why: COGNATE },
+  'shell.placeKinds.country': { de: ['da', 'nl'], why: COGNATE },
+  'shell.placeKinds.water': { en: ['de-hh', 'nl'], why: COGNATE },
+  'shell.placeKinds.village': { en: ['fr'], why: COGNATE },
+  'shell.placeKinds.mountain': { de: ['nl'], why: COGNATE },
   'stationSelection.modeList': { de: ['da', 'fr'], why: COGNATE },
   'mapTool.panelTitle': { en: ['fr', 'nl'], why: COGNATE },
   'stripes.table.class': { de: ['da', 'nl'], why: COGNATE },
@@ -345,12 +351,31 @@ const UI_SAME: Record<string, Same> = {
   'dataViewer.limitStationsCount': { en: ['fr', 'nl'], why: COGNATE },
   'dataViewer.limitParametersCount': { en: ['nl'], why: COGNATE },
   'home.kindRadarTitle': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
+  'seo.kinds.radar': { en: ['cs', 'da', 'es', 'fr', 'it', 'nl', 'pl'], why: COGNATE },
   'about.linksTitle': { en: ['da', 'de-hh', 'de', 'nl'], why: COGNATE },
   'about.linkDocs': { en: ['fr'], de: ['da'], why: COGNATE },
   'nav.home': { en: ['it'], de: ['da', 'nl'], why: COGNATE },
   'nav.explorer': { en: ['de-hh', 'de', 'lb'], why: COGNATE },
+  'nav.radar': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
+  'radar.title': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
+  'radar.pause': { en: ['da', 'de', 'fr'], why: COGNATE },
   'nav.api': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'nav.support': { en: ['da'], why: COGNATE },
+  'measurement.topics.wind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
+  'measurement.topics.radar': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
+  'measurement.sourcesTitle': { en: ['fr'], why: COGNATE },
+  'ask.explain.licence': { en: ['cs', 'fr'], why: COGNATE },
+  'ask.season.warmth.spring': { en: ['de-hh', 'nl'], why: COGNATE },
+  'ask.season.warmth.autumn': { en: ['de-hh', 'nl'], why: COGNATE },
+  'ask.season.name.winter': { en: ['nl'], why: COGNATE },
+  'ask.season.plural.winter': { en: ['nl'], why: COGNATE },
+  'ask.day.measure.wind': { en: ['nl'], why: COGNATE },
+  'ask.explain.dataset': { en: ['it', 'nl'], why: COGNATE },
+  'ask.explain.parameters': { en: ['nl'], why: COGNATE },
+  'methods.formulaTitle': { en: ['it'], de: ['da'], why: COGNATE },
+  'methods.kind.statistic': { de: ['da'], why: COGNATE },
+  'nav.methods': { de: ['nl'], why: COGNATE },
+  'methods.kind.period': { en: ['lb'], why: COGNATE },
   'header.github': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.pypi': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.menu': { en: ['da', 'fr', 'it', 'nl', 'pl'], why: COGNATE },
@@ -386,6 +411,7 @@ const UI_SAME: Record<string, Same> = {
   'glossary.parametersTitle': { en: ['nl'], why: COGNATE },
   'providers.licence': { en: ['cs', 'fr'], why: COGNATE },
   'providers.parametersCount': { en: ['nl'], why: COGNATE },
+  'credit.source': { en: ['fr'], why: COGNATE },
   'providers.source': { en: ['fr'], why: COGNATE },
   'meteogram.chart.panelTemperature': { de: ['da'], why: COGNATE },
   'meteogram.chart.panelWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
@@ -406,7 +432,6 @@ const UI_SAME: Record<string, Same> = {
   'parameterSelection.title': { en: ['cs', 'da'], why: COGNATE },
   'stripes.region': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'stripes.auto': { en: ['cs', 'da', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
-  'stripes.hoverTrend': { en: ['cs', 'de-hh', 'de', 'lb', 'nl', 'pl'], why: COGNATE },
   'explorer.title': { en: ['de-hh', 'de', 'lb'], why: COGNATE },
   'explorer.mode': { en: ['fr'], de: ['nl'], why: COGNATE },
   'explorer.modeStation': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
@@ -414,6 +439,7 @@ const UI_SAME: Record<string, Same> = {
   'explorer.shape': { de: ['da'], why: COGNATE },
   'explorer.shapeLong': { en: ['fr'], de: ['da', 'nl'], why: COGNATE },
   'explorer.stationsDetails': { de: ['nl'], why: COGNATE },
+  'valueDetails.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
   'stationTable.name': { en: ['de'], why: COGNATE },
   'stationTable.region': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'stationTable.latitude': { en: ['fr'], why: COGNATE },
@@ -443,6 +469,7 @@ const UI_SAME: Record<string, Same> = {
   'history.colParameter': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
   'history.colDescription': { en: ['fr'], why: COGNATE },
   'history.colMethod': { de: ['nl'], why: COGNATE },
+  'meteogram.chart.blockHours': { en: ['cs', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'pl'], why: UNIT },
 }
 
 const GLOSSARY_SAME: Record<string, Same> = {
@@ -465,7 +492,7 @@ const GLOSSARY_SAME: Record<string, Same> = {
   'parameters.temperature_air': { de: ['da'], why: COGNATE },
   'parameters.temperature_air_0_05m': { de: ['da'], why: COGNATE },
   'parameters.temperature_air_mean_0_05m': { de: ['da'], why: COGNATE },
-  'parameters.temperature_air_mean_0_1m': { de: ['da'], why: COGNATE },
+  'parameters.temperature_air_0_1m': { de: ['da'], why: COGNATE },
 }
 
 /**
@@ -520,6 +547,17 @@ describe('text copied from en or de', () => {
 
   it('has no stale entry in the list of glossary labels that may be copies', () => {
     expect(copies(glossary, GLOSSARY_SAME).stale).toEqual([])
+  })
+
+  it('names the home page\'s feature in the language of the page, not by its English title', () => {
+    // `methods.*` and `seo.pages.methods` named "Ask the weather" in English in all eleven locales, although each
+    // translates `ask.title` (GH-2610, fourth pass): this scans every UI string of every locale but en, in any case,
+    // since a text that points to the feature uses the translated title
+    const title = ui.en!['ask.title']!
+    expect(title).toBe('Ask the weather')
+    const left = others.flatMap(locale =>
+      Object.entries(ui[locale]!).filter(([, text]) => text.toLowerCase().includes(title.toLowerCase())).map(([key]) => `${locale} ${key}`))
+    expect(left).toEqual([])
   })
 
   it('names a reason for every entry', () => {

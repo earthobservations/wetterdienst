@@ -36,6 +36,20 @@ render_plugin = "myst"
 no_index = true
 ```
 
+### Storm cells
+
+```{autodoc2-object} wetterdienst.provider.dwd.storm_cells.api.DwdStormCellsRequest
+render_plugin = "myst"
+no_index = true
+```
+
+### KOSTRA
+
+```{autodoc2-object} wetterdienst.provider.dwd.kostra.api.DwdKostraRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ### Derived
 
 ```{autodoc2-object} wetterdienst.provider.dwd.derived.api.DwdDerivedRequest
@@ -95,6 +109,20 @@ no_index = true
 ### SWSMOS
 
 ```{autodoc2-object} wetterdienst.provider.dwd.swsmos.api.DwdSwsmosRequest
+render_plugin = "myst"
+no_index = true
+```
+
+### Pollen
+
+```{autodoc2-object} wetterdienst.provider.dwd.pollen.api.DwdPollenRequest
+render_plugin = "myst"
+no_index = true
+```
+
+### UVI
+
+```{autodoc2-object} wetterdienst.provider.dwd.uvi.api.DwdUviRequest
 render_plugin = "myst"
 no_index = true
 ```

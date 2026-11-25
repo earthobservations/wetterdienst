@@ -167,7 +167,7 @@ def test_a_run_that_is_all_past_returns_no_row_and_says_so(monkeypatch: pytest.M
     assert answer["metadata"]["counts"] == {"stations": 0, "rows": 0}
     assert answer["metadata"]["data_updated_at"] is None
     note = _note_of(answer)
-    assert "model run ends before the current hour" in note
+    assert "forecast ends before the current hour" in note
     assert "none is returned" in note
     first, last = _window_of(note)
     assert parse_date_window(first)[0] == _HOUR - dt.timedelta(hours=30)
@@ -378,8 +378,8 @@ def test_a_mixed_frame_is_cut_by_each_rows_resolution() -> None:
     )
 
 
-def test_every_forecast_network_has_an_hourly_resolution_today() -> None:
-    """The networks the cut applies to are found through their metadata, by `kind`; each is hourly."""
+def test_every_forecast_network_has_an_hourly_resolution_but_the_daily_ones() -> None:
+    """The networks the cut applies to are found through their metadata, by `kind`; each hourly but the two daily."""
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
     found = {
@@ -388,11 +388,13 @@ def test_every_forecast_network_has_an_hourly_resolution_today() -> None:
         for network, listing in networks.items()
         if listing["kind"] == "forecast"
     }
-    assert found == {"dwd/mosmix", "dwd/dmo", "dwd/swsmos"}
+    assert found == {"dwd/mosmix", "dwd/dmo", "dwd/swsmos", "dwd/pollen", "dwd/uvi"}
     for name in found:
         provider, _, network = name.partition("/")
         metadata = Wetterdienst.resolve(provider, network).metadata
-        assert {resolution.name for resolution in metadata.resolutions} == {"hourly"}
+        assert {resolution.name for resolution in metadata.resolutions} == (
+            {"daily"} if name in {"dwd/pollen", "dwd/uvi"} else {"hourly"}
+        )
 
 
 def test_a_single_timestamp_left_out_is_told_in_the_singular(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -401,7 +403,7 @@ def test_a_single_timestamp_left_out_is_told_in_the_singular(monkeypatch: pytest
 
     note = _note_of(_tool_client().get("/api/values", params=_MOSMIX).json())
 
-    assert "the earlier timestamp (2 rows) of the model run is left out" in note
+    assert "the earlier timestamp (2 rows) of the forecast is left out" in note
     assert "For it, ask again" in note
     assert "1 earlier" not in note
     one = forecast_start._amount  # noqa: SLF001

@@ -8,20 +8,23 @@
  */
 
 /** The panels, from the top of the chart to its foot */
-export const PANEL_ORDER = ['wind', 'precip', 'snow', 'snowDepth', 'snowChance', 'cloud', 'temp', 'pressure'] as const
+export const PANEL_ORDER = ['wind', 'precip', 'thunder', 'snow', 'snowDepth', 'snowChance', 'cloud', 'temp', 'pressure'] as const
 export type PanelName = typeof PANEL_ORDER[number]
 /**
  * The panels the reader switches on and off. The snow panel (GH-4091) is three plots on the one time axis, each with its own
  * axis because their numbers are of different sizes (3 cm of new snow, 200 cm of snow depth, a chance in percent), and one toggle.
+ * The thunderstorm band (GH-4090) is a thin plot under the precipitation and goes with its toggle: it is part of what falls from the sky.
  */
 export type PanelToggle = 'wind' | 'precip' | 'snow' | 'cloud' | 'temp' | 'pressure'
 /** The toggle that shows a panel */
 export function toggleOf(panel: PanelName): PanelToggle {
+  if (panel === 'thunder')
+    return 'precip'
   return panel === 'snowDepth' || panel === 'snowChance' ? 'snow' : panel
 }
 
 /** The height of each panel's plot in px, whatever the screen */
-export const PANEL_HEIGHT: Record<PanelName, number> = { wind: 124, precip: 88, snow: 72, snowDepth: 72, snowChance: 72, cloud: 80, temp: 156, pressure: 84 }
+export const PANEL_HEIGHT: Record<PanelName, number> = { wind: 124, precip: 88, thunder: 56, snow: 72, snowDepth: 72, snowChance: 72, cloud: 80, temp: 156, pressure: 84 }
 /** The room between two panels, in which the lower one's top label sits */
 export const PANEL_GAP = 14
 /** The strip above the panels: the day names, the hours and the weather symbols */
@@ -35,7 +38,7 @@ export const HOUR_PX = 10
 /** The widest an hour is drawn, which a short forecast on a wide screen is stretched to */
 export const HOUR_MAX_PX = 22
 /** The widths the plot leaves at the left, for the axis' title and labels, and at the right */
-export const GUTTER_LEFT = 68
+export const GUTTER_LEFT = 56
 export const GUTTER_RIGHT = 10
 /** The hours the chart can be zoomed in to, across its plot */
 export const MIN_SPAN_HOURS = 6
@@ -183,10 +186,12 @@ export interface Barb {
 /**
  * The barb of a wind from `dirFrom` degrees of `knots` knots: standard meteorological barbs, the tip at the point,
  * the shaft towards the direction the wind comes from, a pennant for 50 kt, a full barb for 10 and a half for 5, the
- * barbs on the left of the wind (the northern hemisphere's convention), under 2.5 kt a circle. The speed is the one
- * in knots whatever unit the chart shows: a barb is a drawing of the wind, not of a number.
+ * barbs on the clockwise side of the shaft, seen from the tip towards the tail, north of the equator (for a wind from
+ * the west they stand north of the shaft, above it, as on a weather map and in matplotlib) and on the other side south
+ * of it (`flip_barb`), under 2.5 kt a circle. The speed is the one in knots whatever unit the chart shows: a barb is a
+ * drawing of the wind, not of a number.
  */
-export function windBarb(dirFrom: number, knots: number, scale = 1): Barb {
+export function windBarb(dirFrom: number, knots: number, scale = 1, southern = false): Barb {
   const lineWidth = Math.max(1, 1.5 * scale)
   if (knots < 2.5)
     return { calm: Math.round(4 * scale), shaft: null, ticks: [], pennants: [], lineWidth }
@@ -197,9 +202,11 @@ export function windBarb(dirFrom: number, knots: number, scale = 1): Barb {
   const tailY = -shaftLen * Math.cos(rad)
   const ux = tailX / shaftLen
   const uy = tailY / shaftLen
-  // 90 degrees clockwise from the tip towards the tail: the left of the wind
-  const px = -Math.cos(rad)
-  const py = -Math.sin(rad)
+  // 90 degrees clockwise from the shaft (tip towards the tail) on screen, where y grows downwards: for a wind from the
+  // west the shaft runs to the left and this is up, north of it. South of the equator it is the other side
+  const side = southern ? -1 : 1
+  const px = side * Math.cos(rad)
+  const py = side * Math.sin(rad)
   const barbLen = Math.round(8 * scale)
   const spacing = Math.round(5 * scale)
 

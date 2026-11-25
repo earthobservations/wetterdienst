@@ -121,6 +121,15 @@ wetterdienst values --provider=dwd --network=observation \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
+A `duckdb://` file that does not exist yet is created in the storage format of DuckDB 1.0 to 1.5, also by DuckDB 2.0,
+so DuckDB 1.5 can read it and append to it. A file that exists keeps the format it has: a database that DuckDB 2.0
+created with its own defaults (not through this target) cannot be opened by DuckDB 1.5, neither to read nor to append
+(`IOException`: the file has a newer version number). Read an exported file with `con.sql(...).pl()`: DuckDB 2.0
+has no `con.execute(...).pl()` or `.arrow()`. It also runs the next query on a connection only after the result of
+`con.execute(...)` is finished: read it with `fetchall()`, as `fetchone()` leaves it open.
+While DuckDB 2 creates a new file for an export, another connection of the same process to it is refused
+(`ConnectionException`): connect again when the export is done.
+
 ## Licence, credit and date in a file
 
 An answer of the REST API says in its `metadata` block where the data comes from, under which licence it may be used,
@@ -170,10 +179,11 @@ and carry nothing (#2567).
 ## Formats by surface
 
 Which format each surface takes. `all` is `stations`, `values`, `interpolate` and `summarize`, the four commands,
-routes and MCP tools that return a result; `alerts`, `history` and `stripes` have fewer formats and are described
+routes and MCP tools that return a result; `alerts` and `history` have fewer formats and are described
 with their own commands. A file target is chosen by its extension, not by a format, so it has its own column.
 `tests/test_export_formats.py` holds this table to the code: a format that a surface takes and the table leaves
-out, or the other way round, fails it.
+out, or the other way round, fails it. The MCP tools take no chart format: their schemas lack the options that only
+REST needs (see [what a tool does not take](mcp.md#what-a-tool-does-not-take)).
 
 | Format | `to_format` | `to_target` file | CLI `--format` | REST `format` | MCP `format` |
 | --- | --- | --- | --- | --- | --- |
@@ -181,11 +191,11 @@ out, or the other way round, fails it.
 | `geojson` | yes | `.geojson` | all | all | all |
 | `csv` | yes | `.csv` | all | all | all |
 | `ndjson` | yes | `.jsonl`, `.ndjson` | stations, values | stations, values | stations, values |
-| `html` | yes | no | all | all | all |
-| `png` | yes | no | all | all | all |
-| `jpg` | yes | no | all | all | all |
-| `svg` | yes | no | all | all | all |
-| `pdf` | yes | no | all | all | all |
+| `html` | yes | no | all | all | no |
+| `png` | yes | no | all | all | no |
+| `jpg` | yes | no | all | all | no |
+| `svg` | yes | no | all | all | no |
+| `pdf` | yes | no | all | all | no |
 | `xlsx` | no | `.xlsx` | no | no | no |
 | `parquet` | no | `.parquet` | no | no | no |
 | `feather` | no | `.feather` | no | no | no |
@@ -202,6 +212,9 @@ only, `.json`, `.geojson` and `.csv` (the table above lists them, but those are 
 alerts have writers of their own, which read the extension before the file is looked for): an
 alert is nested, so a database target and every other file type is an `ExportRefusedError` naming the three. What a
 row of its CSV is, and what the files hold, is on the [alerts page](../data/provider/dwd/alerts/index.md#to-a-file).
+The storm cells result of `dwd/storm_cells` is the same: `json`, `geojson` and `csv`, files only, with its `to_target`
+and `wetterdienst storm-cells --target` as the alerts have them, a scan with no cell written as it is
+([storm cells page](../data/provider/dwd/storm_cells/index.md#to-a-file)).
 
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for

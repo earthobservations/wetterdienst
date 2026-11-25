@@ -946,23 +946,27 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
             "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): (
             "Short wave radiation balance during the last 3 hours. ICON writes a little below 0 in the "
             "night hours (to about -0.5 J/cm2); that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rr3"): (
             "Total precipitation during the last 3 hours. ICON writes a little below 0 now and then (to about "
             "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
@@ -998,12 +1002,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
             "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon_eu", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon_eu", "t5cm"): "Temperature 5cm above surface",
@@ -1030,7 +1036,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "nl"): "Low cloud cover (lower than 2 km)",
         ("hourly", "large", "wwpd"): "Probability: Occurrence of any precipitation within the last 24 hours",
         ("hourly", "large", "dd"): "Wind direction",
-        ("hourly", "large", "drr1"): "Duration of precipitation within the last hour",
+        ("hourly", "large", "drr1"): (
+            "Duration of precipitation within the last hour. 0 for most rainy hours at 10382 (Berlin-Tegel) and not "
+            "given at all at some stations (10961, Zugspitze), which `skip_empty` then drops."
+        ),
         ("hourly", "large", "e_dd"): "Absolute error wind direction",
         ("hourly", "large", "e_ff"): "Absolute error wind speed 10m above surface",
         ("hourly", "large", "e_ppp"): "Absolute error surface pressure",
@@ -1098,20 +1107,39 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "rh02"): "Probability of precipitation > 0.2mm during the last 12 hours",
         ("hourly", "large", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "large", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
-        ("hourly", "large", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
+        ("hourly", "large", "rr1c"): (
+            "Total precipitation during the last hour consistent with significant weather. At most German lowland "
+            "stations of the runs measured (2026-11-16/17) it is 0.0 from about +100 to +125 h of the run: real zeros, "
+            "not missing values, while the 12 and 24 h totals (`rrhc`, `rrdc`) and the probabilities still carry "
+            "rain; the 6 h total (`rr6c`) falls to zero early at some stations."
+        ),
         ("hourly", "large", "rr1o1"): "Probability of precipitation > 10.0 mm during the last hour",
         ("hourly", "large", "rr1u1"): "Probability of precipitation > 25.0 mm during the last hour",
         ("hourly", "large", "rr1w1"): "Probability of precipitation > 15.0 mm during the last hour",
-        ("hourly", "large", "rr3c"): "Total precipitation during the last 3 hours consistent with significant weather",
-        ("hourly", "large", "rr6c"): "Total precipitation during the last 6 hours consistent with significant weather",
+        ("hourly", "large", "rr3c"): (
+            "Total precipitation during the last 3 hours consistent with significant weather, given at the 00, 03, "
+            "..., 21 UTC steps. Often 0.0 late in the run at lowland stations of the runs measured (2026-11-16/17; "
+            "median last non-zero step +132 h in MOSMIX-S): real zeros, not missing values, while the 12 and 24 h "
+            "totals (`rrhc`, `rrdc`) still carry rain; the 6 h total (`rr6c`) falls to zero early at some stations."
+        ),
+        ("hourly", "large", "rr6c"): (
+            "Total precipitation during the last 6 hours consistent with significant weather, given at the 00, 06, 12 "
+            "and 18 UTC steps"
+        ),
         ("hourly", "large", "rrad1"): (
             "Global irradiance within the last hour as a percentage: the source gives % (0..80) and no "
             "reference. Rad1h over the extraterrestrial radiation on a horizontal surface in the same hour "
             "reproduces it roughly (mean difference under 3 points at 6 stations, single hours up to about 20 "
             "points apart), so it is read as a share of that."
         ),
-        ("hourly", "large", "rrdc"): "Total precipitation during the last 24 hours consistent with significant weather",
-        ("hourly", "large", "rrhc"): "Total precipitation during the last 12 hours consistent with significant weather",
+        ("hourly", "large", "rrdc"): (
+            "Total precipitation during the last 24 hours consistent with significant weather, given at the 06 UTC "
+            "steps"
+        ),
+        ("hourly", "large", "rrhc"): (
+            "Total precipitation during the last 12 hours consistent with significant weather, given at the 06 and 18 "
+            "UTC steps"
+        ),
         ("hourly", "large", "rrl1c"): (
             "Total liquid precipitation during the last hour consistent with significant weather"
         ),
@@ -1138,9 +1166,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "24 UTC, ending 6 hours before the step; 0.33 K, 10 stations, 100 values of the run of 2026-10-19) "
             "better than the 24 hours ending at the step (0.55 K); unconfirmed by DWD"
         ),
-        ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
+        ("hourly", "large", "tn"): (
+            "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations"
+        ),
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
-        ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
+        ("hourly", "large", "tx"): (
+            "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations"
+        ),
         ("hourly", "large", "vv"): "Visibility",
         ("hourly", "large", "vv10"): "Probability: Visibility below 1000m",
         ("hourly", "large", "w1w2"): (
@@ -1233,8 +1265,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "rh02"): "Probability of precipitation > 0.2mm during the last 12 hours",
         ("hourly", "small", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "small", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
-        ("hourly", "small", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
-        ("hourly", "small", "rr3c"): "Total precipitation during the last 3 hours consistent with significant weather",
+        ("hourly", "small", "rr1c"): (
+            "Total precipitation during the last hour consistent with significant weather. At most German lowland "
+            "stations of the runs measured (2026-11-16/17) it is 0.0 from about +100 to +125 h of the run: real zeros, "
+            "not missing values, while the 12 and 24 h probabilities (`rh*`, `rd*`) are still above 0. About a "
+            "quarter of the stations lack the last 3 to 9 h of the run, and some a block of every day."
+        ),
+        ("hourly", "small", "rr3c"): (
+            "Total precipitation during the last 3 hours consistent with significant weather, given at the 00, 03, "
+            "..., 21 UTC steps. Often 0.0 late in the run at lowland stations of the runs measured (2026-11-16/17; "
+            "median last non-zero step +132 h): real zeros, not missing values, while the 12 and 24 h probabilities "
+            "(`rh*`, `rd*`) are still above 0. About a quarter of the stations lack the last 3 to 9 h of the run, "
+            "and some a block of every day."
+        ),
         ("hourly", "small", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "small", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
         ("hourly", "small", "sund1"): "Sunshine duration during the last Hour",
@@ -1244,13 +1287,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "hourly",
             "small",
             "tn",
-        ): "Minimum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
+        ): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations",
         ("hourly", "small", "ttt"): "Temperature 2m above surface",
         (
             "hourly",
             "small",
             "tx",
-        ): "Maximum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
+        ): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations",
         ("hourly", "small", "vv"): "Visibility",
         ("hourly", "small", "w1w2"): (
             "Past weather during the last 6 hours, as two digits W1 and W2 (two-digit values from 0 to 99, such "
@@ -1338,7 +1381,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "(the run of 2026-11-14 19 UTC)."
         ),
         ("hourly", "snow", "sncv"): (
-            "Snow depth, in m. Given at the 00, 03, 06, ..., 21 UTC steps only (the run of 2026-11-14 19 UTC)."
+            "Snow depth, in m. Given at the 00, 03, 06, ..., 21 UTC steps only (the run of 2026-11-14 19 UTC). "
+            "The model writes the last of a melting snow a little below 0 (-0.01 and -0.02 m); that is returned as "
+            "0.0, with the number kept as `raw:` in `quality_flags` (the check `floor`: `rejected:floor,raw:`), "
+            "down to -10 cm (the model wrote -0.07 m in the run of 2026-11-18); a lower value is flagged "
+            "`suspect:range`."
         ),
         ("hourly", "snow", "td"): "Dewpoint 2m above surface",
         ("hourly", "snow", "ttt"): "Temperature 2m above surface",
@@ -3213,10 +3260,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "NoaaGhcnMetadata": {
         # daily: the element list of ghcnd-readme.txt (https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt), the
-        # documentation of the `.dly` and `access/<station>.csv` files this provider reads. The rows used to be the
-        # element table of GHCND_documentation.pdf, the documentation of NCEI's Daily Summaries ordering form, where the
-        # user picks metric or standard units ("mm or inches as per user preference"): the files carry one unit, the
-        # readme's (tenths of mm, of degrees C, of m/s), which the reader converts (USW00094846, 2019-07-19: TMAX 339
+        # documentation of the `.dly` files, which the `by_station/<station>.csv.gz` files this provider reads are made
+        # from. The rows used to be the element table of GHCND_documentation.pdf, the documentation of NCEI's Daily
+        # Summaries ordering form, where the user picks metric or standard units ("mm or inches as per user
+        # preference"): the files carry one unit, the readme's (tenths of mm, of degrees C, of m/s), which the reader
+        # converts (USW00094846, 2019-07-19: TMAX 339
         # and AWND 53 are 33.9 degrees and 5.3 m/s; 2019-01-30: SNWD 200 is 20 cm). SN*#, SX*#, WT** and WV** are the
         # readme's code tables, spelled out. hourly: Table 1 of ghcnh_DOCUMENTATION.pdf (version 1.1.0, 2026-03-10).
         ("daily", "data", "tavg"): (
@@ -3651,11 +3699,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "data", "tm_max"): "Annual mean of the maximum temperatures.",
         ("annual", "data", "tm_mes"): "Annual mean temperature.",
         ("annual", "data", "tm_min"): "Annual mean of the minimum temperatures.",
-        ("daily", "data", "dir"): "Direction of the maximum gust.",
+        ("daily", "data", "dir"): (
+            "Direction of the maximum gust, in tens of degrees (returned in degrees). The source's units text "
+            'reads "99 = variable direction" and "88 = no data": both are no bearing and are null.'
+        ),
         ("daily", "data", "hrmax"): "Daily maximum relative humidity.",
         ("daily", "data", "hrmedia"): "Daily mean relative humidity.",
         ("daily", "data", "hrmin"): "Daily minimum relative humidity.",
-        ("daily", "data", "prec"): "Daily precipitation, from 07 to 07.",
+        ("daily", "data", "prec"): (
+            'Daily precipitation, from 07 to 07, in mm. The source\'s units text adds "Ip = less than 0.1 mm", '
+            'returned as 0.0, and "Acum = accumulated precipitation", an amount over several days and not '
+            "that day's, which is null."
+        ),
         ("daily", "data", "presmax"): "Maximum pressure at the station's reference level.",
         ("daily", "data", "presmin"): "Minimum pressure at the station's reference level.",
         ("daily", "data", "racha"): "Maximum wind gust.",
@@ -3730,22 +3785,34 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "ws_10min"): "Wind speed. Mean over 10 minutes.",
     },
     "KnmiObservationMetadata": {
-        ("10_minutes", "data", "dd"): "Wind Direction Mean with MD",
-        ("10_minutes", "data", "dr"): "Precipitation Duration (Rain Gauge)",
-        ("10_minutes", "data", "ff"): "Wind Speed at 10 m Mean with MD",
-        ("10_minutes", "data", "fx"): "Wind Gust at 10 m Maximum last Interval",
-        ("10_minutes", "data", "n"): "Total Cloud Cover",
-        ("10_minutes", "data", "p0"): "Air Pressure at Station Level 1 Min Mean",
-        ("10_minutes", "data", "pp"): "Air Pressure at Mean Sea Level 1 Min Mean",
-        ("10_minutes", "data", "qg"): "Global Solar Radiation Mean",
-        ("10_minutes", "data", "rg"): "Precipitation Intensity (Rain Gauge) Mean",
-        ("10_minutes", "data", "rh"): "Relative Humidity 1 Min Mean",
-        ("10_minutes", "data", "ss"): "Sunshine Duration",
-        ("10_minutes", "data", "ta"): "Air Temperature 1 Min Mean",
-        ("10_minutes", "data", "tb"): "Wet Bulb Temperature Mean",
-        ("10_minutes", "data", "td"): "Dew Point Temperature 1 Min Mean",
-        ("10_minutes", "data", "tg"): "Air Temperature 10 cm Mean",
-        ("10_minutes", "data", "vv"): "Horizontal Visibility Mean",
+        ("10_minutes", "data", "dd"): (
+            "Past 10 minute mean wind direction in degrees, measured at sensor height, with Marked Discontinuity (MD)"
+        ),
+        ("10_minutes", "data", "dr"): "Past 10 minute duration of precipitation in seconds, measured by rain gauge",
+        ("10_minutes", "data", "ff"): (
+            "Past 10 minute mean wind speed, representative for 10 meters, in meters per second, with Marked "
+            "Discontinuity (MD)"
+        ),
+        ("10_minutes", "data", "fx"): (
+            "Past 19 minute maximum wind gust, representative for 10 meters, in meters per second (as KNMI writes it)"
+        ),
+        ("10_minutes", "data", "n"): (
+            "Past 30 minute total cloud cover, in okta. The source words no code; the files carry a 9 at fog "
+            "visibilities (the sky is invisible), which is no cover and is null."
+        ),
+        ("10_minutes", "data", "p0"): "Past minute mean air pressure at station level",
+        ("10_minutes", "data", "pp"): "Past minute mean air pressure at mean sea level in hectopascal",
+        ("10_minutes", "data", "qg"): "Past 10 minute mean global solar radiation in watt per square meter",
+        ("10_minutes", "data", "rg"): (
+            "Past 10 minute mean precipitation intensity in millimeters per hour, measured by rain gauge"
+        ),
+        ("10_minutes", "data", "rh"): "Past minute mean relative humidity at 1.50 meters, in percentage",
+        ("10_minutes", "data", "ss"): "Past 10 minute duration of sunshine in minutes",
+        ("10_minutes", "data", "ta"): "Past minute mean air temperature at 1.50 meters, in degrees Celsius",
+        ("10_minutes", "data", "tb"): "Past 10 minute mean wet bulb temperature at 1.50 meters, in degrees Celsius",
+        ("10_minutes", "data", "td"): "Past minute mean dew point temperature at 1.50 meters, in degrees Celsius",
+        ("10_minutes", "data", "tg"): "Past 1 minute mean air temperature at 10 centimeters, in degrees Celsius",
+        ("10_minutes", "data", "vv"): "Past 10 minute mean horizontal visibility, in meters",
         ("annual", "data", "DDVEC"): (
             "Annual vector mean wind direction, representative for 10 meters, in degrees. Wind direction "
             "has been weighted with wind speed during aggregation. 360=north; 90=east; 180=south; "
@@ -3760,7 +3827,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "data", "FHX"): (
             "Annual maximum hourly wind speed, representative for 10 meters, in meters per second."
         ),
-        ("annual", "data", "FXX"): ("Annual maximum wind gust, representative for 10 meters, in meters per second."),
+        ("annual", "data", "FXX"): (
+            "Annual maximum wind gust, representative for 10 meters, in meters per second. "
+            "Highest 3 second average of the day (as KNMI writes it; the value is the year's)."
+        ),
         ("annual", "data", "NG"): ("Annual mean cloud cover, in okta. 9=sky invisible."),
         ("annual", "data", "PG"): ("Annual mean sea level pressure, in hectopascal."),
         ("annual", "data", "PN"): ("Annual minimum mean sea level pressure, in hectopascal."),
@@ -3781,27 +3851,48 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "EV24"): "Potential evapotranspiration (Makkink)",
         ("daily", "data", "FG"): "Mean wind speed",
         ("daily", "data", "FXX"): "Maximum wind gust",
-        ("daily", "data", "NG"): "Mean cloud cover",
+        ("daily", "data", "NG"): (
+            'Mean cloud cover, in octants. The source\'s 9 is "9=sky invisible" ("9=bovenlucht onzichtbaar"), '
+            "no cover, and is null."
+        ),
         ("daily", "data", "PG"): (
             "Daily mean sea level pressure, calculated as a mean of the 24 pressure values of that day "
             "(midnight to midnight UTC)."
         ),
         ("daily", "data", "Q"): "Global solar radiation",
-        ("daily", "data", "RH"): "Precipitation amount",
-        ("daily", "data", "SQ"): "Sunshine duration",
+        ("daily", "data", "RH"): (
+            'Precipitation amount. The source writes -1 for less than 0.05 mm ("-1 for <0.05 mm"), which is '
+            "returned as 0.0."
+        ),
+        ("daily", "data", "SQ"): (
+            "Sunshine duration, calculated from global radiation. The source writes -1 for less than 0.05 hour "
+            '("-1 for <0.05 hour"), which is returned as 0.0.'
+        ),
         ("daily", "data", "TG"): "Mean temperature",
         ("daily", "data", "TN"): "Minimum temperature",
         ("daily", "data", "TX"): "Maximum temperature",
         ("daily", "data", "UG"): "Mean relative atmospheric humidity",
-        ("hourly", "data", "DD"): "Past 10 minute mean wind direction, representative for 10 meters",
+        ("hourly", "data", "DD"): (
+            "Past 10 minute mean wind direction, representative for 10 meters. The source's codes "
+            '"0=windstil" (calm) and "990=veranderlijk" (variable) are no bearing and are null.'
+        ),
         ("hourly", "data", "DR"): "Precipitation duration",
         ("hourly", "data", "FH"): "Mean wind speed",
         ("hourly", "data", "FX"): "Maximum wind gust",
-        ("hourly", "data", "N"): "Cloud cover",
-        ("hourly", "data", "P"): "Air pressure",
+        ("hourly", "data", "N"): (
+            'Cloud cover, in octants, at the time of observation. The source\'s 9 is "9=sky invisible", no cover, '
+            "and is null."
+        ),
+        ("hourly", "data", "P"): "Air pressure reduced to mean sea level, at the time of observation.",
         ("hourly", "data", "Q"): "Global solar radiation",
-        ("hourly", "data", "RH"): "Precipitation amount",
-        ("hourly", "data", "SQ"): "Sunshine duration",
+        ("hourly", "data", "RH"): (
+            'Precipitation amount. The source writes -1 for less than 0.05 mm ("-1 for <0.05 mm"), which is '
+            "returned as 0.0."
+        ),
+        ("hourly", "data", "SQ"): (
+            "Sunshine duration, calculated from global radiation. The source writes -1 for less than 0.05 hour "
+            '("-1 for <0.05 hour"), which is returned as 0.0.'
+        ),
         ("hourly", "data", "T"): "Temperature",
         ("hourly", "data", "TD"): "Dew point temperature",
         ("hourly", "data", "U"): "Relative atmospheric humidity",
@@ -3819,7 +3910,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "FHX"): (
             "Monthly maximum hourly wind speed, representative for 10 meters, in meters per second."
         ),
-        ("monthly", "data", "FXX"): ("Monthly maximum wind gust, representative for 10 meters, in meters per second."),
+        ("monthly", "data", "FXX"): (
+            "Monthly maximum wind gust, representative for 10 meters, in meters per second. "
+            "Highest 3 second mean of the year (as KNMI writes it; the value is the month's)."
+        ),
         ("monthly", "data", "NG"): ("Monthly mean cloud cover, in okta. 9=sky invisible."),
         ("monthly", "data", "PG"): ("Monthly mean sea level pressure, in hectopascal."),
         ("monthly", "data", "PN"): ("Monthly minimum mean sea level pressure, in hectopascal."),
@@ -3914,7 +4008,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "to water at its existing pressure and humidity."
         ),
         ("hourly", "weather", "msl_pressure"): "Mean sea level air pressure, to the nearest 0.1 hPa.",
-        ("hourly", "weather", "prst_wx_id"): "Present weather code.",
+        ("hourly", "weather", "prst_wx_id"): (
+            "Present weather code. Which code table it is in depends on `src_opr_type`: a manual observation (1) uses "
+            "WMO table 4677, an automatic one (7) WMO table 4680."
+        ),
         ("hourly", "weather", "q10mnt_mxgst_spd"): "Maximum gust speed over 10 minutes, knots.",
         ("hourly", "weather", "rltv_hum"): "Calculated relative humidity.",
         ("hourly", "weather", "snow_depth"): "Snow depth, cm.",
@@ -4257,11 +4354,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 "
             "degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data "
             "clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and "
-            "height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by "
-            "itself after a 404 of the whole dataset. At a station with several heights the speed and the direction "
-            "are of one height: 10 m if it has both, else the nearest height that has both; a calm or a -3 there "
-            "is the answer for the hour: no other height fills it. Where no height has both, each is the 10 m one "
-            "first, else the nearest."
+            "height) is a calm and is returned as null; a 0 beside a speed above 0 stays. At a station with several "
+            "heights the speed and the direction are of one height: 10 m if it has both, else the nearest height that "
+            "has both; a calm or a -3 there is the answer for the hour: no other height fills it. Where no height has "
+            "both, each is the 10 m one first, else the nearest."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "

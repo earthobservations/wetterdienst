@@ -29,11 +29,14 @@ Commands:
   info         Display project information.
   interpolate  Interpolate data for a point from the stations around it.
   issues       List available issue (model-run) datetimes for a station.
+  kostra       Acquire DWD's design rainfall (KOSTRA: return periods of heavy rain) at a point.
   providers    List the providers and their networks, and describe what each provider is.
   radar        List radar stations.
   restapi      Start the Wetterdienst REST API web service.
+  station-ids  Find one WMO number, WIGOS identifier or ICAO code at every provider that has it.
   stations     Acquire stations.
-  stripes      Climate stripes.
+  statistics   Count, average, add up or take the extremes of each station's values per year,...
+  storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
   summarize    Summarize data for a point: the nearest station's value.
   values       Acquire data.
 
@@ -161,15 +164,15 @@ Usage: wetterdienst coverage [OPTIONS]
 
   --provider and --network are required; `providers` lists the providers and their networks, with
   their `kind` (`observation`, `forecast` or `derived` for a timeseries network, which has stations
-  and values, and `radar` or `alerts` for a standalone one, which `stations` and `values` refuse)
-  and whether they need credentials and have them. A parameter's `unit` is the unit its values come
-  back in when no unit target is given (the one `glossary` gives; `degree_celsius`, `percent` for a
-  percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`),
-  is there only where it differs from `unit`; absent, it is the same. A unit target of your own
-  changes the values, not this answer. `aggregation` is what the value is relative to its interval
-  (`mean`, `max`, `sum`, ..., `instant` for a single reading) and `timestamp_position` where its
-  timestamp sits in the row's interval (`instant`, `start`, `end`, `middle`); `null` in either: the
-  source does not state it.
+  and values, and `radar`, `alerts` or `storm_cells` for a standalone one, which `stations` and
+  `values` refuse) and whether they need credentials and have them. A parameter's `unit` is the unit
+  its values come back in when no unit target is given (the one `glossary` gives; `degree_celsius`,
+  `percent` for a percentage). `unit_source`, the unit the provider publishes it in
+  (`degree_kelvin`, `one_eighth`), is there only where it differs from `unit`; absent, it is the
+  same. A unit target of your own changes the values, not this answer. `aggregation` is what the
+  value is relative to its interval (`mean`, `max`, `sum`, ..., `instant` for a single reading) and
+  `timestamp_position` where its timestamp sits in the row's interval (`instant`, `start`, `end`,
+  `middle`); `null` in either: the source does not state it.
 
 Options:
   --provider TEXT     Data provider/organisation. List the provider/network combinations with:
@@ -419,24 +422,73 @@ Usage: wetterdienst issues [OPTIONS]
 
   Currently supported: --provider dwd --network mosmix|dmo|swsmos
 
-  A DMO run exists for a product, so --dataset and --lead-time decide which runs are listed. They
-  default to what a `values` request defaults to, which is what makes the answer one that request
-  accepts.
+  A run exists for a product, so --dataset (and for DMO --lead-time) decide which runs are listed.
+  They default to what a `values` request defaults to, which is what makes the answer one that
+  request accepts. For MOSMIX-S and MOSMIX-SNOW one run is every station's, so the station only has
+  to be an id; MOSMIX-L has a directory per station.
 
 Options:
-  --provider TEXT           Data provider/organisation. List the provider/network combinations with:
-                            wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea, eaufrance,
-                            nws, geosphere  [required]
-  --network TEXT            Data network of the provider. Examples: observation, mosmix, radar,
-                            ghcn, pegel, hydrology  [required]
-  --station TEXT            Station id to list the model runs of.  [required]
-  --dataset [icon|icon_eu]  DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon
-  --lead-time [short|long]  DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS.
-                            Default: short
-  --debug BOOLEAN           Log at debug level. Default: false
-  --quiet BOOLEAN           Log errors and warnings about the answer only: no progress. Not with
-                            --debug. Default: false
-  --help                    Show this message and exit.
+  --provider TEXT                 Data provider/organisation. List the provider/network combinations
+                                  with: wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea,
+                                  eaufrance, nws, geosphere  [required]
+  --network TEXT                  Data network of the provider. Examples: observation, mosmix,
+                                  radar, ghcn, pegel, hydrology  [required]
+  --station TEXT                  Station id to list the model runs of.  [required]
+  --dataset [icon|icon_eu|large|small|snow]
+                                  DWD product: DMO icon or icon_eu (default icon), MOSMIX large,
+                                  small or snow (default large); refused for SWSMOS and for the
+                                  other network's product.
+  --lead-time [short|long]        DWD DMO forecast lead time; DMO only, refused for MOSMIX and
+                                  SWSMOS. Default: short
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
+  --help                          Show this message and exit.
+
+
+$ wetterdienst kostra --help
+
+Usage: wetterdienst kostra [OPTIONS]
+
+  Acquire DWD's design rainfall (KOSTRA: return periods of heavy rain) at a point.
+
+  Reads KOSTRA-DWD-2020 and returns the table of the cell of DWD's 5 km grid that holds the point:
+  for each duration of a rain (5 minutes to 7 days) and each return period (1 to 100 years), its
+  depth in mm, its intensity in l/(s ha) and DWD's uncertainty in plus-minus percent, with the
+  cell's INDEX_RC and the position of its centre. Pass --duration, and --return-period, for the one
+  value you need: a duration reads one table of DWD, without it all 22 are read. A point outside
+  Germany and a border of about 10 km, or in the sea, is refused.
+
+Options:
+  --latitude FLOAT RANGE   Latitude of the point. DWD's grid covers Germany and a border of about 10
+                           km.  [-90<=x<=90; required]
+  --longitude FLOAT RANGE  Longitude of the point.  [-180<=x<=180; required]
+  --duration INTEGER       Only this duration of the rain, in minutes: 5, 10, 15, 20, 30, 45, 60,
+                           90, 120, 180, 240, 360, 540, 720, 1080, 1440, 2880, 4320, 5760, 7200,
+                           8640 or 10080 (7 days). Without it all 22 are read: 22 files of DWD,
+                           which takes 2 s the first time and is then served from the cache.
+  --return-period INTEGER  Only this return period, in years: 1, 2, 3, 5, 10, 20, 30, 50 or 100.
+                           Default: all nine.
+  --format [json|csv]      Output format: json (with the cell and the metadata block) or csv (the
+                           table alone). Default: json
+  --pretty BOOLEAN         Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                           Default: false
+  --debug BOOLEAN          Log at debug level. Default: false
+  --quiet BOOLEAN          Log errors and warnings about the answer only: no progress. Not with
+                           --debug. Default: false
+  --help                   Show this message and exit.
+
+  Examples:
+
+  # the 60-minute rain that comes once in 100 years at a point in Berlin: the depth (mm), the intensity (l/(s ha))
+  # and DWD's uncertainty (+- %), as JSON with the grid cell
+  wetterdienst kostra --latitude=52.52 --longitude=13.40 --duration=60 --return-period=100
+
+  # every return period of one duration, as CSV
+  wetterdienst kostra --latitude=48.14 --longitude=11.58 --duration=120 --format=csv
+
+  # the whole table of the cell: 22 durations and 9 return periods (22 files of DWD: 2 s the first time)
+  wetterdienst kostra --latitude=53.55 --longitude=9.99
 
 
 $ wetterdienst providers --help
@@ -510,6 +562,52 @@ Options:
   wetterdienst restapi --listen=0.0.0.0:8890 --reload
 
 
+$ wetterdienst station-ids --help
+
+Usage: wetterdienst station-ids [OPTIONS]
+
+  Find one WMO number, WIGOS identifier or ICAO code at every provider that has it.
+
+  Asks the station list of every network that publishes the ids with its stations, all at once, and
+  writes one row for each station that carries one of them: provider, network, the resolution and
+  dataset of the list, station_id, name, position, the three ids, and which id matched (matched_by)
+  and whether it was the id asked for or an equivalent one (match). The ids are equivalent: the
+  WIGOS identifier 0-20000-0-10381 and the WMO number 10381 find each other, and an ICAO code also
+  searches the WMO numbers of the stations it finds. A network that cannot be read, needs
+  credentials that are not set, or is rate-limited by its provider, is left out and named in a
+  warning; if every network that was asked failed or was rate-limited the command fails.
+
+  The first search reads about 30 MB of station lists and takes about 9 s on a good connection,
+  longer on a slow one; the next is served from the cache in about a second.
+
+Options:
+  --wmo-id TEXT        Search by WMO number (five digits), comma-separated. The WIGOS identifier
+                       0-20000-0-<number> of each is searched too. Example: 10381,10147
+  --wigos-id TEXT      Search by WIGOS station identifier, comma-separated. One of WMO's issuer,
+                       0-20000-0-<number>, is the WMO number as well. Example: 0-20000-0-10381
+  --icao-id TEXT       Search by ICAO location indicator (four letters, any case), comma-separated.
+                       The WMO numbers of the stations found are searched too. Example: EDDH,EDDB
+  --format [json|csv]  Output format: json (with the metadata block) or csv (the table alone).
+                       Default: json
+  --pretty BOOLEAN     Pretty-print JSON with 4-space indentation, as REST's pretty=true. Default:
+                       false
+  --debug BOOLEAN      Log at debug level. Default: false
+  --quiet BOOLEAN      Log errors and warnings about the answer only: no progress. Not with --debug.
+                       Default: false
+  --help               Show this message and exit.
+
+  Examples:
+
+  # the station with WMO number 10381 at every provider that lists it: DWD, NOAA GHCN, ... (about 9 s the first time)
+  wetterdienst station-ids --wmo-id=10381
+
+  # an aerodrome by its ICAO code: also the stations that list its WMO number only
+  wetterdienst station-ids --icao-id=EDDH
+
+  # a WIGOS identifier, as CSV; the identifier of WMO's issuer is the WMO number as well
+  wetterdienst station-ids --wigos-id=0-20000-0-10381 --format=csv
+
+
 $ wetterdienst stations --help
 
 Usage: wetterdienst stations [OPTIONS]
@@ -517,9 +615,9 @@ Usage: wetterdienst stations [OPTIONS]
   Acquire stations.
 
   Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
-  --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql. Given a
-  window, with --timestamp or --start / --end, only the stations whose record overlaps it are
-  listed.
+  --region, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or
+  --sql. Given a window, with --timestamp or --start / --end, only the stations whose record
+  overlaps it are listed.
 
   A selection that finds no station is no failure: the list is empty, the command says so on stderr
   and exits 0. A station id of --stations the network has no station for is named in a warning and
@@ -559,6 +657,10 @@ Options:
   --icao-id TEXT                  Select stations by ICAO location indicator (four letters, any
                                   case), comma-separated: every station that has one of them.
                                   Example: EDDH,EDDB
+  --region TEXT                   Select stations by the region their source lists them under (a
+                                  state, province, département), comma-separated, any case: every
+                                  station of it, those not on land included. An unknown region is
+                                  refused and the regions there are named. Example: Hamburg
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
                                   says, among the stations with a record in --timestamp if given.
@@ -637,8 +739,10 @@ Options:
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
       --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-05
 
-  # stations by region, or by a pattern in their name
-  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --sql="region='Sachsen'"
+  # the stations their source lists under a region, those not on land included
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --region=Hamburg
+
+  # stations by a pattern in their name
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
       --sql="lower(name) LIKE lower('%dresden%')"
 
@@ -650,42 +754,175 @@ Options:
       --target=file://stations.xlsx
 
 
-$ wetterdienst stripes --help
+$ wetterdienst statistics --help
 
-Usage: wetterdienst stripes [OPTIONS] COMMAND [ARGS]...
+Usage: wetterdienst statistics [OPTIONS]
 
-  Climate stripes.
+  Count, average, add up or take the extremes of each station's values per year, month, day or hour.
 
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  image     Create the climate stripes image for a specific station.
-  stations  List stations for climate stripes.
-
-
-$ wetterdienst stripes image --help
-
-Usage: wetterdienst stripes image [OPTIONS]
-
-  Create the climate stripes image for a specific station.
-
-  Select the station with exactly one of --station or --name.
+  Select the stations with exactly one of --all, --stations, --region, --name, or
+  --latitude/--longitude with --rank or --distance. Each group says how many values it has
+  (searched) and should have (expected): a group with a gap, and a year that is not over, has no
+  mean or sum unless --max-missing allows it. --having, --sort and --first choose among the groups,
+  and over_groups has the minimum, maximum and mean over a series' complete groups.
 
 Options:
-  --kind TEXT                     Kind of stripes: temperature or precipitation.  [required]
-  --station TEXT                  Station id, instead of --name.
-  --name TEXT                     Station name, matched fuzzily, instead of --station.
-  --name-threshold FLOAT          Minimum fuzzy-match score. Default: 0.8
-  --start-year INTEGER            First year. Default: the station's first
-  --end-year INTEGER              Last year. Default: the station's last
-  --show-title BOOLEAN            Show the station name. Default: true
-  --show-years BOOLEAN            Show the first and last year. Default: true
-  --show-data-availability BOOLEAN
-                                  Mark the years without data. Default: true
-  --format [png|jpg|svg|pdf]      Image format. Default: png
-  --dpi INTEGER RANGE             Resolution. Default: 300  [x>0]
-  --target FILE                   Write the image to this local file instead of stdout.
+  --provider TEXT              Data provider/organisation. List the provider/network combinations
+                               with: wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea,
+                               eaufrance, nws, geosphere  [required]
+  --network TEXT               Data network of the provider. Examples: observation, mosmix, radar,
+                               ghcn, pegel, hydrology  [required]
+  --parameters TEXT            Parameters as resolution/dataset or resolution/dataset/parameter,
+                               comma-separated. Examples: daily/kl,
+                               daily/climate_summary/precipitation_amount  [required]
+  --periods TEXT               Dataset periods, comma-separated. Inferred from the timestamp when
+                               one is given, else every period the requested datasets publish; one
+                               they are not published under is rejected. Examples: historical,
+                               recent, now
+  --timestamp TEXT             Single date or interval in ISO 8601 format, covering everything it
+                               names: 2020-05-01 is that whole day, 2020-05 the month and 2020 the
+                               year, while a date carrying a time (2020-05-01T12) is that one
+                               instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05
+  --all BOOLEAN                Select all stations. Default: false
+  --stations TEXT              Select stations by id, comma-separated. Example: 01048,04411
+  --region TEXT                Select stations by the region their source lists them under (a state,
+                               province, département), comma-separated, any case: every station of
+                               it, those not on land included. An unknown region is refused and the
+                               regions there are named. Example: Hamburg
+  --name TEXT                  Select stations by fuzzy name match: the best five for `stations`,
+                               which lists candidates, the best one for `values`, unless --rank
+                               says, among the stations with a record in --timestamp if given.
+                               Example: Dresden-Klotzsche
+  --latitude FLOAT             Latitude of the reference point.
+  --longitude FLOAT            Longitude of the reference point.
+  --rank INTEGER               The N stations closest to --latitude/--longitude, or the N best
+                               --name matches, best first.
+  --distance FLOAT             The stations within this many km of --latitude/--longitude.
+  --aggregate TEXT             What to compute per group: one to five of count, mean, sum, min, max,
+                               earliest, latest, comma-separated. count is the values that meet
+                               --filter, earliest and latest the first and last of them in time;
+                               min, max, earliest and latest come with their date (min_at). A
+                               direction or a code has no mean or extreme; sum is for amounts and,
+                               daily or hourly, temperatures (degree days). Example: count or
+                               mean,max  [required]
+  --by TEXT                    The groups, besides the series (a station and a parameter, never
+                               merged): year, month, day, hour (UTC), comma-separated; none is one
+                               group per series. year,month is a group a month, month puts every
+                               January together. Example: year
+  --filter TEXT                Conditions joined by commas: column, operator, number. year, month,
+                               day, hour (UTC) say which values are looked at, value (in its unit)
+                               which of them count. Operators = != < <= > >=; a list a|b with = and
+                               !=. A time condition changes expected, a value condition does not: a
+                               group with values and no match has a count of 0. Example: 'value<0'
+                               or 'month=12|1|2,value>=25' (quote it: < and | are the shell's)
+  --year-start INTEGER RANGE   The month a year begins, 1 to 12 (default 1). The year is named by
+                               the year it ends in: 12 makes the winter 2023/24 the year 2024, in
+                               --by, --filter and --sort. Needs year in --by  [1<=x<=12]
+  --max-missing INTEGER RANGE  How many values a group may lack and still be complete, with a mean
+                               and a sum (default 0: a group with a gap, a year that is not over or
+                               a year the window cuts has none). Keep it 0 to rank; raise it only
+                               for a gap you accept: the warning gaps-allowed counts what it lets in
+                               [0<=x<=10000]
+  --having TEXT                Keep the groups that meet conditions on the results, written as
+                               --filter: the aggregates asked for, searched, expected, complete (the
+                               word alone is complete=1). Example: 'count>=100' or 'searched<360' or
+                               complete
+  --sort TEXT                  Order of the groups: columns joined by commas, - before one for
+                               descending: the aggregates asked for, the columns of --by,
+                               station_id, searched, expected, complete. A null comes last. Example:
+                               --sort=-mean
+  --first INTEGER RANGE        Keep the first N groups of the --sort order, exactly N (a warning
+                               says how many more tie): --sort=-mean --first=5 with --by=year is the
+                               five warmest years. Needs --sort; counts in each series unless --per
+                               says otherwise  [x>=1]
+  --per [station|none]         Over what --first counts: station (each series) or none (the stations
+                               of one parameter together, each group with its rank). Default:
+                               station
+  --max-rows INTEGER RANGE     Return at most this many groups of the whole answer, the first of its
+                               order, after --first  [x>=1]
+  --format [json|csv|ndjson]   Output format: json (with the metadata block), csv (a row per group)
+                               or ndjson (a line per group, then the end). Default: json
+  --pretty BOOLEAN             Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                               Default: false
+  --debug BOOLEAN              Log at debug level. Default: false
+  --quiet BOOLEAN              Log errors and warnings about the answer only: no progress. Not with
+                               --debug. Default: false
+  --help                       Show this message and exit.
+
+  Examples:
+
+  # the frost days of each year at Potsdam, 1961 to 1990, with their mean over the years under over_groups
+  wetterdienst statistics --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_min_2m --stations=03987 --timestamp=1961/1990 \
+      --filter='value<0' --aggregate=count --by=year
+
+  # the five warmest years of the record, the mean of each (a year that is not over has no mean)
+  wetterdienst statistics --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_mean_2m --stations=03987 \
+      --aggregate=mean --by=year --sort=-mean --first=5
+
+  # the coldest winters: December to February, a year named by the year its season ends in
+  wetterdienst statistics --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_mean_2m --stations=03987 \
+      --filter='month=12|1|2' --year-start=12 --aggregate=mean --by=year --sort=mean --first=3
+
+  # the rain of each month as CSV, the wettest first
+  wetterdienst statistics --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/precipitation_amount --stations=03987 \
+      --aggregate=sum --by=year,month --sort=-sum --first=10 --format=csv
+
+
+$ wetterdienst storm-cells --help
+
+Usage: wetterdienst storm-cells [OPTIONS]
+
+  Acquire DWD's thunderstorm cells (KONRAD3D).
+
+  Returns the cells of the newest radar scan (or of the newest at or before --timestamp), one row
+  per cell: its severity, warning flags for hail, heavy rain and gusts, size, speed, the direction
+  of its motion, its outline and its forecast track. Every cell of Germany, unless --latitude,
+  --longitude and --distance, or --left, --bottom, --right and --top name a place. An empty result
+  is an answer: no cell was there (most scans hold none), or none is in the place; its warnings say
+  which, and that the scan is old.
+
+  With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
+
+Options:
+  --timestamp TEXT                Point in time (ISO 8601, UTC if no offset): the newest scan at or
+                                  before it. Defaults to the newest scan. Must fall within DWD's
+                                  rolling ~48-hour window.
+  --latitude FLOAT RANGE          With --longitude, only the cells whose outline contains this point
+                                  (an edge counts as inside) or comes within --distance of it.
+                                  [-90<=x<=90]
+  --longitude FLOAT RANGE         Longitude of the point; given with --latitude.  [-180<=x<=180]
+  --distance FLOAT RANGE          With a point, the kilometres from it within which the outline of a
+                                  cell counts as near. Default: 0, the cells over the point.  [x>=0]
+  --left FLOAT RANGE              Western longitude of a box: with --bottom, --right and --top, only
+                                  the cells whose outline reaches into it.  [-180<=x<=180]
+  --bottom FLOAT RANGE            Southern latitude of the box.  [-90<=x<=90]
+  --right FLOAT RANGE             Eastern longitude of the box.  [-180<=x<=180]
+  --top FLOAT RANGE               Northern latitude of the box.  [-90<=x<=90]
+  --min-severity INTEGER RANGE    Only the cells of this severity and above: 0 weak, 1 moderate, 2
+                                  severe, 3 extreme.  [0<=x<=3]
+  --track BOOLEAN                 Give each cell its forecast track, 12 positions to 60 minutes
+                                  ahead (1.6 KB of JSON a cell). --track=false leaves it out.
+                                  Default: true
+  --geometry [outline|centroid]   The geometry of each cell: its outline polygon, or the point of
+                                  its centre. Default: outline
+  --format [json|geojson|csv]     Output format. Default: json
+  --target TEXT                   Write the cells to this file instead of stdout, in the format its
+                                  extension names: .json, .geojson or .csv. Databases are refused. A
+                                  scan without a cell still writes the file. Example:
+                                  file://cells.geojson
+  --if-exists [replace|append|fail|skip]
+                                  What to do when the --target file is there: 'replace' (default),
+                                  'fail' or 'skip'. A file takes no 'append'. Default: replace
+  --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                                  Default: false
+  --with-metadata BOOLEAN         Write the metadata block (provider, licence, credit line, date of
+                                  the data) beside the --target file as <file>.metadata.json. A
+                                  .json or .geojson file holds it already; a .csv file does not.
+                                  Needs --target. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
   --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
                                   with --debug. Default: false
@@ -693,34 +930,20 @@ Options:
 
   Examples:
 
-  # warming stripes for a station, by id or by name
-  wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
-  wetterdienst stripes image --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
+  # the cells of the newest radar scan, as JSON: every cell of Germany, and most scans have none
+  wetterdienst storm-cells
 
-  # for the years 2000 to 2020
-  wetterdienst stripes image --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
-      > warming_stripes.png
+  # the cells over a place or within 25 km of it, without the track: a few KB
+  wetterdienst storm-cells --latitude=52.52 --longitude=13.40 --distance=25 --track=false
 
-  # precipitation stripes, to a file
-  wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
+  # the cells in a box (left, bottom, right, top), severe ones and above, as points of their centres
+  wetterdienst storm-cells --left=8 --bottom=47.5 --right=13.8 --top=50.6 --min-severity=2 --geometry=centroid
 
+  # the cells of a past scan: replace YYYY-MM-DDTHH:MM with a time within the last ~48 hours, all DWD keeps
+  wetterdienst storm-cells --timestamp=YYYY-MM-DDTHH:MM
 
-$ wetterdienst stripes stations --help
-
-Usage: wetterdienst stripes stations [OPTIONS]
-
-  List stations for climate stripes.
-
-Options:
-  --kind TEXT                  Kind of stripes: temperature or precipitation.  [required]
-  --active BOOLEAN             Only stations still reporting. Default: true
-  --format [json|geojson|csv]  Output format. Default: json
-  --pretty BOOLEAN             Pretty-print JSON with 4-space indentation, as REST's pretty=true.
-                               Default: false
-  --debug BOOLEAN              Log at debug level. Default: false
-  --quiet BOOLEAN              Log errors and warnings about the answer only: no progress. Not with
-                               --debug. Default: false
-  --help                       Show this message and exit.
+  # to a GeoJSON file
+  wetterdienst storm-cells --format=geojson --target=file://cells.geojson
 
 
 $ wetterdienst summarize --help
@@ -843,7 +1066,8 @@ Usage: wetterdienst values [OPTIONS]
   Acquire data.
 
   Select the stations with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id,
-  --name, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
+  --name, --region, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top,
+  or --sql.
 
 Options:
   --provider TEXT                 Data provider/organisation. List the provider/network combinations
@@ -878,6 +1102,10 @@ Options:
   --icao-id TEXT                  Select stations by ICAO location indicator (four letters, any
                                   case), comma-separated: every station that has one of them.
                                   Example: EDDH,EDDB
+  --region TEXT                   Select stations by the region their source lists them under (a
+                                  state, province, département), comma-separated, any case: every
+                                  station of it, those not on land included. An unknown region is
+                                  refused and the regions there are named. Example: Hamburg
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
                                   says, among the stations with a record in --timestamp if given.
@@ -1015,6 +1243,33 @@ Options:
                                   `suspect:limits`. A forecast network follows this mode too.
                                   Default: WD_TS_LIMITS if set, else none; a name given here
                                   replaces the one of WD_TS_LIMITS
+  --filter TEXT                   Keep only the rows that meet every condition, joined by commas:
+                                  column, operator, number. Columns: value, year, month, day, hour
+                                  (UTC; a daily value's own date), or the name of a requested
+                                  parameter (in its unit; then a row is a timestamp: all conditions
+                                  must hold at it, and every parameter's rows at those timestamps
+                                  come back). Operators: = != < <= > >=; a list a|b with = and !=. A
+                                  missing value never matches. A value condition needs parameters of
+                                  one unit and no name. Example: value<=-20,month=12|1|2 or
+                                  temperature_air_min_2m<0,wind_gust_max>=17.2 (quote it: < and |
+                                  are the shell's)
+  --sort TEXT                     Order of the answer: columns joined by commas, - before one for
+                                  descending. Columns: value, timestamp, year, month, day, hour,
+                                  station_id, or the name of a requested parameter (orders and ranks
+                                  the timestamps by it). Example: --sort=-value (highest first)
+  --first INTEGER                 Return only the first N rows of each group in the --sort order,
+                                  the ties of the last one included (needs --sort). --sort=value
+                                  --first=1 is the lowest value of each station in the --timestamp
+                                  window with all its ties (--max-rows cuts ties). The whole window
+                                  is read, and metadata.search says from when to when.
+  --by TEXT                       The groups --first counts in: station_id (the default), year,
+                                  month, day, hour, joined by commas, or none for all stations
+                                  together; a parameter is always its own group (needs --first)
+  --max-rows INTEGER              Return at most this many rows of the whole answer, the first of
+                                  its order (after --filter, --sort and --first), over all stations
+                                  and parameters: for a short answer where many rows tie. What
+                                  matched is still counted in metadata.search, and a rows-capped
+                                  warning says how many are returned
   --format [json|geojson|csv|ndjson|html|png|jpg|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
                                   for each row, then the end) for data, html, png, jpg, svg or pdf
@@ -1071,6 +1326,17 @@ Options:
   wetterdienst values --provider=dwd --network=observation \
       --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_2m \
       --timestamp=2020-06-15T12/2020-06-16T12 --stations=1048,4411 --shape=wide
+
+  # the rows of the whole record that the answer is about: the lowest and the coldest day of every year
+  wetterdienst values --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+      --sort=value --first=1
+  wetterdienst values --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+      --sort=value --first=1 --by=station_id,year
+  wetterdienst values --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/temperature_air_min_2m --stations=1975 --timestamp=1900/2026 \
+      --filter='value<=-20' --sort=-timestamp
 
   # the days with a wind gust above 20 m/s, one row per value or, filtering on the column, one per day
   wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \

@@ -31,7 +31,6 @@ from tests.ui.test_restapi import (
     _station_of,
     _stub_result,
     _stub_stream,
-    _stub_stripes_station,
     _values_result_of_shape,
 )
 from wetterdienst import Options, Wetterdienst
@@ -250,6 +249,15 @@ def _no_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: result)
 
 
+def _no_storm_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for a KONRAD3D scan that holds no cell."""
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest, DwdStormCellsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.storm_cells.api import _SCHEMA  # noqa: PLC0415
+
+    result = DwdStormCellsResult(pl.DataFrame(schema=_SCHEMA), None)
+    monkeypatch.setattr(DwdStormCellsRequest, "query", lambda _self: result)
+
+
 def test_the_issues_have_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The runs of a forecast are about one station of a network, whose terms the answer names."""
     _swsmos_lists_one_run(monkeypatch)
@@ -355,120 +363,9 @@ def test_the_alerts_on_the_command_line_are_the_ones_of_rest(
     assert command_line == rest
 
 
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_the_stripes_stations_have_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The listing has the block of every answer, which holds what its old `{provider, producer}` did."""
-    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-
-    response = client.get("/api/stripes/stations", params={"kind": "temperature", "active": "false"})
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert list(body) == ["metadata", "stations"]
-    assert set(body["metadata"]) == ALWAYS
-    assert body["metadata"]["counts"] == {"stations": 1, "rows": 1}
-    assert body["metadata"]["provider"]["name_english"] == "German Weather Service"
-    assert body["metadata"]["producer"]["name"] == "wetterdienst"
-    assert response.headers["X-Wetterdienst-Stations"] == "1"
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_the_stripes_values_have_the_block_and_a_series_for_what_they_are_of(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`station`, `resolution`, `dataset`, `parameter` and `unit` are the `series`, and the `metadata` is the block."""
-    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-
-    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert set(body) == {"metadata", "series", "values"}
-    metadata = body["metadata"]
-    assert set(metadata) == ALWAYS
-    assert set(body["series"]) == {"station", "resolution", "dataset", "parameter", "unit"}
-    assert body["series"]["unit"] == "degree_celsius"
-    assert body["series"]["station"]["station_id"] == "01048"
-    assert metadata["request"]["parameters"] == ["annual/climate_summary/temperature_air_mean_2m"]
-    assert metadata["request"]["stations"] == {"filter": "by_station_id", "count": 1, "ids": ["01048"]}
-    assert metadata["counts"] == {"stations": 1, "rows": 2}
-    assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
-
-
-class _Figure:
-    """The drawing of a stripes image, which hands out these bytes as the image."""
-
-    def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-        return b"image"
-
-
-def _read_and_warn(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Have the read of a stripes station raise a warning of the response, which the route has to record."""
-    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
-    from wetterdienst.ui import core  # noqa: PLC0415
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    read = core._get_stripes_data  # noqa: SLF001
-
-    def read_and_warn(request: object) -> object:
-        warn_response(restapi.log, "station-skipped", "station 00002 is skipped")
-        return read(request)
-
-    monkeypatch.setattr(restapi, "_get_stripes_data", read_and_warn)
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("prefix", ["/api", "/api/v1"])
-@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
-@pytest.mark.usefixtures("chart_draws_itself")
-def test_the_stripes_image_has_the_headers_of_every_answer(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, fmt: str
-) -> None:
-    """The image tells the licence, the credit line and the warnings in headers, as the values do.
-
-    Nothing is drawn into it (GH-3581): the only way to a caller that reads no pixels is the headers.
-    """
-    _read_and_warn(monkeypatch)
-
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-
-    response = client.get(f"{prefix}/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
-
-    assert response.status_code == 200, response.text
-    assert response.content == b"image"
-    assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
-    assert '<https://creativecommons.org/licenses/by/4.0/>; rel="license"' in response.headers["Link"]
-    assert "Deutscher Wetterdienst" in unquote(response.headers["X-Wetterdienst-Attribution"])
-    assert response.headers["X-Wetterdienst-Warnings"] == "station-skipped"
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.usefixtures("chart_draws_itself")
-def test_the_stripes_image_names_the_same_terms_as_the_stripes_values(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The image and the values of one station carry the same licence, credit line and Link, from the one helper."""
-    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-    params = {"kind": "temperature", "station": "01048"}
-
-    image = client.get("/api/stripes/image", params=params)
-    values = client.get("/api/stripes/values", params=params)
-
-    names = ("X-Wetterdienst-License", "Link", "X-Wetterdienst-Attribution")
-    assert [image.headers[name] for name in names] == [values.headers[name] for name in names]
-
-
 @pytest.mark.parametrize(
     "path",
-    ["/history", "/issues", "/alerts", "/stripes/stations", "/stripes/values"],
+    ["/history", "/issues", "/alerts"],
 )
 def test_the_openapi_document_describes_the_answer_of_each_route_with_the_block(client: TestClient, path: str) -> None:
     """The document says what each of these answers, the block included, which MCP checks a tool's answer against."""
@@ -577,24 +474,60 @@ def _read_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, DwdWeatherAlertRequest, "query")
 
 
+def _read_storm_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest  # noqa: PLC0415
+
+    _no_storm_cells(monkeypatch)
+    _warn_first(monkeypatch, DwdStormCellsRequest, "query")
+
+
+def _read_kostra(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.provider.dwd.kostra.stubs import serve  # noqa: PLC0415
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415
+
+    serve(monkeypatch)
+    _warn_first(monkeypatch, DwdKostraRequest, "query")
+
+
+def _read_station_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.core.station_search_stubs import serve  # noqa: PLC0415
+
+    serve(monkeypatch, {})
+    _warn_first(monkeypatch, restapi, "find_stations_by_id")
+
+
+def _read_radar_frames(monkeypatch: pytest.MonkeyPatch) -> None:
+    import datetime as dt  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames, RadarFrameList  # noqa: PLC0415
+    from wetterdienst.provider.dwd.radar.rv import image_frame  # noqa: PLC0415
+
+    run = dt.datetime(2026, 11, 19, 21, 10, tzinfo=dt.UTC)
+
+    def frames(*_args: object, **_kwargs: object) -> RadarFrameList:
+        return RadarFrameList(run=run, frames=(), image=image_frame())
+
+    monkeypatch.setattr(DwdRadarFrames, "frames", frames)
+    _warn_first(monkeypatch, DwdRadarFrames, "frames")
+
+
+def _read_radar_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    import datetime as dt  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames, RadarFrame, RadarImage  # noqa: PLC0415
+    from wetterdienst.provider.dwd.radar.rv import image_frame  # noqa: PLC0415
+
+    run = dt.datetime(2026, 11, 19, 21, 10, tzinfo=dt.UTC)
+
+    def frame(*_args: object, **_kwargs: object) -> RadarImage:
+        return RadarImage(png=b"image", frame=RadarFrame(run=run, time=run, lead_minutes=0), image=image_frame())
+
+    monkeypatch.setattr(DwdRadarFrames, "frame", frame)
+    _warn_first(monkeypatch, DwdRadarFrames, "frame")
+
+
 def _read_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, restapi, "get_providers")
-
-
-def _read_stripes_stations(monkeypatch: pytest.MonkeyPatch) -> None:
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    _warn_first(monkeypatch, restapi, "_get_stripes_stations")
-
-
-def _read_stripes_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    _warn_first(monkeypatch, restapi, "_get_stripes_data")
-
-
-def _draw_stripes_image(monkeypatch: pytest.MonkeyPatch) -> None:
-    _read_stripes_values(monkeypatch)
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-    monkeypatch.setattr("wetterdienst.ui.restapi.render_image", lambda chart, *_args, **_kwargs: chart.to_image())
 
 
 def _read_values_of(endpoint: str) -> Callable[[pytest.MonkeyPatch], None]:
@@ -603,6 +536,12 @@ def _read_values_of(endpoint: str) -> Callable[[pytest.MonkeyPatch], None]:
         _warn_first(monkeypatch, restapi, _FETCH_OF_ENDPOINT[endpoint])
 
     return read
+
+
+def _read_statistics(monkeypatch: pytest.MonkeyPatch) -> None:
+    result = _values_result_of_shape("long").statistics("count", by="year")
+    monkeypatch.setattr(restapi, "get_statistics", lambda **_kwargs: result)
+    _warn_first(monkeypatch, restapi, "get_statistics")
 
 
 #: every route of the API that answers with a `metadata` block (or the headers of one), with a request that is answered
@@ -621,15 +560,21 @@ _ROUTES_WITH_WARNINGS = [
         "/api/interpolate", _params("/api/interpolate"), _read_values_of("/api/interpolate"), id="interpolate"
     ),
     pytest.param("/api/summarize", _params("/api/summarize"), _read_values_of("/api/summarize"), id="summarize"),
-    pytest.param("/api/stripes/stations", {"kind": "temperature"}, _read_stripes_stations, id="stripes-stations"),
     pytest.param(
-        "/api/stripes/values", {"kind": "temperature", "station": "01048"}, _read_stripes_values, id="stripes-values"
-    ),
-    pytest.param(
-        "/api/stripes/image", {"kind": "temperature", "station": "01048"}, _draw_stripes_image, id="stripes-image"
+        "/api/statistics",
+        {**_OBSERVATION, "stations": "01048", "timestamp": "2026-01-01", "aggregate": "count", "by": "year"},
+        _read_statistics,
+        id="statistics",
     ),
     pytest.param("/api/history", {**_OBSERVATION, "stations": "02564"}, _read_history, id="history"),
     pytest.param("/api/alerts", {}, _read_alerts, id="alerts"),
+    pytest.param("/api/storm-cells", {}, _read_storm_cells, id="storm-cells"),
+    pytest.param(
+        "/api/kostra", {"latitude": "52.52", "longitude": "13.40", "duration": "60"}, _read_kostra, id="kostra"
+    ),
+    pytest.param("/api/station-ids", {"wmo_id": "10381"}, _read_station_ids, id="station-ids"),
+    pytest.param("/api/radar/frames", {}, _read_radar_frames, id="radar-frames"),
+    pytest.param("/api/radar/frame", {"time": "2026-11-19T21:10:00Z"}, _read_radar_frame, id="radar-frame"),
 ]
 #: the routes that answer without a block: a catalogue of the library, the server's own state
 _ROUTES_WITHOUT_WARNINGS = {"/version", "/settings", "/auth", "/coverage", "/glossary"}
@@ -646,7 +591,7 @@ def test_a_route_records_the_warnings_of_its_read_without_a_record_begun_for_it(
     """The route begins its own record: the warning of its read is in the block and in the header (GH-3593).
 
     The test starts with none (`_unrecorded`), as a server's thread does. A route that never called `begin_response`
-    would answer with `warnings: []` and no `X-Wetterdienst-Warnings`, as `/api/stripes/values` did.
+    would answer with `warnings: []` and no `X-Wetterdienst-Warnings`.
     """
     arrange(monkeypatch)
     assert _RECORDED.get() is None
@@ -655,7 +600,7 @@ def test_a_route_records_the_warnings_of_its_read_without_a_record_begun_for_it(
     response = client.get(path, params=params)
 
     assert response.status_code == 200, response.text
-    if path == "/api/stripes/image":
+    if path == "/api/radar/frame":
         # an image has no block: the headers are where its warnings are (GH-3581)
         assert response.content == b"image"
     else:
@@ -927,8 +872,10 @@ DATA_UPDATED_STATED: set[tuple[str, str]] = {
     ("dwd", "observation"),
     ("dwd", "phenology"),
     ("dwd", "poi"),
+    ("dwd", "pollen"),
     ("dwd", "road"),
     ("dwd", "swsmos"),
+    ("dwd", "uvi"),
     ("imgw", "hydrology"),
     ("imgw", "meteorology"),
     ("ipma", "observation"),

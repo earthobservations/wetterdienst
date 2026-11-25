@@ -13,7 +13,7 @@ unit, and the library judges them all in one place, in one unit per quantity ([h
 There is no mode that skips a check. A soft check already keeps the value, and the flag keeps the judgement visible.
 
 **A forecast is judged soft, but for two checks.** A network whose metadata `kind` is `forecast` (what `coverage` reports: `dwd/mosmix`,
-`dwd/dmo`, `dwd/swsmos`, and any provider that declares one) has every check soft but two, **whatever mode is set**: the default,
+`dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`, and any provider that declares one) has every check soft but two, **whatever mode is set**: the default,
 `hard` given by `Options`, `--plausibility-range=hard`, `plausibility_range=hard` of the REST API or `WD_TS_PLAUSIBILITY`
 in the environment. A forecast is the output of a model and no reading, so a value that a check finds (ICON's 394.92 mm of rain
 in an hour at 83827 Foz do Iguaçu, above the 350 mm of the table) is kept and flagged `suspect:range`, and never nulled; a
@@ -73,7 +73,7 @@ written as short as it goes (`4021.0` as `4021`).
 | `step` | a reading that differs from the one before it by more than the weather does in that time, or that jumps away from both neighbours and back | **soft** | **Every observation network**: of one station and parameter, a **step** (the change from the reading one step of the resolution before it is larger than the limit; the later reading is flagged) and a **spike** (a reading that departs from both neighbours by more than the limit, in opposite directions; the middle reading is flagged), as the table of [the limits of a jump](#the-limits-of-a-jump-step) says for the parameter and the resolution (10 minutes, hourly, daily): the air temperature and the dew point (an hour: a spike of 8 K, a step of 20 K; a day: a spike of 25 K), the pressure (60 hPa), the mean wind speed (a spike of 10 m/s, a step of 15 m/s): the limits of ISD, DMI, MADIS and GHCN-Daily, and this library's own data and derivation where none is published, each cited in the table. A reading further than one step from its neighbour (a null or a gap between) is not judged, nor is the first reading of a series. Not judged: where no source gives a limit, or the limit flags good readings ([the list](#what-step-does-not-judge)) |
 | `relations` | two readings of one row that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind), or a day of sunshine longer than the day | **soft** | **Every observation network**, for the parameters of one file (a dataset the provider collects whole), as [the table of relations](#the-relations-of-one-row-relations) says: the maximum is not below the mean and the mean not below the minimum (temperature, humidity, pressure, wind), the dew point is at most 0.2 K above the air temperature, a gust is not below the mean wind of its interval, and the sunshine of a day is at most the longest day length of its date at the station, and 5 % more. **Both readings of a broken pair are flagged**, since nothing says which is wrong; the check never downloads the other parameter and stands aside where it is missing. Not `consistency`, which is the hard check of a provider's own rules ([how they differ](#how-relations-differs-from-consistency)) |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
-| `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other built-in check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
+| `floor` | a model value a little below the floor of its quantity | hard | DWD DMO and MOSMIX (a forecast, soft in every other built-in check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0; MOSMIX-SNOW writes the snow depth of a melting snow at -0.01 and -0.02 m, and at -0.07 m in the run of 2026-11-18. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value. Only round-off is clipped: down to a tolerance for each quantity (an amount of precipitation 0.2 mm, a radiation sum 0.01 MJ/m2, a depth of snow 10 cm, a duration 0.02 h), which `FLOORS` of `model/judge.py` gives with the largest round-off read; a value further below is the range's (`suspect:range` on a forecast) |
 | `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts, as far as both are in one mode ([the tokens](#the-tokens)) |
 | `source` | a value the source itself marks as erroneous or doubtful in its own quality flag and returns | **soft** | The codes the provider's documentation words as a failed check, erroneous, suspect, doubtful or poor, per provider ([below](#the-sources-own-verdict-source)): GHCN-Daily `QFLAG`, GHCNh `Suspect`/`Erroneous`, the letters of its source 382, source 345's `3` and `o`/`f` of a derived humidity, Frost `qualityCode` 7, CHMI `Suspect` and `Poor`, Environment Agency `Suspect`, Météo-France `Q` 2, DMI `validity:false`, NWS/MADIS `X`, `Q` and `B`, Hub'Eau `12`, DWD road `1`, Met Office MIDAS status `1`. Soft keeps the value and writes `suspect:source`; hard nulls it and writes `rejected:source,raw:<text>`, except the suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`), which stays `suspect:source` |
 
@@ -769,11 +769,11 @@ object. The bounds that a command or a request gives are merged into the ones th
 request winning for a name both give (as the unit targets are); `WD_TS_LIMITS__<NAME>='[low, high]'` sets one name from
 the environment, and a name with a dataset (it has slashes) can only be set in the JSON of `WD_TS_LIMITS`. The REST API
 and the MCP tools take `limits` (JSON) and `plausibility_limits` on `values`, and `/api/settings` reports both as set.
-`interpolate` and `summarize` take neither as a parameter, but read `WD_TS_LIMITS` of the server like any option, and,
-like the stripes, leave out a value that is `suspect:limits`.
+`interpolate` and `summarize` take neither as a parameter, but read `WD_TS_LIMITS` of the server like any option, and
+leave out a value that is `suspect:limits`.
 
 **A forecast follows the mode.** Unlike `range` and the other built-in checks but `floor`, `limits` is not made soft on a network whose `kind` is
-`forecast` (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the bounds are yours, so a forecast value outside them is null with
+`forecast` (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`): the bounds are yours, so a forecast value outside them is null with
 `rejected:limits,raw:<number>` by default and kept, flagged `suspect:limits`, where you set `plausibility_limits` soft,
 as for an observation. The `range` of the same value stays soft there and flags it `suspect:range`, and the token of a
 value both find is `rejected:limits,raw:<number>` (a rejected value carries the hard checks alone).
@@ -801,7 +801,7 @@ the mode you chose:
 
 - **soft** (the default): the value is kept and `quality_flags` gains `suspect:source`
   (`X,measurement:T,source:0,suspect:source`). Nothing is nulled, so a default request returns the same values as
-  before, with one more token on the readings the source doubts. An interpolation, a summary, climate stripes and
+  before, with one more token on the readings the source doubts. An interpolation, a summary and
   `skip_empty` leave a `suspect:` value out, as they do for every soft check, so only the flagged values are left out of them, and a station can be skipped
   where it was counted. A bare `plausibility="hard"` (`WD_TS_PLAUSIBILITY=hard`,
   `plausibility=hard` of REST) sets `source` too, and nulls those values: name `source` beside it to keep them.
@@ -903,13 +903,23 @@ the providers, and a test of each provider's reader pins its codes on a row of t
   or a verification may have replaced, so the value returned is not the one that failed) and `qc_level`. A value of the
   qc-version 1 files may be a corrected one, with its original in qc-version 0
   ([MIDAS Open user guide](https://help.ceda.ac.uk/article/4982-midas-open-user-guide)).
-- **SMHI `Kvalitet` `Y`**: not read. SMHI's [questions and answers](https://www.smhi.se/data/om-smhis-data/fragor-och-svar)
-  do not word the codes `G` and `Y`; they say that values before 2010, which the earlier system could not check, got
-  "en väldigt enkel kontroll för att få bort helt felaktiga värden" and that "de data som passerat kontrollen utan
-  anmärkning har gulmarkerats, då vi inte kan garantera att de verkligen är korrekta" (the data that passed without
-  remark are marked yellow because SMHI cannot guarantee them), and that daily precipitation stays `G` ("godkända")
-  once the automatic checks find nothing wrong. The page does not say that `Y` is that yellow, and the library's own
-  description of `Y` as "suspect or aggregated" has two meanings in one code: neither reading is a verdict on a value.
+- **SMHI `Kvalitet` `Y`**: not read. SMHI customer service defined the codes by mail (2026-11-19). `G` is a verdict on
+  a value after it was checked. `Y` is mostly a verdict after a check too, but it is also the flag of a value that was
+  not checked, and of aggregated values: the 24 h maximum and minimum temperature are `Y` whatever the values they are
+  built from are, and whether they are good is told by those (the 12 h maximum and minimum). Leaving the aggregates
+  out, `Y` means the value is either not checked or marked suspect by at least one control; that is no fault found in
+  the value, but the risk is "somewhat greater" than for `G`, so SMHI asks for some caution. Depending on the parameter,
+  many `Y` values are unchecked or went through very simple controls only, and some passed more advanced ones and were
+  left uncorrected. Not even `G` is a guarantee. A value probably wrong, or worse, is normally not published in the
+  open data, but SMHI cannot rule out that a control found one and it still carries `Y`; an unchecked `Y` can be good
+  or faulty. Before 2010 only every third hour was checked (the old SYNOP rules; a new system checks every value
+  since), which fits SMHI's
+  [questions and answers](https://www.smhi.se/data/om-smhis-data/fragor-och-svar): values before 2010 got "en väldigt
+  enkel kontroll för att få bort helt felaktiga värden" and "de data som passerat kontrollen utan anmärkning har
+  gulmarkerats, då vi inte kan garantera att de verkligen är korrekta" (the data that passed without remark are marked
+  yellow because SMHI cannot guarantee them). `Y` mixes unchecked values, values a control marked suspect and
+  aggregates, so it is no verdict that the value failed a check, and the library returns it in `quality_flags` and
+  judges nothing by it.
 - **RMI `qc_flags` `validated`**: RMI words `validated` as a flag and no verdict: `false` is "not validated", the state
   of most of the series (the sunshine of station 6477 is `false` on 7,720 of 8,134 days), and its documentation says
   nothing of a value that failed.
@@ -1013,8 +1023,8 @@ The two kinds sit after the source's own flags and before `raw:`, which stays th
 A REST answer tells the two apart in its `warnings` ([REST API](../usage/restapi.md)): `missing-value-marker` counts the
 nulls that carry a code the source wrote (`raw:` alone; a calm wind direction is told by `calm-wind-direction`),
 `rejected-by-plausibility` the nulls a hard check made (`rejected:` before `raw:`), with the count per check in its
-message. A value that two checks rejected is one value,
-told under both. A soft check keeps the value and raises no warning, and neither does the `floor` check, whose value is
+message. Both messages say at which stations the nulls are: the first few with their count, then how many more. A
+value that two checks rejected is one value, told under both. A soft check keeps the value and raises no warning, and neither does the `floor` check, whose value is
 the floor and not null.
 
 ```python
@@ -1061,8 +1071,10 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `range` | `dwd/observation` | `*` |
 | `range` | `dwd/phenology` | `*` |
 | `range` | `dwd/poi` | `*` |
+| `range` | `dwd/pollen` | `*` |
 | `range` | `dwd/road` | `*` |
 | `range` | `dwd/swsmos` | `*` |
+| `range` | `dwd/uvi` | `*` |
 | `range` | `eccc/observation` | `*` |
 | `range` | `fmi/observation` | `*` |
 | `range` | `geosphere/observation` | `*` |
@@ -1161,6 +1173,7 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `consistency` | `meteofrance/observation` | `hourly/others` |
 | `consistency` | `meteofrance/synop` | `subdaily/data` |
 | `floor` | `dwd/dmo` | `hourly/icon`, `hourly/icon_eu` |
+| `floor` | `dwd/mosmix` | `hourly/small`, `hourly/large`, `hourly/snow` |
 | `source` | `chmi/observation` | `10_minutes/data`, `hourly/data`, `daily/data` |
 | `source` | `dmi/observation` | `hourly/data`, `daily/data`, `monthly/data`, `annual/data` |
 | `source` | `dwd/road` | `15_minutes/data` |
@@ -1268,8 +1281,13 @@ What no check covers, and why:
 - **Every check judges the same number.** A pressure of 1150 hPa at 100 m is outside the range and outside the
   elevation: `rejected:elevation+range,raw:1150` with both hard, and `suspect:elevation+range` with both soft. One of
   1093.3 hPa at 100 m is inside the range and outside the elevation: `rejected:elevation,raw:1093.3`.
-- **Where a `floor` covers a value, the range stands aside.** DMO's rain of -0.02 mm is below the 0 of the table and is
-  the floor's, so it becomes 0 as before (`rejected:floor,raw:-0.02`) and not null. Where `floor` is hard, `limits`
+- **Where a `floor` covers a value, the range stands aside, and only round-off is covered.** DMO's rain of -0.02 mm is
+  below the 0 of the table and is the floor's, so it becomes 0 as before (`rejected:floor,raw:-0.02`) and not null. The
+  floor covers a value from 0 down to the tolerance of its quantity, the largest round-off read with a margin (`FLOORS`
+  of `model/judge.py`: -0.2 mm for an amount of precipitation, -0.01 MJ/m2 for a radiation sum, -10 cm for a snow depth,
+  -0.02 h for a duration); a value further below (-5 mm of rain, -15 m of snow depth) is no round-off, is not set to 0 and
+  is judged by the range, whose low end for these quantities is 0 (a snow depth of a station may be -10 cm in the table, a
+  forecast's may not): `suspect:range`, the value kept, since a forecast is soft in `range`. Where `floor` is hard, `limits`
   judge such a value as the floor, 0.0, which is what the answer holds, so a bound of 0 for the rain does not take it away
   again; where `floor` is soft, the value is kept as the model wrote it and is judged as it is. A soft check that also finds a
   value the hard floor has set to 0.0 is told as well (`suspect:limits,rejected:floor,raw:-0.02`), since the value stays.
@@ -1278,9 +1296,8 @@ What no check covers, and why:
 
 ## Soft mode and the rest of the request
 
-- **Interpolation, summary and climate stripes** always leave out a `suspect` value, whatever the mode: a number a check
-  finds implausible has no place in a weighted mean, a nearest station's answer or a year of stripes (which shows as a
-  year without data). The mode changes only what a station's own values show. The values stay rows with no value, as a
+- **Interpolation and summary** always leave out a `suspect` value, whatever the mode: a number a check
+  finds implausible has no place in a weighted mean, or a nearest station's answer. The mode changes only what a station's own values show. The values stay rows with no value, as a
   rejected one does.
 - **`skip_empty`** judges a station by its unflagged values alone: a value flagged `suspect` is no coverage, so a station
   with only such values is skipped. For the checks that used to null (`range`, `elevation`, `consistency`, `floor`, and

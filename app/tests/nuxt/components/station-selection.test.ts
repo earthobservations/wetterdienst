@@ -106,6 +106,18 @@ describe('stationSelection', () => {
     expect(calls).toBe(1)
   })
 
+  it('restores the stations in the order of the shared URL, not the order of their ids', async () => {
+    // the value details name the stations in the order of the list, so a reload or a shared link must not reorder them (GH-4296)
+    registerEndpoint('/api/stations', () => ({
+      stations: ['00001', '00044', '03379', '01975'].map(station_id => ({ station_id, name: `Station ${station_id}`, region: 'x', latitude: 52.5, longitude: 13.4 })),
+    }))
+
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection, initialStationIds: ['03379', '01975', '00044'], multiple: true })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStations).toHaveLength(3))
+    expect(vm.selectedStations.map((station: { station_id: string }) => station.station_id)).toEqual(['03379', '01975', '00044'])
+  })
+
   it('resets stationsLoaded on a failed fetch, so reopening the picker retries', async () => {
     let failing = true
     registerEndpoint('/api/stations', (event) => {
@@ -319,9 +331,12 @@ describe('stationSelection with postcode stations', () => {
     expect(picker.items.map((i: { label: string }) => i.label)).toEqual(['ID: 01067', 'ID: 01069'])
     const item = { label: 'ID: 01067', value: '01067' }
     expect(picker.selectedItems).toEqual(multiple ? [item] : item)
-    // the chip of a chosen station, which a named station shows as "name (id)"
+    // the chip of a chosen station, which a named station shows as "name (id)": for several stations only, one is the search's (GH-4151)
     const chip = wrapper.findAll('.cursor-pointer').find(c => c.text().includes('01067'))
-    expect(chip!.text()).toBe('01067 ×')
+    if (multiple)
+      expect(chip!.text()).toBe('01067 ×')
+    else
+      expect(wrapper.find('[data-station-chip]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('null')
   })
 })

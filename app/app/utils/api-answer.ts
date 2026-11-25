@@ -24,14 +24,21 @@ export const HTML_TYPE = /^\s*(?:text\/html|application\/xhtml\+xml)\b/i
  */
 const LISTS: Record<string, string> = {
   '/api/stations': 'stations',
-  '/api/stripes/stations': 'stations',
+  // the app's own server's routes, which the stripes of GHCN daily read (GH-4258)
+  '/_ghcn/stations': 'stations',
   '/api/values': 'values',
-  '/api/stripes/values': 'values',
+  '/_ghcn/annual': 'values',
   '/api/interpolate': 'values',
   '/api/summarize': 'values',
   '/api/providers': 'providers',
   '/api/issues': 'issues',
   '/api/history': 'histories',
+  '/api/storm-cells': 'cells',
+  // DWD's weather warnings (GH-4295): an empty list is a quiet day's answer, not a missing one
+  '/api/alerts': 'alerts',
+  '/api/radar/frames': 'frames',
+  // the app's own server's list of the stations of GHCN daily, as columns (GH-4267)
+  '/_ghcn/map-stations': 'station_id',
 }
 const ARRAYS = new Set(['/api/glossary'])
 const OBJECTS = new Set(['/api/coverage'])
@@ -58,7 +65,7 @@ export function describeWrongKind(contentType: string | null): string {
 }
 
 /** The sentence for a body that is no JSON, whatever its content type says it is */
-function describeUnreadable(contentType: string | null): string {
+export function describeUnreadable(contentType: string | null): string {
   const kind = contentType?.split(';')[0]?.trim()
   return kind && /json/i.test(kind)
     ? `The API answered with ${kind}, but the body is not valid JSON. The address of the API may be wrong, or a proxy in front of it answered instead of it.`

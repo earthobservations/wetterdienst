@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.188.0 until the next release.
+The baselines are those of 0.199.0 until the next release.
 
 ## What counts as breaking
 
@@ -162,8 +162,7 @@ The command line is a client of the same functions as the REST API: it renders a
 same request gives the same output, and the options are the parameters of the REST API.
 
 - **Commands and options**: `alerts`, `auth`, `cache`, `coverage`, `fields`,
-  `glossary`, `history`, `info`, `interpolate`, `issues`, `providers`, `radar`, `restapi`, `stations`, `stripes`
-  (`image`, `stations`), `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
+  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `station-ids`, `stations`, `statistics`, `storm-cells`, `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
   is the `--help` of every command; `uv run poe cli:snapshot` writes it anew after an intended change.
   `tests/baselines/cli.baseline.json` is every command and every spelling of every option as the last release offered
   it (see below).
@@ -216,7 +215,31 @@ Frozen:
 - the **shape of the answers**: the members of the JSON, GeoJSON and NDJSON, their types and which of them are always
   there, in particular the [`metadata` block](restapi.md#response-metadata) of every answer and the members of its
   `provider.license`, `request`, `counts`, `crs` and `warnings`, and the headers the OpenAPI document declares;
-- the **timestamp**: ISO 8601 in UTC, to the microsecond, with its offset.
+- the **timestamp**: ISO 8601 in UTC, to the microsecond, with its offset;
+- the **row options** of `values` (`filter`, `sort`, `first`, `by`, `max_rows`; [Choose the rows](restapi.md#choose-the-rows)):
+  their names, the grammar of their text, the columns each takes, what a group, a tie and a missing value are, the
+  order of the answer, and `metadata.search` with its members. A column or an operator may be added in a minor release
+  (a name that is none of them is refused with the list, so that none is taken by accident); one is not removed
+  or given another meaning. `rows-capped` is its warning code. `window`, `year_start`, `timezone`, `aggregate`, `having`, `per`, `max_missing`, `earliest`, `latest`,
+  `complete` and `rank` are
+  reserved for later options: no option, column or parameter is given them for another meaning. A parameter's name is a
+  column of `filter` and `sort` ([Parameters as columns](restapi.md#parameters-as-columns)), so no parameter of any
+  provider is given the name of a column or of a reserved word, and `tests/model/test_row_selection_names.py` holds
+  every parameter of every provider to it. The grammar is
+  held by `tests/model/test_row_selection.py`, what it chooses by `tests/model/test_row_selection_semantics.py`.
+- the **statistics route** (`/api/v1/statistics`, the tool `statistics`, `wetterdienst statistics`,
+  `values().statistics()`; [Statistics](restapi.md#statistics)): the names of its options and the grammar of their text
+  (`aggregate`, `by`, `filter`, `year_start`, `max_missing`, `having`, `sort`, `first`, `per`, `max_rows`), the set of
+  `aggregate` names (`count`, `mean`, `sum`, `min`, `max`, `earliest`, `latest`: one may be added in a minor release,
+  none is removed or renamed), the meaning of null and of `searched`, `expected`, `complete`, `rank` and `usable` (the
+  twelve rules of the completeness), the keys of the answer (`series`, `first_timestamp`, `last_timestamp`,
+  `over_groups`, `groups`, each aggregate and its `<aggregate>_at`, `metadata.search.totals.groups*`), the codes of its
+  warnings (`incomplete-groups`, `no-values-in-groups`, `completeness-unknown`, `ties-not-shown`, and `rows-capped` and
+  `answer-truncated` as for `values`) and the status of each refusal (422 for a text, 400 for a request that does not fit
+  its series). The texts of its messages, the limits (settings) and the 40,000 characters of a tool's answer are not
+  frozen. `longest_run`, `window`, percentiles, `by=decade`, `by=season` and `timezone` are kept for later options and
+  are added without a change of what is here. `tests/model/test_group_statistics.py` and
+  `tests/model/test_group_statistics_rules.py` hold the rules.
 
 `tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed, without its `info.version`
 (`uv run poe openapi:snapshot` writes it anew), so that every change shows in a diff, and a release leaves it as it is.
@@ -261,15 +284,23 @@ releases after a `/api/v2` exists is written down and not held by a test.
 
 The endpoint is `/mcp/v1`, and `/mcp` is its alias for the current version, as `/api` is for `/api/v1`. The tools
 are the REST routes, generated from them: a tool has the name given in the table of the [MCP page](mcp.md#the-tools),
-the arguments are the query parameters of its route with the same names, and the answer is the REST answer.
+the arguments are the query parameters of its route with the same names but for those only REST needs (`pretty`, the
+size and scale of an image; see below), and the answer is the REST answer.
 
 - A breaking change of a tool (its name, an argument, the answer) comes with `/mcp/v2`, and `/mcp/v1` keeps serving the
   tools as they were for at least two minor releases, announced in the changelog.
 - A new tool, an optional argument and a new member of an answer are not breaking.
-- An argument a tool does not take is refused with the names of those it takes.
+- An argument a tool does not take is refused with the names of those it takes, with one exception: `pretty` at any
+  value and `width`, `height` and `scale` as `null`, which the tools took until the options that only REST needs were
+  dropped from their schemas (GH-4318), are let go by the tools whose routes had them, since they change nothing of a
+  data answer. A `width`, `height` or `scale` with a value and a `format` the tool does not offer (a chart format
+  among them, which the tools no longer offer) are refused, naming the formats the tool answers. That removal is a
+  break of `/mcp/v1` made before 1.0.0, **Breaking** in the changelog and named in `ACCEPTED_BREAKS` of
+  `tests/baselines/mcp.py`; after 1.0.0 it would be `/mcp/v2`.
 - The descriptions of the tools and the instructions the server gives are written for agents and are improved without
   a new version.
-- The endpoint is stateless: it creates no session.
+- The endpoint is stateless: it keeps no session. `initialize` returns an `Mcp-Session-Id` that is neither stored nor
+  checked.
 
 The generation from the routes means the baseline check of the OpenAPI document covers the arguments and answers of the
 tools. The 14 names of the tools (`_TOOL_NAMES` in `ui/mcp.py`) are held to the list on the MCP page by
@@ -354,8 +385,7 @@ library reads them more closely, which is a fix and not a break; `spdx_id` is nu
 AEMET, IPMA, NWS), and `license` is null only where a provider states no terms that could be read, which is then
 named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadata.py` (empty today). The licence of the
 data is the provider's, not wetterdienst's. `processing_note` was added as a member (an addition, after 0.183.0): one fixed text for every
-answer that holds provider data, longer by a sentence for an answer of `interpolate` and `summarize` and for the
-headers of the climate stripes' image. Its wording may be improved, which is a fix; that an answer carries it is not
+answer that holds provider data, longer by a sentence for an answer of `interpolate` and `summarize`. Its wording may be improved, which is a fix; that an answer carries it is not
 changed. ECCC's `license` and `attribution` changed once, to the licence of the data server it is read from (a
 correction). Every provider's terms are listed on
 [licences and credit lines](../data/provider/licenses.md).
@@ -418,20 +448,20 @@ surface:
 | REST | `deprecated` in the OpenAPI document, a `Deprecation` header ([RFC 9745](https://www.rfc-editor.org/info/rfc9745/)) on every response that uses it, a `Sunset` header ([RFC 8594](https://www.rfc-editor.org/info/rfc8594/)) where a date is set, a `Link` with `rel="deprecation"`, and a `deprecated-parameter` warning in `metadata` for a parameter; see [Deprecation](restapi.md#deprecation) |
 | MCP | the endpoint of the old version keeps serving for at least two minor releases after the next one appears |
 
-Deprecated today:
-
-| What | Since | Use instead | Removed |
-| --- | --- | --- | --- |
-
-Nothing is deprecated on any surface. The deprecations before were removed after more than two minor releases:
+% A table "Deprecated today" (What | Since | Use instead | Removed) goes here while something is deprecated.
+% With no row it is no table: a table without a body fails the LaTeX build, so the PDF of Read the Docs
+% (and with it the whole build) failed.
+Deprecated today: nothing, on any surface. The deprecations before were removed after more than two minor releases:
 the `ts_*` settings (deprecated in 0.148.0, removed in 0.160.0), `use_nearby_station_distance` of `summarize`
 (deprecated in 0.140.0, removed in 0.158.0), `Wetterdienst(provider, network)` (deprecated in 0.156.0) and
 `wetterdienst stripes values` (deprecated in 0.159.0), the last two announced for removal in 1.0.0 and removed
 in 0.173.0, earlier than announced.
 
 `Wetterdienst(provider, network)` is a `TypeError` that names `Wetterdienst.resolve`, and `wetterdienst stripes
-values` is "No such command". The name `stripes values` is **never reused** for other output: a command for the
-yearly values that `/api/stripes/values` answers would get another name, as an addition.
+values` is "No such command". The name `stripes values` is **never reused** for other output, and since the climate
+stripes left the backend (in 0.195.0, GH-4258: the web app draws them itself) the same holds for the
+whole `stripes` group of the command line, the `/stripes/...` routes of the REST API and the `stripes_...` tools of
+MCP: a command, route or tool of that name that does something else would get another name, as an addition.
 
 Removal is a **Breaking** change, and so a major version from 1.0, with one exception: a provider, a network or a
 parameter whose upstream source has ended is removed in a minor release, announced as **Breaking** (see

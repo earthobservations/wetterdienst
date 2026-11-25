@@ -101,8 +101,7 @@ locale to the number of forms and to `{count}` in each of them. A count that nee
 
 ## Numbers, dates and coordinates
 
-A number the app shows is written in the language of the page: `formatNumber` for text, and the
-`separators` of every Plotly layout (`plotlySeparators`) for hover texts and axes. The day and month
+A number the app shows is written in the language of the page: `formatNumber` for text, and `valueFormat`/`tickFormat` (`utils/explorer-option.ts`) for the Explorer chart's readout and axes. The day and month
 of the Meteogram's day cards come from the language's tag (`en-GB`, `de-DE`, as `nuxt.config.ts` has
 them), as the bare `en` is American. The moment of a forecast run (the Meteogram's run list) is
 written by `formatRunTime`, in the language's order ("15.10.2026, 04:00 UTC", "15/10/2026,
@@ -163,9 +162,11 @@ meant to be understood, not to be the last word, and **a review by a native spea
   rather than confirmed.
 - `de-hh` (Plattdüütsch): the UI text, written for GH-2969 in the language the glossary is in and with
   its vocabulary (`Nedderslag`, `Daag`, `Stünn`, `Weer`/`Wedder`, `lest`, `vun`, `för`, `ünner`). The
-  glossary has several spellings of the same word (`Sünnschien`, `Sünnenschien`; `Snééhööchd`,
-  `Snehööch`), so there is no one orthography to follow; the UI text leans on the Sass spelling and
-  is itself not uniform. The fallbacks of GH-2971 (`Afraag is scheefgahn`, `Backend-Fehler`) are
+  glossary has several spellings of the same word (`Sünnschien`, `Sünnenschien`), so there is no one
+  orthography to follow; the UI text leans on the Sass spelling and is itself not uniform. Six words
+  are fixed (decided 2026-11-23, GH-2610; table under "Decided" below): snow `Snee`, fresh snow
+  `Niesnee`, snow depth `Sneehööchde`, a height in a compound `-hööchde`, a degree in a compound
+  `graad` (`-graaddaag`, `-graadstünn`) and humidity `Füchtigkeit`. The fallbacks of GH-2971 (`Afraag is scheefgahn`, `Backend-Fehler`) are
   new text in it. Its word for a flag is `Göödkennen`.
   `Datensatz` is kept as Low German shares the word; `Anbeder`, `Nettwark`, `Oplösung` and `Tietruum`
   are the words chosen for provider, network, resolution and date range.
@@ -203,6 +204,30 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `Fraag dat Weer`, `Oort ännern`; `lb` `Fro d'Wieder`, `Méintlech Mëttelwäerter`; `pl` and `cs` for the verdicts
   of the summer question (`Tak, o {anomaly} °C cieplej`), and in every language the Beaufort wording of the wind
   verdicts (calm, breezy, windy, stormy), which follows no official word list.
+
+- **Machine-made**: the strings of the season question's choices (`ask.season.*`, `ask.q.season`, GH-3764, step 2a: the season and
+  reference-period selects, the four season names with their agreement, the cold-winter verdicts, the disabled normals' reasons) were
+  written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. The season
+  words carry the grammar (`ask.season.last.*` and `ask.season.warmth.*` hold the article, the verb and the adjective that agree with
+  each season), so no sentence is written per season. Least certain: `de-hh` (`Fröhjohr`, `Harvst`, `köller`, `Johrestied`,
+  `Fröhjohrn`); `lb` (`Joreszäit`, `Hierschter`, `Fréijoeren`; the genders of the four seasons were looked up in the LOD: Fréijoer neuter, the other three masculine, so `dat lescht Fréijoer`); `cs` (`Byl minulý podzim`, `Roční období`); `pl` (`Pora roku`,
+  `zimniejsza`); `da` (`sæson` in the sentences where the name of the season would need a case); `es` (`estaciones del año`, to keep
+  `estaciones` from reading as stations); `it` and `es` (`in più del solito`, `por encima de lo normal`, chosen so that no verdict has to
+  agree in gender with the season).
+
+- **Machine-made**: the strings of the day question's measure (`ask.day.*`, `ask.q.day.*`, GH-3764, step 2b: the measure select and its five
+  options, the five questions, the verdicts of sun, rain, heat and cold and snow, the lines under them, the chart captions, the reasons of
+  a greyed-out measure) were written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has
+  read them. Each measure has a sentence of its own for the question (`ask.q.day.sun`, ...) and not one sentence with the measure as a
+  word, because the grammar of French, Spanish, Italian, Polish and Czech changes with it ("Quel vent a-t-il fait", "Combien de soleil
+  y a-t-il eu", "¿Hubo nieve?", "Ile padało", "Ležel sníh"). The names of the days that DWD names (`ask.day.class.*`, the verdicts of heat
+  and cold) follow the national service where the model knew its word (`pl` IMGW: `dzień upalny`, `dzień letni`, `noc tropikalna`,
+  `dzień mroźny`; `cs` ČHMÚ: `tropický den`, `letní den`, `tropická noc`, `ledový den`, `mrazový den`; `nl` KNMI: `zomerse dag`, `ijsdag`,
+  `vorstdag`, `tropische nacht`) and are a literal rendering elsewhere. Least certain: the label of the select (`Meetgröött` `de-hh`,
+  `Miessgréisst` `lb`, `Grandezza` `it`, `Grootheid` `nl`, `Wielkość` `pl`, `Veličina` `cs`, `Medida` `es`, `Måling` `da`); the
+  sun verdicts (`Deelwies sünnig`, `Wiesselhaft`, `Dystert`, `Zataženo`); `fr` `jour sans dégel` for an ice day and `journée chaude` for
+  a hot day; `es` `día de hielo` and `día de helada`; `da` `tropenat`, `isdag` and `en hed dag`; `lb` `Hëtztdag`, `Äisdag`; `de-hh`
+  throughout.
 
 - **Machine-made**: the strings of the map tool (`mapTool.*`, `nav.map`, `shell.stationsMap` and `shell.stationOnMap`,
   `seo.pages.map`, GH-3650: the chips, the panel, the cards' notes and links, the about text) were written by a language
@@ -262,6 +287,21 @@ meant to be understood, not to be the last word, and **a review by a native spea
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 
+## Decided
+
+Decided by the maintainer on 2026-11-23 (GH-2610) from the open list of the fourth pass, and applied
+in the catalogs and glossaries; the rows left the "Open" list.
+
+| Locale | Key | Was | Now |
+| --- | --- | --- | --- |
+| `de` | glossary `precipitation_amount`, `precipitation_amount_max`, `precipitation_amount_max_30min` | `Niederschlagsmenge` (`Maximale ...`, `... (30 min)`) | `Niederschlagshöhe`, DWD's term, as the other precipitation labels (`Maximale ...`, `... (30 min)`) |
+| `de-hh` | snow, in the UI and the glossary | `Snéé`, `Snéedeek`, `Schnee` | `Snee`, `Sneedeek` (the plant `Schneeglöckchen` is German and stays) |
+| `de-hh` | fresh snow | `Neeschnee`, `Neeschneehööch`, `Neeschnee-Wateräquivalent` | `Niesnee`, `Niesneehööchde`, `Niesnee-Wateräquivalent` |
+| `de-hh` | snow depth | `Snééhööchd`, `Snehööch` | `Sneehööchde` (the UI had it already) |
+| `de-hh` | height in a compound | `-hööch`, `-hööchd` (`Seehööchd`, `Grashööch`, `Bülgenhööch`, `Pegelhööch`, `Stationshööchd`, ...) | `-hööchde`; the bare `Hööchd` and the `Hööchst-` of "highest" are other words and stay |
+| `de-hh` | degree in a compound; day and hour | `Köhlgraddaag`, `Heizgraddaag`, `Köhlgradstunnen`, `Gradstünnen`, `Graddag Celsius`, `Swoorgrad` | `Köhlgraaddaag`, `Heizgraaddaag`, `Köhlgraadstünn`, `Graadstünn`, `Graaddaag Celsius`, `Swoorgraad`; the day is `daag` and the hour `stünn`, as most of them had it |
+| `de-hh` | humidity | `Luftfuchtigkeit`, `Fuchttemperatur`, `Fuchtigkeit`, `Fuchtthermometer`, `fuchten` | `Luftfüchtigkeit`, `Füchttemperatur`, `Füchtigkeit`, `Füchtthermometer`, `füchten` |
+
 ## Open: waits for a native speaker
 
 Not decided here, and the text is left as it is. The review table with the proposals is in the pull
@@ -310,8 +350,7 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `it` | `ask.rain.chance` | `Probabilità di pioggia più alta in un'ora` ("within one hour") | `in una singola ora` | low |
 | `it` | `meteogram.chart.weather.sleet`, `meteogram.chart.weather.clear`, `ask.wind.calm` | `Nevischio` (light dry snow), `Soleggiato`, `Calmo` | `Pioggia mista a neve`, `Sereno` (Aeronautica Militare), `Calma` (the Beaufort word) | low |
 | `pl` | `ask.wind.context` | `Dni wokół z silniejszymi porywami` | `Pobliskie dni z silniejszymi porywami` | low |
-| `pl` | `stripes.table.note.temperature`, `stripes.table.note.precipitation` | `w piątych częściach` ("in fifths") | a clearer phrase, for example `w pięciu klasach` | low |
-| `cs` | `ask.q.summer` | `Bylo poslední léto tady teplejší než obvykle?` (reads as "the final summer") | `Bylo minulé léto tady teplejší než obvykle?` | medium |
+| `cs` | `ask.season.last.*` | `minulé léto` / `minulý podzim` / `minulá zima` (the first suggestion of the row, taken up in GH-3764) | `poslední` was the wording before; `minulé` reads as "last", not "final", but no person has read it | low |
 | `lb` | `seo.pages.explorer` | `liest d'Miessungen` (third person) | `lies d'Miessungen` (the singular imperative, as the other verbs of the sentence); `luet` in `home.featureExportDesc` is the same form | high that it is the third person |
 | `lb` | `providers.attribution` | `Quellenangab` (German) | `Quell, déi du uginn muss` | medium |
 | `lb` | `ask.placeSearching`, `ask.placeFailed`, against the other `ask.place*` and `api.endpoints.interpolate` | `Plaze` and `Uert` for "place" on the same page | one word (`Uert`, plural `Uerter`, or `Plaz`) throughout | medium |
@@ -322,7 +361,7 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `de` | `ask.placeLabel` | `Gefragt für` | `Frage zu` | medium |
 | `de` | `location.note` | `... bleibt er in diesem Browser gespeichert` (`er` has no antecedent) | name the Standort in the first sentence | low |
 | `de-hh` | `dataViewer.limitNarrow`, `limitNarrowPoint`, `limitStationsBody`, `mapTool.pickedCentre` | `Wähl`, `utwählt` (German forms) next to `utsöcht` | `Söök ... ut` and `utsöcht` throughout | medium |
-| `de-hh` | `ask.summer.usual` | `Nich würklich: so warm as anners.` | add the "about" of en (`ungefähr`, `rund`) | medium |
+| `de-hh` | `ask.season.usual` | `Nich würklich: so warm as anners.` | add the "about" of en (`ungefähr`, `rund`) | medium |
 | `de-hh` | `location.*`, `footer.privacy`, `location.privacyLink` | `Standort`, `ungefähr`, `Datenschutz`, `Rückt` (German words) | Low German words where there are any (`Standoort`/`Städ`, `rund`) | low |
 | `de-hh` | `mapTool.count`, `shell.results`, `mapTool.results` | `Wiest Stationen: {shown}`; `Resultaten` next to `Ergebnisse` in the older texts | a participle (`Stationen wiest`); one word for "results" | low |
 | `nl` | `location.denied` | `Om haar toe te staan` | `Om dit toe te staan` | medium |
@@ -332,11 +371,61 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `da` | `ask.placeFailed` | `Stederne kunne ikke søges.` | `Der kunne ikke søges efter steder.` | medium |
 | `da` | `mapTool.legendStopped` | `Er stoppet` | `Måler ikke længere`, to pair with `Måler stadig` | medium |
 | `de-hh` | `location.denied`, `location.timeout`, `location.lookupFailed`, against `stationSelection.loadError`, `map.markersNotShown` | `noch mal` (3 texts) and `noch eenmal` (3 texts), the same number in the catalog | one form | low |
-| `de-hh` | `ask.rain.wettest`, `stripes.table.note.precipitation` | `Natteste` (1) and `natste` (1) | one form of the superlative | low |
 | `de-hh` | `meteogram.chart.weather.drizzle` | `Meddelregen`, as the glossary has it (5 labels) | `Niesregen` was the text before the third pass; one word for drizzle | low |
 | `de-hh` | `location.unsupported`, `location.unavailable` | `stattdessen` (German); `statts` is a preposition in this file (`mapTool.pickCloser`) | an adverb of Low German for "instead" | low |
 | `lb` | `seo.pages.glossary`, `glossary.subtitle` | `mierkt` and `mëst` for "what a parameter measures" | the 3rd person of `miessen` is `mësst`; which form, and whether `mierkt` is right at all | low |
 | `lb` | `explorer.modeSummaryDesc`, `mapTool.about1`, `history.about3` | `gemoossene`, `moossen`, `gemoosse`, `Moossmethoden`, `Moossregëster`, where the rest of the catalog writes `Miessung`, `Miesswäert` | the `Miess-` stem throughout | medium |
+| `de-hh` | `processingNote.base`, `processingNote.estimate` (GH-3799) | `Verarbeidt vun wetterdienst: ... in eene eenheitliche Tabell bröcht un de Eenheiten ümrekent, wo se afwiekt.`; `utsöcht oder utrekent` | `Verarbeidt` and `eenheitliche` follow the German: the Low German words for "processed" and "uniform" | low |
+| `lb` | `processingNote.base`, `processingNote.estimate` (GH-3799) | `Veraarbecht vu wetterdienst: ... an d'Eenheeten, wou se ofwäichen, ëmgerechent.`; `ausgewielt oder berechent` | `veraarbecht`, `eenheetlech` and the verb at the end of the relative clause | low |
+| `pl` | `processingNote.base` (GH-3799) | `dane dostawcy ułożono w jednolitą tabelę` ("arranged into a uniform table") for "reshaped" | `przekształcono w jednolitą tabelę`; `Przetworzone przez wetterdienst` names the tool as the agent | low |
+| `cs` | `processingNote.base` (GH-3799) | `data poskytovatele byla uspořádána` | `data` takes `byla` (collective) or `byly` (plural); which one reads better | low |
+| `nl` | `processingNote.base` (GH-3799) | `in een uniforme tabel gezet` for "reshaped into a uniform table" | `omgezet naar een uniforme tabel` | low |
+| `fr` | `processingNote.base` (GH-3799) | `mises dans un tableau uniforme` for "reshaped into a uniform table" | `restructurées en un tableau uniforme` | low |
+| all ten besides `en` | `radar.*` and `processingNote.radar` (GH-3788: the Radar tool's About text, player, legend, status lines and the sentence about what was done to the frames) | written by a language model (Claude), `de` included, and read by no person; the words of the About text (beam height, ground echo, melting snow, extrapolation) are the most technical | a native reader, with the weather service's own words for them | medium |
+| `de` | `radar.observed`, `radar.valueObserved` | `Gemessen` for the radar's "observed" (the catalog says `Messwerte`, `Messungen`) | `Beobachtet`, which DWD uses for an analysis | low |
+| `de-hh` | `radar.observed`, `radar.valueObserved`, `radar.playerLabel`, `radar.aboutSources` | `Meten` (a guess at the participle of `meten`), `Radarloop` (an English loan), `Quellen` (German) | Low German words for these | low |
+| `nl` | `radar.observed`, `radar.valueObserved` | `Waargenomen` where the UI otherwise says `metingen` | `Gemeten`, which settles the `waarneming`/`observatie` question above the same way | low |
+| `lb` | `radar.about1`, `radar.about3`, `radar.aboutSources` | `Kënnen` for "skill" of a nowcast, `Verdeelunge vun den Drëpsgréissten` for "drop-size distributions", `Quellen` (German) | the weather service's Luxembourgish words for these | low |
+| `pl`, `cs` | `radar.observed`, `radar.valueObserved` | `Zaobserwowane`, `Naměřeno` | `Zmierzone` / `Pozorováno` | low |
+
+The fourth pass (GH-2610) read the 514 strings added or changed since the third in each of the eleven
+catalogs (`ask.*`, `radar.*`, `warnings.*`, `stripes.*`, `measurement.*` and `methods.*` keys, `valueDetails.*`,
+`meteogram.*` and `mapTool.*` additions) and the 23 new glossary labels in each, against `en` and this file, and fixed
+what the catalog itself shows to be wrong (a word different from the glossary's or the page's for the same
+thing, a typo, a dropped word, a wrong preposition, a first-person verb in an impersonal catalog, the English
+name of "Ask the weather" in `methods.*`). The long texts of `measurement/` and `methods/` exist in `de` and
+`en` only; they were checked against each other for numbers (they agree). What it left, with a suggestion:
+
+| Locale | Key | Now | Suggestion | Sure |
+| --- | --- | --- | --- | --- |
+| `lb` | `radar.stepBack` | `Virescht Bild` (`Virescht` means "at first") | `Viregt Bild` or another word for "previous" | medium |
+| `lb` | `shell.placeKinds.water`, `radar.cellsCompass.*`, `mapTool.fullscreenEnter`, `mapTool.fullscreenExit`, `warnings.fromOpen`, `ask.day.dayLabel`, `ask.day.sun.mixed` | `Gewässer`, `Norden`, `Nordosten`, `Südosten` ..., `Vollbild`, `ab {from}`, `Datum` for "Day", `Wiesselhaft` (German) | Luxembourgish words for body of water, the compass points, full screen, "from", day, changeable | low |
+| `lb` | `measurement.sourcesTitle`, `measurement.editionTitle`, `radar.aboutSources` | `Quellen`, `Quellen an Ausgab` (German plural) | one Luxembourgish form (`Quell` elsewhere) | medium |
+| `lb` | `measurement.topics.sunshine`, `valueDetails.sumNote`, glossary `sunshine_duration` | `Sonnenscheindauer` (the UI and the parameter label agree; German spelling) next to `Sonnendauer` in eleven other labels and `Sonneschäin` in the dataset | one Luxembourgish form: `Sonneschäindauer` or `Sonnendauer` | medium |
+| `lb` | `ask.day.noteAskedMeasure`, `ask.season.noteAskedSeason` | `Amplaz gëtt gewisen:` against `Amplaz gewisen:` | one form | low |
+| `lb` | glossary (two labels) | `séch` | `sech`, as the UI text writes it | medium |
+| `de-hh` | `ask.season.usual` | `Nich würklich: so warm as anners.` | the "about" of `en` is dropped; a Low German word for "roughly" | medium |
+| `de-hh` | `ask.day.class.hot`, `ask.day.temperature.hot` | `Heten Dag`, `En heten Dag` | is the bare label `Heten Dag` the right case? | low |
+| `de-hh` | `stripes.aboutGhcn` | `höchstens 10 fehlen Dag` | `feelen` or `fehlende`: `fehlen` is not an adjective | medium |
+| `de-hh` | `shell.moreIn`, `shell.moreOnMap`, `warnings.areasMore`, `ask.explain.licence`, `seo.providerDescription`, `location.*`, glossary `pollen_load_*` (8 labels) | `mehr`, `Lizenz`, `Standort`, `ungefähr`, `Quellenangaav`, `Pollenbelastung, Hasel` (German, equal to `de`) | Low German words where there are any | low |
+| `de-hh` | `measurement.topics.observationForecastDerived`, `processingNote.radar` | `Beobachten` | `Utkieken` or `Meten` | low |
+| `de-hh` | `meteogram.chart.later`, `dataViewer.chart.later` | `Lattere Stünnen` against `Latter` | one form of "later" | low |
+| `de-hh` | `shell.stationEnded` | `to Enn {year}` | does it read as "ended {year}"? | low |
+| `fr` | `ask.day.temperature.ice`, `ask.day.class.ice` | `Un jour sans dégel`, `jour sans dégel` | Météo-France's term for an ice day | low |
+| `fr` | `seo.kinds.alerts` | `alertes météo`, where the UI says `avertissements` | `avertissements météo` | low |
+| `es` | `home.kindForecastsTitle`, `home.kindForecastsDesc`, `home.kindRoadDesc`, `seo.kinds.forecast`, `measurement.topics.observationForecastDerived`, `meteogram.aboutText1` | `predicciones`/`predicción`/`previsión`, where the catalog says `pronóstico` 48 times | one word; AEMET says `predicción` | low |
+| `es` | `radar.playerLabel`, `radar.loopTitle`, `radar.loopRange` | `Bucle` | `Animación` or `Secuencia` | low |
+| `es` | `radar.cellsSeverity*` | `Intensidad` for "Severity" | `Gravedad`? | low |
+| `it` | `measurement.topics.clouds` | `Nuvole`, where the catalog also writes `nubi` (9 against 7) | one word; the meteorological term is `Nubi` | low |
+| `it` | `seo.kinds.alerts`, `providers.kindAlertsTitle` | `allerte meteo`, where the warnings panel says `avvisi` | one word | low |
+| `es`, `it`, `pl`, `cs`, `da` | `radar.about3` | `destreza`, `abilità`, `umiejętność`, `zdatnost`, `dygtigheden` for the "skill" of a nowcast | the term the weather service uses (`performance`/`accuratezza previsionale`, `skuteczność prognozy`, `úspěšnost předpovědi`, `træfsikkerheden`) | low |
+| `pl` | `shell.placeKinds.region` | `Stan lub region` (reads as a US state) | `Kraj związkowy lub region` | low |
+| `pl` | `ask.day.snow.depth`, `ask.day.snow.chart`, `ask.day.snow.none` against `meteogram.chart.seriesSnowDepth` and the glossary | `Wysokość pokrywy śnieżnej` next to `Grubość pokrywy śnieżnej` | one word; IMGW writes `wysokość` (extends the glossary row for `snow_depth*`) | medium |
+| `pl`, `cs`, `nl` | `warnings.level.1` to `4`, `warnings.panelTitle` | `Wyraźne ostrzeżenie pogodowe`; `Výstraha před nebezpečným počasím` (ČHMÚ: `výstraha před nebezpečnými jevy`); `Opvallende weerwaarschuwing` for DWD's "Markante Wetterwarnung" | the wording of IMGW, ČHMÚ and KNMI | low |
+| `nl` | `shell.placeKinds.county` | `District of graafschap` | the word the Dutch use for a German Landkreis | low |
+| `da` | `measurement.*`, `methods.*` | `indlæg` for an "entry" (a post) | `emne` or `artikel` | low |
+| `da` | `shell.stationsForecast`, `seo.pages.radar`, `radar.forecast`, `radar.about3` | `udsigt`, where `prognose` is in `seo.kinds.forecast`, `meteogram.chart.*`, `measurement.topics.*` (DMI says `prognose`) | one word for forecast (extends the `Udsigt` item above) | medium |
+| `de-hh` | `degree_celsius`, `degree_fahrenheit`, `degree` (unit names), `elevation`, `colElevationM`, `aboutText4`, glossary `precipitation_amount*` | `Grad Celsius`, `Grad (°)`; the bare `Hööchd`, `Hööch`; `Boddenfüchtigkeit` next to `Bodenfüchtigkeit` (24 labels); `Nedderslag` for the three amount labels | not covered by the decision of 2026-11-23 (compounds only): `Graad Celsius`, `Hööchde`, one `Bodenfüchtigkeit`, `Nedderslaghööchde` as the other amount labels | low |
 
 The parameter glossaries (`glossary/<locale>.ts`) were read for GH-2610 as well (801 labels in each
 of the ten languages, against `en`, this file and the weather service's own terms). What was
@@ -350,8 +439,6 @@ The key is a glossary key (a family is named by its stem, `...` standing for the
 | `lb` | `*_manual`, `phenology_flowering_end_observation_area`, `road_surface_condition*`, `precipitation_amount_normal`, `temperature_dew_point*`, `temperature_wind_chill` | `Aebeobachtung`, `Beobachtungsgebitt`, `Fahrbunn`, `Klimanormalwäert`, `Taupunkt`, `Windchill` | a Luxembourgish word each | low |
 | `lb` | `sunshine_duration`, `sunshine_duration_*` | `Sonnenscheindauer` (parameter, dataset) next to `Sonnendauer` (the other eleven) | one word, `Sonnenschäindauer` as the dataset `sun` is `Sonnenschäin` | medium |
 | `de-hh` | `annual_*`, `immediate_*`, `temperature_air*`, `temperature_soil*`, `ph_value`, `turbidity` | 91 datasets and 25 parameters equal to `de` (`Jahresmelder: Mais`, `Lufttemperatur`, `Trübung`) | Low German words where there are any; `Jahresmelder`/`Sofortmelder` | low |
-| `de-hh` | `cooling_degree_*`, `heating_degree*` | `Köhlgradstunnen`, `Heizgraddaag` (parameters) and `Köhlgraadstünn`, `Heizgraaddaag` (datasets) | one spelling of `grad`/`graad` | medium |
-| `de-hh` | `snow_depth*`, `water_equivalent*` and the labels with `Snee`/`Snéé`/`Schnee`, `Snééhööchd`/`Snehööch`/`Neeschneehööch` | snow spelt three ways and height `hööch`/`hööchd` | one spelling, `Snee` as the UI has it | medium |
 | `fr` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `limon argileux` (argileux is clayey) | `limon` | low |
 | `fr` | `pressure_vapor`, `pressure_vapor_mean` | `Pression de vapeur` | `Tension de vapeur`, the term of Météo-France | low |
 | `es` | `*loamy_silt*` | `limo franco` | `franco limoso`, the name of the texture class | low |
@@ -374,9 +461,7 @@ The key is a glossary key (a family is named by its stem, `...` standing for the
 | `lb` | `discharge_*`, `precipitation_amount_max*`, `weather_type_heavy_fog`, `weather_type_ice_fog_freezing_fog`, `snow_depth_max`, `snow_depth_new_max`, `frozen_ground_layer_thickness_max_month` | `Maximalen Ofloss`, `Mëttleren Ofloss`, `Héchsten Nidderschlag`, `dichten Niwwel`, `Gréisste Schnéihéicht`, `Gréissten Frostschichtdicht` | the file's own pattern: masculine `-e` (`Maximale Ofloss`, `Héchste Nidderschlag`, `dichte Niwwel`), feminine no ending (`Gréisst Schnéihéicht`) | medium |
 | `lb` | `tassel_tip_visible` | `Fändelschéiwen, Ufank` | `Spëtz vum Fändel ze gesinn` | low |
 | `lb` | `evapotranspiration_last_24h`, `evapotranspiration_potential_*` | `Verdonstung`, `Potenziell Verdonstung` (the label of `evaporation_amount`) | a word of its own for evapotranspiration | low |
-| `de` | `precipitation_amount`, `precipitation_amount_max`, `precipitation_amount_max_30min` | `Niederschlagsmenge` | `Niederschlagshöhe`, DWD's term, as the other precipitation labels | low |
 | `de, nl, da` | `cloud_height_layer1` | `Wolkenuntergrenze (1. Schicht)`, `Wolkenbasis (1e laag)`, `Skybase (1. lag)`; the "(1st layer)" form of en | the form of layers 2 to 4 (`..., Schicht 1`, `..., laag 1`) | low |
-| `de-hh` | `humidity_relative*`, `humidity_absolute`, `temperature_wet*`, `moisture` | `Luftfuchtigkeit`, `Fuchttemperatur`, `Fuchtigkeit` | one spelling next to `Füchtigkeit` of the other labels | low |
 | `nl` | `probability_precipitation_freezing_last_*h` | `Kans op ijzel` (freezing rain only; en says freezing precipitation) | `Kans op onderkoelde neerslag` | medium |
 | `nl` | `pressure_vapor`, `pressure_vapor_mean` | `Dampdruk` | `Dampspanning`, the term of KNMI | low |
 | `da` | `temperature_air_mean_2m`, `temperature_air_mean_minmax_2m` | `Middellufttemperatur` next to `Gennemsnitlig` in 40 labels | one word for "mean" (`Gennemsnitlig`; `Middelvandføring` is a hydrology term and stays) | medium |

@@ -4,17 +4,18 @@ import { DateTime } from 'luxon'
 import { describe, expect, it } from 'vitest'
 import {
   beaufort,
+  dayWindow,
   hourlyNetworks,
   hourlyTemperatureIn,
-  lastBoxingDay,
-  lastSummer,
+  lastSeason,
   mapLimited,
   RAIN_AMOUNT,
   RAIN_CHANCE,
   rainTomorrow,
+  sameDayLastYear,
   windOnDay,
-  windWindow,
 } from '../../app/utils/answers'
+import { run10382Values } from '../helpers/mosmix-run'
 
 // The answers of the home page's questions are worked out from what the backend answers, and say nothing the
 // data does not: these hold each to a few readings whose answer is known by hand.
@@ -30,7 +31,7 @@ function hourly(parameter: string, from: string, values: number[]): Reading[] {
 
 describe('will it rain tomorrow', () => {
   // tomorrow in Berlin is 30 October, 23:00 UTC on the 29th to 23:00 UTC on the 30th; its first hour's reading is at 00:00 UTC
-  const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from({ length: 48 }).fill(0))
+  const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from<number>({ length: 48 }).fill(0))
 
   it('says no for a dry day, and the hours of the day in the place\'s time', () => {
     const answer = rainTomorrow(dry(), BERLIN, NOW)!
@@ -62,8 +63,24 @@ describe('will it rain tomorrow', () => {
     expect(answer.maxChance).toBe(0.4)
   })
 
+  it('takes the rain of a late day from the 6, 12 and 24 hour totals where the hourly amounts are 0.0, as the day rows do (GH-4175)', () => {
+    // 10382, the run of 2026-11-17 03 UTC: on the 25th the hourly amounts are all 0.0 and DWD's 12 hour totals have 1.2 mm
+    const run = run10382Values().map(value => ({ parameter: value.parameter, timestamp: value.timestamp, value: value.value }))
+    const late = DateTime.fromISO('2026-11-24T10:00:00', { zone: BERLIN })
+    const hourlyOnly = rainTomorrow(run.filter(reading => reading.parameter === RAIN_AMOUNT), BERLIN, late)!
+    expect(hourlyOnly.verdict).toBe('no')
+    const answer = rainTomorrow(run, BERLIN, late)!
+    expect(answer.day).toBe('2026-11-25')
+    expect(answer.verdict).toBe('yes')
+    expect(answer.total).toBe(1.2)
+    // the hours of a total are not wet hours of their own, and no hour is the wettest
+    expect(answer.wetHours).toBe(0)
+    expect(answer.wettest).toBeNull()
+    expect(answer.hours).toHaveLength(24)
+  })
+
   it('gives no answer where the forecast does not reach most of the day', () => {
-    expect(rainTomorrow(hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from({ length: 20 }).fill(0)), BERLIN, NOW)).toBeNull()
+    expect(rainTomorrow(hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from<number>({ length: 20 }).fill(0)), BERLIN, NOW)).toBeNull()
   })
 })
 
@@ -76,7 +93,10 @@ function summers(first: number, last: number, base: (year: number) => number): R
   })))
 }
 
-describe('was last summer hotter than usual', () => {
+/** The question the chip always asked: the last summer against the newest normal (1991 to 2020 in 2026) */
+const lastSummer = (readings: Reading[], now: DateTime, unit?: string) => lastSeason(readings, now, { season: 'summer', normal: '1991-2020' }, unit)
+
+describe('was last summer warmer than usual', () => {
   it('compares the last complete summer with 1991 to 2020', () => {
     const readings = summers(1986, 2026, year => year === 2026 ? 18 : 16)
     const answer = lastSummer(readings, NOW)!
@@ -84,9 +104,9 @@ describe('was last summer hotter than usual', () => {
     expect(answer.normal).toBe(16)
     expect([answer.normalFrom, answer.normalTo]).toEqual([1991, 2020])
     expect(answer.anomaly).toBe(2)
-    expect(answer.verdict).toBe('hotter')
+    expect(answer.verdict).toBe('warmer')
     expect(answer.rank).toBe(1)
-    expect(answer.summers).toBe(41)
+    expect(answer.seasons).toBe(41)
     expect(answer.bars.at(-1)).toMatchObject({ label: '2026', value: 2, highlight: true })
   })
 
@@ -138,11 +158,24 @@ describe('how windy was it on a day', () => {
     expect(windOnDay(days({ '2025-12-25': 12 }), '2025-12-26')).toBeNull()
   })
 
-  it('means last year\'s 26 December until this year\'s readings can be in, and fetches no day of the future', () => {
-    expect(lastBoxingDay(NOW)).toBe('2025-12-26')
-    expect(lastBoxingDay(DateTime.fromISO('2026-12-28T09:00:00'))).toBe('2026-12-26')
-    expect(windWindow('2025-12-26', NOW)).toEqual({ from: '2025-12-19', to: '2026-01-02' })
-    expect(windWindow('2026-10-27', NOW)).toEqual({ from: '2026-10-20', to: '2026-10-28' })
+  it('means the same date last year, and fetches no day of the future', () => {
+    expect(sameDayLastYear(NOW)).toBe('2025-10-29')
+    expect(sameDayLastYear(DateTime.fromISO('2026-12-28T09:00:00'))).toBe('2025-12-28')
+    expect(sameDayLastYear(DateTime.fromISO('2027-01-01T00:30:00'))).toBe('2026-01-01')
+    expect(dayWindow('2025-12-26', NOW)).toEqual({ from: '2025-12-19', to: '2026-01-02' })
+    expect(dayWindow('2026-10-27', NOW)).toEqual({ from: '2026-10-20', to: '2026-10-28' })
+  })
+
+  it('has no 29 February last year, and takes the day before it: 28 February', () => {
+    // 2028 is a leap year, the year before it is not: today's 29 February has no date a year ago
+    expect(sameDayLastYear(DateTime.fromISO('2028-02-29T12:00:00', { zone: BERLIN }))).toBe('2027-02-28')
+    // the day after a leap day is a plain date; and a 29 February that did exist last year (2028 asked in 2029) is not asked for
+    expect(sameDayLastYear(DateTime.fromISO('2028-03-01T12:00:00', { zone: BERLIN }))).toBe('2027-03-01')
+    expect(sameDayLastYear(DateTime.fromISO('2029-02-28T12:00:00', { zone: BERLIN }))).toBe('2028-02-28')
+    expect(sameDayLastYear(DateTime.fromISO('2029-03-01T12:00:00', { zone: BERLIN }))).toBe('2028-03-01')
+    // it is a day the question can ask about: a day before today
+    for (const now of ['2028-02-29T00:05:00', '2026-11-22T23:59:00', '2027-03-01T08:00:00'])
+      expect(sameDayLastYear(DateTime.fromISO(now, { zone: BERLIN })) < DateTime.fromISO(now, { zone: BERLIN }).toISODate()!).toBe(true)
   })
 })
 
@@ -210,13 +243,13 @@ describe('the coverages the download question asks for', () => {
 describe('the answers in the unit of the settings', () => {
   const fahrenheit = (celsius: number) => celsius * 1.8 + 32
 
-  describe('was last summer hotter than usual', () => {
+  describe('was last summer warmer than usual', () => {
     const inFahrenheit = (readings: Reading[]) => readings.map(reading => ({ ...reading, value: reading.value === null ? null : fahrenheit(reading.value) }))
     const inKelvin = (readings: Reading[]) => readings.map(reading => ({ ...reading, value: reading.value === null ? null : reading.value + 273.15 }))
 
     it.each([
-      ['hotter', 18],
-      ['hotter', 16.5],
+      ['warmer', 18],
+      ['warmer', 16.5],
       ['usual', 16.4],
       ['usual', 15.6],
       ['cooler', 15.4],
@@ -236,14 +269,14 @@ describe('the answers in the unit of the settings', () => {
       expect(answer.bars.at(-1)!.value).toBe(3.6)
       // the same summers in the same order, whatever the unit
       expect(answer.rank).toBe(1)
-      expect(answer.summers).toBe(41)
+      expect(answer.seasons).toBe(41)
       const kelvin = lastSummer(inKelvin(celsius), NOW, 'K')!
       expect([kelvin.mean, kelvin.normal, kelvin.anomaly]).toEqual([291.2, 289.2, 2])
     })
   })
 
   describe('will it rain tomorrow', () => {
-    const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from({ length: 48 }).fill(0))
+    const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from<number>({ length: 48 }).fill(0))
     const withHour = (readings: Reading[], at: string, value: number) => readings.map(reading => reading.timestamp.startsWith(at) ? { ...reading, value } : reading)
 
     it('says the same in millimetres and in litres per square metre, and writes the unit of the answer', () => {

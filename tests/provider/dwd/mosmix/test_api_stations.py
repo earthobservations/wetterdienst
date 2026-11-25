@@ -30,7 +30,6 @@ def mosmix_stations_schema() -> dict:
         "resolution": pl.String,
         "dataset": pl.String,
         "station_id": pl.String,
-        "icao_id": pl.String,
         "start_timestamp": pl.Datetime(time_zone="UTC"),
         "end_timestamp": pl.Datetime(time_zone="UTC"),
         "latitude": pl.Float64,
@@ -38,6 +37,9 @@ def mosmix_stations_schema() -> dict:
         "elevation": pl.Float64,
         "name": pl.String,
         "region": pl.String,
+        "wmo_id": pl.String,
+        "wigos_id": pl.String,
+        "icao_id": pl.String,
     }
 
 
@@ -48,7 +50,7 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
     given_df = DwdMosmixRequest(parameters=[("hourly", "large")], settings=default_settings).all().df
     assert not given_df.is_empty()
     # Verify size of dataframe with all records.
-    assert given_df.shape == IsTuple(IsInt(ge=5500), 11)
+    assert given_df.shape == IsTuple(IsInt(ge=5500), 13)
     # Verify content of dataframe. For reference purposes,
     # we use the first and the last record of the list.
     expected_df = pl.DataFrame(
@@ -57,7 +59,6 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
                 "resolution": "hourly",
                 "dataset": "large",
                 "station_id": "01001",
-                "icao_id": "ENJA",
                 "start_timestamp": None,
                 "end_timestamp": None,
                 "latitude": 70.93,
@@ -65,12 +66,14 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
                 "elevation": 10.0,
                 "name": "JAN MAYEN",
                 "region": None,
+                "wmo_id": "01001",
+                "wigos_id": None,
+                "icao_id": "ENJA",
             },
             {
                 "resolution": "hourly",
                 "dataset": "large",
                 "station_id": "Z949",
-                "icao_id": None,
                 "start_timestamp": None,
                 "end_timestamp": None,
                 "latitude": 47.58,
@@ -78,6 +81,9 @@ def test_dwd_mosmix_stations_success(default_settings: Settings, mosmix_stations
                 "elevation": 1200.0,
                 "name": "JENNER",
                 "region": None,
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ],
         schema=mosmix_stations_schema,

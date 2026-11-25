@@ -1,5 +1,5 @@
 // Counts the requests that cost something (GH-3093): `values`, `stations`, `interpolate`, `summarize`,
-// `stripes`, `history`, whatever else the backend serves but its catalogue, and the `/mcp` proxy, per client,
+// `history`, whatever else the backend serves but its catalogue, the `/mcp` proxy and the app's own `/_ghcn` routes, per client,
 // and answers a 429 past the limit. The pages, the assets and the catalogue routes are not counted: an
 // interactive session asks for those all the time. What is counted and how the client is told apart is in
 // `~/server/utils/rateLimit`; the limit, its window and the header to read the client from are
@@ -12,15 +12,19 @@ const limiter = createRateLimiter()
 export default defineEventHandler((event) => {
   const { rateLimit } = useRuntimeConfig(event)
   // the options request of a preflight carries no work
-  if (!rateLimit.enabled || event.method === 'OPTIONS' || !isLimited(event.path))
+  const bucket = rateLimit.enabled && event.method !== 'OPTIONS' ? bucketOf(event.path) : null
+  if (!bucket)
     return
 
-  const tokens = positiveInteger(rateLimit.tokens, RATE_LIMIT_DEFAULTS.tokens)
+  // the frames of the radar are counted in a bucket of their own, a larger one (GH-3788)
+  const tokens = bucket === 'frames'
+    ? positiveInteger(rateLimit.frameTokens, RATE_LIMIT_DEFAULTS.frameTokens)
+    : positiveInteger(rateLimit.tokens, RATE_LIMIT_DEFAULTS.tokens)
   const windowMs = positiveInteger(rateLimit.windowSeconds, RATE_LIMIT_DEFAULTS.windowSeconds) * 1000
   const header = String(rateLimit.clientIpHeader ?? '').trim().toLowerCase()
   const key = clientKey(getRequestIP(event), header, header ? getRequestHeader(event, header) : undefined)
 
-  const result = limiter.take(key, tokens, windowMs)
+  const result = limiter.take(`${bucket}:${key}`, tokens, windowMs)
   setResponseHeader(event, 'x-ratelimit-limit', tokens)
   setResponseHeader(event, 'x-ratelimit-remaining', result.remaining)
   setResponseHeader(event, 'x-ratelimit-reset', Math.ceil(result.resetAt / 1000))
@@ -38,7 +42,7 @@ export default defineEventHandler((event) => {
     type: 'urn:wetterdienst:problem:rate-limited',
     title: 'Too Many Requests',
     status: 429,
-    detail: `This client sent more than ${tokens} requests for data in ${windowMs / 1000} seconds. Retry in ${retryAfter} seconds.`,
+    detail: `This client sent more than ${tokens} requests for ${bucket === 'frames' ? 'radar images' : 'data'} in ${windowMs / 1000} seconds. Retry in ${retryAfter} seconds.`,
     instance: `urn:wetterdienst:request:${requestId}`,
     request_id: requestId,
   } satisfies ApiErrorResponse

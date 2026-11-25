@@ -23,7 +23,6 @@ from tests.ui.test_restapi import (
     _OBSERVATION,
     _stub_result,
     _stub_stream,
-    _stub_stripes_station,
     _values_result_of_shape,
 )
 from wetterdienst.metadata.cache import CacheExpiry
@@ -592,25 +591,6 @@ def test_stations_are_not_cached(client: TestClient, monkeypatch: pytest.MonkeyP
     assert _cache_headers(response) == {}
 
 
-@pytest.mark.usefixtures("chart_draws_itself")
-def test_the_stripes_are_not_cached(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The stripes of a station end with the year being recorded, and the image is drawn from them."""
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"image"
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-
-    values = client.get("/api/v1/stripes/values", params={"kind": "temperature", "station": "01048"})
-    image = client.get("/api/v1/stripes/image", params={"kind": "temperature", "station": "01048", "format": "png"})
-
-    assert (values.status_code, image.status_code) == (200, 200)
-    assert _cache_headers(values) == {}
-    assert _cache_headers(image) == {}
-
-
 @pytest.mark.parametrize("path", ["/api/v1/version", "/api/v1/settings", "/health", "/ready", "/robots.txt"])
 def test_the_rest_of_the_server_sends_no_validators(client: TestClient, path: str) -> None:
     """Only the four routes are kept; the others say nothing about it (a probe says `no-store`)."""
@@ -622,16 +602,22 @@ def test_the_rest_of_the_server_sends_no_validators(client: TestClient, path: st
 
 
 def test_the_openapi_document_declares_the_cache_headers_and_the_304(client: TestClient) -> None:
-    """The four routes document the headers of their 200 and the 304; no other route has a 304."""
+    """The routes that are kept document the headers of their 200 and the 304; no other route has a 304."""
     document = client.get("/openapi.json").json()
     declared = {"/api/v1/coverage", "/api/v1/providers", "/api/v1/glossary", "/api/v1/history"}
+    # the radar: the list and the image of a frame, whose 200 has headers of its own (which frame it is) besides
+    radar = {"/api/v1/radar/frames", "/api/v1/radar/frame"}
+    with_a_date = {"/api/v1/coverage", "/api/v1/providers", "/api/v1/glossary"}
 
     for path, item in document["paths"].items():
         responses = item["get"]["responses"]
-        if path in declared:
+        if path in declared | radar:
             assert {"ETag", "Cache-Control"} <= set(responses["200"]["headers"]), path
-            assert set(responses["304"]["headers"]) == set(responses["200"]["headers"]), path
-            assert ("Last-Modified" in responses["200"]["headers"]) == (path != "/api/v1/history"), path
+            if path in declared:
+                assert set(responses["304"]["headers"]) == set(responses["200"]["headers"]), path
+            else:
+                assert {"ETag", "Cache-Control"} == set(responses["304"]["headers"]), path
+            assert ("Last-Modified" in responses["200"]["headers"]) == (path in with_a_date), path
         else:
             assert "304" not in responses, path
 

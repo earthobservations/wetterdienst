@@ -2068,6 +2068,159 @@ def test_export_duckdb_if_exists_append(
     ]
 
 
+def _duckdb_storage_version(path: Path) -> int:
+    """Read the storage version number from the header of a DuckDB file (DuckDB 1.0 to 1.5 write 64)."""
+    head = path.read_bytes()[:20]
+    assert head[8:12] == b"DUCK", head
+    return int.from_bytes(head[12:20], "little")
+
+
+def test_export_duckdb_writes_a_new_file_that_duckdb_1_can_read(tmp_path: Path) -> None:
+    """A file that the sink creates has the storage version of DuckDB 1.0 to 1.5, whichever DuckDB wrote it.
+
+    DuckDB 2.0 writes a newer format by default, which DuckDB 1.x cannot open (`IOException`: version number).
+    """
+    pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+    _one_row().to_target(f"duckdb:///{filename}?table=testdrive")
+    assert _duckdb_storage_version(filename) == 64
+
+
+def test_export_duckdb_keeps_the_storage_version_of_a_file_that_exists(tmp_path: Path) -> None:
+    """A file that exists keeps its format when the sink appends to it, and holds both rows."""
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+    connection = duckdb.connect(str(filename))
+    connection.execute("CREATE TABLE testdrive AS SELECT 'x' AS station_id")
+    connection.close()
+    before = _duckdb_storage_version(filename)
+
+    ExportMixin(df=pl.DataFrame({"station_id": ["01048"]})).to_target(
+        f"duckdb:///{filename}?table=testdrive",
+        if_exists="append",
+    )
+
+    assert _duckdb_storage_version(filename) == before
+    connection = duckdb.connect(str(filename), read_only=True)
+    assert connection.execute("SELECT station_id FROM testdrive ORDER BY 1").fetchall() == [("01048",), ("x",)]
+    connection.close()
+
+
+def test_export_duckdb_appends_values_to_a_column_that_was_written_with_none(tmp_path: Path) -> None:
+    """A column without a value in the first write takes the values of a later append, as text.
+
+    polars' `Null` column was the type "NULL" of a new table on DuckDB 2.0, which a later append could not fill.
+    """
+    duckdb = pytest.importorskip("duckdb")
+
+    filename = tmp_path.joinpath("test.duckdb")
+    target = f"duckdb:///{filename}?table=testdrive"
+    ExportMixin(df=pl.DataFrame({"station_id": ["01048"], "value": [None]})).to_target(target)
+    ExportMixin(df=pl.DataFrame({"station_id": ["01050"], "value": [3.5]})).to_target(target, if_exists="append")
+
+    connection = duckdb.connect(str(filename), read_only=True)
+    assert connection.execute("SELECT station_id, value FROM testdrive ORDER BY 1").fetchall() == [
+        ("01048", None),
+        ("01050", "3.5"),
+    ]
+    connection.close()
+
+
+@pytest.mark.parametrize("held_with", ["defaults", "the_format_of_duckdb_1"])
+def test_export_duckdb_while_the_caller_holds_the_file_open(tmp_path: Path, held_with: str) -> None:
+    """The sink writes to a file that another connection of the process holds open, whichever way it was opened.
+
+    DuckDB refuses a connection to a file that has another configuration than one that is open; the sink takes the
+    file as that connection has it. The one that created the file stays open through both writes.
+    """
+    duckdb = pytest.importorskip("duckdb")
+    if held_with != "defaults" and int(duckdb.__version__.split(".")[0]) < 2:
+        pytest.skip("DuckDB 1.x writes that format by default, and the sink opens a file as it was on 1.x")
+
+    filename = tmp_path.joinpath("test.duckdb")
+    config = {"storage_compatibility_version": "v1.0.0"} if held_with != "defaults" else {}
+    holder = duckdb.connect(str(filename), config=config)
+    try:
+        holder.execute("CREATE TABLE testdrive AS SELECT 'x' AS station_id")
+        target = f"duckdb:///{filename}?table=testdrive"
+        ExportMixin(df=pl.DataFrame({"station_id": ["01048"]})).to_target(target, if_exists="append")
+        ExportMixin(df=pl.DataFrame({"station_id": ["01050"]})).to_target(target, if_exists="append")
+        assert holder.execute("SELECT station_id FROM testdrive ORDER BY 1").fetchall() == [
+            ("01048",),
+            ("01050",),
+            ("x",),
+        ]
+    finally:
+        holder.close()
+
+
+def test_export_duckdb_lets_a_caller_connect_to_a_file_that_exists_while_it_is_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A plain `duckdb.connect` of the caller is not refused while the sink holds a connection to an existing file."""
+    duckdb = pytest.importorskip("duckdb")
+    from wetterdienst.io import sinks  # noqa: PLC0415
+
+    filename = tmp_path.joinpath("test.duckdb")
+    target = f"duckdb:///{filename}?table=testdrive"
+    _one_row("01048").to_target(target)
+    real_connect = sinks._connect_duckdb  # noqa: SLF001
+    seen: list[object] = []
+
+    def connect_and_look(module: object, database: str) -> object:
+        connection = real_connect(module, database)
+        try:
+            caller = duckdb.connect(database)
+        except duckdb.Error as e:
+            seen.append(e)
+        else:
+            seen.append(caller.execute("SELECT count(*) FROM testdrive").fetchall())
+            caller.close()
+        return connection
+
+    monkeypatch.setattr(sinks, "_connect_duckdb", connect_and_look)
+    _one_row("01050").to_target(target, if_exists="append")
+
+    assert seen == [[(1,)]]
+    connection = duckdb.connect(str(filename), read_only=True)
+    assert connection.execute("SELECT count(*) FROM testdrive").fetchone() == (2,)
+    connection.close()
+
+
+def test_export_duckdb_from_several_threads_into_one_file(tmp_path: Path) -> None:
+    """Exports to one file, started together from several threads, all arrive."""
+    duckdb = pytest.importorskip("duckdb")
+    import threading  # noqa: PLC0415
+
+    filename = tmp_path.joinpath("test.duckdb")
+    target = f"duckdb:///{filename}?table=testdrive"
+    _one_row("start").to_target(target)
+    threads = 8
+    start = threading.Barrier(threads)
+    errors: list[BaseException] = []
+
+    def export(number: int) -> None:
+        try:
+            start.wait(timeout=30)
+            _one_row(f"{number:05d}").to_target(target, if_exists="append")
+        except BaseException as e:  # noqa: BLE001
+            errors.append(e)
+
+    workers = [threading.Thread(target=export, args=(number,)) for number in range(threads)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(timeout=120)
+
+    assert errors == []
+    connection = duckdb.connect(str(filename), read_only=True)
+    assert connection.execute("SELECT count(*) FROM testdrive").fetchone() == (threads + 1,)
+    connection.close()
+    assert _duckdb_storage_version(filename) == 64
+
+
 def test_export_duckdb_if_exists_skip(
     tmp_path: Path,
 ) -> None:
@@ -2774,8 +2927,8 @@ def test_filter_by_sql_cannot_read_files(
 ) -> None:
     """The caller's clause cannot read or list files on the host the filter runs on.
 
-    The REST API and MCP server pass `sql` and `sql_values` on from whoever can reach them, so a
-    clause that reached the file system read the server's files with the permissions of its process.
+    The filter runs with the permissions of the host's own process, so a clause that reached the file
+    system would read the host's files with them.
     """
     import duckdb  # noqa: PLC0415
 
@@ -2792,7 +2945,7 @@ def test_filter_by_sql_cannot_reach_the_network(df_stations: pl.DataFrame) -> No
 
     with pytest.raises(duckdb.PermissionException, match="disabled"):
         ExportMixin(df=df_stations).filtered_by_sql(
-            "elevation IN (SELECT elevation FROM read_csv('https://example.com/secret.csv'))"
+            "elevation IN (SELECT elevation FROM read_csv('http://127.0.0.1:9/secret.csv'))"
         )
 
 
@@ -4762,10 +4915,8 @@ def test_a_file_target_has_no_query_string(df_stations: pl.DataFrame, tmp_path: 
     assert [path.name for path in tmp_path.iterdir()] == ["what?.csv"]
 
 
-def test_the_alerts_and_stripes_json_write_null_for_what_is_not_a_finite_number() -> None:
-    """The other JSON writers of a frame, the alerts' own and the climate stripes', write `null` as well (GH-3679)."""
-    import types  # noqa: PLC0415
-
+def test_the_alerts_json_writes_null_for_what_is_not_a_finite_number() -> None:
+    """The other JSON writer of a frame, the alerts' own, writes `null` as well (GH-3679)."""
     from tests.provider.dwd.alerts.test_api import _URL, CAP_XML, _make_zip  # noqa: PLC0415
     from wetterdienst.provider.dwd.alerts.api import (  # noqa: PLC0415
         DwdWeatherAlertGranularity,
@@ -4773,7 +4924,6 @@ def test_the_alerts_and_stripes_json_write_null_for_what_is_not_a_finite_number(
         DwdWeatherAlertRequest,
         DwdWeatherAlertResult,
     )
-    from wetterdienst.ui import render  # noqa: PLC0415
 
     alerts = DwdWeatherAlertRequest._parse_archive(_make_zip(CAP_XML), _URL)  # noqa: SLF001
     df = DwdWeatherAlertRequest._build_dataframe(alerts)  # noqa: SLF001
@@ -4782,14 +4932,3 @@ def test_the_alerts_and_stripes_json_write_null_for_what_is_not_a_finite_number(
     assert _read_strictly(result.to_json())["alerts"][0]["geometry"]["coordinates"] == [None, None]
     feature = _read_strictly(result.to_geojson())["features"][0]
     assert feature["geometry"]["coordinates"] == [None, None]
-
-    data = types.SimpleNamespace(
-        df=pl.DataFrame(
-            {"timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))] * 2, "value": [float("nan"), 1.0]}
-        ),
-        series=types.SimpleNamespace(model_dump=dict),
-    )
-    request = types.SimpleNamespace(pretty=False)
-    with mock.patch.object(render, "metadata_to_dict", return_value={}):
-        written = _read_strictly(render.render_stripes_values(data, request, None))  # ty: ignore[invalid-argument-type]
-    assert [row["value"] for row in written["values"]] == [None, 1.0]

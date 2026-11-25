@@ -13,13 +13,13 @@ GHCN data is provided by NOAA's National Centers for Environmental Information (
 open data under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (see [GHCN](ghcn/index.md#license)). See the
 [GHCN daily product page](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily)
 for citation and usage information. The pages read state no limit on requests for the files the library reads (the
-`noaa-ghcn-pds` bucket of NOAA's Open Data Dissemination program, and NCEI's file server for the hourly data); neither
+`noaa-ghcn-pds` bucket of NOAA's Open Data Dissemination program, and NCEI's file server for the daily and the hourly data); neither
 host's own terms of use were looked for.
 
 ## Update date
 
 The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-metadata) of an answer is when NCEI
-last wrote the file of the station the values were read from (its `Last-Modified`).
+(for `ghcn/daily`, when it is read from the AWS mirror, the bucket) last wrote the file of the station the values were read from (its `Last-Modified`).
 
 ```{toctree}
 :hidden:

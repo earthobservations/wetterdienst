@@ -21,6 +21,8 @@ export interface PrivacySection {
   items?: string[]
   /** One link after the list */
   link?: { label: string, href: string }
+  /** More links after `link` */
+  links?: Array<{ label: string, href: string }>
 }
 
 export interface PrivacyPolicy {
@@ -37,7 +39,7 @@ export interface PrivacyPolicy {
 
 export const privacy: PrivacyPolicy = {
   title: 'Datenschutzerklärung',
-  updated: 'Stand: 11. November 2026',
+  updated: 'Stand: 22. November 2026',
   intro: 'Diese Erklärung beschreibt, welche personenbezogenen Daten beim Besuch von wetterdienst.eobs.org und bei der Nutzung der REST-API und des MCP-Servers von Wetterdienst verarbeitet werden. Es gibt keine Benutzerkonten, keine Registrierung, keine Analyse- oder Tracking-Dienste und keine Werbung.',
   controller: {
     title: 'Verantwortlicher',
@@ -80,7 +82,7 @@ export const privacy: PrivacyPolicy = {
         'localStorage wd_settings: Ihre Darstellungseinstellungen (Parameterbezeichnungen, Einheiten, die Anzeige der Klimastreifen und welche Werkzeuge in der Leiste der Smartphone-Ansicht stehen).',
         'localStorage meteogram.view: ob das Meteogramm als Diagramm, in der kompakten Ansicht oder als Tabelle gezeigt wird. Ein früher gespeicherter Wert von meteogram.compact wird einmalig übernommen und gelöscht.',
         'localStorage wd-station-picker: ob die Stationsauswahl im Explorer, im Verlauf, in der Vorhersage und bei den Klimastreifen die Liste oder die Karte zeigt (für jedes Werkzeug einzeln).',
-        'localStorage wd-place: die Wetterstation von „Frag das Wetter“ (Nummer, Name, Position und Region), auf der Startseite gewählt oder von einem Link genannt, den Sie geöffnet haben. Der Eintrag selbst bleibt in Ihrem Browser. Die Nummer und die Position der Station stehen in den Anfragen für die Antworten (siehe „Protokolldaten“), und ihre Nummer steht, einmal gewählt, in der Adresse der Seite (place=).',
+        'localStorage wd-place: die Wetterstation von „Frag das Wetter“ (Nummer, Name, Position und Region) oder ein über seinen Namen gefundener Ort (Name, Position und Region, mit Nummer, Name, Position und Entfernung der nächsten Station), auf der Startseite gewählt oder von einem Link genannt, den Sie geöffnet haben. Der Eintrag selbst bleibt in Ihrem Browser. Die Nummer und die Position der Station oder die Position des Ortes stehen in den Anfragen für die Antworten (siehe „Protokolldaten“), und die Nummer der Station (place=) oder die Position und der Name des Ortes (lat, lon, placeName, placeRegion) stehen, einmal gewählt, in der Adresse der Seite.',
         'localStorage wd-location: nur wenn Sie bei „Meinen Standort verwenden“ das Häkchen „Meinen Standort in diesem Browser merken“ setzen: Ihre auf etwa 1 km gerundete Position (Breiten- und Längengrad). Anders als die übrigen Einträge wird er nur mit Ihrer Einwilligung gesetzt (siehe „Standort“); der Eintrag selbst bleibt in Ihrem Browser.',
         'localStorage nuxt-color-mode: das gewählte Farbschema (hell, dunkel oder System).',
       ],
@@ -90,9 +92,9 @@ export const privacy: PrivacyPolicy = {
       icon: 'i-ph-crosshair',
       title: 'Standort („Meinen Standort verwenden“)',
       paragraphs: [
-        'An mehreren Stellen bietet die Web-App die Schaltfläche „Meinen Standort verwenden“ an: in der Stationsauswahl von Vorhersage, Explorer, Klimastreifen und Stationsverlauf, auf der Karte und bei „Frag das Wetter“. Sie dient dazu, die nächstgelegene Station zu finden und die Karte auf Ihren Standort zu zentrieren. Der Standort wird nur abgefragt, wenn Sie die Schaltfläche drücken, nie beim Laden einer Seite, und Ihr Browser fragt zusätzlich nach Ihrer Erlaubnis. Ohne Standort funktionieren die Suche nach Ort oder Stationsname und die Auswahl auf der Karte wie bisher.',
-        'Ihr Browser ermittelt die Position, je nach Browser etwa über GPS, WLAN- oder Mobilfunkdaten und gegebenenfalls über den Standortdienst seines Herstellers; darauf hat der Betreiber keinen Einfluss, und es gilt die Datenschutzerklärung des Browser-Herstellers. Die Web-App rundet sie in Ihrem Browser auf zwei Nachkommastellen (etwa 1 km), bevor sie weiterverwendet wird. In der Stationsauswahl von Vorhersage, Explorer und Stationsverlauf und bei „Frag das Wetter“ werden die gerundeten Koordinaten bei jedem Druck auf die Schaltfläche, auch bei einem gemerkten Standort, als Koordinaten der Stationsabfrage an das Backend dieses Dienstes gesendet (siehe „Protokolldaten“). Bei den Klimastreifen und auf der Karte wird die nächste Station im Browser aus der bereits geladenen Stationsliste bestimmt; die Koordinaten werden dort nicht an das Backend gesendet. Zentriert die Karte auf Ihren Standort, lädt Ihr Browser jedoch die Kartenkacheln dieses Ausschnitts von tile.openstreetmap.org; die OpenStreetMap Foundation erfährt dadurch ungefähr, wo Sie sich befinden (siehe „Ressourcen von Dritten (Karte und Bilder)“). Darüber hinaus werden die Koordinaten nicht an Dritte weitergegeben. Das Backend speichert sie nicht über das übliche Anfrageprotokoll hinaus und verknüpft sie nicht mit anderen Daten.',
-        'Die Position bleibt im Arbeitsspeicher der geöffneten Seite und ist nach dem Schließen oder Neuladen der Seite vergessen. Nur wenn Sie das Kästchen „Meinen Standort in diesem Browser merken“ ankreuzen, das unter der Schaltfläche (auf der Karte auf der Stationskarte) erscheint, sobald ein Standort ermittelt wurde, wird die gerundete Position im lokalen Speicher Ihres Browsers abgelegt (localStorage wd-location) und bei einem späteren Druck auf die Schaltfläche ohne erneute Abfrage verwendet, bis Sie unter „Gespeichert“ neben der Schaltfläche (auf der Karte auf der Stationskarte) „Meinen Standort vergessen“ wählen oder Ihr Browser die Freigabe als blockiert meldet. Die nächste Station, die „Frag das Wetter“ aus dieser Position als Ort wählt, wird dann ebenfalls unter wd-place gespeichert und zusammen mit der Position gelöscht, wenn Sie „Meinen Standort vergessen“ wählen; ohne das Häkchen gilt sie nur für den Besuch.',
+        'An mehreren Stellen bietet die Web-App die Schaltfläche „Meinen Standort verwenden“ an: in der Stationsauswahl von Vorhersage, Explorer, Klimastreifen und Stationsverlauf, auf der Karte, auf dem Radar und bei „Frag das Wetter“. Sie dient dazu, die nächstgelegene Station zu finden und die Karte auf Ihren Standort zu zentrieren. Der Standort wird nur abgefragt, wenn Sie die Schaltfläche drücken, nie beim Laden einer Seite, und Ihr Browser fragt zusätzlich nach Ihrer Erlaubnis. Ohne Standort funktionieren die Suche nach Ort oder Stationsname und die Auswahl auf der Karte wie bisher.',
+        'Ihr Browser ermittelt die Position, je nach Browser etwa über GPS, WLAN- oder Mobilfunkdaten und gegebenenfalls über den Standortdienst seines Herstellers; darauf hat der Betreiber keinen Einfluss, und es gilt die Datenschutzerklärung des Browser-Herstellers. Die Web-App rundet sie in Ihrem Browser auf zwei Nachkommastellen (etwa 1 km), bevor sie weiterverwendet wird. In der Stationsauswahl von Vorhersage, Explorer und Stationsverlauf und bei „Frag das Wetter“ werden die gerundeten Koordinaten bei jedem Druck auf die Schaltfläche, auch bei einem gemerkten Standort, als Koordinaten der Stationsabfrage an das Backend dieses Dienstes gesendet (siehe „Protokolldaten“). Bei den Klimastreifen und auf der Karte wird die nächste Station im Browser aus der bereits geladenen Stationsliste bestimmt; die Koordinaten werden dort nicht an das Backend gesendet. Auf dem Radar wird Ihr Standort nur als Markierung angezeigt und die Karte auf ihn zentriert; auch dort werden die Koordinaten nicht an das Backend gesendet, denn das Radar ist für alle gleich. Zentriert die Karte auf Ihren Standort, auf der Karte oder auf dem Radar, lädt Ihr Browser jedoch die Kartenkacheln dieses Ausschnitts von tile.openstreetmap.org; die OpenStreetMap Foundation erfährt dadurch ungefähr, wo Sie sich befinden (siehe „Ressourcen von Dritten (Karte und Bilder)“). Darüber hinaus werden die Koordinaten nicht an Dritte weitergegeben. Das Backend speichert sie nicht über das übliche Anfrageprotokoll hinaus und verknüpft sie nicht mit anderen Daten.',
+        'Die Position bleibt im Arbeitsspeicher der geöffneten Seite und ist nach dem Schließen oder Neuladen der Seite vergessen. Nur wenn Sie das Kästchen „Meinen Standort in diesem Browser merken“ ankreuzen, das unter der Schaltfläche (auf der Karte auf der Stationskarte, auf dem Radar) erscheint, sobald ein Standort ermittelt wurde, wird die gerundete Position im lokalen Speicher Ihres Browsers abgelegt (localStorage wd-location) und bei einem späteren Druck auf die Schaltfläche ohne erneute Abfrage verwendet, bis Sie unter „Gespeichert“ neben der Schaltfläche (auf der Karte auf der Stationskarte, auf dem Radar) „Meinen Standort vergessen“ wählen oder Ihr Browser die Freigabe als blockiert meldet. Die nächste Station, die „Frag das Wetter“ aus dieser Position als Ort wählt, wird dann ebenfalls unter wd-place gespeichert und zusammen mit der Position gelöscht, wenn Sie „Meinen Standort vergessen“ wählen; ohne das Häkchen gilt sie nur für den Besuch.',
         'Rechtsgrundlage der Verarbeitung der Position ist Ihre Einwilligung (Art. 6 Abs. 1 lit. a DSGVO), die Sie durch das Drücken der Schaltfläche und die Freigabe in Ihrem Browser erteilen. Die Speicherung im lokalen Speicher beruht auf Ihrer Einwilligung durch das Setzen des Häkchens (§ 25 Abs. 1 TDDDG). Sie können die Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen (Art. 7 Abs. 3 DSGVO): „Meinen Standort vergessen“ unter „Gespeichert“ neben der Schaltfläche löscht die gespeicherte Position und die mit ihr gespeicherte Station, und wenn Sie die Freigabe in den Einstellungen Ihres Browsers zurücknehmen, ermittelt Ihr Browser Ihren Standort nicht mehr; die gespeicherte Position und die mit ihr gespeicherte Station werden dann gelöscht, sobald die Web-App sie das nächste Mal verwendet und Ihr Browser die Freigabe als blockiert („verweigert“) meldet. Meldet Ihr Browser das nicht, bleiben sie gespeichert, bis Sie „Meinen Standort vergessen“ wählen. Die Rechtmäßigkeit der bis dahin erfolgten Verarbeitung bleibt unberührt.',
       ],
     },
@@ -105,9 +107,20 @@ export const privacy: PrivacyPolicy = {
         'Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Darstellung der Karte und der Profilbilder).',
       ],
       items: [
-        'Kartenkacheln von tile.openstreetmap.org (OpenStreetMap Foundation), sobald die Karte zur Auswahl von Stationen angezeigt wird.',
+        'Kartenkacheln von tile.openstreetmap.org (OpenStreetMap Foundation), sobald die Karte zur Auswahl von Stationen oder die Karte des Radars angezeigt wird.',
         'Die Profilbilder auf der Seite „Über uns“ von avatars.githubusercontent.com (GitHub).',
       ],
+    },
+    {
+      id: 'places',
+      icon: 'i-ph-map-pin',
+      title: 'Ortssuche (Photon)',
+      paragraphs: [
+        'Ab drei Buchstaben wird das, was Sie in die Suche (Strg/⌘ K), in die Stationssuche der Vorhersage, in die Ortssuche von „Frag das Wetter“ und in das Feld „Ort suchen“ des Explorers (Interpolation und Zusammenfassung) eingeben, jedes Mal, wenn Sie beim Tippen kurz innehalten (0,4 Sekunden), vom Server der Web-App – nicht von Ihrem Browser – an Photon (photon.komoot.io) gesendet, einen Dienst der komoot GmbH, der Orte anhand von OpenStreetMap-Daten sucht. Es werden dabei auch Zwischenstände Ihrer Eingabe gesendet (zum Beispiel „bad t“ auf dem Weg zu „bad tölz“). Photon erhält dabei den eingegebenen Text, ein Sprachkürzel (de, en oder fr) und die Adresse des Servers der Web-App, nicht aber Ihre IP-Adresse und nichts sonst über Sie: keine Cookies, keine Angaben Ihres Browsers, keinen Referer. Ein Text wird nicht gesendet, wenn er weniger als drei Buchstaben hat oder wie eine Position aussieht: wenn er eine Dezimalzahl, ein Grad- oder Minutenzeichen, zwei Zahlen, einen einzelnen Buchstaben neben einer Zahl oder ein Wort für Breite oder Länge mit einer Zahl enthält. Der Server der Web-App behält die Antworten samt dem Text, zu dem sie gehören, 24 Stunden im Arbeitsspeicher, um denselben Text nicht erneut abzufragen, und führt kein Protokoll darüber, wer wonach gefragt hat. Ein Ort, den Sie wählen, wird nicht erneut an Photon gesendet: Seine Position (auf vier Nachkommastellen) wird als Koordinaten der Stationsanfrage, die die nächstgelegenen Stationen findet, an das Backend dieses Dienstes gesendet (siehe „Protokolldaten“), und in der Vorhersage, in „Frag das Wetter“ und im Explorer steht sie in der Adresse der Seite (lat, lon, placeName, placeRegion), damit ein Link, den Sie weitergeben, den Ort ohne neue Suche zeigt. Was komoot mit den Anfragen macht, liegt außerhalb des Einflusses des Betreibers; dafür gelten die Hinweise von komoot.',
+        'Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Das berechtigte Interesse ist, dass sich ein Ort anhand seines Namens finden lässt. Die Anfrage lösen Sie selbst durch Ihre Eingabe aus; weil sie vom Server und ohne Ihre IP-Adresse gestellt wird, ist der Eingriff gering.',
+      ],
+      link: { label: 'photon.komoot.io', href: 'https://photon.komoot.io' },
+      links: [{ label: 'komoot.com/privacy', href: 'https://www.komoot.com/privacy' }],
     },
     {
       id: 'links',
@@ -138,7 +151,7 @@ export const privacy: PrivacyPolicy = {
       icon: 'i-ph-share-network',
       title: 'Weitergabe an Dritte',
       paragraphs: [
-        'Eine Weitergabe von Daten an Dritte findet nicht statt, mit Ausnahme des oben genannten Auftragsverarbeiters Hetzner. Die im Abschnitt „Ressourcen von Dritten“ genannten Anbieter erhalten Daten unmittelbar von Ihrem Browser, nicht vom Betreiber.',
+        'Eine Weitergabe von Daten an Dritte findet nicht statt, mit Ausnahme des oben genannten Auftragsverarbeiters Hetzner und, für die Ortssuche, von komoot (Photon), das kein Auftragsverarbeiter des Betreibers ist, sondern den eingegebenen Text selbst erhält (siehe „Ortssuche (Photon)“). Die im Abschnitt „Ressourcen von Dritten“ genannten Anbieter erhalten Daten unmittelbar von Ihrem Browser, nicht vom Betreiber.',
       ],
     },
     {

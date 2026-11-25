@@ -6,32 +6,50 @@
 minimumReleaseAge: 4320
 minimumReleaseAgeExcludePrune: true
 confirmModulesPurge: false
-
-minimumReleaseAgeExclude:
-  - '@nuxt/kit@3.21.10'
-  - '@nuxt/test-utils@4.1.0'
-  - esbuild@0.28.1
-
 trustPolicy: no-downgrade
 shellEmulator: true
 
 overrides:
-  # Security overrides: floors at the patched versions of two transitive deps whose
-  # parents' ranges admit vulnerable versions -- brace-expansion 4.x-5.x (denial-of-service
-  # advisories up to GHSA-q2hr-2g5m-vwhr, all fixed by 5.0.12; minimatch 10 asks for
-  # ^5.0.8) and esbuild (dev-server file read, GHSA-g7r4-m6w7-qqqr). The scoped ranges below
-  # leave other major lines untouched; brace-expansion's 1.x and 2.x copies are locked at
-  # their patched backports (1.1.21, 2.1.7), with no floor.
-  brace-expansion@>=4.0.0 <5.0.12: ^5.0.12
+  # Security overrides: floors at the patched versions of transitive deps whose parents'
+  # ranges admit vulnerable versions, each with its advisory in the comment above it. The
+  # scoped ranges leave other major lines untouched. brace-expansion 4.x-5.x
+  # (denial-of-service advisories up to GHSA-6jwq-xf8q-xcwh, all fixed by 5.0.13; minimatch 11
+  # asks for ^5.0.12) and esbuild (dev-server file read, GHSA-g7r4-m6w7-qqqr, which affects
+  # >= 0.27.3 only, so the 0.25.x copy is outside it) are the first two; brace-expansion's 1.x
+  # and 2.x copies are locked at their patched backports (1.1.22, 2.1.8), with no floor.
+  brace-expansion@>=4.0.0 <5.0.13: ^5.0.13
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
+  # glob (build and lint tooling only: nitropack's @vercel/nft, js-beautify,
+  # @intlify/eslint-plugin-vue-i18n), GHSA-3g3m-2fjr-6pw4: an aborted walk keeps reading
+  # directories. The advisory lists >= 9.0.0 up to 14.0.1 as affected and 14.0.2 as the fix.
+  # glob 13.0.7 (2026-11-06) holds the same fix as a backport that the advisory does not list,
+  # and glob 10 has none, so every affected copy (10.x, 13.x) is taken to 14.x, which closes
+  # the alert and whose `glob()` and `globSync()` its consumers call.
+  glob@>=9.0.0 <14.0.2: ^14.0.2
   # katex (dev-only, via @antfu/eslint-config -> @eslint/markdown -> micromark-extension-math):
   # fixed in 0.18.2 (0.18.11 is deprecated in favour of 0.19.0), but micromark-extension-math
   # asks for ^0.16.0 and has no newer release. Drop this once it admits the fixed line.
   katex@<0.18.2: ^0.19.0
-  # qs (GHSA-6pq8-jhm2-2vcw, fixed in 6.16.1): @duckdb/duckdb-wasm pins qs 6.16.0 exactly and
-  # ships no code that loads it (its dist never requires qs), so this only keeps the vulnerable
+  # minimatch (lint and build tooling only), GHSA-g3hv-75wg-m249: denial of service by a glob
+  # pattern. Affects >= 7.0.0, fixed in 11.0.1; there is no backport (the last 10.x is
+  # 10.2.6), so the 9.x and 10.x copies move to 11.x. Its consumers are eslint,
+  # @eslint/config-array, @typescript-eslint/typescript-estree, editorconfig (~10.2.4),
+  # eslint-plugin-import-x, readdir-glob and glob. minimatch 11 dropped `makeRe`, `AST`,
+  # `Minimatch#makeRe`, `matchOne`, `regexp` and `debug`; eslint-plugin-import-x's
+  # `no-internal-modules` calls `makeRe`, so that rule cannot be used while this floor holds
+  # (it is not enabled). A comparison of 5,544 matching cases between 10.2.6 and 11.0.9 showed
+  # no difference with `dot: true` or in full-match mode. The 3.x and 5.x copies are outside
+  # the advisory and stay.
+  minimatch@>=7.0.0 <11.0.1: ^11.0.1
+  # node-forge (via nitropack > listhen, the development server's self-signed certificate):
+  # GHSA-rhr8-3pm8-cq29, GHSA-6qrw-m8cv-hcxf, GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g and
+  # more, all fixed in 1.4.3; listhen asks for ^1.3.1, which admits the vulnerable 1.4.0.
+  node-forge@<1.4.3: ^1.4.3
+  # qs (GHSA-6pq8-jhm2-2vcw, fixed in 6.16.1; GHSA-w4cr-vjpx-p82q, fixed in 6.16.2):
+  # @duckdb/duckdb-wasm asks for ^6.14.1, which admits the vulnerable 6.14.x to 6.16.1, and
+  # ships no code that loads it (its dist never requires qs), so this only keeps a vulnerable
   # copy out of the lock file. Drop this once duckdb-wasm asks for a fixed qs.
-  qs@<6.16.1: ^6.16.1
+  qs@<6.16.2: ^6.16.2
   # Without this, pnpm's trustPolicy: no-downgrade rejects semver@6.3.1 (a
   # long-standing transitive dep of @babel/core@7.x, pulled in via
   # nuxt-security -> unplugin-remove) because that specific release lacks
@@ -47,6 +65,11 @@ overrides:
   # @duckdb/duckdb-wasm -> apache-arrow -> @types/node@20.19.42 (an older,
   # separately-resolved @types/node than the workspace's own ^25.x).
   undici-types: ^6.21.0
+  # unrouting (build time, nuxt > @nuxtjs/i18n; the SPA's route patterns are generated with it),
+  # GHSA-m344-v5fq-3m39: fixed in 0.3.2. @nuxtjs/i18n 10.6.0 asks for ^0.2.2, which admits
+  # only the vulnerable 0.2.x line, and has no newer release; nuxt itself already asks for
+  # 0.3.2. Drop this once @nuxtjs/i18n admits the 0.3 line.
+  unrouting@<0.3.2: ^0.3.2
 
 # Lifecycle scripts of dependencies: none runs. pnpm 11 blocks them unless a package is named
 # here, and fails the install (strictDepBuilds) for one that is named nowhere, so a new

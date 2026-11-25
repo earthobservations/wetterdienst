@@ -4,13 +4,16 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
+import { clearNuxtData } from '#app'
 import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { SETTINGS_DEFAULTS } from '~/composables/useSettings'
+import { seriesColour } from '~/utils/explorer-model'
+import { providersAnswer } from '../fixtures/providers'
 
 // DuckDB, as far as Run Query reaches it: the query itself is answered by the test's `answer`, as the
 // Arrow table DuckDB gives, every statement loading the table at once. It gives no result schema,
@@ -39,49 +42,79 @@ vi.mock('@duckdb/duckdb-wasm', () => ({
   },
 }))
 
-// Plotly draws nothing in the test's document: each chart it is handed is known by the label of its figure
-// (a facet's) or, for the copy a saved image is drawn from, by the traces it is drawn from, and exported as
-// an SVG of its on-screen size that names it. It holds what it was given as `data` and `layout`, as Plotly
-// does, which the copy is made from. The copies (out of sight, `aria-hidden`) are what a saved image is drawn
-// from, and the charts the page shows are what the tests count, so a copy's drawing is kept in `copies` and
-// not among the calls of `newPlot`.
-const plotly = vi.hoisted(() => {
-  const titles = new WeakMap<HTMLElement, string>()
-  const labelOfData = new WeakMap<object, string>()
-  const copies: { root: HTMLElement, data: unknown, layout: unknown, config: unknown }[] = []
-  const draw = async (root: HTMLElement, data: object, layout?: unknown) => {
-    const label = root.getAttribute('aria-label')?.replace(/^Chart of /, '') ?? labelOfData.get(data) ?? ''
-    labelOfData.set(data, label)
-    titles.set(root, label)
-    Object.assign(root, { data, layout })
-  }
-  const newPlot = vi.fn(async (root: HTMLElement, data: object, layout?: unknown, config?: unknown) => {
-    if (root.getAttribute('aria-hidden') === 'true') {
-      // not a drawing of the page's: taken out of the calls
-      newPlot.mock.calls.pop()
-      newPlot.mock.results.pop()
-      newPlot.mock.invocationCallOrder.pop()
-      copies.push({ root, data, layout, config })
+// ECharts draws nothing in the test's document: each chart the page shows is a recorder of the options it is given, and
+// has the element it was handed. A chart with no element to draw into (the copy a saved image is made of) is the real
+// library, drawing to an SVG string.
+const echarts = vi.hoisted(() => {
+  const instances: { el: HTMLElement, setOption: ReturnType<typeof vi.fn>, dispose: ReturnType<typeof vi.fn> }[] = []
+  // every setOption of every chart, in the order they were made
+  const log: { instance: (typeof instances)[number], option: any, flags: any }[] = []
+  const state = { realInit: null as null | ((...args: any[]) => any) }
+  const init = vi.fn((element: HTMLElement | null, ...rest: unknown[]) => {
+    if (element === null)
+      return state.realInit!(null, ...rest)
+    const instance: (typeof instances)[number] & Record<string, unknown> = {
+      el: element,
+      setOption: vi.fn((option: unknown, flags: unknown) => {
+        log.push({ instance, option, flags })
+      }),
+      dispose: vi.fn(),
+      on: vi.fn(),
+      resize: vi.fn(),
+      getDom: () => element,
     }
-    await draw(root, data, layout)
+    instances.push(instance)
+    return instance
   })
-  return {
-    newPlot,
-    react: vi.fn(draw),
-    purge: vi.fn(),
-    downloadImage: vi.fn(async () => 'chart'),
-    toImage: vi.fn(async (root: HTMLElement) => `data:image/svg+xml,${encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="300"><text>${titles.get(root)}</text></svg>`,
-    )}`),
-    Snapshot: { svgToImg: vi.fn(async () => `data:image/png;base64,${btoa('png')}`) },
-    Icons: { camera: { width: 1000, height: 1000, path: '' } },
-    copies,
-  }
+  return { init, instances, log, state }
 })
-vi.mock('plotly.js-basic-dist-min', () => plotly)
+// The library is the real one but for `init`, which gives the page's charts the recorder above: the chart code module is
+// loaded once, and every chart that asks for it has the same. The copy a saved image is made of has no element: that is the
+// real `init`, drawing to an SVG string.
+vi.mock('echarts/core', async (importOriginal) => {
+  const original = await importOriginal<typeof import('echarts/core')>()
+  echarts.state.realInit = (element: null, theme: unknown, options: unknown) => original.init(element as any, theme as any, options as any)
+  return { ...original, init: echarts.init }
+})
 
-// the parameter a facet's figure is of: its figure's label, "Chart of A" (there is no axis title to name it by)
-const facetOf = (root: HTMLElement) => root.getAttribute('aria-label')!.replace(/^Chart of /, '')
+// The saved image: its rasterising needs a canvas, which the test's document has not. A vector is the SVG itself, as it is;
+// the files and the names they are handed to the browser by are recorded.
+const image = vi.hoisted(() => ({
+  options: [] as Record<string, any>[],
+  downloads: [] as { blob: Blob, filename: string }[],
+  fail: null as Error | null,
+}))
+vi.mock('~/utils/chart-image', () => ({
+  svgToBlob: async (svg: string, options: Record<string, any>) => {
+    if (image.fail) {
+      const error = image.fail
+      image.fail = null
+      throw error
+    }
+    image.options.push({ ...options, svg })
+    return options.format === 'svg' ? new Blob([svg], { type: 'image/svg+xml' }) : new Blob(['png'], { type: `image/${options.format}` })
+  },
+  downloadBlob: (blob: Blob, filename: string) => {
+    image.downloads.push({ blob, filename })
+  },
+}))
+
+// every drawing (a `notMerge` setOption) of every chart of the page, in the order they were made, and the figure each is in
+function drawings() {
+  return echarts.log
+    .filter(({ flags }) => flags?.notMerge)
+    .map(({ instance, option }) => ({ instance, option: option as any, figure: instance.el.closest('[role="figure"]')?.getAttribute('aria-label') ?? '' }))
+}
+// the lines of a drawing: the series, the zero line and the legend are not
+const linesOf = (option: any): any[] => option.series.filter((series: any) => series.type === 'line' && series.id !== 'zero')
+const lastDrawn = () => drawings().at(-1)!
+// the newest drawing of each chart, by its figure's name: "Chart of A" is A's, as there is no axis title to name a facet by
+const facetsDrawn = () => new Map(drawings().map(({ figure, option }) => [figure.replace(/^Chart of /, ''), option]))
+function forgetDrawings() {
+  echarts.log.length = 0
+}
+// whether the page is dark, which the series' colours are of
+const isDark = () => document.documentElement.classList.contains('dark')
 
 // The date reader as it is, counted: the chart reads one date for every row it plots
 const { timestampDates } = vi.hoisted(() => ({ timestampDates: { calls: 0 } }))
@@ -118,7 +151,6 @@ const settings: DataSettings = {
 // how the English glossary names the parameters these tests plot
 const airTemperature = 'Mean air temperature (2 m)'
 const precipitationAmount = 'Precipitation amount'
-const windSpeed = 'Wind speed'
 
 const parameterSelection: ParameterSelection = {
   provider: 'dwd',
@@ -233,6 +265,13 @@ afterEach(() => {
   duckdb.answer = async () => []
   // toasts are the app's, not a viewer's: one left over would be shown, and found, in the next test
   useToast().clear()
+  // the charts of a test and the files it saved are not the next test's
+  echarts.instances.length = 0
+  echarts.log.length = 0
+  echarts.init.mockClear()
+  image.options.length = 0
+  image.downloads.length = 0
+  image.fail = null
   document.body.innerHTML = ''
 })
 
@@ -266,10 +305,11 @@ describe('dataViewer downloads', () => {
     await vi.waitFor(() => expect(saved).toHaveLength(1))
     expect(asked).toBe(1)
     const text = await saved[0]!.text()
-    // every column the rows carry, those the column picker hides by default included
-    expect(text.split('\n')[0]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality_flags')
-    expect(text.split('\n')[1]).toContain('01048')
-    expect(text.split('\n')[1]).toContain('1.5')
+    // every column the rows carry, those the column picker hides by default included, after the comment lines of the credit (GH-4255)
+    const lines = text.split('\n').filter(line => !line.startsWith('#'))
+    expect(lines[0]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality_flags')
+    expect(lines[1]).toContain('01048')
+    expect(lines[1]).toContain('1.5')
   })
 
   it.each(['CSV', 'JSON'])('saves no %s of a table Clear emptied after the menu was opened', async (format) => {
@@ -318,9 +358,124 @@ describe('dataViewer downloads', () => {
     const [csv] = await openDownloads(wrapper)
     csv!.click()
     await vi.waitFor(() => expect(saved).toHaveLength(1))
-    const [header, line] = (await saved[0]!.text()).split('\n')
+    const [header, line] = (await saved[0]!.text()).split('\n').filter(each => !each.startsWith('#'))
     expect(header).toContain('temperature_air_mean_2m')
     expect(line).toContain('1.5')
+  })
+
+  // the credit and the note of the rows, on the page and in the files (GH-4255)
+  const NOTE = 'Processed by wetterdienst: the provider\'s data was reshaped into a uniform table, and its units converted where they differ.'
+  const CC_BY_NAME = 'Creative Commons Attribution 4.0 International'
+  const CC_BY_URL = 'https://creativecommons.org/licenses/by/4.0/'
+
+  it('writes the provider\'s credit, its licence and the note as comment lines before the CSV\'s header', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst'))
+    const saved = catchDownload()
+    const [csv] = await openDownloads(wrapper)
+    csv!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    const lines = (await saved[0]!.text()).split('\n')
+    expect(lines.slice(0, 3)).toEqual([
+      '# Source: Deutscher Wetterdienst',
+      `# Licence: ${CC_BY_NAME} (${CC_BY_URL})`,
+      `# ${NOTE}`,
+    ])
+    expect(lines[3]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality_flags')
+    expect(lines).toHaveLength(5)
+  })
+
+  it('writes no provider block into the JSON where the list of providers did not come, and keeps the note', async () => {
+    // an unknown is not "the provider states no terms", which is what `license: null` says
+    clearNuxtData('providers')
+    onTestFinished(() => clearNuxtData('providers'))
+    registerEndpoint('/api/providers', (event) => {
+      setResponseStatus(event, 404)
+      return { type: 'urn:wetterdienst:problem:not-found', title: 'Not Found', status: 404, detail: 'Not Found' }
+    })
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    items[1]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    const json = JSON.parse(await saved[0]!.text())
+    expect(json.metadata).toEqual({ processing_note: NOTE })
+    expect(json.values).toEqual([row])
+    // and the CSV has the note alone
+    const csv = catchDownload()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await vi.waitFor(() => expect(csv).toHaveLength(1))
+    expect((await csv[0]!.text()).split('\n').filter(line => line.startsWith('#'))).toEqual([`# ${NOTE}`])
+  })
+
+  it('writes the credit as a metadata member of the JSON, and leaves its values as they were', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst'))
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    items[1]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    const json = JSON.parse(await saved[0]!.text())
+    expect(json.metadata).toEqual({
+      provider: { attribution: 'Source: Deutscher Wetterdienst', license: { name: CC_BY_NAME, url: CC_BY_URL } },
+      processing_note: NOTE,
+    })
+    expect(json.values).toEqual([row])
+  })
+
+  it('says under the table whose data it is, and the note directly under the credit line', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst'))
+    const credit = wrapper.find('[data-testid="explorer-credit"]')
+    expect(credit.find('[data-testid="provider-credit-licence"]').attributes('href')).toBe(CC_BY_URL)
+    expect(credit.find('[data-testid="processing-note"]').text()).toBe(NOTE)
+    expect(credit.find('[data-testid="processing-note"]').element.previousElementSibling).toBe(credit.find('[data-testid="provider-credit-line"]').element)
+    // and in the chart's view, which is of the same rows
+    await wrapper.find('button[aria-label="Show as chart"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[role="figure"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst')
+  })
+
+  it.each([
+    ['interpolation', '/api/interpolate'],
+    ['summary', '/api/summarize'],
+  ] as const)('says of the rows of a %s that they were calculated, on the page and in the files', async (mode, endpoint) => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint(endpoint, () => ({ values: [{ ...row, taken_station_ids: ['01048', '04411'] }] }))
+    const { wrapper, viewer } = await mountDataViewer(ref(atPoint(mode)))
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst'))
+    expect(wrapper.find('[data-testid="explorer-credit"] [data-testid="processing-note"]').text()).toBe(`${NOTE} The values were selected or calculated from the provider's readings.`)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    items[0]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    expect((await saved[0]!.text()).split('\n')[2]).toBe(`# ${NOTE} The values were selected or calculated from the provider's readings.`)
+  })
+
+  it('copies rows to the clipboard without the comment lines', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const written: string[] = []
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => void written.push(text) } })
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.find('button[aria-label="Copy all values"]').trigger('click')
+    await vi.waitFor(() => expect(written).toHaveLength(1))
+    expect(written[0]).not.toContain('#')
+    // the columns the table shows, a header first
+    expect(written[0]!.split('\n')[0]).toMatch(/^station_id,/)
   })
 
   it('asks for GeoJSON with the request that filled the table, not the selection made since', async () => {
@@ -954,119 +1109,97 @@ describe('dataViewer chart images', () => {
     expect(offered(await openDownloads(wrapper))).toEqual([['PNG', true], ['JPEG', true], ['SVG', true]])
   })
 
-  it('saves the facets as one SVG, stacked in the order the page shows them', async () => {
+  it('saves the facets as one SVG, stacked in the order the page shows them, each as large as it is shown', async () => {
     // it looked for the single chart, which faceting replaces, and saved nothing without a word
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, true)
-    const saved = catchDownload()
     ;(await openDownloads(wrapper))[2]!.click()
-    await vi.waitFor(() => expect(saved).toHaveLength(1))
-    const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
-    expect([svg.getAttribute('width'), svg.getAttribute('height')]).toEqual(['700', '600'])
-    const charts = [...svg.children].map(chart => [chart.getAttribute('y'), chart.textContent])
-    expect(charts).toEqual([['0', airTemperature], ['300', precipitationAmount]])
+    await vi.waitFor(() => expect(image.downloads).toHaveLength(1))
+    expect(image.downloads[0]!.filename).toBe('chart.svg')
+    // the text of the file, which happy-dom's XML parser does not take
+    const svg = await image.downloads[0]!.blob.text()
+    expect(svg).toMatch(/^<svg [^>]*width="800" height="600" viewBox="0 0 800 600">/)
+    const charts = [...svg.matchAll(/<svg [^>]*x="0" y="(\d+)" width="800" height="(\d+)"[^>]*>([\s\S]*?)<\/svg>/g)]
+    expect(charts.map(chart => [chart[1], chart[2]])).toEqual([['0', '300'], ['300', '300']])
+    // each is drawn from the rows of its own parameter: the temperature's 1.5 and the precipitation's 0.2 are on their axes
+    expect(charts[0]![3]).toMatch(/>1\.5\d?</)
+    expect(charts[1]![3]).toContain('>0.2')
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
   })
 
-  it('saves the facets it was chosen for when faceting is turned off before Plotly is at hand', async () => {
-    // faceting was looked at again after awaiting Plotly, and the first facet saved as the single chart.
-    // Plotly is loaded here already, so the wait is its cached promise's: the load itself is not held
+  it('saves the facets it was chosen for when faceting is turned off before the image is drawn', async () => {
+    // faceting was looked at again after awaiting, and the first facet saved as the single chart
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, true)
-    const saved = catchDownload()
-    plotly.downloadImage.mockClear()
     ;(await openDownloads(wrapper))[2]!.click()
-    // unticked before the download goes on past its await of Plotly
+    // unticked before the download goes on past its first await
     const label = wrapper.findAll('label').find(label => label.text() === 'Facet by parameter')!
     ;(document.getElementById(label.attributes('for')!) as HTMLElement).click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
-    expect(plotly.downloadImage).not.toHaveBeenCalled()
-    expect(saved).toHaveLength(1)
-    const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
-    expect(svg.children).toHaveLength(2)
+    expect(image.downloads).toHaveLength(1)
+    expect((await image.downloads[0]!.blob.text()).match(/<svg /g)).toHaveLength(3)
   })
 
-  it('saves the single chart through Plotly\'s own download', async () => {
+  it('saves the single chart as large as it is shown, one pixel to a pixel, and named chart', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, false)
-    plotly.downloadImage.mockClear()
     ;(await openDownloads(wrapper))[1]!.click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as JPEG'))
-    expect(plotly.downloadImage).toHaveBeenCalledWith(expect.any(HTMLDivElement), expect.objectContaining({ format: 'jpeg', filename: 'chart' }))
+    expect(image.options.at(-1)).toMatchObject({ format: 'jpeg', width: 800, height: 400, scale: 1 })
+    expect(image.downloads.map(download => download.filename)).toEqual(['chart.jpeg'])
   })
 
-  it('saves a chart drawn again off screen, and leaves the chart on the page as it is', async () => {
-    // a saved chart is the light one whatever the page shows (utils/chart-export.ts): its own copy, out of
-    // sight, from the shown chart's traces, which Plotly forgets and the page loses once it is saved
+  it('saves a chart drawn again off screen, in the light theme, and leaves the chart on the page as it is', async () => {
+    // a saved chart is the light one whatever the page shows: its own copy, drawn by the library without an element, from
+    // the state of the chart on the page, which is not drawn again and loses nothing
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, false)
-    const shown = plotly.newPlot.mock.lastCall![0] as HTMLElement
-    const drawnBefore = plotly.newPlot.mock.calls.length
-    plotly.downloadImage.mockClear()
-    plotly.purge.mockClear()
+    await vi.waitFor(() => expect(drawings()).toHaveLength(1))
+    const shown = echarts.instances.at(-1)!
     ;(await openDownloads(wrapper))[1]!.click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as JPEG'))
-    const copy = plotly.copies.at(-1)!
-    expect(copy.root).not.toBe(shown)
-    expect(copy.root.getAttribute('aria-hidden')).toBe('true')
-    expect(copy.data).toBe(plotly.newPlot.mock.lastCall![1])
-    expect(plotly.newPlot.mock.calls).toHaveLength(drawnBefore)
-    expect(plotly.purge).toHaveBeenCalledWith(copy.root)
-    expect(copy.root.isConnected).toBe(false)
-    expect(shown.isConnected).toBe(true)
+    expect(echarts.init.mock.calls.filter(([element]) => element === null)).toHaveLength(1)
+    expect(drawings()).toHaveLength(1)
+    expect(shown.dispose).not.toHaveBeenCalled()
+    expect(shown.el.isConnected).toBe(true)
   })
 
-  it('hands every drawing the one config, so that Plotly sees none that changed', async () => {
-    // a new click function for each drawing made Plotly 3 take the config of every facet's `react` for a changed one
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    plotly.react.mockClear()
-    plotly.newPlot.mockClear()
-    await showChart(wrapper, true)
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
-    const configs = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[3])
-    expect(configs[0]).toBeDefined()
-    expect(configs[1]).toBe(configs[0])
-  })
-
-  it('hands the single chart that config too, drawn again as it is', async () => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    plotly.newPlot.mockClear()
-    await showChart(wrapper, false)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-    const configs = plotly.newPlot.mock.calls.map(call => (call as unknown as unknown[])[3])
-    expect(configs[0]).toBeDefined()
-    expect(configs[1]).toBe(configs[0])
-  })
-
-  it('has the camera of the modebar save the same, in the place of Plotly\'s own', async () => {
+  it('has the camera of the toolbar save the same, named newplot as Plotly\'s was, and tell it as the menu does', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, false)
-    const [shown, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToRemove: string[], modeBarButtonsToAdd: { name: string, title: string, click: (chart: HTMLElement) => void }[] }]
-    expect(config.modeBarButtonsToRemove).toContain('toImage')
-    const [camera] = config.modeBarButtonsToAdd
-    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a PNG'])
-    plotly.downloadImage.mockClear()
-    camera!.click(shown)
-    await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())
-    expect(plotly.downloadImage).toHaveBeenCalledWith(plotly.copies.at(-1)!.root, expect.objectContaining({ format: 'png', filename: 'newplot' }))
-    // told as the menu tells it
+    await vi.waitFor(() => expect(drawings()).toHaveLength(1))
+    document.body.querySelector<HTMLButtonElement>('.xc-toolbar button[aria-label="Download plot as a PNG"]')!.click()
+    await vi.waitFor(() => expect(image.downloads).toHaveLength(1))
+    expect(image.downloads[0]!.filename).toBe('newplot.png')
+    expect(image.options.at(-1)).toMatchObject({ format: 'png', width: 800, height: 400, scale: 1 })
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
+  })
+
+  it('has a camera for each facet, which saves that facet alone', async () => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, true)
+    await vi.waitFor(() => expect(drawings()).toHaveLength(2))
+    const cameras = document.body.querySelectorAll<HTMLButtonElement>('.xc-toolbar button[aria-label="Download plot as a PNG"]')
+    expect(cameras).toHaveLength(2)
+    cameras[1]!.click()
+    await vi.waitFor(() => expect(image.downloads).toHaveLength(1))
+    expect(image.options.at(-1)).toMatchObject({ width: 800, height: 300 })
+    // the labels of its axis are the precipitation's, not the temperature's
+    const labels = [...image.options.at(-1)!.svg.matchAll(/>([^<]+)<\/text>/g)].map(match => match[1])
+    expect(labels.some(label => label.startsWith('0.2'))).toBe(true)
+    expect(labels.some(label => label.startsWith('1.'))).toBe(false)
   })
 
   it('saves the facets as one PNG, drawn from their stacked SVG', async () => {
@@ -1074,16 +1207,13 @@ describe('dataViewer chart images', () => {
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, true)
-    plotly.Snapshot.svgToImg.mockClear()
-    const saved = catchDownload()
     ;(await openDownloads(wrapper))[0]!.click()
-    await vi.waitFor(() => expect(saved).toHaveLength(1))
-    expect(plotly.Snapshot.svgToImg).toHaveBeenCalledOnce()
-    const [drawn] = plotly.Snapshot.svgToImg.mock.calls[0] as unknown as [{ svg: string, format: string, width: number, height: number }]
-    expect([drawn.format, drawn.width, drawn.height]).toEqual(['png', 700, 600])
-    expect(drawn.svg).toContain(precipitationAmount)
-    expect(saved[0]!.type).toBe('image/png')
-    expect(await saved[0]!.text()).toBe('png')
+    await vi.waitFor(() => expect(image.downloads).toHaveLength(1))
+    const options = image.options.at(-1)!
+    expect([options.format, options.width, options.height, options.scale]).toEqual(['png', 800, 600, 1])
+    expect(options.svg).toContain('y="300"')
+    expect(image.downloads[0]!.blob.type).toBe('image/png')
+    expect(image.downloads[0]!.filename).toBe('chart.png')
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
   })
 
@@ -1092,15 +1222,12 @@ describe('dataViewer chart images', () => {
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, faceted)
-    const saved = catchDownload()
-    plotly.downloadImage.mockClear()
     const items = await openDownloads(wrapper)
     // chosen before the menu has updated, as from the explorer sidebar
     ;(viewer.vm as unknown as { clearData: () => void }).clearData()
     items[0]!.click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('No data available for chart'))
-    expect(saved).toHaveLength(0)
-    expect(plotly.downloadImage).not.toHaveBeenCalled()
+    expect(image.downloads).toHaveLength(0)
   })
 })
 
@@ -1206,14 +1333,11 @@ describe('dataViewer rows without a timestamp', () => {
 
   it.each([false, true])('leaves the row out of the chart, faceted: %s', async (faceted) => {
     // it was drawn at 1970-01-01
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
+    forgetDrawings()
     const { wrapper } = await withQueryRows()
     await showChart(wrapper, faceted)
-    const draw = faceted ? plotly.react : plotly.newPlot
-    await vi.waitFor(() => expect(draw).toHaveBeenCalled())
-    const [trace] = draw.mock.lastCall![1] as { x: string[], y: number[] }[]
-    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0].data).toEqual([[Date.UTC(2020, 0, 1), 1.5]])
   })
 })
 
@@ -1229,12 +1353,12 @@ describe('dataViewer work on a large answer', () => {
     await flushPromises()
     expect(wrapper.findAll('tbody tr')).toHaveLength(50)
     expect(timestampDates.calls).toBe(0)
+    // and no chart code is asked for before the chart is
+    expect(echarts.init).not.toHaveBeenCalled()
 
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
+    forgetDrawings()
     await showChart(wrapper, faceted)
-    const draw = faceted ? plotly.react : plotly.newPlot
-    await vi.waitFor(() => expect(draw).toHaveBeenCalled())
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
     // once for each row, by the series or by the facets, not by both nor by every computed that reads them
     expect(timestampDates.calls).toBe(50)
   })
@@ -1259,10 +1383,8 @@ describe('dataViewer chart series', () => {
   const twoStations = [row, { ...row, station_id: '04411', value: 2.5 }]
 
   // the names of the series the chart was last drawn with, faceted or not
-  function seriesDrawn(faceted: boolean) {
-    const draw = faceted ? plotly.react : plotly.newPlot
-    const [, traces] = draw.mock.lastCall as unknown as [HTMLElement, { name: string }[]]
-    return traces.map(trace => trace.name)
+  function seriesDrawn() {
+    return linesOf(lastDrawn().option).map(series => series.name)
   }
 
   it.each([false, true])('keeps a series per station fetched when interpolation is selected without fetching, faceted: %s', async (faceted) => {
@@ -1270,12 +1392,13 @@ describe('dataViewer chart series', () => {
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
     const series = faceted ? ['01048', '04411'] : [`01048 - ${airTemperature}`, `04411 - ${airTemperature}`]
-    expect(seriesDrawn(faceted)).toEqual(series)
+    expect(seriesDrawn()).toEqual(series)
     // the rows shown are still both stations': merged, they made one series zig-zagging between them
     stationSelection.value = atPoint('interpolation')
     await flushPromises()
-    expect(seriesDrawn(faceted)).toEqual(series)
+    expect(seriesDrawn()).toEqual(series)
   })
 
   it.each([false, true])('draws interpolated rows fetched over station rows as interpolated, faceted: %s', async (faceted) => {
@@ -1286,165 +1409,14 @@ describe('dataViewer chart series', () => {
     await showChart(wrapper, faceted)
     stationSelection.value = atPoint('interpolation')
     await flushPromises()
-    const draw = faceted ? plotly.react : plotly.newPlot
-    draw.mockClear()
+    forgetDrawings()
     await fetchData(viewer)
     await flushPromises()
     // every drawing of the answer: grouped by the mode of the request before it, the rows were drawn
     // as a station's first, the request answered being taken as the rows' only a few ticks later
-    const drawn = draw.mock.calls.map(([, traces]) => (traces as { name: string }[]).map(trace => trace.name))
+    const drawn = drawings().map(({ option }) => linesOf(option).map(series => series.name))
     expect(drawn.length).toBeGreaterThan(0)
     expect(drawn.every(names => names.join() === (faceted ? 'interpolated' : airTemperature))).toBe(true)
-  })
-})
-
-describe('dataViewer chart images while drawn', () => {
-  // The chart drawn again, as the trendline is ticked, and held by Plotly until the test opens the
-  // gate: the single chart's newPlot, or the first facet's react, the others waiting behind it
-  async function redrawHeld(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'], faceted: boolean) {
-    const draw = faceted ? plotly.react : plotly.newPlot
-    const drawn = draw.getMockImplementation()!
-    const held = gate()
-    draw.mockImplementationOnce(async (...args) => {
-      await held.opened
-      return drawn(...args)
-    })
-    const calls = draw.mock.calls.length
-    const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
-    await wrapper.find(`#${label.attributes('for')}`).trigger('click')
-    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
-    return held
-  }
-
-  async function toggleFaceting(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper']) {
-    const label = wrapper.findAll('label').find(label => label.text() === 'Facet by parameter')!
-    await wrapper.find(`#${label.attributes('for')}`).trigger('click')
-    await flushPromises()
-  }
-
-  // what exports a chart: Plotly's own download for the single one, toImage for each facet
-  function exports(faceted: boolean) {
-    return faceted ? plotly.toImage : plotly.downloadImage
-  }
-
-  it.each([false, true])('saves the chart once it is drawn, where it was chosen while being drawn, faceted: %s', async (faceted) => {
-    // exported at once, a chart Plotly had yet to draw saved as an empty figure
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    const saved = catchDownload()
-    const held = await redrawHeld(wrapper, faceted)
-    exports(faceted).mockClear()
-    ;(await openDownloads(wrapper))[0]!.click()
-    await flushPromises()
-    expect(exports(faceted)).not.toHaveBeenCalled()
-    held.open()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
-    expect(exports(faceted)).toHaveBeenCalledTimes(faceted ? 2 : 1)
-    expect(saved).toHaveLength(faceted ? 1 : 0)
-  })
-
-  it.each([false, true])('waits for a drawing started while it waits, faceted: %s', async (faceted) => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    catchDownload()
-    const first = await redrawHeld(wrapper, faceted)
-    exports(faceted).mockClear()
-    ;(await openDownloads(wrapper))[0]!.click()
-    // the trendline unticked again: drawn anew, over the chart the first drawing finishes
-    const second = await redrawHeld(wrapper, faceted)
-    first.open()
-    await flushPromises()
-    expect(exports(faceted)).not.toHaveBeenCalled()
-    second.open()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
-    expect(exports(faceted)).toHaveBeenCalledTimes(faceted ? 2 : 1)
-  })
-
-  it.each([
-    { faceted: false, toggled: false },
-    { faceted: true, toggled: false },
-    { faceted: false, toggled: true },
-    { faceted: true, toggled: true },
-  ])('says there is no chart where Clear emptied it while it was being drawn, faceted: $faceted, faceting turned: $toggled', async ({ faceted, toggled }) => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    const saved = catchDownload()
-    const held = await redrawHeld(wrapper, faceted)
-    exports(faceted).mockClear()
-    ;(await openDownloads(wrapper))[0]!.click()
-    await flushPromises()
-    if (toggled)
-      await toggleFaceting(wrapper)
-    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
-    held.open()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('No data available for chart'))
-    expect(exports(faceted)).not.toHaveBeenCalled()
-    expect(saved).toHaveLength(0)
-  })
-
-  it.each([false, true])('saves the chart as a Fetch drew it anew while it was drawn, a facet added, faceted: %s', async (faceted) => {
-    // the charts taken when chosen were saved: gone from the page, and a facet short of it
-    const answers = [twoParameters, [...twoParameters, { ...row, parameter: 'wind_speed', value: 3.1 }]]
-    registerEndpoint('/api/values', () => ({ values: answers.shift() }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    const saved = catchDownload()
-    const held = await redrawHeld(wrapper, faceted)
-    exports(faceted).mockClear()
-    ;(await openDownloads(wrapper))[2]!.click()
-    await flushPromises()
-    await fetchData(viewer)
-    await flushPromises()
-    held.open()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
-    if (faceted) {
-      const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
-      expect([...svg.children].map(chart => chart.textContent)).toEqual([airTemperature, precipitationAmount, windSpeed])
-    }
-    else {
-      // saved from a copy of the chart the page shows, drawn from its traces, and the copy taken away after
-      const [chart] = plotly.downloadImage.mock.lastCall as unknown as [HTMLElement]
-      expect(chart).toBe(plotly.copies.at(-1)!.root)
-      expect(plotly.copies.at(-1)!.data).toBe(plotly.newPlot.mock.lastCall![1])
-      expect(chart.isConnected).toBe(false)
-    }
-  })
-
-  it.each([false, true])('saves the charts as drawn where faceting is turned the other way while they are drawn, faceted: %s', async (faceted) => {
-    // the charts taken when chosen were saved: unmounted, and the facets beyond the one being drawn
-    // never drawn, which the drawing skips once they are gone
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    const saved = catchDownload()
-    const held = await redrawHeld(wrapper, faceted)
-    plotly.downloadImage.mockClear()
-    plotly.toImage.mockClear()
-    ;(await openDownloads(wrapper))[2]!.click()
-    await flushPromises()
-    await toggleFaceting(wrapper)
-    held.open()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
-    if (faceted) {
-      expect(plotly.toImage).not.toHaveBeenCalled()
-      const [chart] = plotly.downloadImage.mock.lastCall as unknown as [HTMLElement]
-      expect(chart).toBe(plotly.copies.at(-1)!.root)
-      expect(plotly.copies.at(-1)!.data).toBe(plotly.newPlot.mock.lastCall![1])
-      expect(chart.isConnected).toBe(false)
-    }
-    else {
-      expect(plotly.downloadImage).not.toHaveBeenCalled()
-      const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
-      expect([...svg.children].map(chart => chart.textContent)).toEqual([airTemperature, precipitationAmount])
-    }
   })
 })
 
@@ -1456,13 +1428,6 @@ async function withChartQuery(query: unknown[]) {
   mountedViewer.wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', query)
   await mountedViewer.wrapper.vm.$nextTick()
   return mountedViewer
-}
-
-// the traces and layout the chart was last drawn with: the single chart's, or the last facet's
-function lastDrawn(faceted: boolean) {
-  const draw = faceted ? plotly.react : plotly.newPlot
-  const [, traces, layout] = draw.mock.lastCall as unknown as [HTMLElement, { name: string, x: string[], y: number[], mode: string }[], { hovermode: string }]
-  return { traces, layout }
 }
 
 describe('dataViewer chart of a query\'s timestamps that are no date', () => {
@@ -1481,13 +1446,11 @@ describe('dataViewer chart of a query\'s timestamps that are no date', () => {
     { timestamp: 1577836800, faceted: false },
     { timestamp: 1577836800, faceted: true },
   ])('leaves out a row whose timestamp is $timestamp, faceted: $faceted', async ({ timestamp, faceted }) => {
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery([row, { ...row, timestamp, value: 9 }])
     await showChart(wrapper, faceted)
-    await vi.waitFor(() => expect((faceted ? plotly.react : plotly.newPlot)).toHaveBeenCalled())
-    const [trace] = lastDrawn(faceted).traces
-    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0].data).toEqual([[Date.UTC(2020, 0, 1), 1.5]])
   })
 })
 
@@ -1501,21 +1464,22 @@ describe('dataViewer chart of the rows it can plot', () => {
 
   it('draws no series for the rows it leaves out', async () => {
     // each was an empty trace with a legend entry
-    plotly.newPlot.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery(unplotted)
     await showChart(wrapper, false)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-    expect(lastDrawn(false).traces.map(trace => trace.name)).toEqual([`01048 - ${airTemperature}`])
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option).map(series => series.name)).toEqual([`01048 - ${airTemperature}`])
+    expect(lastDrawn().option.series.find((series: any) => series.id === 'legend').data).toHaveLength(1)
   })
 
   it('draws no facet for the rows it leaves out', async () => {
     // each was an empty panel of its own, which the stacked image took in
-    plotly.react.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery(unplotted)
     await showChart(wrapper, true)
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalled())
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
     expect(wrapper.findAll('h4').map(heading => heading.text())).toEqual([airTemperature])
-    expect(plotly.react).toHaveBeenCalledOnce()
+    expect(echarts.instances).toHaveLength(1)
   })
 
   it.each([false, true])('says there is no chart and offers no image where no row can be plotted, faceted: %s', async (faceted) => {
@@ -1530,41 +1494,67 @@ describe('dataViewer chart of the rows it can plot', () => {
   const days = (count: number) => Array.from({ length: count }, (_, day) => ({ ...row, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString() }))
 
   it.each([false, true])('draws the points of a large result as a small one where most rows are left out, faceted: %s', async (faceted) => {
-    // the rows left out were counted: drawn as thin lines without markers, hovered point by point
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
-    const { wrapper } = await withChartQuery([...days(10), ...days(600).map(day => ({ ...day, value: null }))])
+    // the rows left out were counted: drawn as thin lines without markers
+    forgetDrawings()
+    const { wrapper } = await withChartQuery([...days(10), ...days(600).map(day => ({ ...day, parameter: 'wind_speed', value: 'n/a' }))])
     await showChart(wrapper, faceted)
-    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
-    const { traces, layout } = lastDrawn(faceted)
-    expect([traces[0]!.mode, layout.hovermode]).toEqual(['lines+markers', 'x unified'])
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0]).toMatchObject({ showSymbol: true, lineStyle: { width: 2 } })
   })
 
-  it.each([false, true])('draws the points of a large result as a large one, faceted: %s', async (faceted) => {
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
+  it.each([false, true])('draws the points of a large result as a large one, a thin line without markers, faceted: %s', async (faceted) => {
+    forgetDrawings()
     const { wrapper } = await withChartQuery(days(501))
     await showChart(wrapper, faceted)
-    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
-    const { traces, layout } = lastDrawn(faceted)
-    expect([traces[0]!.mode, layout.hovermode]).toEqual(['lines', 'closest'])
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0]).toMatchObject({ showSymbol: false, lineStyle: { width: 1 } })
   })
 
-  // Plotly cut a series' name after 15 characters in a hover label, as 'closest' (a large chart's)
-  // shows the name beside the value (GH-2870)
-  it.each([
-    { faceted: false, count: 10 },
-    { faceted: false, count: 501 },
-    { faceted: true, count: 10 },
-    { faceted: true, count: 501 },
-  ])('shows a series\' whole name in its hover label, faceted: $faceted, $count points', async ({ faceted, count }) => {
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
-    const { wrapper } = await withChartQuery(days(count))
-    await showChart(wrapper, faceted)
-    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
-    expect((lastDrawn(faceted).layout as { hoverlabel?: { namelength?: number } }).hoverlabel).toEqual({ namelength: -1 })
+  it('keeps a gap in the data as a gap in the line, where a row has no value at a date', async () => {
+    forgetDrawings()
+    const [first, , third] = days(3)
+    const { wrapper } = await withChartQuery([first!, { ...days(3)[1]!, value: null }, { ...third!, value: 2.5 }])
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    const [line] = linesOf(lastDrawn().option)
+    expect(line.connectNulls).toBe(false)
+    expect(line.data).toEqual([[Date.UTC(2020, 0, 1), 1.5], [Date.UTC(2020, 0, 2), null], [Date.UTC(2020, 0, 3), 2.5]])
   })
+
+  it.each([false, true])('breaks the line where rows are missing, by the resolution the rows name, faceted: %s (GH-4100)', async (faceted) => {
+    forgetDrawings()
+    // daily rows of the 1st, 2nd, 3rd, then the 6th, 7th, 8th of January: the 4th and the 5th have no row at all
+    const present = [0, 1, 2, 5, 6, 7].map(day => ({ ...row, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString(), value: day }))
+    const { wrapper } = await withChartQuery(present)
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    const [line] = linesOf(lastDrawn().option)
+    expect(line.data.map((point: [number, number | null]) => point[1])).toEqual([0, 1, 2, null, 5, 6, 7])
+    // the point of no value is between the two days, and every value the rows have is drawn
+    expect(line.data[3][0]).toBeGreaterThan(Date.UTC(2020, 0, 3))
+    expect(line.data[3][0]).toBeLessThan(Date.UTC(2020, 0, 6))
+  })
+
+  it('does not break the line of rows a day apart that name a resolution of months', async () => {
+    forgetDrawings()
+    const { wrapper } = await withChartQuery([0, 1, 2, 5, 6, 7].map(day => ({ ...row, resolution: 'monthly', timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString(), value: day })))
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0].data.map((point: [number, number | null]) => point[1])).toEqual([0, 1, 2, 5, 6, 7])
+  })
+
+  it('draws a long series cut to what the plot can show, with every peak of it', async () => {
+    // a year of ten-minute readings: 52,560 points, with one spike
+    const start = Date.UTC(2020, 0, 1)
+    const readings = Array.from({ length: 52_560 }, (_, i) => ({ ...row, timestamp: new Date(start + i * 600_000).toISOString(), value: i === 30_001 ? 99 : Math.sin(i / 300) }))
+    forgetDrawings()
+    const { wrapper } = await withChartQuery(readings)
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0), { timeout: 10_000 })
+    const [line] = linesOf(lastDrawn().option)
+    expect(line.data.length).toBeLessThan(4 * 800)
+    expect(Math.max(...line.data.map((point: [number, number]) => point[1]))).toBe(99)
+  }, 30_000)
 })
 
 // the chart drawn again, as the trendline is ticked or unticked
@@ -1572,197 +1562,6 @@ async function toggleTrendline(wrapper: Awaited<ReturnType<typeof mountDataViewe
   const label = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
   await wrapper.find(`#${label.attributes('for')}`).trigger('click')
 }
-
-// the next drawing Plotly is handed, held until the test opens the gate
-function holdNextDraw(draw: typeof plotly.react) {
-  const drawn = draw.getMockImplementation()!
-  const held = gate()
-  draw.mockImplementationOnce(async (...args) => {
-    await held.opened
-    return drawn(...args)
-  })
-  return held
-}
-
-describe('dataViewer chart renders in order', () => {
-  // two days of two parameters: a facet each, a series each long enough for a trendline
-  const twoDays = [...twoParameters, ...twoParameters.map(value => ({ ...value, timestamp: '2020-01-02T00:00:00Z', value: value.value + 1 }))]
-
-  it('draws each facet as last changed where an older drawing goes on after a newer one', async () => {
-    // the older drawing went on to the facets it had left, with the trendline it read at its start
-    registerEndpoint('/api/values', () => ({ values: twoDays }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, true)
-    const held = holdNextDraw(plotly.react)
-    const calls = plotly.react.mock.calls.length
-    // ticked: the first facet's drawing held
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(calls + 1))
-    // unticked again: both facets drawn without it
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(calls + 3))
-    held.open()
-    await flushPromises()
-    // each facet's series as last drawn
-    const last = new Map(plotly.react.mock.calls.slice(calls).map(([chart, traces]) => [chart, (traces as { name: string }[]).map(trace => trace.name)]))
-    expect([...last.values()]).toEqual([['01048'], ['01048']])
-  })
-})
-
-describe('dataViewer chart images after a failed drawing', () => {
-  // what draws a chart, and what exports it: the single chart's newPlot and Plotly's own download, or
-  // each facet's react and toImage
-  const draws = (faceted: boolean) => faceted ? plotly.react : plotly.newPlot
-  const exports = (faceted: boolean) => faceted ? plotly.toImage : plotly.downloadImage
-
-  const failed = new Error('drawing failed')
-
-  // the chart shown, and drawn again as the trendline is ticked, where Plotly throws for as many of
-  // its drawings as given: the failure is told in the console
-  async function shownAndFailing(faceted: boolean, failures: number) {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const mountedViewer = await mountDataViewer()
-    await fetchData(mountedViewer.viewer)
-    await showChart(mountedViewer.wrapper, faceted)
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    for (let failure = 0; failure < failures; failure++)
-      draws(faceted).mockRejectedValueOnce(failed)
-    const calls = draws(faceted).mock.calls.length
-    await toggleTrendline(mountedViewer.wrapper)
-    await vi.waitFor(() => expect(draws(faceted)).toHaveBeenCalledTimes(calls + 1))
-    await flushPromises()
-    expect(logged).toHaveBeenCalledWith('The chart could not be drawn', failed)
-    exports(faceted).mockClear()
-    return { ...mountedViewer, calls: calls + 1 }
-  }
-
-  it.each([false, true])('draws the chart again before saving it where its drawing failed, faceted: %s', async (faceted) => {
-    // the chart Plotly had failed to draw was exported, an empty figure, and reported downloaded
-    const { wrapper, calls } = await shownAndFailing(faceted, 1)
-    catchDownload()
-    ;(await openDownloads(wrapper))[0]!.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
-    expect(draws(faceted)).toHaveBeenCalledTimes(calls + (faceted ? 2 : 1))
-    expect(exports(faceted)).toHaveBeenCalledTimes(faceted ? 2 : 1)
-    expect(draws(faceted).mock.invocationCallOrder.at(-1)).toBeLessThan(exports(faceted).mock.invocationCallOrder[0]!)
-  })
-
-  it.each([false, true])('says the chart could not be drawn where drawing it again fails too, faceted: %s', async (faceted) => {
-    const { wrapper } = await shownAndFailing(faceted, 2)
-    const saved = catchDownload()
-    ;(await openDownloads(wrapper))[0]!.click()
-    // told by a toast, not only by the chart area's note, shown since the first drawing failed
-    const toasts = () => [...document.body.querySelectorAll('[data-slot="title"]')].map(title => title.textContent?.trim())
-    await vi.waitFor(() => expect(toasts()).toContain('The chart could not be drawn'))
-    expect(document.body.textContent).not.toContain('Chart downloaded')
-    expect(exports(faceted)).not.toHaveBeenCalled()
-    expect(saved).toHaveLength(0)
-  })
-
-  it.each([false, true])('draws the chart again where its newest drawing failed and an older one finished after it, faceted: %s', async (faceted) => {
-    // the older drawing, finished last, stands for the chart as drawn only while it is the newest
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    const draw = draws(faceted)
-    const held = holdNextDraw(draw)
-    draw.mockRejectedValueOnce(failed)
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const calls = draw.mock.calls.length
-    // ticked: held; unticked again: failed
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 2))
-    held.open()
-    await flushPromises()
-    catchDownload()
-    exports(faceted).mockClear()
-    ;(await openDownloads(wrapper))[0]!.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
-    expect(draw).toHaveBeenCalledTimes(calls + 2 + (faceted ? 2 : 1))
-    expect(draw.mock.invocationCallOrder.at(-1)).toBeLessThan(exports(faceted).mock.invocationCallOrder[0]!)
-  })
-
-  it.each([false, true])('tells no failure of a drawing a newer one has replaced, faceted: %s', async (faceted) => {
-    // the console said the chart could not be drawn, where the newer drawing had drawn it
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    const draw = draws(faceted)
-    const held = gate()
-    draw.mockImplementationOnce(async () => {
-      await held.opened
-      throw failed
-    })
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const calls = draw.mock.calls.length
-    // ticked: held, to fail; unticked again: drawn
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + (faceted ? 3 : 2)))
-    held.open()
-    await flushPromises()
-    expect(logged).not.toHaveBeenCalled()
-  })
-})
-
-describe('dataViewer chart images after Plotly failed to load', () => {
-  // The chart shown while Plotly's chunk fails to load, as after a redeploy under an open tab: the
-  // viewer loads Plotly itself, when its chart is first shown. Taken as shown once the failure is
-  // told, where a load still under way could be answered by the next load's module
-  async function shownWithoutPlotly(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['wrapper'], faceted: boolean) {
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    await showChart(wrapper, faceted)
-    await vi.waitFor(() => expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error)))
-  }
-
-  function loadPlotly() {
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-  }
-
-  afterEach(loadPlotly)
-
-  it.each([false, true])('loads Plotly again and saves the chart once drawn, faceted: %s', async (faceted) => {
-    // the chart never drawn was exported, an empty figure, and reported downloaded
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    const draw = faceted ? plotly.react : plotly.newPlot
-    draw.mockClear()
-    await shownWithoutPlotly(wrapper, faceted)
-    expect(draw).not.toHaveBeenCalled()
-    loadPlotly()
-    catchDownload()
-    ;(await openDownloads(wrapper))[0]!.click()
-    // the module loaded anew, which a busy runner can take a while over
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'), { timeout: 5000 })
-    expect(draw).toHaveBeenCalledTimes(faceted ? 2 : 1)
-  })
-
-  it.each([false, true])('says there is no chart where Clear emptied it after the menu was opened, faceted: %s', async (faceted) => {
-    // the failed chart was drawn again, which failed as well, and told as not drawn
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await shownWithoutPlotly(wrapper, faceted)
-    const saved = catchDownload()
-    const items = await openDownloads(wrapper)
-    ;(viewer.vm as unknown as { clearData: () => void }).clearData()
-    items[0]!.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('No data available for chart'))
-    await flushPromises()
-    expect(document.body.textContent).not.toContain('The chart could not be drawn')
-    expect(saved).toHaveLength(0)
-  })
-})
 
 describe('dataViewer sort of numbers and text in one column', () => {
   // a query's BIGINT column, whose value past 2^53 comes as its digits
@@ -1892,22 +1691,20 @@ describe('dataViewer chart of a query\'s timestamp text', () => {
   // the forms timestampDate reads are tested in tests/unit/timestamp.test.ts
   it('places a row whose timestamp has no offset at its time in UTC', async () => {
     // `strftime(timestamp::TIMESTAMP, '%Y-%m-%d %H:%M')`: placed at 2019-12-31T23:00Z in Berlin
-    plotly.newPlot.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery([{ ...row, timestamp: '2020-01-01 00:00', value: 9 }])
     await showChart(wrapper, false)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-    const [trace] = lastDrawn(false).traces
-    expect(trace!.x).toEqual(['2020-01-01T00:00:00.000Z'])
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0].data).toEqual([[Date.UTC(2020, 0, 1), 9]])
   })
 
   it('leaves out a row whose timestamp is a date that does not exist', async () => {
     // read as 2020-03-01 by a Date, which rolls a day past the month's end over
-    plotly.newPlot.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery([row, { ...row, timestamp: '2020-02-30', value: 9 }])
     await showChart(wrapper, false)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-    const [trace] = lastDrawn(false).traces
-    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0].data).toEqual([[Date.UTC(2020, 0, 1), 1.5]])
   })
 })
 
@@ -1923,23 +1720,22 @@ describe('dataViewer chart of a query\'s values that are no number', () => {
     Number.NaN,
     Number.POSITIVE_INFINITY,
   ])('leaves out a row whose value is %s, and draws the trendline of the others', async (value) => {
-    plotly.newPlot.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery(threeDays(value))
     await showChart(wrapper, false)
     await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2))
-    const [trace, trend] = lastDrawn(false).traces
-    expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z', '2020-01-02T00:00:00.000Z'], [1.5, 2.5]])
-    expect(trend!.y.map(y => Math.round(y * 1e6) / 1e6)).toEqual([1.5, 2.5])
+    await vi.waitFor(() => expect(linesOf(lastDrawn().option)).toHaveLength(2))
+    const [line, trend] = linesOf(lastDrawn().option)
+    expect(line.data).toEqual([[Date.UTC(2020, 0, 1), 1.5], [Date.UTC(2020, 0, 2), 2.5]])
+    expect(trend.data.map((point: [number, number]) => [point[0], Math.round(point[1] * 1e6) / 1e6])).toEqual([[Date.UTC(2020, 0, 1), 1.5], [Date.UTC(2020, 0, 2), 2.5]])
   })
 
   it('plots an integer past 2^53, which plainRows writes as its digits, as its number', async () => {
-    plotly.newPlot.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery([{ ...row, value: '10000000000000000000' }, { ...row, timestamp: '2020-01-02T00:00:00Z', value: '-9007199254740993' }])
     await showChart(wrapper, false)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-    const [trace] = lastDrawn(false).traces
-    expect(trace!.y).toEqual([1e19, -9007199254740992])
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0].data.map((point: [number, number]) => point[1])).toEqual([1e19, -9007199254740992])
   })
 })
 
@@ -1947,32 +1743,28 @@ describe('dataViewer facets large or small by their own points', () => {
   // a day's row each of the parameter, from 2020-01-01 on
   const daysOf = (parameter: string, count: number) => Array.from({ length: count }, (_, day) => ({ ...row, parameter, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString() }))
 
-  // each facet's trace mode and hover mode, as it was last drawn, by its parameter's label: an id the
+  // each facet's markers and line width, as it was last drawn, by its parameter's label: an id the
   // glossary does not know is prettified, so 'a' is 'A'
-  function facetsDrawn() {
-    const drawn = new Map<string, [string, string]>()
-    for (const [root, traces, layout] of plotly.react.mock.calls as unknown as [HTMLElement, { mode: string }[], { hovermode: string }][])
-      drawn.set(facetOf(root), [traces[0]!.mode, layout.hovermode])
-    return Object.fromEntries(drawn)
+  function facetStyles() {
+    return Object.fromEntries([...facetsDrawn()].map(([facet, option]) => [facet, [linesOf(option)[0].showSymbol, linesOf(option)[0].lineStyle.width]]))
   }
 
   it('draws small facets as small ones where all of them together pass the threshold', async () => {
-    // all six facets' 600 points were counted: each drawn as thin lines without markers, hovered
-    // point by point
-    plotly.react.mockClear()
+    // all six facets' 600 points were counted: each drawn as thin lines without markers
+    forgetDrawings()
     const parameters = ['a', 'b', 'c', 'd', 'e', 'f']
     const { wrapper } = await withChartQuery(parameters.flatMap(parameter => daysOf(parameter, 100)))
     await showChart(wrapper, true)
-    await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(6))
-    expect(facetsDrawn()).toEqual(Object.fromEntries(parameters.map(parameter => [parameter.toUpperCase(), ['lines+markers', 'x unified']])))
+    await vi.waitFor(() => expect(Object.keys(facetStyles())).toHaveLength(6))
+    expect(facetStyles()).toEqual(Object.fromEntries(parameters.map(parameter => [parameter.toUpperCase(), [true, 2]])))
   })
 
   it('draws a large facet as a large one beside a small one', async () => {
-    plotly.react.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery([...daysOf('a', 501), ...daysOf('b', 10)])
     await showChart(wrapper, true)
-    await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(2))
-    expect(facetsDrawn()).toEqual({ A: ['lines', 'closest'], B: ['lines+markers', 'x unified'] })
+    await vi.waitFor(() => expect(Object.keys(facetStyles())).toHaveLength(2))
+    expect(facetStyles()).toEqual({ A: [false, 1], B: [true, 2] })
   })
 })
 
@@ -1981,9 +1773,8 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
   const twoStations = [row, { ...row, station_id: '04411', value: 2.5 }]
 
   // the series the chart was last drawn with, each by its name and colour, faceted or not
-  function seriesDrawn(faceted: boolean) {
-    const [, traces] = (faceted ? plotly.react : plotly.newPlot).mock.lastCall as unknown as [HTMLElement, { name: string, line: { color: string } }[]]
-    return traces.map(trace => [trace.name, trace.line.color])
+  function seriesDrawn() {
+    return linesOf(lastDrawn().option).map(series => [series.name, series.lineStyle.color])
   }
 
   it.each([false, true])('keeps the series\' legend places and colours where the table is sorted, faceted: %s', async (faceted) => {
@@ -1991,12 +1782,12 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
+    forgetDrawings()
     await showChart(wrapper, faceted)
-    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
-    const unsorted = seriesDrawn(faceted)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    const unsorted = seriesDrawn()
     expect(unsorted.map(([name]) => name)).toEqual(faceted ? ['01048', '04411'] : [`01048 - ${airTemperature}`, `04411 - ${airTemperature}`])
+    expect(unsorted.map(([, colour]) => colour)).toEqual([seriesColour(0, isDark()), seriesColour(1, isDark())])
     // back to the table, sorted by value descending, the second station's row first: the stations
     // swapped their legend places and colours
     await wrapper.findAll('button').find(button => button.find('[class~="i-ph:table"]').exists())!.trigger('click')
@@ -2004,18 +1795,23 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
     await value().trigger('click')
     await value().trigger('click')
     expect(wrapper.findAll('tbody tr').map(tr => tr.findAll('td')[0]!.text())).toEqual(['04411', '01048'])
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
+    forgetDrawings()
     await wrapper.findAll('button').find(button => button.find('[class~="i-ph:chart-line"]').exists())!.trigger('click')
     await flushPromises()
-    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
-    expect(seriesDrawn(faceted)).toEqual(unsorted)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(seriesDrawn()).toEqual(unsorted)
   })
 })
 
+// the value details' rows as one list: a group's parameter and dataset with each station's numbers
+function detailsRows(viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) {
+  const { valueDetails } = viewer.vm as unknown as { valueDetails: { groups: { parameter: string, dataset: string, rows: { count: number, min: number | null, max: number | null, mean: number | null, sum: number | null }[] }[] } }
+  return valueDetails.groups.flatMap(({ parameter, dataset, rows }) => rows.map(({ count, min, max, mean, sum }) => ({ parameter, dataset, count, min, max, mean, sum })))
+}
+
 describe('dataViewer parameter statistics of rows that are not long values', () => {
   function stats(viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) {
-    return (viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats
+    return detailsRows(viewer)
   }
 
   it('takes none of a wide-shaped table, where it showed one row for an undefined parameter', async () => {
@@ -2035,7 +1831,7 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
-    expect(stats(viewer)).toEqual([{ parameter: 'temperature_air_mean_2m', dataset: 'climate_summary', count: 1, min: 1.5, max: 1.5, mean: 1.5, sum: 1.5 }])
+    expect(stats(viewer)).toEqual([{ parameter: 'temperature_air_mean_2m', dataset: 'climate_summary', count: 1, min: 1.5, max: 1.5, mean: 1.5, sum: null }])
     const panel = wrapper.findComponent(QueryPanel)
     // `SELECT timestamp, parameter, AVG(value) AS avg_value FROM data GROUP BY timestamp, parameter`
     panel.vm.$emit('dataTransformed', [{ timestamp: '2020-01-01T00:00:00Z', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }])
@@ -2046,7 +1842,7 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_amount', value: 2 }, { parameter: 'precipitation_amount', value: 4 }, { parameter: 'wind_speed', value: null }, { parameter: 'wind_speed', value: '3' }, { parameter: 'humidity', value: '50' }])
     await wrapper.vm.$nextTick()
     expect(stats(viewer)).toEqual([
-      { parameter: 'precipitation_amount', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: 6 },
+      { parameter: 'precipitation_amount', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: null },
       { parameter: 'wind_speed', dataset: '', count: 0, min: null, max: null, mean: null, sum: null },
     ])
   })
@@ -2059,234 +1855,63 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ dataset: 2019, parameter: 'wind_speed', value: 1 }, { dataset: 2020, parameter: 'wind_speed', value: 3 }])
     await wrapper.vm.$nextTick()
     expect(stats(viewer)).toEqual([
-      { parameter: 'wind_speed', dataset: '2019', count: 1, min: 1, max: 1, mean: 1, sum: 1 },
-      { parameter: 'wind_speed', dataset: '2020', count: 1, min: 3, max: 3, mean: 3, sum: 3 },
+      { parameter: 'wind_speed', dataset: '2019', count: 1, min: 1, max: 1, mean: 1, sum: null },
+      { parameter: 'wind_speed', dataset: '2020', count: 1, min: 3, max: 3, mean: 3, sum: null },
     ])
   })
 })
 
-describe('dataViewer chart that could not be drawn', () => {
-  // the chart area's Retry button, and the alert beside it, not a toast's: the chart area stayed
-  // empty without a word
-  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
-  const alert = () => retry()?.parentElement?.querySelector('[role="alert"]') ?? undefined
-  const note = () => alert()?.textContent?.trim()
-  const draws = (faceted: boolean) => faceted ? plotly.react : plotly.newPlot
-
-  afterEach(() => {
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-  })
-
-  it.each([false, true])('says so in the chart area and draws the chart again on Retry, faceted: %s', async (faceted) => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    expect(retry()).toBeUndefined()
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const draw = draws(faceted)
-    draw.mockRejectedValueOnce(new Error('drawing failed'))
-    const calls = draw.mock.calls.length
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(retry()).toBeDefined())
-    expect(note()).toContain('The chart could not be drawn')
-    retry()!.click()
-    await vi.waitFor(() => expect(retry()).toBeUndefined())
-    expect(note()).toBeUndefined()
-    // the failed drawing, then the chart drawn again: each facet's
-    expect(draw).toHaveBeenCalledTimes(calls + 1 + (faceted ? 2 : 1))
-  })
-
-  it.each([false, true])('says so where Plotly failed to load, and loads it again on Retry, faceted: %s', async (faceted) => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const draw = draws(faceted)
-    draw.mockClear()
-    await showChart(wrapper, faceted)
-    await vi.waitFor(() => expect(retry()).toBeDefined())
-    expect(note()).toContain('The chart could not be drawn')
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    retry()!.click()
-    // the module loaded anew, which a busy runner can take a while over
-    await vi.waitFor(() => expect(retry()).toBeUndefined(), { timeout: 5000 })
-    expect(draw).toHaveBeenCalledTimes(faceted ? 2 : 1)
-  })
-
-  it.each([false, true])('says only that there is no chart where no row can be plotted and Plotly failed to load, faceted: %s', async (faceted) => {
-    // the render of no chart fails as well, but there is no chart to draw again
-    const { wrapper } = await withChartQuery([{ ...row, value: null }])
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    await showChart(wrapper, faceted)
-    await vi.waitFor(() => expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error)))
-    await flushPromises()
-    expect(wrapper.text()).toContain('No data available for chart')
-    expect(retry()).toBeUndefined()
-  })
-
-  it('tells a Retry that fails too anew, and keeps the focus on Retry', async () => {
-    // a Retry that failed again left the note as it was, which a screen reader does not announce
-    // again; the note, Retry with it, is not taken away while the drawing runs, which would lose
-    // the focus
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, false)
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(retry()).toBeDefined())
-    const first = alert()
-    expect(first?.textContent).toContain('The chart could not be drawn')
-    const held = gate()
-    plotly.newPlot.mockImplementationOnce(async () => {
-      await held.opened
-      throw new Error('drawing failed again')
-    })
-    const calls = plotly.newPlot.mock.calls.length
-    const button = retry()!
-    button.focus()
-    button.click()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(calls + 1))
-    await flushPromises()
-    expect(alert()).toBe(first)
-    held.open()
-    await vi.waitFor(() => expect(alert()).not.toBe(first))
-    expect(note()).toContain('The chart could not be drawn')
-    expect(retry()).toBe(button)
-    expect(document.activeElement).toBe(button)
-  })
-})
-
 describe('dataViewer chart image whose export fails', () => {
-  // the step that fails: Plotly's own download of the single chart, a facet's SVG, or the stacked
-  // SVG turned into PNG, as where it passes the browser's canvas size. Nothing was saved, unhandled,
-  // and nothing said so
+  // the step that fails: the rasterising of the single chart, of a facet's SVG as it is saved, or of the stacked SVG as
+  // where it passes the browser's canvas size. Nothing was saved, unhandled, and nothing said so
   it.each([
-    { faceted: false, format: 'PNG', item: 0, step: () => plotly.downloadImage },
-    { faceted: true, format: 'SVG', item: 2, step: () => plotly.toImage },
-    { faceted: true, format: 'PNG', item: 0, step: () => plotly.Snapshot.svgToImg },
-  ])('says the image could not be saved, faceted: $faceted, $format', async ({ faceted, item, step }) => {
+    { faceted: false, format: 'PNG', item: 0 },
+    { faceted: true, format: 'SVG', item: 2 },
+    { faceted: true, format: 'PNG', item: 0 },
+    { faceted: true, format: 'JPEG', item: 1 },
+  ])('says the image could not be saved, faceted: $faceted, $format', async ({ faceted, item }) => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, faceted)
-    const saved = catchDownload()
     const failed = new Error('export failed')
-    ;(step() as unknown as { mockRejectedValueOnce: (error: Error) => void }).mockRejectedValueOnce(failed)
+    image.fail = failed
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     ;(await openDownloads(wrapper))[item]!.click()
     await vi.waitFor(() => expect(document.body.textContent).toContain('The chart image could not be saved'))
     expect(logged).toHaveBeenCalledWith('The chart image could not be saved', failed)
     expect(document.body.textContent).not.toContain('Chart downloaded')
-    expect(saved).toHaveLength(0)
-  })
-
-  it.each(['PNG', 'JPEG'])('says the image could not be saved where the stack passes the canvas size, %s', async (format) => {
-    // Plotly answers with an empty "data:," there rather than failing: an empty file was saved, and
-    // reported downloaded
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, true)
-    const saved = catchDownload()
-    plotly.Snapshot.svgToImg.mockResolvedValueOnce('data:,')
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    ;(await openDownloads(wrapper))[format === 'PNG' ? 0 : 1]!.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('The chart image could not be saved'))
-    expect(document.body.textContent).not.toContain('Chart downloaded')
-    expect(saved).toHaveLength(0)
-  })
-})
-
-describe('dataViewer chart whose Plotly chunk a redeploy replaced', () => {
-  // A redeploy replaces Plotly's hashed chunk under an open tab: every Retry asks for the gone chunk
-  // again and fails, and only reloading the page loads the new one, which nothing said
-  const button = (label: string) => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === label)
-  const note = () => button('Retry')?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
-  const hint = 'If trying again does not help, reload the page.'
-
-  afterEach(() => {
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    reloadNuxtApp.mockClear()
-  })
-
-  async function shownWithoutPlotly(faceted: boolean) {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const mountedViewer = await mountDataViewer()
-    await fetchData(mountedViewer.viewer)
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    await showChart(mountedViewer.wrapper, faceted)
-    await vi.waitFor(() => expect(button('Retry')).toBeDefined())
-    return mountedViewer
-  }
-
-  it.each([false, true])('says to reload the page, and reloads it, where Plotly failed to load, faceted: %s', async (faceted) => {
-    await shownWithoutPlotly(faceted)
-    // the two apart, as a screen reader reads the alert
-    expect(note()).toBe(`The chart could not be drawn. Its code could not be loaded. ${hint}`)
-    button('Reload page')!.click()
-    // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
-    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
-  })
-
-  it.each([false, true])('offers no reload once Plotly loaded and only its drawing failed, faceted: %s', async (faceted) => {
-    // a reload loads nothing the drawing needs: Retry is the way
-    await shownWithoutPlotly(faceted)
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    const draw = faceted ? plotly.react : plotly.newPlot
-    draw.mockRejectedValueOnce(new Error('drawing failed'))
-    const calls = draw.mock.calls.length
-    button('Retry')!.click()
-    // the module loaded anew, which a busy runner can take a while over
-    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1), { timeout: 5000 })
-    await flushPromises()
-    expect(note()).toContain('The chart could not be drawn')
-    expect(note()).not.toContain(hint)
-    expect(button('Reload page')).toBeUndefined()
+    expect(image.downloads).toHaveLength(0)
   })
 })
 
 describe('dataViewer facets\' station colours', () => {
   // each facet's series as it was last drawn, each by its name and colour, by the facet's parameter
-  function facetsDrawn() {
-    const drawn = new Map<string, string[][]>()
-    for (const [root, traces] of plotly.react.mock.calls as unknown as [HTMLElement, { name: string, line: { color: string } }[]][])
-      drawn.set(facetOf(root), traces.map(trace => [trace.name, trace.line.color]))
-    return Object.fromEntries(drawn)
+  function facetColours() {
+    return Object.fromEntries([...facetsDrawn()].map(([facet, option]) => [facet, linesOf(option).map(series => [series.name, series.lineStyle.color])]))
   }
 
   const second = { ...row, station_id: '04411' }
   const precipitation = { ...row, parameter: 'precipitation_amount', value: 0.2 }
-  const blue = '#3b82f6'
-  const green = '#22c55e'
+  const first = () => seriesColour(0, isDark())
+  const next = () => seriesColour(1, isDark())
 
   it.each([
     // the first station has no precipitation: the second station was coloured first in that facet
-    ['a facet lacks the first station', [row, second, { ...precipitation, station_id: '04411' }], [['04411', green]]],
+    ['a facet lacks the first station', [row, second, { ...precipitation, station_id: '04411' }], () => [['04411', next()]]],
     // the second station's precipitation comes before the first's: it was coloured first in that facet
-    ['a facet\'s rows come in another order', [row, second, { ...precipitation, station_id: '04411' }, precipitation], [['04411', green], ['01048', blue]]],
+    ['a facet\'s rows come in another order', [row, second, { ...precipitation, station_id: '04411' }, precipitation], () => [['04411', next()], ['01048', first()]]],
   ])('gives each station one colour in every facet where %s', async (_, values, precipitationSeries) => {
     registerEndpoint('/api/values', () => ({ values }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
-    plotly.react.mockClear()
+    forgetDrawings()
     await showChart(wrapper, true)
-    await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(2))
-    expect(facetsDrawn()).toEqual({
-      [airTemperature]: [['01048', blue], ['04411', green]],
-      [precipitationAmount]: precipitationSeries,
+    await vi.waitFor(() => expect(Object.keys(facetColours())).toHaveLength(2))
+    expect(facetColours()).toEqual({
+      [airTemperature]: [['01048', first()], ['04411', next()]],
+      [precipitationAmount]: precipitationSeries(),
     })
   })
 })
@@ -2298,13 +1923,123 @@ describe('dataViewer parameter statistics of many values', () => {
     await fetchData(viewer)
     // past V8's argument limit of about 120k, as 3 years of one station's 10-minute values
     const count = 200_000
-    const rows = Array.from({ length: count }, (_, i) => ({ parameter: 'temperature_air_mean_2m', value: i - 100_000 }))
+    const rows = Array.from({ length: count }, (_, i) => ({ parameter: 'precipitation_amount', value: i - 100_000 }))
     wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', rows)
     await wrapper.vm.$nextTick()
+    // the mean is the running sum over the count, so the sum is held to it; the rows of a query have no sum of their own
     const sum = (count * (count - 1)) / 2 - count * 100_000
-    expect((viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats).toEqual([
-      { parameter: 'temperature_air_mean_2m', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum },
+    expect(detailsRows(viewer)).toEqual([
+      { parameter: 'precipitation_amount', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum: null },
     ])
+  })
+})
+
+// the value details by station (GH-4296): the stations of the request in the order listed, named, each with the numbers of its
+// own values; the aggregation of the answer's own `metadata.parameters` says which parameter has a sum
+describe('dataViewer value details by station', () => {
+  const metadata = {
+    parameters: [
+      { resolution: 'daily', dataset: 'climate_summary', name: 'temperature_air_mean_2m', name_original: 'tmk', unit: '\u00B0C', aggregation: 'mean' },
+      { resolution: 'daily', dataset: 'climate_summary', name: 'precipitation_amount', name_original: 'rsk', unit: 'mm', aggregation: 'sum' },
+    ],
+  }
+  const at = (station_id: string, parameter: string, value: number | null, day = 1) => ({ ...row, station_id, parameter, value, timestamp: `2020-01-0${day}T00:00:00Z` })
+  const stationsOf = (...ids: string[]): StationSelectionState => ({
+    mode: 'station',
+    selection: { stations: ids.map(id => ({ station_id: id, name: `Station ${id}` }) as Station) },
+    interpolation: { source: 'manual' },
+    dateRange: {},
+  })
+  interface Details { split: boolean, stations: { id: string, name: string | null }[], groups: { parameter: string, unit: string | null, sums: boolean, rows: { count: number, sum: number | null }[] }[] }
+  const detailsOf = (viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) => (viewer.vm as unknown as { valueDetails: Details }).valueDetails
+
+  it('asks for the answer\'s own facts of the parameters, and for nothing else of the download\'s query', async () => {
+    const queries: Record<string, unknown>[] = []
+    registerEndpoint('/api/values', (event) => {
+      queries.push({ ...getQuery(event) })
+      return { values: [row], metadata }
+    })
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    expect(queries).toHaveLength(1)
+    expect(queries[0]!.with_metadata).toBe('true')
+  })
+
+  it('takes the stations of the request in the order listed, named, each of their own values, and a sum only where the parameter adds up', async () => {
+    registerEndpoint('/api/values', () => ({
+      values: [
+        at('04411', 'temperature_air_mean_2m', 10),
+        at('04411', 'precipitation_amount', 4),
+        at('01048', 'temperature_air_mean_2m', 6),
+        at('01048', 'precipitation_amount', 2, 1),
+        at('01048', 'precipitation_amount', 3, 2),
+      ],
+      metadata,
+    }))
+    // 04411 is listed first, whatever the order of the rows
+    const { viewer } = await mountDataViewer(ref(stationsOf('04411', '01048')))
+    await fetchData(viewer)
+    await flushPromises()
+    const details = detailsOf(viewer)
+    expect(details.split).toBe(true)
+    expect(details.stations).toEqual([{ id: '04411', name: 'Station 04411' }, { id: '01048', name: 'Station 01048' }])
+    const [rain, temperature] = details.groups
+    expect(details.groups.map(group => [group.parameter, group.unit, group.sums])).toEqual([['precipitation_amount', 'mm', true], ['temperature_air_mean_2m', '\u00B0C', false]])
+    expect(rain!.rows.map(({ count, sum }) => [count, sum])).toEqual([[1, 4], [2, 5]])
+    expect(temperature!.rows.map(({ count, sum }) => [count, sum])).toEqual([[1, null], [1, null]])
+  })
+
+  it('keeps the stations of the request as they were asked for, where the selection moves on while the table stays', async () => {
+    registerEndpoint('/api/values', () => ({ values: [at('04411', 'precipitation_amount', 1), at('01048', 'precipitation_amount', 2)], metadata }))
+    const selection = ref(stationsOf('04411', '01048'))
+    const { viewer } = await mountDataViewer(selection)
+    await fetchData(viewer)
+    selection.value = stationsOf('01048', '04411')
+    await flushPromises()
+    expect(detailsOf(viewer).stations.map(({ id }) => id)).toEqual(['04411', '01048'])
+  })
+
+  it('lists a station that has no value, with none, where the other has some', async () => {
+    registerEndpoint('/api/values', () => ({ values: [at('04411', 'precipitation_amount', 1)], metadata }))
+    const { viewer } = await mountDataViewer(ref(stationsOf('04411', '01048')))
+    await fetchData(viewer)
+    const [rain] = detailsOf(viewer).groups
+    expect(rain!.rows.map(({ count }) => count)).toEqual([1, 0])
+  })
+
+  it('shows no sum of a window longer than the rows, by the resolution the answer states', async () => {
+    const hourly = { resolution: 'hourly', dataset: 'climate_summary', unit: 'mm', aggregation: 'sum' }
+    registerEndpoint('/api/values', () => ({
+      values: [at('01048', 'precipitation_amount_last_6h', 1), at('01048', 'precipitation_amount_last_1h', 2)],
+      metadata: { parameters: [{ ...hourly, name: 'precipitation_amount_last_6h' }, { ...hourly, name: 'precipitation_amount_last_1h' }] },
+    }))
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    expect(detailsOf(viewer).groups.map(group => [group.parameter, group.sums, group.rows[0]!.sum])).toEqual([['precipitation_amount_last_1h', true, 2], ['precipitation_amount_last_6h', false, null]])
+  })
+
+  it('gives rows the query panel has rewritten no unit and no sum, whatever the query did to `value`', async () => {
+    registerEndpoint('/api/values', () => ({ values: [at('01048', 'precipitation_amount', 4), at('01048', 'precipitation_amount', 6)], metadata }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    expect(detailsOf(viewer).groups.map(group => [group.unit, group.sums, group.rows[0]!.sum])).toEqual([['mm', true, 10]])
+    // `SELECT station_id, dataset, parameter, value / 25.4 AS value FROM data`, the rain in inches
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [at('01048', 'precipitation_amount', 4 / 25.4), at('01048', 'precipitation_amount', 6 / 25.4)])
+    await wrapper.vm.$nextTick()
+    expect(detailsOf(viewer).groups.map(group => [group.unit, group.sums, group.rows[0]!.sum, group.rows[0]!.count])).toEqual([[null, false, null, 2]])
+  })
+
+  it.each(['interpolation', 'summary'] as const)('takes a %s as one series, with no station', async (mode) => {
+    registerEndpoint(mode === 'interpolation' ? '/api/interpolate' : '/api/summarize', () => ({
+      values: [at('', 'precipitation_amount', 2), at('', 'precipitation_amount', 3, 2)],
+      metadata,
+    }))
+    const { viewer } = await mountDataViewer(ref(atPoint(mode)))
+    await fetchData(viewer)
+    const details = detailsOf(viewer)
+    expect(details.split).toBe(false)
+    expect(details.groups).toHaveLength(1)
+    expect(details.groups[0]!.rows.map(({ count, sum }) => [count, sum])).toEqual([[2, 5]])
   })
 })
 
@@ -2315,16 +2050,16 @@ describe('dataViewer trendline of many points', () => {
     const count = 200_000
     const start = Date.UTC(2020, 0, 1)
     const rows = Array.from({ length: count }, (_, i) => ({ ...row, timestamp: new Date(start + i * 600_000).toISOString(), value: i }))
-    plotly.newPlot.mockClear()
+    forgetDrawings()
     const { wrapper } = await withChartQuery(rows)
     await showChart(wrapper, false)
     await toggleTrendline(wrapper)
-    // each drawing sorts and formats every point, which a busy runner can take a while over
-    await vi.waitFor(() => expect(lastDrawn(false).traces).toHaveLength(2), { timeout: 10_000 })
-    const [, trend] = lastDrawn(false).traces
-    expect(trend!.x).toEqual([new Date(start).toISOString(), new Date(start + (count - 1) * 600_000).toISOString()])
-    expect(trend!.y[0]).toBeCloseTo(0, 0)
-    expect(trend!.y[1]).toBeCloseTo(count - 1, 0)
+    // each drawing sorts every point, which a busy runner can take a while over
+    await vi.waitFor(() => expect(linesOf(lastDrawn().option)).toHaveLength(2), { timeout: 10_000 })
+    const [, trend] = linesOf(lastDrawn().option)
+    expect(trend.data.map((point: [number, number]) => point[0])).toEqual([start, start + (count - 1) * 600_000])
+    expect(trend.data[0][1]).toBeCloseTo(0, 0)
+    expect(trend.data[1][1]).toBeCloseTo(count - 1, 0)
   }, 30_000)
 })
 
@@ -2491,55 +2226,6 @@ describe('dataViewer unit targets and names are the app settings\' (GH-3878)', (
   })
 })
 
-describe('dataViewer chart after a Retry', () => {
-  // the focus Retry held fell to the page's body once a Retry that worked took the note away
-  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
-  const draws = (faceted: boolean) => faceted ? plotly.react : plotly.newPlot
-
-  // the chart shown, its drawing failed, and Retry focused and pressed, its drawing held on a gate
-  async function retried(faceted: boolean) {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    await showChart(wrapper, faceted)
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const draw = draws(faceted)
-    draw.mockRejectedValueOnce(new Error('drawing failed'))
-    await toggleTrendline(wrapper)
-    await vi.waitFor(() => expect(retry()).toBeDefined())
-    const held = holdNextDraw(draw)
-    const calls = draw.mock.calls.length
-    const button = retry()!
-    button.focus()
-    button.click()
-    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(calls + 1))
-    // the chart the Retry draws: the single one, or the first facet
-    return { wrapper, held, chart: draw.mock.calls[calls]![0] as HTMLElement }
-  }
-
-  it.each([false, true])('hands the focus on to the chart once it is drawn, faceted: %s', async (faceted) => {
-    const { held, chart } = await retried(faceted)
-
-    held.open()
-    await vi.waitFor(() => expect(retry()).toBeUndefined())
-    await vi.waitFor(() => expect(document.activeElement).toBe(chart))
-    // a browser focuses a div only with a tabindex, which the test's document does not ask for
-    expect(chart.getAttribute('tabindex')).toBe('-1')
-  })
-
-  it('leaves the focus where it was moved to meanwhile', async () => {
-    const { wrapper, held } = await retried(false)
-    const trendline = wrapper.findAll('label').find(label => label.text() === 'Trendline')!
-    const elsewhere = wrapper.find(`#${trendline.attributes('for')}`).element as HTMLElement
-    elsewhere.focus()
-
-    held.open()
-    await vi.waitFor(() => expect(retry()).toBeUndefined())
-    await flushPromises()
-    expect(document.activeElement).toBe(elsewhere)
-  })
-})
-
 describe('dataViewer settings the explorer starts from the server\'s', () => {
   // the viewer's one request
   async function asked(endpoint: string, selection: StationSelectionState) {
@@ -2636,32 +2322,25 @@ describe('dataViewer settings the explorer starts from the server\'s', () => {
 })
 
 describe('dataViewer chart names', () => {
-  // the charts Plotly drew into, the single one or each facet, each once however often it was drawn,
-  // by the role and the name a screen reader announces them with
-  function drawnInto(faceted: boolean) {
-    const draw = faceted ? plotly.react : plotly.newPlot
-    return [...new Set(draw.mock.calls.map(call => (call as unknown as [HTMLElement])[0]))]
-      .map(chart => [chart.getAttribute('role'), chart.getAttribute('aria-label')])
-  }
+  // the charts the page shows, by the role and the name a screen reader announces them with
+  const figures = () => [...document.body.querySelectorAll('[role="figure"]')].map(figure => [figure.getAttribute('role'), figure.getAttribute('aria-label')])
 
   it('names the single chart, as a figure', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    plotly.newPlot.mockClear()
     await showChart(wrapper, false)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    expect(drawnInto(false)).toEqual([['figure', 'Chart of the values']])
+    await vi.waitFor(() => expect(drawings()).toHaveLength(1))
+    expect(figures()).toEqual([['figure', 'Chart of the values']])
   })
 
   it('names each facet by its parameter, as a figure', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    plotly.react.mockClear()
     await showChart(wrapper, true)
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
-    expect(drawnInto(true)).toEqual([
+    await vi.waitFor(() => expect(drawings()).toHaveLength(2))
+    expect(figures()).toEqual([
       ['figure', `Chart of ${airTemperature}`],
       ['figure', `Chart of ${precipitationAmount}`],
     ])
@@ -2741,7 +2420,8 @@ describe('dataViewer names what it shows in the active locale', () => {
     // the checkbox is found by its English text, so facets are asked for through the viewer itself
     await showChart(mountedViewer.wrapper, false)
     const vm = mountedViewer.viewer.vm as unknown as { paramLabelFormat: string, facetByParameter: boolean }
-    plotly.react.mockClear()
+    if (faceted)
+      forgetDrawings()
     vm.facetByParameter = faceted
     await flushPromises()
     const choose = async (format: string) => {
@@ -2762,7 +2442,7 @@ describe('dataViewer names what it shows in the active locale', () => {
     it.each(formats)('names the single chart\'s series by their labels, format $format', async ({ format, parts }) => {
       const { choose } = await mountIn(locale, false)
       await choose(format)
-      const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+      const drawn = () => linesOf(lastDrawn().option).map(series => series.name)
       await vi.waitFor(() => expect(drawn()).toEqual([n.direction, n.speed].map(parameter => `01048 - ${parts(n, parameter).join(' / ')}`)))
       expect(idsIn(drawn().join('\n'))).toEqual([])
     })
@@ -2771,48 +2451,14 @@ describe('dataViewer names what it shows in the active locale', () => {
       const { wrapper, choose } = await mountIn(locale, true)
       await choose(format)
       const label = (parameter: string) => parts(n, parameter).join(' / ')
-      // the last two draws are the two facets of the format chosen: Plotly 3 draws no axis title written as a string
-      const drawn = () => plotly.react.mock.calls.slice(-2).map(call => call[2] as { yaxis: { title?: unknown } })
+      // the last two draws are the two facets of the format chosen: the chart has no axis title, which the heading is
+      const drawn = () => drawings().slice(-2).map(({ option }) => option as { yAxis: { name?: unknown }[] })
       await vi.waitFor(() => expect(drawn()).toHaveLength(2))
-      expect(drawn().map(layout => layout.yaxis.title)).toEqual([undefined, undefined])
+      expect(drawn().map(option => option.yAxis[0]!.name)).toEqual([undefined, undefined])
       expect(wrapper.findAll('h4').map(heading => heading.text())).toEqual([label(n.direction), label(n.speed)])
       expect(wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual([n.direction, n.speed].map(parameter => chartOf[locale](label(parameter))))
       expect(idsIn(wrapper.text())).toEqual([])
     })
-
-    it('names the parameter statistics\' dataset and parameter by their labels', async () => {
-      const { viewer } = await mountIn(locale, false)
-      const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
-        parameterStats: { dataset: string, parameter: string }[]
-        statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
-      }
-      const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
-      expect(parameterStats.map(stat => [cell('dataset', stat), cell('parameter', stat)])).toEqual([[n.dataset, n.direction], [n.dataset, n.speed]])
-    })
-
-    it('writes the statistics\' numbers with the locale\'s decimal separator', async () => {
-      // `toFixed` writes a point in every language: "2.50" where German, French and Polish read "2,50"
-      const { viewer } = await mountIn(locale, false)
-      const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
-        parameterStats: { parameter: string }[]
-        statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
-      }
-      const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
-      const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_mean_last_10min')!
-      expect(['min', 'max', 'mean', 'sum'].map(key => cell(key, wind))).toEqual(['2,50', '2,50', '2,50', '2,50'])
-    })
-  })
-
-  it('writes the statistics\' numbers with a point in English, and nothing as a dash', async () => {
-    const { viewer } = await mountIn('en', false)
-    const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
-      parameterStats: { parameter: string }[]
-      statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
-    }
-    const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
-    const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_mean_last_10min')!
-    expect(['min', 'max', 'mean', 'sum'].map(key => cell(key, wind))).toEqual(['2.50', '2.50', '2.50', '2.50'])
-    expect(cell('mean', { mean: null })).toBe('-')
   })
 
   // a day's row each of the two parameters, from 2020-01-01 on: each series long enough for a trendline
@@ -2825,7 +2471,7 @@ describe('dataViewer names what it shows in the active locale', () => {
     it('names the single chart\'s trendlines for their series, in the language', async () => {
       const { viewer } = await mountIn(locale, false, twoDays)
       ;(viewer.vm as unknown as { showTrendline: boolean }).showTrendline = true
-      const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+      const drawn = () => linesOf(lastDrawn().option).map(series => series.name)
       const series = [names[locale].direction, names[locale].speed].map(parameter => `01048 - ${parameter}`)
       await vi.waitFor(() => expect(drawn()).toEqual([...series, ...series.map(name => `${name} (${trendline[locale]})`)]))
     })
@@ -2834,7 +2480,7 @@ describe('dataViewer names what it shows in the active locale', () => {
       const { viewer } = await mountIn(locale, true, twoDays)
       ;(viewer.vm as unknown as { showTrendline: boolean }).showTrendline = true
       // one trace of the station and one trendline in each of the two facets drawn last
-      const drawn = () => plotly.react.mock.calls.slice(-2).map(call => (call[1] as { name: string }[]).map(trace => trace.name))
+      const drawn = () => drawings().slice(-2).map(({ option }) => linesOf(option).map(series => series.name))
       await vi.waitFor(() => expect(drawn()).toEqual([['01048', `01048 (${trendline[locale]})`], ['01048', `01048 (${trendline[locale]})`]]))
     })
   })
@@ -2842,13 +2488,13 @@ describe('dataViewer names what it shows in the active locale', () => {
   it('names the trendline in English as before where the language is English', async () => {
     const { viewer } = await mountIn('en', false, twoDays)
     ;(viewer.vm as unknown as { showTrendline: boolean }).showTrendline = true
-    const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+    const drawn = () => linesOf(lastDrawn().option).map(series => series.name)
     await vi.waitFor(() => expect(drawn()).toContain('01048 - Mean wind direction (last 10 min) (Trendline)'))
   })
 
   it('names the chart again where the language is changed while it is shown', async () => {
     await mountIn('en', false)
-    const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+    const drawn = () => linesOf(lastDrawn().option).map(series => series.name)
     await vi.waitFor(() => expect(drawn()).toEqual(['01048 - Mean wind direction (last 10 min)', '01048 - Mean wind speed (last 10 min)']))
     await setLocale('de')
     await vi.waitFor(() => expect(drawn()).toEqual([`01048 - ${names.de.direction}`, `01048 - ${names.de.speed}`]))
@@ -2869,22 +2515,20 @@ describe('dataViewer names what it shows in the active locale', () => {
       useSettings().settings.value.friendlyLabels = false
       const single = await mountIn('de', false)
       await single.choose(format)
-      const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+      const drawn = () => linesOf(lastDrawn().option).map(series => series.name)
       await vi.waitFor(() => expect(drawn()).toEqual(ids.map(id => `01048 - ${id}`)))
       single.wrapper.unmount()
 
       const faceted = await mountIn('de', true)
       await faceted.choose(format)
-      await vi.waitFor(() => expect(plotly.react.mock.calls.length).toBeGreaterThanOrEqual(2))
+      await vi.waitFor(() => expect(drawings().length).toBeGreaterThanOrEqual(2))
       expect(faceted.wrapper.findAll('h4').map(heading => heading.text())).toEqual(ids)
       expect(faceted.wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual(ids.map(id => chartOf.de(id)))
     })
   })
 })
 
-// Plotly writes the numbers of the hover texts and of the axes with the layout's separators, and a
-// point where it has none (GH-2971)
-describe('dataViewer chart separators in the active locale', () => {
+describe('dataViewer chart numbers in the active locale', () => {
   async function setLocale(locale: string) {
     const harness = await mountSuspended(defineComponent({
       setup: () => ({ setLocale: useI18n().setLocale }),
@@ -2898,32 +2542,39 @@ describe('dataViewer chart separators in the active locale', () => {
     await setLocale('en')
   })
 
-  // the layout the chart was last drawn with, single or faceted
-  function separatorsDrawn(faceted: boolean) {
-    const draw = faceted ? plotly.react : plotly.newPlot
-    const [, , layout] = draw.mock.lastCall as unknown as [HTMLElement, unknown, { separators: string }]
-    return layout.separators
+  // how the axis of the chart last drawn writes 1.5 (the value of the rows), single or faceted
+  const axisWrites = () => lastDrawn().option.yAxis[0].axisLabel.formatter(1.5)
+  // and how the readout writes it
+  const readoutWrites = async () => {
+    const stage = document.body.querySelector<HTMLElement>('.xc-stage')!
+    stage.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+    await flushPromises()
+    return document.body.querySelector('[data-testid="explorer-readout"] dd')!.textContent!.trim()
   }
 
   it.each([
-    ['en', /^\.,$/],
-    ['de', /^,\.$/],
-    // the group is a no-break space, which differs by language, so only its kind is pinned
-    ['fr', /^,\s$/],
-    ['pl', /^,\s$/],
-  ])('draws the single chart and the facets with the separators of %s', async (locale, separators) => {
+    ['en', '1.5'],
+    ['de', '1,5'],
+    ['fr', '1,5'],
+    ['pl', '1,5'],
+  ])('draws the single chart and the facets with the decimal separator of %s', async (locale, written) => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     await setLocale(locale)
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, false)
-    expect(separatorsDrawn(false)).toMatch(separators)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(axisWrites()).toBe(written)
+    expect(await readoutWrites()).toBe(written)
 
     const vm = viewer.vm as unknown as { facetByParameter: boolean }
-    plotly.react.mockClear()
+    forgetDrawings()
     vm.facetByParameter = true
     await flushPromises()
-    expect(separatorsDrawn(true)).toMatch(separators)
+    await vi.waitFor(() => expect(facetsDrawn().size).toBe(2))
+    // each facet has the digits its own axis needs (the precipitation's steps are hundredths): the separator is the language's
+    for (const option of facetsDrawn().values())
+      expect(option.yAxis[0].axisLabel.formatter(1.5)).toMatch(new RegExp(`^${written.replace('.', '\\.')}0*$`))
   })
 
   it('draws the chart again in the locale it is switched to', async () => {
@@ -2931,259 +2582,96 @@ describe('dataViewer chart separators in the active locale', () => {
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, false)
-    expect(separatorsDrawn(false)).toBe('.,')
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    // the one value has an axis of hundredths, written with the language's separator
+    expect(axisWrites()).toMatch(/^1\.50?$/)
 
     await setLocale('de')
-    await vi.waitFor(() => expect(separatorsDrawn(false)).toBe(',.'))
+    await vi.waitFor(() => expect(axisWrites()).toMatch(/^1,50?$/))
   })
 })
 
-describe('dataViewer charts in the language of the page and at its end', () => {
-  async function setLocale(locale: string) {
-    const harness = await mountSuspended(defineComponent({
-      setup: () => ({ setLocale: useI18n().setLocale }),
-      render: () => h('div'),
-    }))
-    await (harness.vm as unknown as { setLocale: (locale: string) => Promise<void> }).setLocale(locale)
-    harness.unmount()
-  }
-
-  afterEach(async () => {
-    await setLocale('en')
-  })
-
-  interface Drawn { locale: string, locales: Record<string, { dictionary?: Record<string, string>, format: { shortMonths: string[] } }> }
-  const configOf = (call: unknown[] | undefined) => call![3] as Drawn
-
-  // Plotly's own translation of the modebar's buttons ("Zoom", "Pan", "Download plot as a PNG") and the
-  // names of the months of a date axis, for the language of the page (GH-3625)
-  it.each([
-    ['en', 'en-GB', undefined],
-    ['de', 'de-DE', 'Verschieben'],
-    ['de-hh', 'de-DE', 'Verschieben'],
-    ['lb', 'lb-LU', 'Verschieben'],
-  ] as const)('gives the single chart the language of %s and the facets too', async (code, language, pan) => {
+describe('dataViewer charts at the end of the viewer, and where they go while it stays', () => {
+  // the ECharts instance of a chart holds the window's `resize` observer and its SVG until it is disposed
+  it('draws no chart, and loads no chart code, while the table is shown', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    await setLocale(code)
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    plotly.newPlot.mockClear()
-    await showChart(wrapper, false)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    const config = configOf(plotly.newPlot.mock.lastCall)
-    expect(config.locale).toBe(language)
-    expect(config.locales[language]!.dictionary?.Pan).toBe(pan)
-    expect(config.locales[language]!.format.shortMonths).toHaveLength(12)
-
-    plotly.react.mockClear()
-    ;(viewer.vm as unknown as { facetByParameter: boolean }).facetByParameter = true
     await flushPromises()
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
-    for (const call of plotly.react.mock.calls) {
-      const config = configOf(call as unknown as unknown[])
-      expect(config.locale).toBe(language)
-      expect(config.locales[language]!.dictionary?.Pan).toBe(pan)
-    }
+    expect(wrapper.exists()).toBe(true)
+    expect(echarts.init).not.toHaveBeenCalled()
   })
 
-  it('draws the chart again in the language it is switched to, with that language\'s buttons', async () => {
-    registerEndpoint('/api/values', () => ({ values: [row] }))
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    plotly.newPlot.mockClear()
-    await showChart(wrapper, false)
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    expect(configOf(plotly.newPlot.mock.lastCall).locale).toBe('en-GB')
-
-    await setLocale('fr')
-    await vi.waitFor(() => expect(configOf(plotly.newPlot.mock.lastCall).locale).toBe('fr-FR'))
-    expect(configOf(plotly.newPlot.mock.lastCall).locales['fr-FR']!.dictionary?.Pan).toBe('Translation')
-  })
-
-  it('keeps the camera\'s button in the config of the language, as the one config', async () => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    await setLocale('de')
-    const { viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    plotly.newPlot.mockClear()
-    plotly.react.mockClear()
-    // the buttons of the page are German, so the facets are asked for through the viewer itself
-    const vm = viewer.vm as unknown as { viewMode: string, facetByParameter: boolean }
-    vm.viewMode = 'graph'
-    vm.facetByParameter = true
-    await flushPromises()
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
-    const configs = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[3])
-    expect(configs[1]).toBe(configs[0])
-    const added = (configs[0] as { modeBarButtonsToAdd: { title: string }[] }).modeBarButtonsToAdd
-    expect(added).toHaveLength(1)
-    // Plotly translates its own buttons, and the camera is the page's: it is written in the language too
-    expect(added[0]!.title).toBe('Graphen als PNG herunterladen')
-  })
-
-  // Plotly keeps a window `resize` listener for each chart drawn with `responsive`, which holds the chart until
-  // it is purged (GH-3619)
-  it('purges the single chart where the viewer goes', async () => {
+  it('disposes the single chart where the viewer goes', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, false)
-    const [chart] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
-    plotly.purge.mockClear()
+    await vi.waitFor(() => expect(echarts.instances).toHaveLength(1))
+    const [chart] = echarts.instances
     wrapper.unmount()
-    expect(plotly.purge).toHaveBeenCalledWith(chart)
+    expect(chart!.dispose).toHaveBeenCalled()
   })
 
-  it('purges every facet where the viewer goes', async () => {
+  it('disposes every facet where the viewer goes', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    plotly.react.mockClear()
     await showChart(wrapper, true)
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
-    const facets = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[0] as HTMLElement)
-    plotly.purge.mockClear()
+    await vi.waitFor(() => expect(echarts.instances).toHaveLength(2))
+    const facets = [...echarts.instances]
     wrapper.unmount()
     for (const facet of facets)
-      expect(plotly.purge).toHaveBeenCalledWith(facet)
+      expect(facet.dispose).toHaveBeenCalled()
   })
 
-  // a chart whose element goes while the viewer stays has Plotly's `resize` listener hold it all the same
-  it('purges the single chart where the table is shown in its place', async () => {
+  it('disposes the single chart where the table is shown in its place', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, false)
-    const [chart] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
-    plotly.purge.mockClear()
+    await vi.waitFor(() => expect(echarts.instances).toHaveLength(1))
+    const [chart] = echarts.instances
     ;(viewer.vm as unknown as { viewMode: string }).viewMode = 'table'
     await flushPromises()
-    expect(chart.isConnected).toBe(false)
-    expect(plotly.purge).toHaveBeenCalledWith(chart)
+    expect(chart!.el.isConnected).toBe(false)
+    expect(chart!.dispose).toHaveBeenCalled()
   })
 
-  it('purges the single chart where the facets take its place, and the facets where it comes back', async () => {
+  it('disposes the single chart where the facets take its place, and the facets where it comes back', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, false)
-    const [single] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
+    await vi.waitFor(() => expect(echarts.instances).toHaveLength(1))
+    const [single] = echarts.instances
     const vm = viewer.vm as unknown as { facetByParameter: boolean }
-    plotly.react.mockClear()
-    plotly.purge.mockClear()
     vm.facetByParameter = true
     await flushPromises()
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
-    expect(plotly.purge).toHaveBeenCalledWith(single)
+    await vi.waitFor(() => expect(echarts.instances).toHaveLength(3))
+    expect(single!.dispose).toHaveBeenCalled()
 
-    const facets = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[0] as HTMLElement)
-    plotly.purge.mockClear()
+    const facets = echarts.instances.slice(1)
     vm.facetByParameter = false
     await flushPromises()
     for (const facet of facets)
-      expect(plotly.purge).toHaveBeenCalledWith(facet)
+      expect(facet.dispose).toHaveBeenCalled()
   })
 
-  it('purges the facets of parameters an answer no longer has', async () => {
+  it('disposes the facets of parameters an answer no longer has', async () => {
     registerEndpoint('/api/values', () => ({ values: twoParameters }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    plotly.react.mockClear()
-    ;(viewer.vm as unknown as { viewMode: string, facetByParameter: boolean }).facetByParameter = true
+    ;(viewer.vm as unknown as { facetByParameter: boolean }).facetByParameter = true
     ;(viewer.vm as unknown as { viewMode: string }).viewMode = 'graph'
     await flushPromises()
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
-    const facets = plotly.react.mock.calls.map(call => (call as unknown as unknown[])[0] as HTMLElement)
-    plotly.purge.mockClear()
+    await vi.waitFor(() => expect(echarts.instances).toHaveLength(2))
+    const facets = [...echarts.instances]
     // another answer, of one parameter only
     registerEndpoint('/api/values', () => ({ values: [row] }))
     await fetchData(viewer)
     await flushPromises()
     expect(wrapper.exists()).toBe(true)
-    expect(plotly.purge).toHaveBeenCalledWith(facets[1])
-  })
-
-  // the image that is saved is in the language of the page, as the chart is: the names of its dates
-  it('draws the copy of the saved single chart in the language of the page', async () => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    await setLocale('de')
-    const { viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    plotly.newPlot.mockClear()
-    ;(viewer.vm as unknown as { viewMode: string }).viewMode = 'graph'
-    await flushPromises()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    const [shown, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToAdd: { click: (chart: HTMLElement) => void }[] }]
-    plotly.copies.length = 0
-    plotly.downloadImage.mockClear()
-    config.modeBarButtonsToAdd[0]!.click(shown)
-    await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())
-    const copy = plotly.copies.at(-1)!.config as Drawn
-    expect(copy.locale).toBe('de-DE')
-    expect(copy.locales['de-DE']!.format.shortMonths[2]).toMatch(/^Mär/)
-  })
-
-  it('draws the copies of the saved facets in the language of the page', async () => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    await setLocale('de')
-    const { wrapper, viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    plotly.react.mockClear()
-    const vm = viewer.vm as unknown as { viewMode: string, facetByParameter: boolean }
-    vm.facetByParameter = true
-    vm.viewMode = 'graph'
-    await flushPromises()
-    await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
-    plotly.copies.length = 0
-    const saved = catchDownload()
-    ;(await openDownloads(wrapper))[0]!.click()
-    await vi.waitFor(() => expect(saved).toHaveLength(1))
-    expect(plotly.copies).toHaveLength(2)
-    for (const { config } of plotly.copies) {
-      expect((config as Drawn).locale).toBe('de-DE')
-      expect((config as { staticPlot: boolean }).staticPlot).toBe(true)
-    }
-  })
-
-  // a language whose buttons could not be loaded is drawn in English, and asked for again by the next drawing
-  it('asks again for the buttons of a language whose chunk failed, with the next drawing', async () => {
-    registerEndpoint('/api/values', () => ({ values: twoParameters }))
-    vi.doMock('plotly.js-locales/es', () => {
-      throw new Error('chunk failed to load')
-    })
-    await setLocale('es')
-    const { viewer } = await mountDataViewer()
-    await fetchData(viewer)
-    plotly.newPlot.mockClear()
-    const vm = viewer.vm as unknown as { viewMode: string, showTrendline: boolean }
-    vm.viewMode = 'graph'
-    await flushPromises()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    const failed = configOf(plotly.newPlot.mock.lastCall)
-    expect(failed.locale).toBe('es-ES')
-    expect(failed.locales['es-ES']!.dictionary).toBeUndefined()
-
-    // the chunk is there now, and the chart is drawn again
-    vi.doUnmock('plotly.js-locales/es')
-    // the trend line, through the viewer itself: the page is Spanish
-    vm.showTrendline = !vm.showTrendline
-    await flushPromises()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-    const drawn = configOf(plotly.newPlot.mock.lastCall)
-    expect(drawn.locales['es-ES']!.dictionary?.Pan).toBe('Modo Panorámica')
-    expect(drawn).not.toBe(failed)
-    // and from then on the one config for every drawing, as before
-    // the trend line, through the viewer itself: the page is Spanish
-    vm.showTrendline = !vm.showTrendline
-    await flushPromises()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(3))
-    expect(configOf(plotly.newPlot.mock.lastCall)).toBe(drawn)
-  })
-
-  it('purges nothing where no chart was ever asked for', async () => {
-    const { wrapper } = await mountDataViewer()
-    plotly.purge.mockClear()
-    wrapper.unmount()
-    expect(plotly.purge).not.toHaveBeenCalled()
+    expect(facets[1]!.dispose).toHaveBeenCalled()
   })
 })

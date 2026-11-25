@@ -101,7 +101,7 @@ export type CoverageQuery = Query<'coverage_api_coverage_get'>
 // Stations API
 // ============================================================================
 /** A station of the stations listing; the backend's rows carry more fields where the provider has them */
-export type Station = Reads<Pick<Schemas['_Station'], 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation' | 'start_timestamp' | 'end_timestamp'>, 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation'>
+export type Station = Reads<Pick<Schemas['_Station'], 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation' | 'wmo_id' | 'start_timestamp' | 'end_timestamp'>, 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation'>
 
 /** The answer of `GET /api/stations` as far as the app reads it: its `metadata` block is not read */
 export interface StationsResponse {
@@ -109,6 +109,21 @@ export interface StationsResponse {
 }
 
 export type StationsQuery = Query<'stations_api_stations_get'>
+
+/**
+ * One station `GET /api/station-ids` found: the network and the list it comes from, the id the network numbers it by (`station_id`, what
+ * `values` takes) and its WMO, WIGOS and ICAO ids where it has them. `matched_by` says which of them matched, `match` whether it was the
+ * one asked for (`direct`) or an equivalent one
+ */
+export type StationIdsStation = Reads<Schemas['_StationIdsStation'], 'provider' | 'network' | 'resolution' | 'dataset' | 'station_id' | 'name' | 'latitude' | 'longitude' | 'matched_by' | 'match'>
+
+/** The answer of `GET /api/station-ids` as far as the app reads it: the stations; its `metadata` block (what was searched, the warnings) is not read */
+export interface StationIdsResponse {
+  stations: StationIdsStation[]
+}
+
+/** The query of `GET /api/station-ids`: one or several WMO numbers, WIGOS identifiers or ICAO codes */
+export type StationIdsQuery = Query<'station_ids_api_station_ids_get'>
 
 // ============================================================================
 // Values API
@@ -182,28 +197,99 @@ export interface ServerSettings {
 }
 
 // ============================================================================
-// Stripes API
+// Stripes
 // ============================================================================
+// The climate stripes are the app's own (GH-4258): it reads the annual values from the generic API (`/api/stations`,
+// `/api/values`) or, for NOAA's GHCN daily, from its own server (`/_ghcn/*`), and calculates the reference, the anomalies and
+// the classes itself (`app/utils/stripes-scale.ts`, `app/utils/stripes-source.ts`). These types are therefore the app's, and
+// no schema of the document: the backend has no stripes answer to derive them from.
 
-export type StripesKind = operations['stripes_stations_api_stripes_stations_get']['parameters']['query']['kind']
+export type StripesKind = 'temperature' | 'precipitation'
 
-/** A station of the stripes' listing, which is the one of `/api/stations`, as is the `series.station` of its values */
+/** A station of the stripes' listing, which is the one of `/api/stations` */
 export type StripesStation = Station
 
-/** The answer of `GET /api/stripes/stations` as far as the app reads it */
-export type StripesStationsResponse = StationsResponse
+/** One year of the stripes: its value, its distance from the centre of the reference and its class, 0 (the lowest) to 15 */
+export interface StripesValueItem {
+  /** 1 January 00:00 UTC of the year */
+  timestamp: string | null
+  value: number | null
+  anomaly: number | null
+  stripe_class: number | null
+}
 
-export type StripesStationsQuery = Query<'stripes_stations_api_stripes_stations_get'>
+/** One number of the reference, and which years it was calculated from */
+export interface StripesReferenceStat {
+  /** The mean (centre) or the standard deviation (spread), in the unit of the values */
+  value: number
+  first_year: number
+  last_year: number
+  /** How many years with data it was calculated from */
+  years: number
+  /** Whether the station has too few years with data in the period of the method and its whole record stands in for it */
+  fallback: boolean
+}
 
-export type StripesValueItem = Schemas['_StripesValue']
+/** What the classes of the stripes are relative to: the mean of the centre, the standard deviation of the spread, the years each is calculated from and whether the whole record stood in for the period of the method */
+export interface StripesReference {
+  centre: StripesReferenceStat
+  spread: StripesReferenceStat
+  /** The scale reaches this many standard deviations to either side of the centre */
+  range_sigma: number
+  /** The number of classes, from the lowest value (0) to the highest */
+  classes: number
+}
 
 /** What the values of the stripes are of: the station, the parameter and the unit of `value` */
-export type StripesSeries = Reads<Omit<Schemas['StripesSeries'], 'station'> & { station: StripesStation }, 'station' | 'resolution' | 'dataset' | 'parameter' | 'unit'>
+export interface StripesSeries {
+  station: Reads<Station, 'station_id' | 'name'>
+  resolution: string
+  dataset: string
+  parameter: string
+  /** The unit as it is written next to a number: the symbol the API names for the parameter (`°C`), or the name of the unit asked for where it names none */
+  unit: string
+  /** How a day of the temperature was calculated where the years were built from daily values (GHCN): the midrange of TMAX and TMIN, or TAVG at a station that has no day with both; null for DWD's own annual values and for the precipitation */
+  method?: 'midrange' | 'tavg' | null
+}
 
-/** The answer of `GET /api/stripes/values`, the `metadata` block every answer has (licence, resolved request, warnings, ...) not read */
-export type StripesValuesResponse = Reads<Omit<Schemas['_StripesValuesWithMetadataDict'], 'series' | 'values'> & { series: StripesSeries, values: StripesValueItem[] }, 'series' | 'values'>
+/** The provider block of an answer of the API: who published the data, under which licence, and the credit line */
+export type StripesProvider = Schemas['ResponseMetadata']['provider']
 
-export type StripesValuesQuery = Query<'stripes_values_api_stripes_values_get'>
+/** The stripes of a station, as the app makes them from the annual values: the series, the reference and the years (`app/utils/stripes-source.ts`). Of the `metadata` of the values it was made from, the stripes' table file reads the provider's credit and licence (GH-4233) */
+export interface StripesValuesResponse {
+  metadata?: { provider?: Partial<StripesProvider> }
+  series: StripesSeries
+  values: StripesValueItem[]
+  reference: StripesReference
+  /**
+   * Set where the years of GHCN daily were read from the mirror of NOAA's data on AWS (the backend's `source-fallback` warning, GH-4390),
+   * which may end earlier than NOAA's own: the last year of the whole record that has a value (null if none), whatever window is shown
+   */
+  mirror?: { last_year: number | null }
+}
+
+/** One thing an answer of the API is missing, as the backend's `metadata.warnings` list it: a `code` that stays and a `message` that may improve */
+export type ResponseWarning = Schemas['ResponseWarning']
+
+/** The annual values of NOAA's GHCN daily that the app's own server calculates from the daily ones (`GET /_ghcn/annual`, `server/utils/ghcnStripes.ts`): a row for every year from the first to the last with a value, the value null for a year that fails the WMO rules */
+export interface GhcnAnnualAnswer {
+  metadata: {
+    provider: StripesProvider
+    /**
+     * The warnings of the backend's answer for the station, as its generic API gives them (GH-4390): `source-fallback` says the days were
+     * read from the mirror of NOAA's data on AWS because NCEI did not answer, and that the most recent days may be missing. Left out where there are none
+     */
+    warnings?: ResponseWarning[]
+  }
+  series: {
+    station_id: string
+    parameter: string
+    /** The unit symbol the API names for the parameter (`°C`) */
+    unit: string
+    method: 'midrange' | 'tavg' | null
+  }
+  values: Array<{ timestamp: string, value: number | null }>
+}
 
 // ============================================================================
 // History API

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   clickReach,
   closerStoppedStation,
@@ -6,19 +6,26 @@ import {
   distanceKm,
   DOT_SLOP_PX,
   dotRadius,
+  findSameStation,
   forecastLink,
   formatDistance,
   formatPosition,
+  GHCN_SOURCE,
+  ghcnReportingRule,
   historyLink,
   LIST_RUNNING_WITHIN_DAYS,
+  matchByWmo,
   measurementsLink,
   nearestStations,
   nearestWithin,
   placed,
+  pointFromQuery,
+  prepareSearch,
   REACH_KM,
   REPORTING_WITHIN_DAYS,
   reportingRule,
   searchStations,
+  searchStationsCounted,
   SELECTED_EDGE_PX,
   SELECTED_RADIUS_PX,
   stateFromQuery,
@@ -27,8 +34,10 @@ import {
   stationFor,
   stripesLink,
   TAP_RADIUS_PX,
+  wmoNumber,
   yearOf,
 } from '../../app/utils/map-tool'
+import { prepareStations, reportsThisOrLastYear, searchPrepared } from '../../app/utils/station-search'
 import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 // The map tool's logic (GH-3650): what is nearest to a place, how a station is found, where a station is opened and
@@ -111,9 +120,116 @@ describe('the search of the stations', () => {
     expect(searchStations(list, 'kiel').map(entry => entry.station_id)).toEqual(['2', '1'])
   })
 
+  it('finds a name in either spelling of an umlaut, as the header\'s search does: München is MUENCHEN in the lists of the forecast and of GHCN', () => {
+    const lists = {
+      measured: placed([station('03379', 'München-Stadt', 48.1, 11.5), station('01262', 'München-Flughafen', 48.3, 11.8), station('1', 'Berlin', 52, 13)]),
+      ghcn: placed([station('GM000010865', 'MUENCHEN-STADT', 48.1, 11.5), station('GME00122882', 'MUENCHEN FLUGHAFEN', 48.3, 11.8), station('X', 'BERLIN', 52, 13)]),
+    }
+    for (const [layer, list] of Object.entries(lists)) {
+      prepareSearch(list)
+      for (const query of ['münchen', 'muenchen', 'MÜNCHEN stadt', 'Muenchen flug'])
+        expect(searchStations(list, query).length, `${layer}: ${query}`).toBeGreaterThan(0)
+      expect(searchStationsCounted(list, 'münchen', 20).total, layer).toBe(2)
+      expect(searchStationsCounted(list, 'muenchen', 20).total, layer).toBe(2)
+    }
+  })
+
+  it('finds a station by its WMO number, as the header\'s search does, and puts the number before a name that holds it', () => {
+    const list = placed([{ ...station('GM000010147', 'HAMBURG FUHLSBUETTEL', 53.6, 10), wmo_id: '10147' }, station('X1', 'Station 10147 Nord', 50, 8)])
+    expect(searchStations(list, '10147').map(entry => entry.station_id)).toEqual(['GM000010147', 'X1'])
+    expect(searchStations(list, '10147', 1).map(entry => entry.station_id)).toEqual(['GM000010147'])
+  })
+
+  it('says how many stations answer, which the header counts too, where it lists the best few of them', () => {
+    const list = placed(Array.from({ length: 30 }, (_, index) => station(`S${index}`, `Hamburg ${index}`, 53, 10)))
+    const found = searchStationsCounted(list, 'hamburg', 20)
+    expect(found.total).toBe(30)
+    expect(found.stations).toHaveLength(20)
+  })
+
+  it('finds, for every query, the stations the header\'s matcher finds on the same list, in the same order, and counts the same', () => {
+    const rows = [
+      { ...station('GM000010865', 'MUENCHEN-STADT', 48.1, 11.5), wmo_id: '10865', end_timestamp: '1990-12-31T00:00:00+00:00' },
+      { ...station('03379', 'München-Stadt', 48.1, 11.5), wmo_id: '10865' },
+      station('01975', 'Hamburg-Fuhlsbüttel', 53.6, 10),
+      station('GM000010147', 'HAMBURG FUHLSBUETTEL', 53.6, 10),
+      station('02564', 'Kiel-Holtenau', 54.3, 10.1),
+      station('7', 'Straße der Einheit', 51, 9),
+    ]
+    const list = placed(rows)
+    const columns = {
+      count: rows.length,
+      retrieved_at: null,
+      station_id: rows.map(row => row.station_id),
+      latitude: rows.map(row => row.latitude!),
+      longitude: rows.map(row => row.longitude!),
+      first_year: rows.map(() => null),
+      last_year: rows.map(row => ('end_timestamp' in row ? 1990 : null)),
+      name: rows.map(row => row.name),
+      wmo_id: rows.map(row => ('wmo_id' in row ? row.wmo_id : null)),
+    }
+    const header = prepareStations(columns, reportsThisOrLastYear())
+    for (const query of ['münchen', 'muenchen', '10865', 'fuhlsbuettel', 'Fuhlsbüttel hamburg', 'strasse', 'straße', 'kiel', '01975', 'GM000010147']) {
+      const there = searchPrepared(header, query, 10)
+      const here = searchStationsCounted(list, query, 10)
+      expect(here.stations.map(entry => entry.station_id), query).toEqual(there.stations.map(entry => entry.station_id))
+      expect(here.total, query).toBe(there.total)
+    }
+  })
+
+  it('puts a station that reports before one that has stopped within the same kind of match, as the header does', () => {
+    const list = placed([{ ...station('1', 'Kiel A', 54, 10), end_timestamp: '1990-12-31T00:00:00+00:00' }, station('2', 'Kiel B', 54, 10)])
+    expect(searchStations(list, 'kiel').map(entry => entry.station_id)).toEqual(['2', '1'])
+  })
+
   it('finds nothing for an empty query, and no more than the limit', () => {
     expect(searchStations(ALL, '   ')).toEqual([])
     expect(searchStations(ALL, 'a', 1)).toHaveLength(1)
+  })
+
+  describe('of a list that is prepared (GH-4267: 133k names are folded once, not at every keystroke)', () => {
+    const NAMES = [station('1', 'Bad Kiel', 50, 8), station('2', 'Kiel-Holtenau', 54, 10), station('3', 'München-Stadt', 48, 11.5), station('4', 'KIELER STRASSE', 50, 9), station('5', null, 51, 9), station('GM000010147', 'HAMBURG FUHLSBUETTEL', 53.6, 10), station('7', 'Hamburg-Fuhlsbüttel', 53.6, 10)]
+    const LIST = placed(NAMES)
+    const QUERIES = ['kiel', 'KIEL', 'munchen', 'müncHEN', 'hamburg buttel', 'hamburg fuhlsbuttel', 'gm000010147', '5', 'a', 'zzz', '   ', 'kiel hamburg', 'strasse']
+
+    it('finds what the search of the list as it comes does, in the same order, for every query', () => {
+      const prepared = [...LIST]
+      prepareSearch(prepared)
+      for (const query of QUERIES) {
+        expect(searchStations(prepared, query).map(entry => entry.station_id), query).toEqual(searchStations(LIST, query).map(entry => entry.station_id))
+        expect(searchStations(prepared, query, 2).map(entry => entry.station_id), query).toEqual(searchStations(LIST, query, 2).map(entry => entry.station_id))
+      }
+    })
+
+    it('folds the query at a keystroke and no name, however long the list: the names were folded when the list was prepared', () => {
+      const prepared = [...LIST]
+      prepareSearch(prepared)
+      const normalize = vi.spyOn(String.prototype, 'normalize')
+      try {
+        searchStations(prepared, 'münchen stadt')
+        // the query in its two spellings, and no name
+        expect(normalize).toHaveBeenCalledTimes(2)
+        normalize.mockClear()
+        // the list that is not prepared folds its names at every call
+        searchStations(LIST, 'münchen stadt')
+        expect(normalize.mock.calls.length).toBeGreaterThan(LIST.length)
+      }
+      finally {
+        normalize.mockRestore()
+      }
+    })
+
+    it('is a list\'s own: another array of the same stations is searched as it comes', () => {
+      prepareSearch([...LIST])
+      const normalize = vi.spyOn(String.prototype, 'normalize')
+      try {
+        expect(searchStations([...LIST], 'kiel').map(entry => entry.station_id)).toEqual(['2', '4', '1'])
+        expect(normalize.mock.calls.length).toBeGreaterThan(LIST.length)
+      }
+      finally {
+        normalize.mockRestore()
+      }
+    })
   })
 })
 
@@ -155,6 +271,22 @@ describe('where a station is opened', () => {
 
   it('has its stripes on the stripes page, for the temperature', () => {
     expect(stripesLink('00011')).toBe('/stripes?kind=temperature&station=00011')
+  })
+
+  it('has the stripes of a station of GHCN daily on the stripes page with its provider and network', () => {
+    expect(stripesLink('GM000010147', true)).toBe('/stripes?kind=temperature&provider=noaa&network=ghcn&station=GM000010147')
+  })
+
+  it('has the measurements of a station of GHCN daily in the explorer, on the network of the layer', () => {
+    const link = new URL(measurementsLink(GHCN_SOURCE, 'GM000010147', { provider: 'noaa', network: 'ghcn' }), 'http://x')
+    expect(Object.fromEntries(link.searchParams)).toEqual({
+      provider: 'noaa',
+      network: 'ghcn',
+      resolution: 'daily',
+      dataset: 'data',
+      mode: 'station',
+      stations: 'GM000010147',
+    })
   })
 
   it('has its measurements in the explorer, on the source and with the station chosen', () => {
@@ -201,11 +333,13 @@ describe('the address of the map', () => {
     expect(stateFromQuery({ station: '10147' })).toEqual({ ...plain, stationId: '10147' })
   })
 
-  it('leaves a place out where there is no station, and a place that is no position', () => {
-    expect(stateToQuery({ ...plain, place: { latitude: 50, longitude: 8 } })).toEqual({})
+  it('keeps a place where there is no station (a position that no station is within reach of, GH-3790), and leaves out a place that is no position', () => {
+    expect(stateToQuery({ ...plain, place: { latitude: 50, longitude: 8 } })).toEqual({ lat: '50.0000', lon: '8.0000' })
+    expect(stateFromQuery({ lat: '50.0000', lon: '8.0000' })).toEqual({ ...plain, place: { latitude: 50, longitude: 8 } })
     expect(stateFromQuery({ station: '1', lat: 'north', lon: '8' }).place).toBeNull()
     expect(stateFromQuery({ station: '1', lat: '95', lon: '8' }).place).toBeNull()
-    expect(stateFromQuery({ lat: '50', lon: '8' }).place).toBeNull()
+    expect(stateFromQuery({ lat: '95', lon: '8' }).place).toBeNull()
+    expect(stateFromQuery({ lat: '50' }).place).toBeNull()
   })
 
   it('is the default layer where the address names one there is none of', () => {
@@ -333,7 +467,7 @@ describe('what a click reaches', () => {
 describe('the station picked for a place', () => {
   const running = (id: string, latitude: number, longitude: number) => ({ ...station(id, id, latitude, longitude), end_timestamp: '2026-11-06T00:00:00+00:00' })
   const closed = (id: string, latitude: number, longitude: number) => ({ ...station(id, id, latitude, longitude), end_timestamp: '2001-12-31T00:00:00+00:00' })
-  const live = (entry: { end_timestamp?: string }) => entry.end_timestamp !== '2001-12-31T00:00:00+00:00'
+  const live = (entry: { end_timestamp?: string | null }) => entry.end_timestamp !== '2001-12-31T00:00:00+00:00'
   const here = { latitude: 53.5, longitude: 10 }
   const list = placed([closed('near-closed', 53.51, 10), running('far-running', 53.9, 10), running('too-far', 50, 10)])
 
@@ -429,5 +563,133 @@ describe('why a farther station was picked (GH-3875)', () => {
     expect(yearOf(null)).toBeNull()
     expect(yearOf(undefined)).toBeNull()
     expect(yearOf('not a date')).toBeNull()
+  })
+})
+
+describe('the WMO number of a station (GH-4077)', () => {
+  it('is the five digits of the number, and none where the station has none', () => {
+    expect(wmoNumber({ wmo_id: '10147' })).toBe('10147')
+    expect(wmoNumber({ wmo_id: ' 10147 ' })).toBe('10147')
+    // the REST API reads '1001' as '01001': the number is compared as it is written with its padding
+    expect(wmoNumber({ wmo_id: '1001' })).toBe('01001')
+    expect(wmoNumber({ wmo_id: null })).toBeNull()
+    expect(wmoNumber({ wmo_id: '' })).toBeNull()
+    expect(wmoNumber({ wmo_id: '   ' })).toBeNull()
+    expect(wmoNumber({})).toBeNull()
+  })
+
+  it('leaves a number that is not digits as it is: no padding is made up for a text', () => {
+    expect(wmoNumber({ wmo_id: 'X379' })).toBe('X379')
+  })
+})
+
+describe('the station of a list that has a WMO number', () => {
+  const withWmo = (id: string, wmo: string | null, latitude = 50, longitude = 10) => ({ ...station(id, id, latitude, longitude), wmo_id: wmo })
+  const LIST = placed([withWmo('01975', '10147'), withWmo('02564', '10025', 54.4, 10.1), withWmo('03379', null, 48.2, 11.5), withWmo('09999', '10147', 53.6, 10.0)])
+
+  it('is the one station that has it, found by the number whatever the ids are', () => {
+    const match = matchByWmo(LIST, '10025')
+    expect(match).toEqual({ kind: 'one', station: LIST[1] })
+  })
+
+  it('finds nothing where the list has no station with the number, or the station has none', () => {
+    expect(matchByWmo(LIST, '99999')).toEqual({ kind: 'none' })
+    expect(matchByWmo(LIST, null)).toEqual({ kind: 'none' })
+    expect(matchByWmo(LIST, undefined)).toEqual({ kind: 'none' })
+    expect(matchByWmo(LIST, '')).toEqual({ kind: 'none' })
+    // a station with no number of its own is never found by "no number"
+    expect(matchByWmo(LIST, '  ')).toEqual({ kind: 'none' })
+  })
+
+  it('finds none of the stations where the number is on several: it is not one place, and no station is guessed', () => {
+    const match = matchByWmo(LIST, '10147')
+    expect(match.kind).toBe('several')
+    expect(match.kind === 'several' && match.stations.map(entry => entry.station_id)).toEqual(['01975', '09999'])
+  })
+
+  it('reads the number as the stations do: padded, trimmed', () => {
+    expect(matchByWmo(placed([withWmo('01001', '1001')]), '01001').kind).toBe('one')
+    expect(matchByWmo(placed([withWmo('01001', '01001')]), ' 1001').kind).toBe('one')
+  })
+})
+
+describe('the same station in the list of another layer (GH-4077)', () => {
+  const NOW = Date.now()
+  const day = (days: number) => new Date(NOW - days * 86_400_000).toISOString()
+  const withWmo = (id: string, wmo: string | null, end: string | null = day(1)) => ({ ...station(id, id, 50, 10), wmo_id: wmo, start_timestamp: null, end_timestamp: end })
+  const picked = (overrides = {}) => ({ station_id: '02483', wmo: '10427', observation: false, reports: true, ...overrides })
+
+  it('is the station that has the number of the one picked', () => {
+    const list = placed([withWmo('X1', '10427'), withWmo('X2', '10999')])
+    expect(findSameStation(list, picked(), true)).toEqual({ station: list[0], by: 'wmo' })
+  })
+
+  it('is the station of the same id where both lists are the observations, before any number', () => {
+    const list = placed([withWmo('02483', null), withWmo('X1', '10427')])
+    expect(findSameStation(list, picked({ observation: true }), true)).toEqual({ station: list[0], by: 'id' })
+    // an id of another network is no station of this one
+    expect(findSameStation(list, picked({ observation: false }), true)).toEqual({ station: list[1], by: 'wmo' })
+    expect(findSameStation(list, picked({ observation: true }), false)).toEqual({ station: list[1], by: 'wmo' })
+  })
+
+  it('is not a station that has stopped where the station picked reports: a closed predecessor keeps the number', () => {
+    // 10427 was Altastenberg (00098) until 1954 and is Kahler Asten (02483) after
+    const closed = placed([withWmo('00098', '10427', '1954-12-31T00:00:00+00:00'), withWmo('X1', null)])
+    const reporting = reportingRule(closed, NOW)
+    expect(findSameStation(closed, picked(), true, reporting)).toBeNull()
+    // where the station picked has stopped too, or the list has no status, it is taken
+    expect(findSameStation(closed, picked({ reports: false }), true, reporting)).toEqual({ station: closed[0], by: 'wmo' })
+    expect(findSameStation(closed, picked(), false)).toEqual({ station: closed[0], by: 'wmo' })
+  })
+
+  it('is none where the number is on several stations or on none, or the station has none', () => {
+    const list = placed([withWmo('A', '10427'), withWmo('B', '10427')])
+    expect(findSameStation(list, picked(), true)).toBeNull()
+    expect(findSameStation(list, picked({ wmo: '99999' }), true)).toBeNull()
+    expect(findSameStation(list, picked({ wmo: null }), true)).toBeNull()
+  })
+})
+
+describe('whether a station of GHCN daily still reports (GH-4078)', () => {
+  const NOW = Date.UTC(2026, 10, 19)
+  const rule = ghcnReportingRule(NOW)
+
+  it('reports with no end (its last year is this one) and with an end in last year', () => {
+    expect(rule({ end_timestamp: null })).toBe(true)
+    expect(rule({ end_timestamp: '2025-12-31T00:00:00.000000+00:00' })).toBe(true)
+  })
+
+  it('has stopped where its record ends before last year, or the end is no date', () => {
+    expect(rule({ end_timestamp: '2024-12-31T00:00:00.000000+00:00' })).toBe(false)
+    expect(rule({ end_timestamp: 'never' })).toBe(false)
+  })
+})
+
+describe('the address of the GHCN layer (GH-4078)', () => {
+  it('names the layer and the station, and is read back', () => {
+    const state = { layer: 'ghcn' as const, source: DEFAULT_MEASURED, stationId: 'GM000010147', place: null }
+    expect(stateToQuery(state)).toEqual({ layer: 'ghcn', station: 'GM000010147' })
+    expect(stateFromQuery({ layer: 'ghcn', station: 'GM000010147' })).toEqual(state)
+  })
+})
+
+describe('the position of an address with no station (GH-3790)', () => {
+  it('is the latitude and the longitude of `?lat=&lon=`, as the search of the header writes them', () => {
+    expect(pointFromQuery({ lat: '52.5200', lon: '13.4000' })).toEqual({ latitude: 52.52, longitude: 13.4 })
+    expect(pointFromQuery({ lat: '-33.8688', lon: '151.2093' })).toEqual({ latitude: -33.8688, longitude: 151.2093 })
+    expect(pointFromQuery({ lat: ['52.5'], lon: ['13.4'] })).toEqual({ latitude: 52.5, longitude: 13.4 })
+  })
+
+  it('is none where the address names a station, which carries its own place (`stateFromQuery`)', () => {
+    expect(pointFromQuery({ station: '10147', lat: '53.45', lon: '10.2' })).toBeNull()
+  })
+
+  it('is none for a missing, a wrong or an out of range number', () => {
+    for (const query of [{}, { lat: '52.5' }, { lon: '13.4' }, { lat: '', lon: '' }, { lat: 'north', lon: '13.4' }, { lat: '91', lon: '13.4' }, { lat: '52.5', lon: '181' }])
+      expect(pointFromQuery(query), JSON.stringify(query)).toBeNull()
+  })
+
+  it('is read by the map\'s state as its place, the same as the one it writes', () => {
+    expect(stateFromQuery({ lat: '52.5', lon: '13.4' }).place).toEqual({ latitude: 52.5, longitude: 13.4 })
   })
 })

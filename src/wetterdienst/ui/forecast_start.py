@@ -2,11 +2,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """An MCP tool's forecast answer starts at now (GH-4025).
 
-A forecast (a network of `kind` forecast: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) is the rows of a model run. The latest
-MOSMIX-L or DMO run begins hours before the request was made (at 14:28 UTC its first row can be 10:00; MOSMIX-S and
-SWSMOS begin at the current or the next hour). An assistant that reads the first rows of the answer reports an hour
-that has passed as the forecast (the benchmark's `forecast-tokyo` case did, in three of five runs of the large tier),
-and the size budget (`ui.budget`) spends its characters on those hours before the future ones.
+A forecast (a network of `kind` forecast: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`) is the rows of
+a model run or, for `dwd/pollen` and `dwd/uvi`, of the latest daily file. The latest MOSMIX-L or DMO run begins hours
+before the request was made (at 14:28 UTC its first row can be 10:00; MOSMIX-S and SWSMOS begin at the current or the
+next hour), and the file of `dwd/pollen` and of `dwd/uvi` begins at the day of its morning update. An assistant that
+reads the first rows of the answer reports an hour that has passed as the forecast (the benchmark's `forecast-tokyo`
+case did, in three of five runs of the large tier), and the size budget (`ui.budget`) spends its characters on those
+hours before the future ones.
 
 So a tool's `values` request for a forecast network leaves out the rows stamped before the current period of their
 resolution, in UTC, and says so in a warning of the `metadata` block (`forecast-from-now`) that names the `timestamp`
@@ -16,7 +18,8 @@ characters go to future hours.
 The start of "now" by the resolution of the row: the current hour for an hourly forecast and for anything finer or
 subdaily (a reading of an hour stamped at the start of the hour is the current one, and so is the one stamped now), the
 current 6-hour period of a `6_hours` forecast, the current day of a daily one, the month of a monthly one and the year
-of an annual one. Today's forecast networks are all hourly; the others are what the same rule gives.
+of an annual one. The forecast networks are hourly but `dwd/pollen` and `dwd/uvi`, which are daily; the others are what
+the same rule gives.
 
 Which requests are cut:
 
@@ -151,9 +154,9 @@ def _note(
     what = _amount(len(stamps), rows)
     verb = "is" if len(stamps) == 1 else "are"
     if left:
-        text = f"The answer starts at {where}: {what} of the model run {verb} left out."
+        text = f"The answer starts at {where}: {what} of the forecast {verb} left out."
     else:
-        text = f"The model run ends before {where}: {what} {verb} left out and none is returned."
+        text = f"The forecast ends before {where}: {what} {verb} left out and none is returned."
     if len(left_out) == 1:
         times, _ = next(iter(left_out.values()))
         window = _window(times[0], times[-1])

@@ -23,6 +23,14 @@ values, so every station is listed for monthly. The monthly `end_timestamp` is n
 stops at 2018-02 for every station of the list while the rows run to 2026-09 (read 2026-10-19), so a
 window of recent months would leave out every station that has monthly values.
 
+## Weather text is not served
+
+The hourly climate record of ECCC's API still carries two fields with the weather of the hour as text,
+`WEATHER_ENG_DESC` and `WEATHER_FRE_DESC`. They are not served: they are text and not a measurement, and the `value`
+column is a `Float64` that is frozen at v1 ([GH-3762](https://github.com/earthobservations/wetterdienst/issues/3762),
+maintainer decision of 2026-11-08). A way to serve text, such as a column or a dataset of its own, would be an addition
+and can come after v1.
+
 ## Incomplete months
 
 ECCC's archive flags a monthly value `I` when the month has missing days ([Technical

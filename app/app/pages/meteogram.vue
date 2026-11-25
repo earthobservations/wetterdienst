@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import type { Station, Value, ValuesResponse } from '#shared/types/api'
+import type { PlaceMatch } from '#shared/utils/places'
+import type { PlaceInLink } from '~/utils/place-link'
+import type { NearStation } from '~/utils/place-stations'
 import type { RequestError } from '~/utils/request-error'
 import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
+import PlaceStations from '~/components/PlaceStations.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import { formatRunTime } from '~/utils/format'
 import { meteogramSnowQuery, meteogramUnitsKey, meteogramValuesQuery, MOSMIX_METEOGRAM, snowStationsQuery } from '~/utils/meteogram'
+import { placeOfQuery, queryOfPlace } from '~/utils/place-link'
+import { NEAR_STATIONS_COUNT, stationForPlace, stationsNear } from '~/utils/place-stations'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 import { snowStationIds } from '~/utils/snow-stations'
 import { unitsOfAnswer } from '~/utils/units'
@@ -21,6 +27,15 @@ const route = useRoute()
 const router = useRouter()
 
 const selectedStation = ref<Station | null>(null)
+// the place found by its name that the station shown is the closest to (GH-3791), and the stations near it
+const place = ref<PlaceInLink | null>(null)
+const stationsNearPlace = ref<NearStation<Station>[]>([])
+const nearState = ref<'loading' | 'failed' | 'ready'>('ready')
+let nearTicket = 0
+/** The station a link named that could not be found, where the page fell back to the place's closest: told beside the place, never silently */
+const stationMissing = ref('')
+/** The lookup of the stations near the place of the link, which the link's own station waits for where it has to fall back to the closest */
+let placeLookup: Promise<void> | null = null
 const values = ref<any[]>([])
 // the unit of each parameter of the values, as the answer says (GH-3980)
 const units = ref<Record<string, string>>({})
@@ -128,10 +143,80 @@ function onPickerWants(wanted: boolean) {
     void loadStations()
 }
 
-// Single-station picker: the picker hands over the one station picked, or none where its chip is removed
+// Single-station picker: the picker hands over the one station picked; a pick replaces the one before, and none is
+// only handed over by code (the picker has no way to clear a single station)
 function onPick(picked: Station[]) {
+  stationMissing.value = ''
+  // a station the reader picked (by name, on the map, by position) is no longer the place's: the place goes
+  place.value = null
+  stationsNearPlace.value = []
+  nearTicket++
   selectedStation.value = picked[0] ?? null
 }
+
+// ---- a place found by its name (GH-3791) ---------------------------------------------------------------------------
+// The station search also finds places. A place has no forecast of its own: the closest forecast station (MOSMIX) within reach (`PLACE_REACH_KM`) is shown,
+// with the others near it and how far each is; where none is within reach the page says so, names the nearest and shows no forecast as the place's. The
+// place is in the link (`lat`, `lon`, `placeName`, `placeRegion`) so that a shared link shows it without asking OpenStreetMap's search again.
+
+/** The forecast stations nearest to the place: the closest `NEAR_STATIONS_COUNT`, with their distances */
+async function loadNear(): Promise<void> {
+  const here = place.value
+  if (!here)
+    return
+  const ticket = ++nearTicket
+  nearState.value = 'loading'
+  stationsNearPlace.value = []
+  try {
+    const res = await $fetch<{ stations: Station[] }>('/api/stations', {
+      query: { ...locateNearest, latitude: here.latitude, longitude: here.longitude, rank: NEAR_STATIONS_COUNT },
+      ...API_FETCH,
+    })
+    if (ticket !== nearTicket)
+      return
+    stationsNearPlace.value = stationsNear(here, res.stations ?? [])
+    nearState.value = 'ready'
+  }
+  catch {
+    if (ticket === nearTicket)
+      nearState.value = 'failed'
+  }
+}
+
+/** A place chosen in the search: its closest forecast station is picked, or none where none is within reach (the one before is not the place's) */
+async function onPlace(match: PlaceMatch) {
+  cancelRestore()
+  stationMissing.value = ''
+  // the position to four decimals (about 10 m), as a link keeps it and as it is sent to the backend: Photon's full precision goes nowhere
+  place.value = { name: match.name, region: match.region, latitude: Number(match.latitude.toFixed(4)), longitude: Number(match.longitude.toFixed(4)) }
+  selectedStation.value = null
+  await loadNear()
+  if (nearState.value === 'ready')
+    selectedStation.value = stationForPlace(stationsNearPlace.value)?.station ?? null
+}
+
+/** A station of the list under the place, chosen by the reader: the place stays, as the weather shown is still the one near it */
+function onPickNear(station: Station) {
+  selectedStation.value = station
+}
+
+/** The place the link names, shown without asking the search of places; its closest station is picked where the link names no station */
+async function applyPlaceFromUrl() {
+  const named = placeOfQuery(route.query)
+  place.value = named
+  if (!named) {
+    nearTicket++
+    stationsNearPlace.value = []
+    return
+  }
+  placeLookup = loadNear()
+  await placeLookup
+  if (nearState.value === 'ready' && !route.query.station && !selectedStation.value)
+    selectedStation.value = stationForPlace(stationsNearPlace.value)?.station ?? null
+}
+
+/** The keys of the link that name the place, where there is one */
+const placeQuery = () => place.value ? queryOfPlace(place.value) : {}
 
 /**
  * The snow forecast of a station, for the stations that have one (the list is asked for once, `snow-stations.ts`). Out of
@@ -220,6 +305,20 @@ function cancelRestore() {
   isRestoringFromUrl.value = false
 }
 
+/**
+ * The station a link names could not be found (it is not a forecast station, or the lookup failed): where the link names a place too, the page shows the
+ * place's closest station as a link without a station would, and says that the station of the link was not found. Without a place there is nothing to fall back to.
+ */
+async function fallBackToPlace(stationId: string, ticket: number) {
+  if (!placeOfQuery(route.query))
+    return
+  await placeLookup
+  if (ticket !== restoreTicket || selectedStation.value || nearState.value !== 'ready')
+    return
+  stationMissing.value = stationId
+  selectedStation.value = stationForPlace(stationsNearPlace.value)?.station ?? null
+}
+
 // Auto-fetch and sync URL whenever a station is chosen or cleared
 watch(selectedStation, (station) => {
   if (!applyingUrl) {
@@ -243,7 +342,9 @@ watch(selectedStation, (station) => {
     availableIssues.value = []
     // A rejected navigation (e.g. superseded by a subsequent replace() before
     // this one resolves) would otherwise be an unhandled promise rejection.
-    void router.replace({ query: {} }).catch(() => {})
+    // not while the station of the link is being looked up: the link's station, its run and the display of the chart are still to come, and a link written now would take them away
+    if (!isRestoringFromUrl.value)
+      void router.replace({ query: placeQuery() }).catch(() => {})
   }
 })
 
@@ -263,10 +364,19 @@ watch([selectedStation, selectedIssue, unitsAsked], ([station]) => {
 })
 
 // Sync station + issue to URL (fires once when both change together)
-watch([selectedStation, selectedIssue], ([station, issue]) => {
-  if (!station)
+watch([selectedStation, selectedIssue, place], ([station, issue, here], [before, run, was]) => {
+  if (!station) {
+    // a place with no station within reach is in the link all the same; but not while the link's own station is being looked up (see above)
+    if (place.value && !isRestoringFromUrl.value)
+      void router.replace({ query: placeQuery() }).catch(() => {})
     return
-  const q: Record<string, string> = { station: station.station_id }
+  }
+  // not while the link's station is being looked up either: the station still shown is the one before, and writing it would take the link's away (the header's search
+  // from a place view to another station: the place goes at once, the new station is still on its way)
+  // (the reader's own change of the station or the run while it is looked up is written all the same: it ends the lookup, as the route watcher below sees)
+  if (isRestoringFromUrl.value && station === before && issue === run && here !== was)
+    return
+  const q: Record<string, string> = { station: station.station_id, ...placeQuery() }
   if (issue)
     q.issue = issue
   // Preserve display params managed by the Meteogram component
@@ -303,7 +413,10 @@ async function restoreFromUrl() {
     if (ticket !== restoreTicket)
       return
     const station = (res.stations ?? [])[0]
+    if (!station)
+      await fallBackToPlace(stationId, ticket)
     if (station) {
+      stationMissing.value = ''
       // a link without a run is the latest one, not the run chosen for the station before
       applyingUrl = true
       // the run of the URL as it is now: a link to the same station may have taken the run away while it was looked up
@@ -319,7 +432,8 @@ async function restoreFromUrl() {
     }
   }
   catch {
-    // ignore – station ID in URL may be invalid, just start fresh
+    // ignore – station ID in URL may be invalid, just start fresh; with a place in the link, its closest station is shown instead
+    await fallBackToPlace(stationId, ticket)
   }
   finally {
     // an earlier request leaves the flags to the later one that is still under way
@@ -330,7 +444,10 @@ async function restoreFromUrl() {
     }
   }
 }
-onMounted(restoreFromUrl)
+onMounted(() => {
+  void restoreFromUrl()
+  void applyPlaceFromUrl()
+})
 // the page's own choice is written to the URL as well (the watch above): only a station it did not choose is loaded
 // and a station asked for already (whose answer may still be coming, or was a failure) is not asked for again
 watch(() => route.query.station, (stationId) => {
@@ -346,8 +463,12 @@ watch(() => route.query.station, (stationId) => {
     // a search back to the station that is shown, while one for another is still being looked up, is the later one
     cancelRestore()
   }
-  if (stationId && stationId !== selectedStation.value?.station_id && stationId !== requestedFromUrl)
+  if (stationId && stationId !== selectedStation.value?.station_id && stationId !== requestedFromUrl) {
+    // a link from elsewhere (the header's search) names a station and no place: the place of before is not this station's
+    if (!placeOfQuery(route.query) && place.value)
+      void applyPlaceFromUrl()
     void restoreFromUrl()
+  }
 })
 // a link to the station that is shown, without a run (the header's search), is the latest run, as for any other
 // station: the run follows the URL whenever the URL is at the station that is shown (also where its station changed
@@ -405,9 +526,21 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               :loading="stationsLoading"
               :error="stationsFailed"
               :locate="locateNearest"
+              places
               @update:selected="onPick"
+              @update:place="onPlace"
               @update:open="onPickerWants"
               @update:mode="onPickerWants($event === 'map')"
+            />
+            <PlaceStations
+              v-if="place"
+              class="mt-3"
+              :place="place"
+              :near="stationsNearPlace"
+              :state="nearState"
+              :selected-id="selectedStation?.station_id"
+              :missing-station="stationMissing"
+              @pick="onPickNear"
             />
           </UCard>
         </template>
@@ -446,6 +579,14 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
                 />
               </div>
             </template>
+            <!-- DWD's warnings whose polygon contains the forecast point (GH-4295), over the chart: a polite status, and rows that open to DWD's own words -->
+            <WarningsBanner
+              v-if="selectedStation.latitude != null && selectedStation.longitude != null"
+              :point="{ latitude: selectedStation.latitude, longitude: selectedStation.longitude }"
+              map-link
+              id-prefix="forecast-banner"
+              class="mb-4"
+            />
             <Meteogram
               :values="values"
               :snow-values="snowValues"
@@ -453,6 +594,11 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               :station-coords="{ latitude: selectedStation.latitude, longitude: selectedStation.longitude }"
               :units="unitsOfForecast"
             />
+            <!-- the warnings are DWD's and cover Germany (GH-4328): a station elsewhere has no banner, and this line, with the credits, says why, so that a
+                 forecast without a warning is never read as a day without one -->
+            <p class="mt-1 px-1 text-sm text-muted" data-testid="meteogram-warnings-note">
+              {{ t('meteogram.warningsNote') }}
+            </p>
           </UCard>
 
           <!-- Empty state before selection -->

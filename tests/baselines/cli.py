@@ -6,7 +6,7 @@
 command line **as it was released**, as data a script is written against, so that a removal fails even where the
 snapshot was regenerated with it:
 
-- each command and group, by its path (`wetterdienst stripes image`);
+- each command and group, by its path (`wetterdienst values`);
 - each option of it by each of its spellings (`--stations`, `-v`), with its type (and the choices, or the range, of
   that type), whether it is required, takes several values, or is a flag, its number of arguments, its default and the
   environment variable it reads;

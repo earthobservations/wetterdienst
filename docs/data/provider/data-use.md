@@ -109,7 +109,6 @@ to common units, and a value the source documents as missing (`-999`, `---`) is 
   [plausibility checks](../plausibility.md). Whichever the mode, the answer shows what was done.
 - **`interpolate` and `summarize`** calculate or select values from the readings of several stations; they add a
   sentence to the note.
-- **Climate stripes and plots** are drawn from the annual values of DWD stations; the image headers carry a sentence.
 
 What the licences ask about changes differs. CC BY asks to "indicate if changes were made"; the note in the answer says
 what was done, and a CSV or a spreadsheet written without `with_metadata=True` does not carry it (see
@@ -138,8 +137,9 @@ without an account. What that means for the data:
   [Rate limit](../../usage/app.md#rate-limit)); there is no limit that follows a provider's own limit.
 - **It holds the keys of the four providers that need one**, and keeps serving them. Read from its public
   `/api/coverage` on 2026-11-06 (that list is `/api/providers` now), `aemet`, `knmi`, `metoffice` and `metno` report `configured: true` there. Whether that
-  is within their terms is not settled; the question was put to KNMI and CEDA in November 2026 and no answer has come
-  yet (see the next section).
+  is within their terms was put to KNMI and CEDA in November 2026: KNMI answered on 2026-11-09 that the instance's use
+  falls mostly within its fair use limits and asked for a longer cache (GH-3927); CEDA was asked on 2026-11-06 and has not answered
+  (2026-11-22; see the next section). Until it does, the instance keeps serving the Met Office's MIDAS Open.
 - **Its logs and the data protection of its users** are in the privacy policy of the app, not here.
 
 ## Keys and credentials
@@ -151,11 +151,11 @@ sharing the key and about serving others with it, quoted at the License section 
 | Provider | What the terms say | Does a server that answers others with one key fit? |
 | --- | --- | --- |
 | [AEMET](aemet/index.md#license) | The key "identifies" the user; as many may be created as needed; an e-mail address is asked. Nothing on sharing, nothing on serving others. | Not addressed by the pages read. |
-| [KNMI](knmi/index.md#license) | "Accounts and keys are personal. They are meant to be used by you or by your organisation for your own applications, and should not be shared with, resold to, or distributed to third parties." And: "If you want to serve KDP data to your own users, proxy the requests through your own backend, keep the key there, and add caching in your backend." | Not settled: the question was put to KNMI in November 2026 and no answer has come yet. Our reading: a backend with a key and a cache is the pattern KNMI names; an open server for anyone may be more than "your own users". |
-| [Met Office](metoffice/index.md#license) (CEDA) | "Not to use another person's account, nor to let other people use your accounts, except by agreement with us"; "Only to use the service/resource for the purposes for which you were given access". | Not settled: the question was put to CEDA in November 2026 and no answer has come yet. Our reading: others use the server, not the account. |
+| [KNMI](knmi/index.md#license) | "Accounts and keys are personal. They are meant to be used by you or by your organisation for your own applications, and should not be shared with, resold to, or distributed to third parties." And: "If you want to serve KDP data to your own users, proxy the requests through your own backend, keep the key there, and add caching in your backend." | Asked in November 2026, KNMI answered on 2026-11-09 that the hosted instance's use falls mostly within its fair use limits, and asked for files to be cached longer, so that they are not downloaded again and again (GH-3927). |
+| [Met Office](metoffice/index.md#license) (CEDA) | "Not to use another person's account, nor to let other people use your accounts, except by agreement with us"; "Only to use the service/resource for the purposes for which you were given access". | Not settled: the question was put to CEDA on 2026-11-06 and it has not answered (2026-11-22). The hosted instance keeps serving MIDAS Open meanwhile, on our reading: others use the server, not the account. An answer that comes later is a new issue, and one that forbids this changes what the instance serves. |
 | [MET Norway](metno/index.md#license) (Frost) | "Each client ID must be associated with a valid email address"; "Use a proxy if possible"; "Heavy traffic means on average more than 1 requests to the API per second": then "save the information on your own server", and contact them if you "have not been able to reduced the amount of requests by taking into account our guidelines". The weather API's terms (a different service) call "trying to circumvent traffic rate limiting measures and/or impersonating traffic from other clients" abuse. | A proxy with a cache is asked for; what counts is the rate on average, which is not measured here. |
 
-None of the four says in terms that serving others from one key is allowed or forbidden. We have not used any key to
+None of the four says in its terms that serving others from one key is allowed or forbidden; KNMI's answer is the only statement so far. We have not used any key to
 read what a key's response says.
 
 ## The repository's own files
@@ -168,17 +168,22 @@ with the terms of its provider.
 
 | Where | What | Provider, terms and credit |
 | --- | --- | --- |
-| `tests/provider/dwd/radar/files/` | nine real radar files of 2026-10-20 to 22, the smallest of their product (composites and a volume scan as HDF5, two `meso` and one `KONRAD3D` XML), 550,338 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/radar/files/` | ten real radar files of 2026-10-20 to 22 and 2026-11-19, the smallest of their product, but the RV composite's, which is the whole analysis of 2026-11-19 21:10 UTC (composites and a volume scan as HDF5, two `meso` and one `KONRAD3D` XML), 868,375 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/alerts/files/` | one DWD warning in CAP form (a fog warning for Kreis Wittenberg, 2026-11-05, in eight languages) with the polygon of its one area cut to 5 of its 124 points, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst"; the wording is DWD's |
+| `tests/provider/dwd/storm_cells/files/` | three real KONRAD3D scans of 2026-11-15 to 17: an empty one, one with two cells, and one with three of its ten cells (the others cut), 96 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/kostra/files/` | the 22 KOSTRA-DWD-2020 tables of December 2022, each cut to five of its 90,000 rows (the header and the lines of the cells `000000`, `083144`, `105190`, `160126` and `203167`, byte for byte), 19,128 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/mosmix/` | one real MOSMIX-SNOW run (the run of 2026-11-14 19 UTC, 15 stations, 48 hourly steps), as DWD published it, 9.7 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/pollen/` | one real `s31fg.json`, the pollen forecast of 27 regions as DWD published it on 2026-11-17, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/uvi/` | one real `uvi.json`, the UV index forecast of 38 places as DWD published it on 2026-11-17, 3 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dmi/observation/` | four JSON files of DMI readings and parameter lists (hourly, daily, monthly and annual values), 85 kB | DMI, CC BY 4.0, "© DMI (Danish Meteorological Institute)" |
 | `tests/provider/knmi/observation/files/` | five real answers of KNMI's EDR API (De Bilt and Schiphol, a day to a year of each resolution) cut to the variables the provider maps, and the rows the Open Data files route made of them before GH-3928, 10 CSV files, 247 kB | KNMI, CC BY 4.0, "© KNMI" |
-| `tests/provider/noaa/ghcn/` | two CSV files of GHCN-Daily elements, 1.3 kB | NOAA NCEI, CC0 1.0 |
+| `tests/provider/eaufrance/hubeau/` | the 691 timestamps of one station's stage (H502301401, 2026-10-18 to 2026-11-17), as Hub'Eau's real time observations gave them, 16 kB | Eaufrance, Etalab Open Licence 2.0, credit "Eaufrance" |
+| `tests/provider/noaa/ghcn/` | two CSV files of GHCN-Daily elements (rows of the per-station files), 0.9 kB | NOAA NCEI, CC0 1.0 |
 | `tests/provider/station_catalogue_stubs.py`, `tests/provider/value_stubs.py` and the inline text of the tests of each provider | rows of the real station lists and of real values, a few per network, in the provider's own format; some rows are edited (below) | the licence and credit line of that provider on [licences and credit lines](licenses.md) |
 | IMGW rows of the same files and of `tests/provider/imgw/` | a few dozen rows of station lists and daily values, some of them edited | IMGW, CC BY-NC-ND 4.0; credit: „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy” and „Dane Instytutu Meteorologii i Gospodarki Wodnej – Państwowego Instytutu Badawczego zostały przetworzone” |
 | LHMT rows of `tests/provider/lhmt/` | a few rows of observations, some of them edited | LHMT, CC BY-SA 4.0, credit "Lietuvos hidrometeorologijos tarnyba (LHMT)" |
 | `docs/assets/readme-stripes.png`, `summary.png`, `interpolation.png` and the output cells of the docs and the README | charts drawn from, and tables of, DWD values | DWD, CC BY 4.0, "Based on data from Deutscher Wetterdienst" |
-| `src/wetterdienst/provider/eumetnet/opera/sites.json.gz` (shipped in the package) | the 205 OPERA radar sites of EUMETNET's database, those with a location and a position, with their numbers converted from text | EUMETNET's [OPERA database](https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/index.html) page states no licence |
+| `src/wetterdienst/provider/eumetnet/opera/sites.json.gz` (shipped in the package) | the 205 OPERA radar sites of EUMETNET's database, those with a location and a position, with their numbers converted from text | EUMETNET OPERA, credit "EUMETNET OPERA", source page: EUMETNET's [OPERA database](https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/index.html); OPERA gave its permission in November 2026 to use the list and pass it on; the page states no licence and OPERA has not decided one yet |
 
 The two IMGW sentences are IMGW's own (§ 5 ust. 3 and 4 of its terms, in Polish); the first names the source, the second
 says the data were processed, which they are. The same two sentences stand beside the IMGW rows in the code.
@@ -198,13 +203,17 @@ Our reading:
   weather warnings issued by the DWD is changed, the source details provided with the data/services have to be
   deleted" ([rules](https://www.dwd.de/EN/service/legal_notice/templates_dwd_as_source.html)); a test file that is
   published as no warning is not what the rule is about, in our reading, which is not DWD's.
-- The OPERA list has no stated licence.
+- **The OPERA list** has no stated licence. EUMETNET OPERA's support answered in November 2026 that wetterdienst may use
+  the database and pass it on, credited to EUMETNET OPERA, and that the licence is still under discussion at OPERA. The
+  page of the database has a disclaimer about its map and links EUMETNET's general
+  [website terms](https://www.eumetnet.eu/legal-information-2/), whose § 3.4 to 3.6 allow private, research and
+  educational use and ask that the source page be named on each copy and publication; OPERA's answer is the permission
+  for the list. We name the page: here, in the docstrings of `OperaRadarSites`, and on stderr of the `radar` command.
 
 The rows stay, named and credited here; replacing the IMGW and LHMT ones with invented rows of the same shape would be
-the other way. The OPERA list is not settled: EUMETNET's page states no licence, the question was put to EUMETNET in November 2026
-and no answer has come yet. A test
-(`tests/test_provider_terms.py`) holds the first table of this page to the registry, so that a provider added without a
-row fails it, and this section to the data files that are in the tests.
+the other way. The OPERA list is not settled: its licence is still being decided at OPERA, which will say when it is,
+and until then we state none for it. A test (`tests/test_provider_terms.py`) holds the first table of this page to the
+registry, so that a provider added without a row fails it, and this section to the data files that are in the tests.
 
 ## Our reading
 

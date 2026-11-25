@@ -93,9 +93,9 @@ REJECTED = QualityKind(
     "`hard` rejected the number the source wrote, which `raw` holds: one of "
     + _CHECKS
     + ", several joined with `+`. It tells a number rejected by the library from a missing-value code of the "
-    "source, which has `raw` alone. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) never has one but for "
-    "`floor` and `limits`: its other checks are soft whatever the mode, so a value is flagged `suspect:<check>` and "
-    "not nulled.",
+    "source, which has `raw` alone. A forecast network (`kind` `forecast`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, "
+    "`dwd/pollen`, `dwd/uvi`) never has one but for `floor` and `limits`: its other checks are soft whatever the mode, "
+    "so a value is flagged `suspect:<check>` and not nulled.",
 )
 
 #: the last token of any network that maps a missing-value marker or an impossible number to null
@@ -186,7 +186,19 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "day, daily values for a month or a year). DMI computes the values of Greenland and the Faroe Islands "
             "from however many exist, even one; a daily value from fewer than 4 readings (half of the 8 three-hourly "
             "synoptic observations that older Greenland days have; modern days have 24 hourly), a monthly from fewer "
-            "than 14 and a yearly from fewer than 183 is judged by the check `source` like `validity:false`.",
+            "than 14 and a yearly from fewer than 183 is judged by the check `source` like `validity:false`, unless "
+            "the period had not ended (`completeness:Incomplete`), whose count is the readings so far.",
+        ),
+        _kind(
+            "completeness",
+            "Incomplete",
+            "The monthly or annual value of a period that had not ended when the request was served (the current "
+            "month or year, which DMI serves from the readings so far, `validity:true` and not yet controlled): it is "
+            "partial and may still change. DMI marks no such value, so this library does, by the `to` of the record "
+            "against the time of the request. A value of a period that has ended has no token, which is no claim that "
+            "it is final. A daily value of a day that had not ended is not returned at all (`window-not-closed`), and "
+            "an hourly one is not judged: DMI publishes an hour when it is over.",
+            codes=_codes(Incomplete="Based on a period that had not ended"),
         ),
         SUSPECT,
         REJECTED,
@@ -242,7 +254,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
         RAW,
     ],
     "dwd/swsmos": [SUSPECT, RAW],
+    "dwd/uvi": [SUSPECT, RAW],
     "dwd/poi": [SUSPECT, REJECTED, RAW],
+    "dwd/pollen": [SUSPECT, RAW],
     "dwd/phenology": [
         _plain(
             "DWD's Qualitaetsniveau of the phase report, as DWD writes it.",

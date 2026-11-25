@@ -15,6 +15,7 @@ import threading
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -86,8 +87,19 @@ class NginxLike:
             if files is not None:
                 return 200, [("Content-Type", "text/html")], self.page(path, files)
         elif self.redirect and self.files_of(f"{path}/") is not None:
-            return 301, [("Location", f"{path}/")], b""
+            # percent-encoded, so that no request text writes a header line of its own (no CR or LF, GH-4290)
+            return 301, [("Location", quote(f"{path}/", safe="/"))], b""
         return 404, [], b""
+
+
+def _header_text(text: str) -> str:
+    """Refuse a header name or value that holds a CR or LF: it would write a header line of its own (GH-4340)."""
+    # strip, then compare: this is the shape CodeQL recognises as a sanitizer, so do not simplify it
+    clean = text.replace("\r", "").replace("\n", "")
+    if clean != text:
+        msg = f"header text must not hold CR or LF: {text!r}"
+        raise ValueError(msg)
+    return clean
 
 
 @contextmanager
@@ -107,7 +119,7 @@ def serving(*, redirect: bool = True) -> Iterator[NginxLike]:
             status, headers, content = state.answer(path)
             self.send_response(status)
             for name, value in headers:
-                self.send_header(name, value)
+                self.send_header(_header_text(name), _header_text(value))
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             if body:

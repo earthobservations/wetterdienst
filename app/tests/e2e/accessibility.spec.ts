@@ -3,9 +3,11 @@ import type { Locale, Mode, Variant } from './accessibility/scan'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { exampleScan } from '../helpers/storm-cells-answer'
 import { askHandlers } from './accessibility/ask-backend'
 import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
+import { rankedStations } from './accessibility/place-backend'
 import { compareToBaseline, readBaseline, RECORDING, scan, variantKey } from './accessibility/scan'
 
 // Accessibility, measured: every page, in light and dark and in two languages, scanned with axe
@@ -52,6 +54,16 @@ interface Target {
   ready?: (page: Page, locale: Locale) => Promise<void>
 }
 
+/** The radar, with the reader's position given by a press of "Use my location" and marked on its map (GH-4287) */
+async function showPosition(page: Page, locale: Locale, position: { latitude: number, longitude: number }) {
+  await page.context().grantPermissions(['geolocation'])
+  await page.context().setGeolocation(position)
+  await expect(page.getByTestId('radar-newest')).toBeVisible()
+  await expect(page.getByTestId('radar-cells-item').first()).toBeVisible()
+  await page.getByRole('button', { name: message(locale, 'location.button') }).click()
+  await expect(page.getByRole('img', { name: message(locale, 'radar.positionMarker') })).toHaveCount(1)
+}
+
 // every page of the app, as it is first shown
 const PAGES: Target[] = [
   { page: 'index', path: '/' },
@@ -67,6 +79,12 @@ const PAGES: Target[] = [
     ready: async (page) => { await expect(page.getByTestId('map-list')).toBeVisible() },
   },
   {
+    // the radar tool (GH-3788): the map with the radar over it, its player and legend, and the panel
+    page: 'radar',
+    path: '/radar',
+    ready: async (page) => { await expect(page.getByTestId('radar-newest')).toBeVisible() },
+  },
+  {
     page: 'widget',
     path: '/widget',
     // the widget has no heading: it says which parameter it lacks
@@ -76,6 +94,16 @@ const PAGES: Target[] = [
     page: 'glossary',
     path: '/glossary',
     ready: async (page) => { await expect(page.getByText('Mean air temperature at 2 m height.').first()).toBeVisible() },
+  },
+  {
+    page: 'measurement',
+    path: '/measurement',
+    ready: async (page, locale) => { await expect(page.getByRole('heading', { level: 1, name: message(locale, 'measurement.title') })).toBeVisible() },
+  },
+  {
+    page: 'methods',
+    path: '/methods',
+    ready: async (page, locale) => { await expect(page.getByRole('heading', { level: 1, name: message(locale, 'methods.title') })).toBeVisible() },
   },
   {
     page: 'providers',
@@ -95,6 +123,21 @@ const PAGES: Target[] = [
   { page: 'datenschutz', path: '/datenschutz' },
 ]
 
+/** The Forecast's station search, open (a button with a popup: its name is the placeholder until something is chosen) */
+async function openForecastSearch(page: Page) {
+  await page.locator('[data-testid="station-picker"] button[aria-haspopup="listbox"]').first().click()
+  await expect(page.getByRole('listbox')).toBeVisible()
+}
+
+/** A place chosen in the Forecast's station search by typing its name: the place, with its stations, is on the page */
+async function choosePlaceInForecast(page: Page, text: string, name: RegExp) {
+  await openForecastSearch(page)
+  await page.keyboard.type(text)
+  await page.getByRole('listbox').getByRole('option', { name }).first().click()
+  await expect(page.getByTestId('place-stations')).toBeVisible()
+  await expect(page.getByTestId('place-summary')).toHaveText(/\S/)
+}
+
 interface State {
   page: string
   state: string
@@ -110,14 +153,28 @@ interface State {
 
 const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station'
 const EXPLORER_WITH_STATION = `${EXPLORER}&stations=00011`
+/** The Explorer's interpolation, which takes the point by the name of a place (GH-3791), and the link of a place that fills it */
+const EXPLORER_INTERPOLATION = EXPLORER.replace('mode=station', 'mode=interpolation')
+const BAD_TOELZ_LINK = 'lat=47.7610&lon=11.5596&placeName=Bad%20T%C3%B6lz&placeRegion=Bayern%2C%20Germany'
 
-/** The chart Plotly drew: its SVG is in the container once it has */
-const plotly = (page: Page) => page.locator('.js-plotly-plot .main-svg').first()
+/** The explorer's chart (ECharts, drawn as SVG): its SVG is in the canvas once it has */
+const explorerChart = (page: Page) => page.locator('.xc-canvas[data-drawn="true"] svg').first()
 /** The stripes' chart (ECharts, drawn as SVG): its SVG is in the canvas once it has */
 const stripesChart = (page: Page) => page.locator('.sc-canvas[data-drawn="true"] svg').first()
 
 /** The forecast's chart (ECharts): its SVG is in the container once it has */
 const forecastChart = (page: Page) => page.locator('.mg-canvas svg').first()
+
+/**
+ * The page back at its top, for a state on a phone that clicks a button further down: Playwright scrolls the button into view to click it,
+ * which can leave a control (the station picker's switch) at the top of the window half under the fixed top bar. The bars hide on a
+ * reader's scroll, which this was not (GH-4226), so axe finds that control "partially obscured" (`target-size`), on some runs and not
+ * on others. At the top nothing is under a bar, so the state is the same on every run.
+ */
+async function backAtTop(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await expect(page.locator('html')).not.toHaveAttribute('data-bars', 'hidden')
+}
 
 /** A map with markers: Leaflet puts one icon, or a cluster, in the page for each */
 async function mapWithStations(page: Page) {
@@ -169,6 +226,18 @@ const STATES: State[] = [
     },
   },
   {
+    // the values table on a phone: its box scrolls sideways, so it is a focusable, named region (2.1.1), and its controls are 24 px targets (GH-4312)
+    page: 'explorer',
+    state: 'phone-values-table',
+    path: EXPLORER_WITH_STATION,
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+      await backAtTop(page)
+    },
+  },
+  {
     page: 'explorer',
     state: 'values-chart',
     path: EXPLORER_WITH_STATION,
@@ -176,7 +245,19 @@ const STATES: State[] = [
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       await expect(page.getByRole('table').first()).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'dataViewer.viewChart'), exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
+      await expect(explorerChart(page)).toBeVisible()
+    },
+  },
+  {
+    // the value details of two stations (GH-4296): a row for each station of each parameter
+    page: 'explorer',
+    state: 'value-details-two-stations',
+    path: `${EXPLORER}&stations=00011,00044`,
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'explorer.valuesDetails'), exact: true }).click()
+      await expect(page.getByTestId('value-details-row').first()).toBeVisible()
     },
   },
   {
@@ -240,6 +321,7 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       await expect(page.getByTestId('limit-apply')).toBeVisible()
+      await backAtTop(page)
       // the notice's text and buttons wrap, and none reaches past the screen (1.4.10): the page itself
       // is wider at 320 px where a station is chosen, which is the explorer's own and no concern of the notice
       const past = await page.evaluate(() => {
@@ -404,7 +486,8 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       await expect(stripesChart(page)).toBeVisible()
-      await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
+      // the table is a view of the stripes' switch (GH-4233)
+      await page.getByRole('radio', { name: message(locale, 'stripes.variant.table'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
   },
@@ -536,8 +619,98 @@ const STATES: State[] = [
       await page.keyboard.press('Control+k')
       await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
       await page.keyboard.type('ber')
-      // the station is listed twice, as its forecast and as a station on the map (GH-3650): either is the state
+      // the station of the forecast's points, in the group of its network (GH-3790)
       await expect(page.getByRole('option', { name: /BERLIN-TEMPELHOF/ }).first()).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // stations of three networks found by name (GH-3790): a group for each of the forecast's points, DWD's measuring stations and NOAA GHCN daily,
+    // each result with its provider and network, and the last option of the group that has more than it shows, which leads to the map's search
+    page: 'index',
+    state: 'search-stations',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      // DWD's measuring stations are a list of the search that a reader turns on (the setting is kept in the browser)
+      await page.evaluate(() => localStorage.setItem('wd_settings', JSON.stringify({ version: 2, searchStations: { forecast: true, measured: true, ghcn: true } })))
+      await page.reload()
+      // the shortcut is the app's: it listens once the page has been drawn
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('hamburg')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsGhcn'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsMeasured'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsForecast'), exact: true })).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // a WMO number typed in (GH-3790): the stations of the lists that have it, and the option that asks every network for it; run, the stations
+    // of four networks in a group of their own, one of them leading to the Explorer
+    page: 'index',
+    state: 'search-station-ids',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('10381')
+      const option = page.getByRole('option', { name: message(locale, 'shell.searchAllNetworks').replace('{id}', '10381') })
+      await expect(option).toBeVisible()
+      await page.keyboard.press('Enter')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsWithId').replace('{id}', '10381'), exact: true })).toBeVisible()
+      await expect(page.getByRole('option', { name: /AEMET/ })).toBeVisible()
+    },
+  },
+  {
+    // the search with words of the app typed (GH-3790): the groups of the entries, the glossary, the settings and the questions, each with its
+    // few results and the option that leads on; "temp" is in a word of every language (the glossary is found by the English names as well)
+    page: 'index',
+    state: 'search-words',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('temp')
+      await expect(page.getByRole('group', { name: message(locale, 'glossary.title'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'measurement.title'), exact: true })).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // a position typed into the search: a place that leads to the map, before every other group (GH-3790)
+    page: 'index',
+    state: 'search-place',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('52.52, 13.40')
+      await expect(page.getByRole('option', { name: /52\.5200, 13\.4000/ })).toBeVisible()
+    },
+  },
+  {
+    // the places OpenStreetMap has for a name, found by the app's server through Photon (GH-3791): a group of their own before the stations, with
+    // the credit of the licence and the name of the service under the list; the first place is the active option
+    page: 'index',
+    state: 'search-places',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('paris')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
       await page.keyboard.press('ArrowDown')
     },
   },
@@ -561,6 +734,100 @@ const STATES: State[] = [
       await expect(page.getByTestId('answer-verdict')).toBeVisible()
       await page.getByText(message(locale, 'ask.showValues'), { exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    // the explanation under an answer (GH-3764): "How was this worked out?" opened, with the marks of what is wetterdienst's own, the sources and the links
+    page: 'index',
+    state: 'ask-explanation-open',
+    path: '/?ask=summer',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await page.getByTestId('explanation-button').click()
+      await expect(page.getByTestId('explanation-rules')).toBeVisible()
+    },
+  },
+  {
+    // the season question with its choices (GH-3764, step 2a): the season and the normal as labelled selects, a winter against 1961-1990, the
+    // disclosure opened so that what it says of the choice is scanned too
+    page: 'index',
+    state: 'ask-season-choices',
+    path: '/?ask=season&season=winter&ref=1961-1990',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.seasonLabel') })).toBeVisible()
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.refLabel') })).toBeVisible()
+      await page.getByTestId('explanation-button').click()
+      await expect(page.getByTestId('explanation-rules')).toBeVisible()
+    },
+  },
+  {
+    // the same on a phone, at a station that has too few winters of 1961-1990: the normal is offered disabled with the reason, and the answer says why there is none
+    page: 'index',
+    state: 'ask-season-disabled-phone',
+    path: '/?ask=season&season=winter&ref=1961-1990&place=00183',
+    viewport: { width: 390, height: 844 },
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('place-button')).toContainText('Arkona')
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.refLabel') }).locator('option').first()).toBeDisabled()
+      await expect(page.getByTestId('answer')).toContainText('16')
+    },
+  },
+  {
+    // a season the station has too little of is greyed out with the reason in its text, and the line under the choices says why (a link that names it)
+    page: 'index',
+    state: 'ask-season-greyed-season',
+    path: '/?ask=season&season=winter&place=00205',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('place-button')).toContainText('Aue')
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.seasonLabel') }).locator('option[disabled]')).toHaveCount(1)
+      await expect(page.getByTestId('choice-note')).not.toHaveText('')
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  {
+    // the day question with its measure (GH-3764, step 2b): the measure and the day as labelled controls, a sunny-or-dull day, the disclosure opened
+    // so that the rules of the measure, their sources and the marks of what is wetterdienst's own are scanned too
+    page: 'index',
+    state: 'ask-day-choices',
+    path: '/?ask=day&measure=sun&day=2025-12-26',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.day.measureLabel') })).toBeVisible()
+      await page.getByTestId('explanation-button').click()
+      await expect(page.getByTestId('explanation-rules')).toBeVisible()
+    },
+  },
+  {
+    // the temperature of a day: bars that hang from a line (a frost day has negative minima around it), with the classes the day counts as
+    page: 'index',
+    state: 'ask-day-temperature',
+    path: '/?ask=day&measure=temperature&day=2025-12-26',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.day.measureLabel') })).toBeVisible()
+      await page.getByText(message(locale, 'ask.showValues'), { exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    // a phone, at a station that has no snow reading: the snow measure is offered disabled with the reason in its option, and the line under the choices says why
+    page: 'index',
+    state: 'ask-day-greyed-phone',
+    path: '/?ask=day&day=2025-12-26&place=00183',
+    viewport: { width: 390, height: 844 },
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('place-button')).toContainText('Arkona')
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.day.measureLabel') }).locator('option[disabled]')).toHaveCount(1)
+      await expect(page.getByTestId('choice-note')).not.toHaveText('')
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
     },
   },
   {
@@ -599,12 +866,14 @@ const STATES: State[] = [
     },
   },
   {
-    // the layer of the measurements, with the choices of its resolution and dataset
+    // the layer of the measurements, with the choices of its resolution and dataset, in the panel of the layers button (GH-4209)
     page: 'map',
     state: 'measured-layer',
     path: '/map?layer=measured',
     reach: async (page) => {
       await expect(page.getByTestId('map-count')).toBeVisible()
+      await page.getByTestId('map-layers-button').click()
+      await expect(page.getByTestId('map-grouping')).toBeVisible()
       await expect(page.getByTestId('map-resolution')).toBeVisible()
       await expect(page.getByTestId('map-dataset')).toBeVisible()
     },
@@ -630,6 +899,392 @@ const STATES: State[] = [
       await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
       await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible()
       await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
+    },
+  },
+  {
+    // on a phone, the map full screen (GH-4227): the browser's own where it has the API, the app covering the page where it has
+    // not; either way the map, its buttons and the sheet that stands in for the panel are all there is of the page
+    page: 'map',
+    state: 'phone-fullscreen',
+    path: '/map?station=10384&lat=52.9&lon=13.0',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-fullscreen')).toBeVisible()
+      await page.getByTestId('map-fullscreen').click()
+      await expect(page.getByTestId('map-sheet')).toBeVisible()
+      await expect(page.getByTestId('map-sheet-name')).toBeVisible()
+    },
+  },
+  {
+    // DWD's weather warnings on the map (GH-4295): the chip pressed, the outlines drawn, the list in the panel with a warning opened to DWD's words,
+    // the warning with no polygon listed apart, and the legend of the levels in the panel of the layers button
+    page: 'map',
+    state: 'warnings-layer',
+    path: '/map?warnings=1',
+    reach: async (page) => {
+      await expect(page.getByTestId('warnings-aside')).toBeVisible()
+      await page.getByTestId('warnings-list').first().getByTestId('warning-toggle').first().click()
+      await expect(page.getByTestId('warning-details').first()).toBeVisible()
+      await page.getByTestId('map-layers-button').click()
+      await expect(page.getByTestId('warnings-legend')).toBeVisible()
+    },
+  },
+  {
+    // the warnings' list on a phone, under the map
+    page: 'map',
+    state: 'phone-warnings-layer',
+    path: '/map?warnings=1',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('warnings-aside')).toBeVisible()
+      await page.getByTestId('warnings-list').first().getByTestId('warning-toggle').first().click()
+      await expect(page.getByTestId('warning-details').first()).toBeVisible()
+    },
+  },
+  {
+    // the warnings' list that could not be loaded, with its Retry
+    page: 'map',
+    state: 'warnings-failed',
+    path: '/map?warnings=1',
+    handlers: { alerts: () => new ApiFailure(502, 'DWD does not answer') },
+    reach: async (page) => {
+      await expect(page.getByTestId('warnings-failed')).toBeVisible()
+    },
+  },
+  {
+    // the banner of the station picked, with a warning opened (GH-4295)
+    page: 'map',
+    state: 'warnings-banner-station',
+    path: '/map?station=10384',
+    reach: async (page) => {
+      const banner = page.getByTestId('map-warnings-banner')
+      await expect(banner.getByTestId('warning-entry')).toBeVisible()
+      await banner.getByTestId('warning-toggle').click()
+      await expect(banner.getByTestId('warning-details')).toBeVisible()
+    },
+  },
+  {
+    // the Forecast's banner over the chart, with a warning opened (GH-4295)
+    page: 'meteogram',
+    state: 'warnings-banner',
+    path: '/meteogram?station=10384',
+    reach: async (page) => {
+      await expect(forecastChart(page)).toBeVisible()
+      const banner = page.getByTestId('warnings-banner')
+      await expect(banner.getByTestId('warning-entry')).toBeVisible()
+      await banner.getByTestId('warning-toggle').click()
+      await expect(banner.getByTestId('warning-details')).toBeVisible()
+    },
+  },
+  {
+    // the Forecast for a position outside Germany (GH-4328): no banner, and in the credits one line that the warnings are Germany's
+    page: 'meteogram',
+    state: 'warnings-note-outside',
+    path: '/meteogram?station=01001',
+    reach: async (page) => {
+      await expect(forecastChart(page)).toBeVisible()
+      await expect(page.getByTestId('meteogram-warnings-note')).toBeVisible()
+      await expect(page.getByTestId('warnings-banner')).toHaveCount(0)
+    },
+  },
+  {
+    // "Are there warnings here?" (GH-4295): the quoted warning in DWD's words, the disclosure under it, the explanation opened
+    page: 'index',
+    state: 'ask-warnings',
+    path: '/?ask=warnings',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-quote')).toBeVisible()
+      await page.getByTestId('explanation-button').click()
+      await expect(page.getByTestId('explanation-rules')).toBeVisible()
+    },
+  },
+  {
+    // the radar with the thunderstorm cells drawn and listed, the loop paused on a frame of the forecast (GH-3788)
+    page: 'radar',
+    state: 'cells-forecast-frame',
+    path: '/radar',
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page) => {
+      await expect(page.getByTestId('radar-newest')).toBeVisible()
+      await expect(page.getByTestId('radar-cells-item').first()).toBeVisible()
+      await page.getByTestId('radar-slider').focus()
+      await page.keyboard.press('End')
+      await expect(page.getByTestId('radar-kind')).toHaveAttribute('data-kind', 'forecast')
+    },
+  },
+  {
+    // on a phone: the map first, then the player and the legend, then the panel (GH-3788)
+    page: 'radar',
+    state: 'phone-radar',
+    path: '/radar',
+    viewport: { width: 390, height: 844 },
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page) => {
+      await expect(page.getByTestId('radar-newest')).toBeVisible()
+      await expect(page.getByTestId('radar-cells-item').first()).toBeVisible()
+    },
+  },
+  {
+    // the radar with the reader's own position marked over the picture and the cells, centred on (GH-4287): the marker, its name, the status and the button that hides it
+    page: 'radar',
+    state: 'position-shown',
+    path: '/radar',
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page, locale) => {
+      await showPosition(page, locale, { latitude: 51.34, longitude: 12.37 })
+      await expect(page.getByTestId('radar-position-toggle')).toBeVisible()
+    },
+  },
+  {
+    // the same on a phone, where the map is over the panel and comes into view
+    page: 'radar',
+    state: 'phone-position-shown',
+    path: '/radar',
+    viewport: { width: 390, height: 844 },
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page, locale) => {
+      await showPosition(page, locale, { latitude: 51.34, longitude: 12.37 })
+      await expect(page.getByTestId('radar-position-toggle')).toBeVisible()
+    },
+  },
+  {
+    // a position outside the radar's area: told in the status, no marker, the map where it was (GH-4287)
+    page: 'radar',
+    state: 'position-outside',
+    path: '/radar',
+    reach: async (page, locale) => {
+      await page.context().grantPermissions(['geolocation'])
+      await page.context().setGeolocation({ latitude: 40.4168, longitude: -3.7038 })
+      await expect(page.getByTestId('radar-newest')).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'location.button') }).click()
+      await expect(page.getByTestId('use-my-location-status')).toHaveText(message(locale, 'radar.positionOutside'))
+    },
+  },
+  {
+    // on a phone, the "About" of a tool as the ⓘ beside the title, open (GH-4227)
+    page: 'explorer',
+    state: 'phone-about-open',
+    path: '/explorer',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await page.getByTestId('page-info').click()
+      await expect(page.locator('.page-about')).toBeVisible()
+    },
+  },
+  {
+    // the page scrolled down on a phone, with both bars slid away (GH-4226): what the bars do not draw is not scanned as drawn, and
+    // the page under where they were is clear of them
+    page: 'about',
+    state: 'phone-bars-hidden',
+    path: '/about',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await expect(page.getByRole('button', { name: message(locale, 'shell.search') })).toBeEnabled()
+      // the reader's first input, then their scroll: the bars hide for no other
+      await page.mouse.move(200, 400)
+      await page.mouse.wheel(0, 1)
+      await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }))
+      await expect(page.locator('html')).toHaveAttribute('data-bars', 'hidden')
+      // the slide is over
+      await expect.poll(async () => (await page.locator('.app-header').boundingBox())!.y).toBeLessThanOrEqual(-44)
+    },
+  },
+  {
+    // the search on a phone (GH-4226): a bar at the top of the window, over the top bar, with its results under it
+    page: 'index',
+    state: 'phone-search-open',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await expect(page.getByRole('option').first()).toBeVisible()
+      // it has stopped opening
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the search on a phone with words of the app typed (GH-3790): the groups under the bar at the top, on the narrow layout
+    page: 'index',
+    state: 'phone-search-words',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('temp')
+      await expect(page.getByRole('group', { name: message(locale, 'glossary.title'), exact: true })).toBeVisible()
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the stations found by name on a phone (GH-3790): the groups of the three networks under the bar at the top
+    page: 'index',
+    state: 'phone-search-stations',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      // DWD's measuring stations are a list of the search that a reader turns on (the setting is kept in the browser)
+      await page.evaluate(() => localStorage.setItem('wd_settings', JSON.stringify({ version: 2, searchStations: { forecast: true, measured: true, ghcn: true } })))
+      await page.reload()
+      // the shortcut is the app's: it listens once the page has been drawn
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('hamburg')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsGhcn'), exact: true })).toBeVisible()
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the places found by name on a phone (GH-3791): the group and the credit under the bar at the top
+    page: 'index',
+    state: 'phone-search-places',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('paris')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the Forecast's station search with the places of a name next to its stations (GH-3791): a combobox whose list has a group "Places" before the stations,
+    // the credit of the licence under it, and a polite count of the results; the first place is the active option
+    page: 'meteogram',
+    state: 'place-search',
+    keepFocus: true,
+    path: '/meteogram',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page, locale) => {
+      await openForecastSearch(page)
+      // "bad t" keeps places and a station of the list: two groups, each with its own heading
+      await page.keyboard.type('bad t')
+      await expect(page.getByRole('listbox').getByRole('option', { name: /Bad Tölz/ }).first()).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
+      await expect(page.getByTestId('station-picker-results')).toHaveText(/\S/)
+      await page.keyboard.press('ArrowDown')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'stationSelection.stationsGroup'), exact: true })).toBeVisible()
+      await expect(page.getByRole('listbox').getByRole('group')).toHaveCount(2)
+      const headings = await page.getByRole('listbox').getByRole('group').evaluateAll(groups => groups.map(group => group.getAttribute('aria-labelledby')))
+      expect(new Set(headings).size).toBe(2)
+    },
+  },
+  {
+    // a place chosen in the Forecast (GH-3791): its name and where it lies, the closest forecast station picked, and the stations near it with their
+    // distance and their height against the closest one's
+    page: 'meteogram',
+    state: 'place-chosen',
+    path: '/meteogram',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await choosePlaceInForecast(page, 'bad tölz', /Bad Tölz/)
+      await expect(page.getByTestId('place-station-list').getByRole('listitem')).toHaveCount(4)
+    },
+  },
+  {
+    // a place with no forecast station within 50 km (GH-3791): the nearest is named and no forecast is shown as the place's
+    page: 'meteogram',
+    state: 'place-none-near',
+    path: '/meteogram',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await choosePlaceInForecast(page, 'paris', /Paris/)
+      await expect(page.getByTestId('place-summary')).toContainText('50')
+    },
+  },
+  {
+    // the place chosen on a phone (GH-3791): the place and its stations under the search in one column
+    page: 'meteogram',
+    state: 'phone-place-chosen',
+    path: '/meteogram',
+    viewport: { width: 390, height: 844 },
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await choosePlaceInForecast(page, 'bad tölz', /Bad Tölz/)
+      await expect(page.getByTestId('place-station-list').getByRole('listitem')).toHaveCount(4)
+    },
+  },
+  {
+    // the place of "Ask the weather" searched by name (GH-3791): the dialog's list with the towns before the stations, and the credit
+    page: 'index',
+    state: 'ask-place-search',
+    keepFocus: true,
+    path: '/',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page, locale) => {
+      await page.getByTestId('place-button').click()
+      await expect(page.getByRole('combobox')).toBeFocused()
+      await page.keyboard.type('bad tölz')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
+    },
+  },
+  {
+    // a town as the place of a question (GH-3791): the answer names the station it was read at and how far it is from the town
+    page: 'index',
+    state: 'ask-town-answer',
+    path: `/?ask=season&${BAD_TOELZ_LINK}`,
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByTestId('answer-station')).toBeVisible()
+    },
+  },
+  {
+    // a town with no weather station within 50 km (GH-3791): the question says so, names the nearest, and gives no answer
+    page: 'index',
+    state: 'ask-town-far',
+    path: '/?ask=season&lat=48.8566&lon=2.3522&placeName=Paris&placeRegion=%C3%8Ele-de-France%2C%20France',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-far')).toBeVisible()
+    },
+  },
+  {
+    // the Explorer's point given by the name of a place (GH-3791): the field that finds it, the place with where it lies, the coordinates it filled in and
+    // the note that the temperature is not corrected for height
+    page: 'explorer',
+    state: 'interpolation-place',
+    path: `${EXPLORER_INTERPOLATION}&interpolationSource=manual&${BAD_TOELZ_LINK}`,
+    reach: async (page) => {
+      await expect(page.getByTestId('interpolation-place')).toBeVisible()
+      await expect(page.getByTestId('interpolation-place-height')).toBeVisible()
+    },
+  },
+  {
+    // the field that finds a place, open on a name (GH-3791): the places of the name with the credit under them
+    page: 'explorer',
+    state: 'interpolation-place-search',
+    keepFocus: true,
+    path: EXPLORER_INTERPOLATION,
+    reach: async (page) => {
+      await page.getByTestId('place-field').click()
+      await page.keyboard.type('bad tölz')
+      await expect(page.getByRole('listbox').getByRole('option', { name: /Bad Tölz/ }).first()).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
+    },
+  },
+  {
+    // the lists of stations the search looks in by name (GH-3790): a group of three checkboxes under a heading the search leads to; DWD's measuring
+    // stations turned on, which is a change from the defaults (the forecast's points and GHCN daily on)
+    page: 'settings',
+    state: 'search-stations-setting',
+    path: '/settings#settings-search-stations',
+    reach: async (page, locale) => {
+      await expect(page.locator('#settings-search-stations')).toBeFocused()
+      await page.getByRole('checkbox', { name: message(locale, 'mapTool.layerMeasured') }).click()
+      await expect(page.getByRole('checkbox', { name: message(locale, 'mapTool.layerMeasured') })).toBeChecked()
     },
   },
   {
@@ -982,8 +1637,9 @@ test.describe('keyboard operation', () => {
   })
 })
 
-// Plotly's modebar (zoom, pan, reset) is the keyboard's way to move around a chart (WCAG 2.1.1). Its buttons
-// are native buttons in the Plotly the app ships; this holds them to being so on an upgrade.
+// The toolbars of the charts (zoom, move, reset, the camera) are the keyboard's way to move around a chart (WCAG 2.1.1), which a
+// drag, a pinch and the wheel do for a pointer (2.5.7): native buttons in the tab order with names, and the chart itself is one
+// tab stop whose keys step through its values. The Explorer's was Plotly's modebar until GH-4096.
 test.describe('chart controls by keyboard', () => {
   test.describe.configure({ timeout: 60_000 })
   const variant: Variant = { mode: 'light', locale: 'en' }
@@ -1028,12 +1684,13 @@ test.describe('chart controls by keyboard', () => {
     await expect(reset).toBeDisabled()
     await expect(stripesChart(page)).toBeVisible()
 
-    // Tab goes from the toolbar to the chart, which is one stop, and on to the table of the values below it
+    // Tab goes from the toolbar to the chart, which is one stop, and on to the download of the image below it (the table is a view of
+    // the switch above, GH-4233)
     await named(message('en', 'stripes.chart.savePng')).focus()
     await page.keyboard.press('Tab')
     await expect(page.locator('.sc-stage')).toBeFocused()
     await page.keyboard.press('Tab')
-    await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toBeFocused()
+    await expect(page.getByRole('button', { name: message('en', 'stripes.downloadImage'), exact: true })).toBeFocused()
   })
 
   // WCAG 2.1.1 and 2.5.7: what the pointer reads from the stripes (the year's value) the keyboard reads too
@@ -1110,93 +1767,254 @@ test.describe('chart controls by keyboard', () => {
     await expect(readout).toBeVisible()
   })
 
-  test('the modebar of the explorer\'s chart is in the tab order and named', async ({ page, baseURL }) => {
-    await mockBackend(page, baseURL!)
-    await open(page, EXPLORER_WITH_STATION, variant)
-    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
-    await expect(page.getByRole('table').first()).toBeVisible()
-    await page.getByRole('button', { name: message('en', 'dataViewer.viewChart'), exact: true }).click()
-    await expect(plotly(page)).toBeVisible()
-
-    // the buttons; the Plotly logo is a link, which its icon names
-    const buttons = page.locator('.js-plotly-plot .modebar-btn:not(.modebar-btn--logo)')
-    expect(await buttons.count()).toBeGreaterThan(3)
-    const unreachable = await buttons.evaluateAll(nodes => nodes
-      .filter(node => (node as HTMLElement).tabIndex < 0 || !node.getAttribute('aria-label'))
-      .map(node => node.getAttribute('data-title') ?? node.outerHTML.slice(0, 80)))
-    expect(unreachable, 'modebar buttons outside the tab order or without a name').toEqual([])
-    // the first is reached by Tab, and takes the focus
-    await buttons.first().focus()
-    await expect(buttons.first()).toBeFocused()
-  })
-
-  // opens the explorer's chart, which the modebar's tests below are of (the stripes' was Plotly's until GH-4068)
+  // opens the explorer's chart, which the tests of its toolbar, its keys, its readout and its legend are of
   async function openExplorerChart(page: Page, baseURL: string) {
     await mockBackend(page, baseURL)
     await open(page, EXPLORER_WITH_STATION, variant)
     await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
     await expect(page.getByRole('table').first()).toBeVisible()
     await page.getByRole('button', { name: message('en', 'dataViewer.viewChart'), exact: true }).click()
-    await expect(plotly(page)).toBeVisible()
+    await expect(explorerChart(page)).toBeVisible()
   }
 
-  test('the modebar of the explorer\'s chart is walked by Tab in order, and operated by Enter and Space', async ({ page, baseURL }) => {
+  /** The window of time the chart shows, in ms: what a zoom changes, which the canvas says */
+  const windowOf = async (page: Page) => {
+    const [start, end] = (await page.locator('.xc-canvas').first().getAttribute('data-window'))!.split('/').map(Number)
+    return { start: start!, end: end!, span: end! - start! }
+  }
+
+  test('the toolbar of the explorer\'s chart is in the tab order and named', async ({ page, baseURL }) => {
     await openExplorerChart(page, baseURL!)
 
-    // the buttons; the Plotly logo is a link, which is not one of them
-    const buttons = page.locator('.js-plotly-plot .modebar-btn:not(.modebar-btn--logo)')
-    const count = await buttons.count()
-    expect(count).toBeGreaterThan(3)
-    const names = await buttons.evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))
-    expect(new Set(names).size, 'every button has a name of its own').toBe(count)
-
-    // Tab walks through the modebar, button by button in order
-    const focusedName = () => page.evaluate(() => document.activeElement?.closest('.modebar') ? document.activeElement.getAttribute('aria-label') : null)
-    await buttons.first().focus()
-    const reached = [await focusedName()]
-    for (let stop = 1; stop < count; stop++) {
-      await page.keyboard.press('Tab')
-      reached.push(await focusedName())
+    const buttons = page.locator('.xc-toolbar button')
+    expect(await buttons.count()).toBe(6)
+    const names = await buttons.evaluateAll(nodes => nodes.map(node => ({
+      tabindex: (node as HTMLElement).tabIndex,
+      name: node.getAttribute('aria-label'),
+      native: node.tagName === 'BUTTON',
+    })))
+    for (const button of names) {
+      expect(button.native).toBe(true)
+      expect(button.tabindex, `${button.name} is in the tab order`).toBeGreaterThanOrEqual(0)
+      expect(button.name).toBeTruthy()
     }
-    expect(reached).toEqual(names)
-
-    // "Pan" is a toggle: Enter turns it on, and the button says so by its class
-    const pan = page.locator('.js-plotly-plot .modebar-btn[data-attr="dragmode"][data-val="pan"]')
-    await pan.focus()
-    await page.keyboard.press('Enter')
-    await expect(pan).toHaveClass(/active/)
-
-    // Zoom in, which is no toggle, by Enter: the x range of the chart changes. Reset axes, by Space, puts it back
-    const range = () => page.locator('.js-plotly-plot').first().evaluate(chart => JSON.stringify((chart as any)._fullLayout.xaxis.range))
-    const original = await range()
-    await page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="in"]').focus()
-    await page.keyboard.press('Enter')
-    await expect.poll(range, { message: 'Enter on Zoom in changes the range' }).not.toBe(original)
-    await page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]').focus()
-    await page.keyboard.press('Space')
-    await expect.poll(range, { message: 'Space on Reset axes goes back to the range it started at' }).toBe(original)
-    await expect(plotly(page)).toBeVisible()
+    expect(new Set(names.map(button => button.name)).size, 'every button has a name of its own').toBe(6)
+    expect(await page.locator('.xc-toolbar').getAttribute('role')).toBe('group')
+    await expect(page.locator('.xc-toolbar')).toHaveAttribute('aria-label', message('en', 'dataViewer.chart.zoomGroup'))
+    // the first that is on takes the focus
+    await page.getByRole('button', { name: 'Zoom in', exact: true }).focus()
+    await expect(page.getByRole('button', { name: 'Zoom in', exact: true })).toBeFocused()
   })
 
-  // the names of the modebar's buttons come with the pointer, as Plotly draws them in a ::after, and Escape takes them away (WCAG 1.4.13)
-  test('the names of the explorer\'s modebar buttons on hover are dismissed by Escape too', async ({ page, baseURL }) => {
+  test('the toolbar of the explorer\'s chart is walked by Tab in order, and operated by Enter and Space', async ({ page, baseURL }) => {
     await openExplorerChart(page, baseURL!)
 
-    const button = page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]')
-    const nameShown = () => button.evaluate(node => getComputedStyle(node, '::after').display)
-    await expect(button).toBeVisible()
-    await button.hover()
-    await expect.poll(nameShown).toBe('block')
-    await page.keyboard.press('Escape')
-    await expect.poll(nameShown).toBe('none')
+    const named = (name: string) => page.locator(`.xc-toolbar button[aria-label="${name}"]`)
+    const zoomIn = named(message('en', 'dataViewer.chart.zoomIn'))
+    const reset = named(message('en', 'dataViewer.chart.resetZoom'))
+    // the whole chart is shown, so there is nothing to zoom out of, to move to or to reset: those are off, and the others are not
+    await expect(named(message('en', 'dataViewer.chart.zoomOut'))).toBeDisabled()
+    await expect(reset).toBeDisabled()
+    await expect(named(message('en', 'dataViewer.chart.earlier'))).toBeDisabled()
+    await expect(named(message('en', 'dataViewer.chart.later'))).toBeDisabled()
+
+    // Enter zooms in: the window of time of the chart is narrower, which turns reset on
+    const whole = await windowOf(page)
+    await zoomIn.focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await windowOf(page)).span, { message: 'Enter on Zoom in narrows the window' }).toBeLessThan(whole.span)
+    await expect(reset).toBeEnabled()
+    const zoomed = await windowOf(page)
+    expect(zoomed.start).toBeGreaterThanOrEqual(whole.start)
+    expect(zoomed.end).toBeLessThanOrEqual(whole.end)
+
+    // Tab walks through the toolbar, button by button in order, to the first of the legend's
+    const focused = () => page.evaluate(() => {
+      const element = document.activeElement
+      return element?.closest('.xc-toolbar') ? `toolbar: ${element.getAttribute('aria-label')}` : element?.closest('.xc-legend') ? 'legend' : element?.classList.contains('xc-stage') ? 'chart' : null
+    })
+    const order = (await page.locator('.xc-toolbar button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))).map(name => `toolbar: ${name}`)
+    await page.locator('.xc-toolbar button').first().focus()
+    const reached = [await focused()]
+    for (let stop = 1; stop < order.length; stop++) {
+      await page.keyboard.press('Tab')
+      reached.push(await focused())
+    }
+    expect(reached).toEqual(order)
+    await page.keyboard.press('Tab')
+    expect(await focused()).toBe('legend')
+
+    // Later moves the window on; Space on reset puts the whole chart back, which turns reset off again
+    await named(message('en', 'dataViewer.chart.later')).focus()
+    await page.keyboard.press('Space')
+    await expect.poll(async () => (await windowOf(page)).start, { message: 'Space on Later moves the window' }).toBeGreaterThan(zoomed.start)
+    await reset.focus()
+    await page.keyboard.press('Space')
+    await expect.poll(async () => await windowOf(page), { message: 'Space on Reset zoom goes back to the whole chart' }).toEqual(whole)
+    await expect(reset).toBeDisabled()
+    await expect(explorerChart(page)).toBeVisible()
+
+    // the camera is a button too: Enter on it saves the image
+    const saved = page.waitForEvent('download')
+    await named(message('en', 'dataViewer.chart.savePng')).focus()
+    await page.keyboard.press('Enter')
+    expect((await saved).suggestedFilename()).toBe('newplot.png')
   })
 
-  // what the stripes and the widget's forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
+  // WCAG 2.1.1 and 2.5.7: what the pointer reads from the chart (the values at a time) the keyboard reads too
+  test('the explorer\'s chart is read by the arrow keys, and zoomed by + - 0, with its values said to a screen reader', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+
+    const stage = page.locator('.xc-stage')
+    const readout = page.getByTestId('explorer-readout')
+    const announced = page.getByTestId('explorer-announce')
+    await stage.focus()
+    await expect(readout).toHaveCount(0)
+    await page.keyboard.press('ArrowRight')
+    await expect(readout).toBeVisible()
+    await expect(announced).toHaveText(/^Sep 1, 2026: .+: [\d.]+; .+: [\d.]+$/)
+    await expect(readout.locator('dd')).toHaveCount(2)
+    await page.keyboard.press('ArrowRight')
+    await expect(announced).toHaveText(/^Sep 2, 2026: /)
+    await page.keyboard.press('Shift+ArrowRight')
+    await expect(announced).toHaveText(/^Sep 12, 2026: /)
+    await page.keyboard.press('End')
+    await expect(announced).toHaveText(/^Sep 30, 2026: /)
+    await page.keyboard.press('Home')
+    await expect(announced).toHaveText(/^Sep 1, 2026: /)
+    // the readout is of the moment the announcement is of
+    await expect(readout).toHaveAttribute('aria-label', 'Values at Sep 1, 2026')
+
+    const whole = await windowOf(page)
+    const reset = page.locator(`.xc-toolbar button[aria-label="${message('en', 'dataViewer.chart.resetZoom')}"]`)
+    await expect(reset).toBeDisabled()
+    await page.keyboard.press('+')
+    await expect.poll(async () => (await windowOf(page)).span).toBeLessThan(whole.span)
+    await expect(reset).toBeEnabled()
+    await page.keyboard.press('-')
+    await page.keyboard.press('+')
+    await page.keyboard.press('0')
+    await expect.poll(async () => await windowOf(page), { message: '0 goes back to the whole chart' }).toEqual(whole)
+    await expect(reset).toBeDisabled()
+    // the focus stays on the chart, and the page does not scroll for a key it takes
+    await expect(stage).toBeFocused()
+  })
+
+  // WCAG 1.4.13: the readout comes with the pointer or a key, can be moved onto, stays, and Escape closes it
+  test('the readout of the explorer\'s chart is hoverable, persistent and dismissed by Escape, until the pointer or a key moves on', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    await page.locator('.xc-stage').scrollIntoViewIfNeeded()
+
+    const stage = (await page.locator('.xc-stage').boundingBox())!
+    const readout = page.getByTestId('explorer-readout')
+    // the left part of the plot: the readout is docked at the right edge, clear of the crosshair
+    const x = stage.x + stage.width * 0.25
+    const y = stage.y + stage.height * 0.55
+    await page.mouse.move(x - 12, y)
+    await page.mouse.move(x, y, { steps: 4 })
+    await expect(readout).toBeVisible()
+    // the crosshair is in the chart, with a dot (a circle of 5 px, which the browser draws as an arc) on each series
+    await expect(page.locator('.xc-canvas svg path[d*="A5 5 "]')).toHaveCount(2)
+
+    // hoverable: the pointer moves onto it, along the way over the plot, and it is still there
+    const box = (await readout.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, y, { steps: 25 })
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 })
+    await expect(readout).toBeVisible()
+    const shownFor = (await readout.getAttribute('aria-label'))!
+    // persistent: it stays, as it is, while the pointer rests on it
+    await page.waitForTimeout(600)
+    await expect(readout).toBeVisible()
+    await expect(readout).toHaveAttribute('aria-label', shownFor)
+
+    // dismissible: Escape, with the pointer where it is and no focus in the chart
+    await page.keyboard.press('Escape')
+    await expect(readout).toHaveCount(0)
+    await page.waitForTimeout(300)
+    await expect(readout).toHaveCount(0)
+
+    // a pointer that leaves and comes back to another moment is a new hover
+    await page.mouse.move(x, y - stage.height / 2 - 40, { steps: 3 })
+    await page.mouse.move(x + 30, y, { steps: 4 })
+    await expect(readout).toBeVisible()
+    // and it goes where the pointer leaves the chart
+    await page.mouse.move(x, y - stage.height / 2 - 40, { steps: 3 })
+    await expect(readout).toHaveCount(0)
+  })
+
+  test('the readout of the explorer\'s chart gives the focus back to the chart where its Close button goes', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    const stage = page.locator('.xc-stage')
+    await stage.focus()
+    await page.keyboard.press('ArrowRight')
+    const readout = page.getByTestId('explorer-readout')
+    await expect(readout).toBeVisible()
+    // Tab goes from the chart to the readout's Close button, and Enter on it closes the readout and gives the focus back
+    await page.keyboard.press('Tab')
+    const close = readout.getByRole('button', { name: message('en', 'dataViewer.chart.readoutClose') })
+    await expect(close).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(readout).toHaveCount(0)
+    await expect(stage).toBeFocused()
+  })
+
+  // the legend is drawn in the chart (and in a saved image) and operated from the buttons over its items
+  test('the legend of the explorer\'s chart turns a series off and on by the keyboard, and says which is on', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    const items = page.locator('.xc-legend button')
+    expect(await items.count()).toBe(2)
+    expect(await items.evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-pressed')))).toEqual(['true', 'true'])
+    // the first series' colour, on the mark in the legend and on its line in the plot
+    const marks = () => page.locator('.xc-canvas svg').first().evaluate(svg => [...svg.querySelectorAll('[stroke="#3b82f6"], [fill="#3b82f6"]')].length)
+    expect(await marks()).toBeGreaterThan(1)
+
+    // Tab from the toolbar reaches the legend, which is before the chart
+    await page.locator('.xc-toolbar button[aria-label="Download plot as a PNG"]').focus()
+    await page.keyboard.press('Tab')
+    await expect(items.first()).toBeFocused()
+    await page.keyboard.press('Space')
+    await expect(items.first()).toHaveAttribute('aria-pressed', 'false')
+    // the series is gone from the plot, and the legend draws the item as off: no more of its colour anywhere in the chart
+    await expect.poll(marks).toBe(0)
+    // the focus stays on the item
+    await expect(items.first()).toBeFocused()
+    // and what the keys read leaves it out
+    await page.locator('.xc-stage').focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByTestId('explorer-readout').locator('dd')).toHaveCount(1)
+    await items.first().focus()
+    await page.keyboard.press('Enter')
+    await expect(items.first()).toHaveAttribute('aria-pressed', 'true')
+    await expect.poll(marks).toBeGreaterThan(1)
+    // the way on is the next item, and then the chart
+    await page.keyboard.press('Tab')
+    await expect(items.nth(1)).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.locator('.xc-stage')).toBeFocused()
+  })
+
+  // "Show as table": what the chart draws is in a table that a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
+  test('the explorer\'s chart has its values as a table, one toggle away, and the chart comes back', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    const table = page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })
+    const chart = page.getByRole('button', { name: message('en', 'dataViewer.viewChart'), exact: true })
+    await expect(chart).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('table')).toHaveCount(0)
+    await table.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('table').first()).toBeVisible()
+    // the values of the station, a page of them
+    await expect(page.getByRole('table').first().getByRole('cell', { name: '00011' }).first()).toBeVisible()
+    expect(await page.getByRole('table').first().getByRole('row').count()).toBeGreaterThan(40)
+    await expect(page.locator('.xc-canvas')).toHaveCount(0)
+    await chart.focus()
+    await page.keyboard.press('Enter')
+    await expect(explorerChart(page)).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
+  })
+
+  // what the widget's forecast draws, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
   for (const { page: name, path, ready } of [
-    { page: 'stripes', path: '/stripes?kind=temperature&station=00011', ready: async (page: Page) => {
-      await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
-      await expect(stripesChart(page)).toBeVisible()
-    } },
     { page: 'widget', path: '/widget?station=01001', ready: async (page: Page) => {
       await expect(forecastChart(page)).toBeVisible()
     } },
@@ -1238,6 +2056,68 @@ test.describe('chart controls by keyboard', () => {
       await expect(page.getByRole('table')).toHaveCount(0)
     })
   }
+
+  // the stripes' table is a view of its own, the fourth of the switch that the arrow keys move along, as the forecast's is
+  // (GH-4233; WCAG 1.1.1, 1.3.1, 2.1.1, 4.1.2)
+  test('the stripes page has its values as a view of its own, chosen and read by keys, and the chart\'s summary points at it', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/stripes?kind=temperature&station=00011', variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(stripesChart(page)).toBeVisible()
+
+    // the chart is described by a sentence that says where the values are, and there is no table until the view is chosen
+    const figure = page.getByRole('figure')
+    const described = (await figure.getAttribute('aria-describedby'))!.split(' ')[0]!
+    await expect(page.locator(`[id="${described}"]`)).toContainText(message('en', 'stripes.variant.table'))
+    await expect(page.getByRole('table')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toHaveCount(0)
+
+    const group = page.getByRole('radiogroup', { name: message('en', 'stripes.variant.label'), exact: true })
+    const barsScale = group.getByRole('radio', { name: message('en', 'stripes.variant.barsScale'), exact: true })
+    const stripes = group.getByRole('radio', { name: message('en', 'stripes.variant.stripes'), exact: true })
+    const tableView = group.getByRole('radio', { name: message('en', 'stripes.variant.table'), exact: true })
+    await expect(stripes).toBeChecked()
+
+    // the group is one stop; the arrow keys choose and move the focus, the table last
+    await stripes.focus()
+    await page.keyboard.press('End')
+    await expect(tableView).toBeChecked()
+    await expect(tableView).toBeFocused()
+    await expect(page).toHaveURL(/[?&]variant=table/)
+    await page.keyboard.press('ArrowLeft')
+    await expect(barsScale).toBeChecked()
+    await page.keyboard.press('ArrowRight')
+    await expect(tableView).toBeChecked()
+
+    // the table has no chart over it, a caption, and the headers and rows a screen reader reads
+    await expect(page.getByRole('figure')).toHaveCount(0)
+    const table = page.getByRole('table')
+    await expect(table).toBeVisible()
+    await expect(table.locator('caption')).toHaveText(/\S/)
+    await expect(table.getByRole('columnheader')).toHaveText([
+      message('en', 'stripes.table.year'),
+      `${message('en', 'stripes.table.value')} (°C)`,
+      `${message('en', 'stripes.table.anomaly')} (°C)`,
+      message('en', 'stripes.table.class'),
+    ])
+    await expect(table.getByRole('rowheader').first()).toHaveText(/\S/)
+    expect(await table.getByRole('row').count()).toBeGreaterThan(10)
+
+    // the box that scrolls takes the focus, so that the keys scroll it
+    const region = page.getByRole('region', { name: /^Climate stripes \(Temperature\) for / })
+    await region.focus()
+    await expect(region).toBeFocused()
+    const before = await region.evaluate(node => node.scrollTop)
+    await page.keyboard.press('PageDown')
+    await expect.poll(() => region.evaluate(node => node.scrollTop)).toBeGreaterThan(before)
+
+    // and back to the chart by keys
+    await tableView.focus()
+    await page.keyboard.press('Home')
+    await expect(stripes).toBeChecked()
+    await expect(stripesChart(page)).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
+  })
 
   // the forecast's table is a view of its own, chosen by a radio group that the arrow keys move along
   // (WCAG 1.1.1, 1.3.1, 2.1.1, 4.1.2)
@@ -1301,7 +2181,7 @@ test.describe('chart controls by keyboard', () => {
 
     await page.locator('.mg-stage').scrollIntoViewIfNeeded()
     const box = (await page.locator('.mg-stage').boundingBox())!
-    const x = box.x + 68 + (box.width - 78) * 0.3
+    const x = box.x + 71 + (box.width - 81) * 0.3
     const y = box.y + box.height * 0.6
     const readout = page.getByTestId('meteogram-readout')
     await page.mouse.move(x - 20, y)
@@ -1406,7 +2286,7 @@ test.describe('reflow at 320 px', () => {
         const wide = [...document.body.querySelectorAll('*')]
           .filter(node => node.getBoundingClientRect().right > width + 1 && node.getBoundingClientRect().width > 0)
           // what scrolls inside a box of its own does not widen the page
-          .filter(node => !node.closest('.overflow-x-auto, .overflow-auto, .overflow-hidden, .leaflet-container, .js-plotly-plot, .mg-scroller, [style*="overflow"]'))
+          .filter(node => !node.closest('.overflow-x-auto, .overflow-auto, .overflow-hidden, .leaflet-container, .xc-frame, .mg-scroller, [style*="overflow"]'))
           .slice(0, 5)
           .map(node => `${node.tagName.toLowerCase()}.${[...node.classList].slice(0, 3).join('.')} (${Math.round(node.getBoundingClientRect().right)} px)`)
         return { scrolls: document.documentElement.scrollWidth - width, wide }

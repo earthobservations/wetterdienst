@@ -13,37 +13,148 @@ Spanish, Italian, Polish, Dutch, Czech, Danish, Luxembourgish and Hamburgisch).
 
 ## What is in it
 
-The five tools, Forecast, Explorer, Climate stripes, History and Map, are tabs in the header; Providers, Glossary and
-API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
+The six tools, Forecast, Explorer, Climate stripes, Radar, History and Map, are tabs in the header; Providers, Glossary,
+Measurement, Methods and API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
 footer, the same on every page. On a narrow screen (below 64 rem, 1024 px at the default text size) four of the tools
 are a tab bar at the foot of the screen (under the header in a window lower than 30 rem, such as a phone on its side)
 and its **Menu** opens the rest: a bar holds four tools and the Menu. Until you choose, the four are Forecast,
-Explorer, Climate stripes and History, and the Map is in the Menu's sheet. **Arrange tools** (a link in the Menu,
+Explorer, Climate stripes and Radar, and History and the Map are in the Menu's sheet. **Arrange tools** (a link in the Menu,
 and a card of the Settings) lets you choose which four, and in which order: a list of all the tools, the four of the
 bar above a line and the ones that are only in the Menu below it, with a preview of the bar that follows the list.
 The Menu lists the tools in that order, the four of the bar first, each with a short line in the bar's blue, then the
 ones that are only in the Menu, each with a shorter, fainter line.
 Drag a tool by its handle, or press the arrow buttons on its row (they do the same, by keyboard, screen reader or
 single tap, and say what moved); a tool moved into the bar pushes the one at the line out of it, so the bar always has
-four. The choice stays in the browser. The header of a wide screen shows all five tools as tabs in the same order, and there the
-list is one list of five, with no bar and no Menu. The
+four. The choice stays in the browser. The header of a wide screen shows all six tools as tabs in the same order, and there the
+list is one list of six, with no bar and no Menu. The
 Menu's tab is marked, as the page you are on, on every page that is in its sheet and has no tab: a tool that is not in
-your bar, Providers, Glossary and API, About, Support and the Settings. The home page and the legal notices mark
+your bar, Providers, Glossary, Measurement, Methods and API, About, Support and the Settings. The home page and the legal notices mark
 nothing, and a tool that is in the bar marks its own tab. **Search** (the button in the header, or Ctrl+K
-or ⌘K) goes to any page, to the forecast of a DWD station by its name or to the map opened on it, or to a provider,
-and sets the theme or the language.
+or ⌘K) goes to any page, to a station by its name or number or to a provider,
+and sets the theme or the language. It also finds the app's own words, in the language you read it in and in English,
+folding case and accents (`taupunkt` finds "Taupunkt", `munchen` "München"): the entries of "How weather is measured" and the sections
+and works of the methods, the glossary (by the label you see, the English one, the parameter's name and its description), the cards of About and Support, each
+setting (the units, plain-language labels, the tab bar) and the questions of Ask the weather, which open on the home page.
+A position typed in (`52.52, 13.40`, `-33.87 151.21`, `52°31'N 13°24'E`; the hemisphere letters of your language, so `O` is east in German and
+west in French, `V` is west in Danish and Czech has `S J V Z`; two whole numbers are no position, so `1,5` and `10384 10147` are not) is a place that opens the map at that point, and picks the station for it as a click on the map would
+(`/map?lat=52.5200&lon=13.4000`). The results are in groups, a point first, then the places, then stations, then the rest; a group shows
+a few results and, where its page has more, a last option ("5 more in Glossary") that opens the page (the glossary with
+your words in its own field). A result leads to its anchor: an entry (`/measurement#wind`), a glossary parameter
+(`/glossary#temperature_air_mean_2m`), a setting (`/settings#settings-friendly-labels`). The index of the pages is built from the
+sources when the app is built, one file for each language, and loaded the first time the search is opened, not with the page; the glossary
+is the one the glossary page loads, asked for at that moment; nothing is sent anywhere else.
+
+**Stations in the search** (from three letters on, a moment after the last key) looks in the lists that you choose in the settings, under
+"Stations in the search" (kept in the browser like the other settings): the forecast's points (DWD MOSMIX), DWD's measuring stations (the daily
+climate summary's list) and NOAA GHCN daily (133k stations). **MOSMIX and GHCN are on, DWD's measuring stations are off** until you turn them on.
+Each list is a group of its own, with the provider and the network on every result. Of GHCN daily and DWD's measuring stations three stations are shown,
+the best first (a name that starts with the words before one that holds them, a station that reports before one that has stopped, with the year it
+ended in), and a last option ("11 more on the map (NOAA GHCN daily)") opens the map's own search of the layer on what you typed
+(`/map?layer=ghcn&q=hamburg`). The forecast's points are the backend's best five for the name, all shown, with no "more" (the backend gives no count);
+the backend matches names only, so a number such as `10147` is found in them through "Search all networks for …" and not by this search. A result opens the
+map with the station picked, on the layer of its network (`/map?station=10147`, `/map?layer=measured&station=01975`, `/map?layer=ghcn&station=GM000010147`).
+In GHCN daily and DWD's measuring stations the names are matched in either spelling of an umlaut (`Fuhlsbüttel` and `FUHLSBUETTEL`, `München` and
+`MUENCHEN`), and an id or a WMO number matches as it is written in the lists (`1975` is `01975`). The map's own search of the panel is the same matcher (one function, `matchStations`), so it finds the
+same stations in the same order, in either spelling and by WMO number, lists the best 20 and says "Showing the first 20 of N stations" where there are
+more; the header's "N more" is that total less the three it shows. Where the matching runs: the forecast's points are asked of the backend by name
+(`GET /api/stations?provider=dwd&network=mosmix&name=`, its best five), as they always were, and the server of the app keeps none of them. GHCN daily
+and DWD's measuring stations are matched by the server of the app, which keeps each in its memory for a day and is told which to look in:
+`GET /_search/stations?q=hamburg&limit=4&lists=measured,ghcn` answers the best few of each with how many there are, 2 kB for a key, so the browser
+never downloads a list. The GHCN list is the one the map's own route keeps (`/_ghcn/map-stations`), read once for both as a stream of CSV
+(`format=csv`) into columns; DWD's measuring stations (1,284 stations, a few hundred kilobytes) are read the same way, but only the first time a search
+asks for them, which is when someone has turned them on. A list that is not there yet (the first read after a start: GHCN daily's takes seconds) is named in
+the answer as `pending`, which the search says and asks again for after a pause, 25 times at most and then says it could not be read; one that could not
+be read is `failed`, and not asked for again for 30 s. A **WMO number** (five digits, `10381`), a **WIGOS identifier** (`0-20000-0-10381`,
+`0-276-3-…`) or an **ICAO code** (four letters, `EDDH`) typed in also offers "Search all networks for 10381", **whatever the settings choose**: it is run
+on Enter or a click and never for a key (it asks the backend's `GET /api/station-ids`, which reads about 30 MB of station lists: about 9 s the first time,
+a second after), says "Searching all networks …" while it runs, is given up when you type something else, and lists the stations of every network that
+carries the id, each with its provider, network and id: a network the map shows leads to the map with the station picked, any other to the Explorer with the
+provider, network, resolution, dataset and station chosen (it says "opens the Explorer"). Four letters are a word as often as a code (`wind`, `kiel`):
+unless they are typed in capitals, the offer for them is made only where nothing else answers the text and every list has answered, and it never comes
+before what the text finds, so Enter does not take it.
+
+**Places in the search** (from three letters, 400 ms after the last key) finds a place by its name in OpenStreetMap's data, as a group "Places" after a
+point typed in and before the stations, each with what it is (town, county, mountain, airport, …) and where it lies (`Bad Tölz`, Town · Bayern, Germany). A
+place opens the map at its point (`/map?lat=47.7614&lon=11.5583`), which picks the nearest station as a click there would. The group is shown with the
+credit that OpenStreetMap's licence (ODbL) asks for and "via Photon". A text with fewer than three letters, or that looks like a position (a decimal number, a degree or minute sign, two numbers, a single letter next to a number, or a word for latitude or longitude with a number: `47.76 N`, `N 47.7 E`, `47°45′N`, `lat 47`, `A12`), is no name and is never looked up, whole or partial. The places arrive after the stations; where they lead the list, the option you are on stays the one you are on. The
+places come from Photon (photon.komoot.io, run by komoot; the public server asks for fair use, states no limit and promises no availability), **asked by
+the app's own server and not by your browser**: `GET /_search/places?q=bad%20tölz&lang=de` asks `https://photon.komoot.io/api/?q=&lang=&limit=` with a
+User-Agent that names the project (`wetterdienst-app (+https://github.com/earthobservations/wetterdienst)`) and sends no header of yours, no address
+and no cookie, so komoot sees the server and the text. The route answers the few places the search shows (settlements, regions, countries, mountains,
+waters and airports; not streets or shops; the same town twice once), in `lang` where Photon has it (`de`, `en`, `fr`; Luxembourgish is asked for in German, every other locale in
+English, since Photon's public server refuses a language it has not), or the problem it could not (`urn:wetterdienst:problem:places-busy`,
+`places-unavailable`, `places-timeout`, `places-unreachable`, `places-unexpected-answer`, `invalid-parameters` as a 422; a `Retry-After` where there is a
+time to wait). To be fair to Photon the server keeps the answers for 24 h by the text (case and spaces ignored) and the language, up to 5,000 of them,
+asks at most 3 times a second in all (a request that would wait over 1.5 s is refused with a 503, not queued) and for one client at most 3 at once and then one
+a second (a 429; the answers of the cache do not use up that share, and it is not held where `NUXT_RATE_LIMIT_ENABLED=false`), times a request out after 4 s, and
+leaves Photon alone after a 429 or 403 for as long as its `Retry-After` says (a minute where it says none, ten at most), also for the requests that were waiting
+for their turn, and for 10 s after any other failure. A request to Photon that has been sent is let finish and its answer kept, even where the browser has gone.
+The requests count against the limit of the client like the other `/_search` routes: one bucket with every data route, 300 in 5 minutes by default.
+Nothing of a request is logged. The operator switches the places off with `NUXT_PLACES_SEARCH=off` (the route then answers
+`state: "off"` and asks nobody, and the search shows no group; `on`, `true`, `1`, `yes` and `enabled` leave it on, and any other text switches it off, so
+a typing mistake never leaves it running, and the server says so once when it starts, naming the value); `NUXT_PLACES_PHOTON_BASE` is the address of Photon's API, empty for komoot's public server (a Photon of your own,
+or a stand-in in tests, which never ask komoot).
+
+**Places in the tools** (GH-3791): the same places, asked for by the same route and under the same rules (from three letters, after a pause, never a position, with the
+credit shown and `NUXT_PLACES_SEARCH=off` honoured), are found in three more places. What is typed in them goes to Photon through the app's server, as it does in the search.
+A place is no station and has no measurements, so it is used for **the closest station** and never stretched into more: a station farther than **50 km** from a place
+is not its weather (a shower is 10 to 20 km across, the temperature of a valley and of a ridge 50 km away differ by what the height says, about 6 K for 1000 m, and 50 km is about
+twice the spacing of DWD's stations in Germany), so there the tool says that no station is near, names the nearest and its distance, and gives no answer. An estimate between
+stations is not offered in their place. A link carries a place as `lat`, `lon`, `placeName` and `placeRegion` (the position to four decimals, its name and where it lies), so that it
+shows the place without asking OpenStreetMap's search again; the key `place` is not used, since on the home page it names a station.
+
+- **Forecast.** The station search of the list also finds places, in a group "Places" before the stations (a place chosen is handed over; no station is picked by it).
+  A place chosen shows its name and where it lies, then its closest forecast stations (MOSMIX, up to five within 50 km) each with its distance and its height, and the height of each
+  against the closest one's, since a place has no height of its own; the closest one is picked and its forecast shown, and another of them on a press (the place stays). Where none is
+  within 50 km the page says so, names the nearest with its distance, shows no forecast as the place's, and offers that station as a station on a press ("Show anyway": the box then says "Shown: the forecast of X, 681 km from Paris. It is not the forecast of Paris."). A station
+  picked by name, on the map or by position takes the place away. The link: `/meteogram?station=…&lat=…&lon=…&placeName=…&placeRegion=…`; a link with a place and no station picks the closest, and a link whose station is not found (or whose lookup fails) shows the place's closest station and says that the station of the link was not found. The search's list has two groups, "Places" and "Forecast stations", each a named group of its own while it is short (up to 300 stations; a longer one is one virtualised list without headings).
+- **Ask the weather.** The place dialog's search also finds towns, before the stations. A town chosen is the place of the questions (`?lat=&lon=&placeName=&placeRegion=`, in place of `?place=`):
+  the questions are worded for it, the measurements are read at the DWD station nearest to it that still reports (one of the twenty nearest; a station whose last value is over two years old is passed over), and the answer says which ("Read at Andechs-Rothenfeld (00125), the weather station nearest to Bad
+  Tölz, 37 km away."); the forecast names its point and the distance as it did, and the download question labels DWD's row with that station and its distance from the town ("Andechs-Rothenfeld, 37 km from Bad Tölz"; beyond 50 km the row opens the service with no station). Where the station is farther than 50 km, the answer says there is no weather station within 50 km, names the nearest and
+  gives none; the same for the forecast point. No question uses an estimate between stations, so none of them has to say the temperature is not corrected for height. A town of a link that no station could be found for is said by name and nothing is answered, for it or for the place before, until a place is chosen.
+- **Explorer, Interpolation and Summary.** With the point given as coordinates, a field "Find a place" fills the latitude and longitude with the position of the place (four decimals) and shows the place with
+  where it lies. A place has no height: no elevation is taken from it and one that was there is cleared, and the temperature is then not corrected for height, which is said beside the point (an elevation typed after is the
+  reader's own, and the note goes). A coordinate typed over, or a station as the source, ends the place. The link: `lat`, `lon` (as before), `placeName`, `placeRegion`.
+
+**Measurement** (`/measurement`, "How weather is measured") explains how a quantity is measured, how a reading becomes
+a value, what the number can and cannot tell and where providers differ, one entry for each quantity with an anchor
+(`/measurement#wind`) and the sources it rests on: the WMO Guide to Instruments and Methods of Observation (WMO-No. 8:
+Volumes I, II and III of 2024, Volume V of 2023, the current editions) by volume and chapter, the Guide to Hydrological Practices
+(WMO-No. 168, Volume I) for water level and discharge, and the providers' own files. The entries are air and soil temperature, pressure,
+humidity and dew point, wind, precipitation, radiation, sunshine duration, visibility, evaporation, soil moisture,
+present weather and the state of the ground, clouds, snow, automatic weather stations, radar (with a link to the Radar tool), urban stations,
+road weather stations, how a value is formed (means, sums, maxima and minima), climate normals, water level and discharge, time,
+observation, forecast and derived data, and data quality (the flags of the sources and the plausibility checks). The
+Glossary links each parameter it can to its entry ("How is this measured?"), and the entry links back to its
+parameters (`/glossary?topic=wind`). The texts are written in German and English; in another language an entry is
+shown in English, with a note (in German for Low German and Luxembourgish).
+
+**Methods** (`/methods`, "How the answers are worked out") is the reference page behind **Ask the weather**: one section
+for each of its questions, with an anchor (`/methods#season`), written from the question's own definition, so a new
+question appears on it with no edit of the page. A section has the method step by step, the formula where there is one,
+every period, threshold, statistic and fallback rule with the published work it comes from (the WMO Guide to Instruments
+and Methods of Observation, WMO-No. 8, Volume I, 2024; the WMO Guidelines on the Calculation of Climate Normals,
+WMO-No. 1203, 2017; DWD's own pages and dataset descriptions) and the place in it, the data, the terms (linked to
+"How weather is measured" and the Glossary instead of being written twice) and the limits of the answer. A choice that
+no published work makes is marked **wetterdienst's own choice**, with the reasoning. The page ends with the list of the
+works cited, each with what it is, who issues it and what the methods take from it. Under each answer a button, **How
+was this worked out?** (`aria-expanded`, a region it controls), opens the same in short for that answer: the station and
+its distance, the period and how many years or days it covers, the thresholds, the provider, dataset and licence with a
+link that opens the same data in the Explorer, the terms and the limits, and links to the section and the works. The
+texts are written in German and English, like those of Measurement; the titles of the works stay in their own language.
 
 | Page | What it does |
 | --- | --- |
-| Home | The five tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict and a link into the tool that holds the data. The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
-| Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. |
-| Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure, with Yr's weather symbols over the hours. Each panel has a fixed height and each hour a fixed width, so on a phone the chart scrolls sideways with its axes in view; a dragged box, a pinch or the buttons zoom all panels at once, and the arrow keys step through the hours (`+`, `-` and `0` zoom and reset). `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
-| Climate stripes | The warming stripes of a DWD station for temperature or precipitation, see [Climate Stripes](stripes.md). |
+| Home | The six tools, and **Ask the weather**: five suggestions (will it rain tomorrow, was a season warmer than usual, what a day was like, are there warnings here, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict, a link into the tool that holds the data and, under it, how the answer was worked out and what it rests on (see Methods). The place they are about is a DWD station that can be changed. The season question has two choices under it, as labelled selects: the **season** (spring, summer, autumn or winter, the winter being December to February with the December before it) and the **reference period**, every complete WMO 30-year normal from 1961–1990 on (1961–1990 to 1991–2020 in 2026; each later one is added on 1 January after it ends, so 2001–2030 appears in 2031). Only a complete season is compared (a winter counts from 1 March), and a season or a normal the station has too little of (fewer than 20 of a normal's 30 seasons) is greyed out with the count in its option, with a line under the choices that says why. The question opens on the season completed most recently that has enough data and on the newest normal with enough seasons; a link that names a greyed-out one gets that default and the line says so. The link carries them (`?ask=season&season=winter&ref=1961-1990`); a value that is none gives the defaults, and the older `?ask=summer` is the summer. The day question has two choices under it, as labelled selects: the **measure** (wind, sunshine, rain, heat and cold, or snow) and the **day** (the same date last year when the link names none, 28 February for a 29 February; any day up to yesterday). The question and the verdict follow the measure, and one request fetches every measure, so a change of it asks nothing new. Each measure has its scale, named in the disclosure with its source or marked as wetterdienst's own: the wind by the Beaufort force of the strongest gust (calm, breezy, windy, stormy); the sun by the share of the sunshine that was possible at the station's latitude that day (dull below 30 %, mixed, sunny from 70 %; the ranges of WMO-No. 8, §8.1.3); the rain by the day's precipitation (dry below 0.1 mm, light, wet from 1 mm, very wet from 10 mm); heat and cold by the days DWD names (hot day from 30 °C, summer day from 25 °C, tropical night from 20 °C, ice day with a maximum below 0 °C, frost day with a minimum below 0 °C); the snow by the snow depth (snow on the ground above 0 cm), with the fresh snow where the station reports it. A measure the station has no reading of for the day is greyed out with the reason in its option, and a line under the choices says why. The link carries them (`?ask=day&measure=sun&day=2025-12-26`); the older `?ask=wind&day=2025-12-26` is the wind of that day. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. The place can be a **town** found by its name (the dialog also searches OpenStreetMap's places): the questions are worded for it, the measurements are read at the DWD station nearest to it with that station and its distance named under the answer, and a town with no station within 50 km is told so with no answer (see Places in the tools). |
+| Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. Its **Values Details** give count, min, max, mean and sum of each parameter, one row for each station chosen (named by its name and id, with the unit of the parameter in a column), in the order the stations are listed (a link keeps its order). A sum is shown only for a parameter that adds up, one whose `aggregation` in the answer is `sum`, `count` or `occurrence` (precipitation, sunshine duration, days with an event); for a temperature, a mean or a reading it is a dash, and so it is for a parameter whose name states a window longer than its rows (`precipitation_amount_last_6h` in hourly rows), whose windows overlap, while a window as long as the row (`_last_1h` hourly) still sums. Rows the query panel has rewritten get no unit and no sum. An interpolation or a summary is one series and has no station column. The downloads do not carry the details. In **Interpolation** and **Summary** the point given as coordinates can be found by the name of a place (the field "Find a place"), which fills the coordinates, shows the place with where it lies and says the temperature is not corrected for height (a place has none); the link carries `placeName` and `placeRegion` beside `lat` and `lon` (see Places in the tools). |
+| Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure, with Yr's weather symbols over the hours. Each panel has a fixed height and each hour a fixed width, so on a phone the chart scrolls sideways with its axes in view; a dragged box, a pinch or the buttons zoom all panels at once, and the arrow keys step through the hours (`+`, `-` and `0` zoom and reset). `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). The station search also finds **places** by name: the closest forecast station within 50 km is picked, with the stations near it listed by distance and height, and where none is within 50 km the page says so and shows no forecast as the place's (see Places in the tools); the link carries `lat`, `lon`, `placeName` and `placeRegion` beside `station`. |
+| Climate stripes | The warming stripes of a DWD station or of a station of NOAA's GHCN daily, for temperature or precipitation, which the app makes itself of the annual values of the API (see "What the app serves itself" below). |
+| Radar | DWD's precipitation radar over Germany on the map: a loop of the last two hours and DWD's forecast of the next two, with a player, the legend in mm/h and DWD's thunderstorm cells on top. "Use my location" marks your position on the map and centres it there (rounded to about 1 km in the browser, kept only if you tick "Remember my position", sent to no request) and the marker can be hidden. |
 | History | The station history of DWD observation, see [Station history](station_history.md). |
-| Map | DWD's stations on a map, with a panel beside it (a sheet under it on a phone). Chips over the map choose the layer: the **forecast stations** (MOSMIX) or the **DWD measurements**, whose resolution and dataset are chosen beside the chips. Pick a station, or click any point: the panel shows the forecast of the nearest forecast station as day rows and the climate stripes of the nearest station that has them, and links to the measurements in the Explorer and to the station history, each at the nearest station of the layer's resolution and dataset, already chosen. **Which station is offered:** the nearest within 100 km of the place; one that still reports before one that has stopped, and the nearest closed one only where none that reports is within reach, with the years it measured. A station reports where the REST API's `end_timestamp` of it, the day of its last value, is within 90 days of the newest end of the list it is in (that list is the clock of its dataset: the daily climate summary is a day or two behind today, the solar radiation 38 days, the snow water equivalent 215 days, the annual datasets about 300), and the list itself is running, its newest end no more than 450 days ago (a list that ended long ago has every station closed). A station with no end has an unknown status: it is not taken for one that reports, and no "since" is told for it. The clock is one station's end: a single end far ahead of the others, but not later than today, takes the stations that are behind it out of the tolerance, which the lists do not show today. A click is on a station's dot, and is that station whatever its status, within the dot as it is drawn and 2 px more, and a click on the yellow disc of the station picked (10.5 px, and 2 px more) keeps it; a tap of a finger (a coarse pointer) reaches 12 px, and in that ring a station that reports comes before the nearest dot. Closed stations stay on the map. Where no station is within 100 km, the panel says so. Changing the layer or the dataset keeps the place, not the number of the station (a forecast point and a measuring station can share a number): the station for the place is picked again in the new list. The panel finds a station by name or number and lists the ones near the centre of the map; by keyboard the arrow keys move the map and **Pick the centre of the map** picks the station within half a kilometre of the centre, else the station for the place at it (the same as a click of a mouse that is not on a dot). The address holds what is shown (`?layer=`, `resolution`, `dataset`, `station`, `lat`, `lon`), so a link opens the same map. Search finds stations, not towns. The tiles are OpenStreetMap's, as on the station pickers. |
+| Map | DWD's stations on a map, with a panel beside it (a sheet under it on a phone). Chips over the map choose the layer: the **forecast stations** (MOSMIX) or the **DWD measurements**, whose resolution and dataset are chosen beside the chips. The chip **Warnings** adds DWD's weather warnings over the stations (see [Weather warnings](#weather-warnings)). Pick a station, or click any point: the panel shows the warnings for the place, the forecast of the nearest forecast station as day rows and the climate stripes of the nearest station that has them, and links to the measurements in the Explorer and to the station history, each at the nearest station of the layer's resolution and dataset, already chosen. **Which station is offered:** the nearest within 100 km of the place; one that still reports before one that has stopped, and the nearest closed one only where none that reports is within reach, with the years it measured. A station reports where the REST API's `end_timestamp` of it, the day of its last value, is within 90 days of the newest end of the list it is in (that list is the clock of its dataset: the daily climate summary is a day or two behind today, the solar radiation 38 days, the snow water equivalent 215 days, the annual datasets about 300), and the list itself is running, its newest end no more than 450 days ago (a list that ended long ago has every station closed). A station with no end has an unknown status: it is not taken for one that reports, and no "since" is told for it. The clock is one station's end: a single end far ahead of the others, but not later than today, takes the stations that are behind it out of the tolerance, which the lists do not show today. A click is on a station's dot, and is that station whatever its status, within the dot as it is drawn and 2 px more, and a click on the yellow disc of the station picked (10.5 px, and 2 px more) keeps it; a tap of a finger (a coarse pointer) reaches 12 px, and in that ring a station that reports comes before the nearest dot. Closed stations stay on the map. Where no station is within 100 km, the panel says so. Changing the layer or the dataset keeps the place, not the number of the station (a forecast point and a measuring station can share a number): the station for the place is picked again in the new list. The panel finds a station by name or number and lists the ones near the centre of the map; by keyboard the arrow keys move the map and **Pick the centre of the map** picks the station within half a kilometre of the centre, else the station for the place at it (the same as a click of a mouse that is not on a dot). The address holds what is shown (`?layer=`, `resolution`, `dataset`, `station`, `lat`, `lon`), so a link opens the same map, and `?q=` starts the panel's search on a text (what the search's "more" of a network opens); `?lat=&lon=` alone (what the search writes for a position typed in) moves the map to the position and picks the station for that place once the list is there; where no station is within reach, or the list fails, the map is at the position all the same and the address keeps it. The header's search finds stations by name or number and positions by their numbers, not towns. The tiles are OpenStreetMap's, as on the station pickers. |
 | API | The endpoints, the formats and the [MCP](mcp.md) endpoint of the instance, with examples. |
 | Providers | Who publishes the data: the country, the licence and the credit line to cite, and what the networks offer (their resolutions and datasets, shown when you ask for them), with a link into the explorer. |
-| Glossary | What each parameter measures and the unit it comes back in, searchable by name and quantity. |
+| Glossary | What each parameter measures and the unit it comes back in, searchable by name and quantity (`?q=` starts the field with a search, `#temperature_air_mean_2m` goes to an entry). |
 | Settings | Kept in the browser: the language, light or dark, which four tools are in the tab bar of a phone (see above), plain-language labels for the parameters, and whether and in which units the values are converted. Where the browser refuses its storage the settings hold for the visit and are the defaults at the next. |
 
 The settings of a request that the explorer offers are the [options](settings.md#options) of the library
@@ -61,7 +172,7 @@ from then on the settings are the visitor's own, whatever the server says. A lin
 with the settings once the server has answered for them. **Reset** on the Settings page goes back to the server's
 settings where it has answered in that load, and else to the defaults of the app, and the next load asks the server
 again. The climate stripes, on their page and in the map's panel, ask for the unit the Settings page chooses for
-their kind (`unit_targets` of `/api/stripes/values`) and write the unit the answer names in the sentence, the table
+their kind (`unit_targets` of `/api/values`, or of the app's own `/_ghcn/annual` for GHCN daily) and write the unit the answer names in the sentence, the table
 and the hover texts; the colours are relative and do not change with it. The forecast, its widget, the
 forecast in the map's panel, and the home page's questions ask in the units the Settings page chooses too (and for
 the values as the source has them where conversion is off), and write the unit the answer reports for each
@@ -70,8 +181,40 @@ weather of a day, the wind barbs, "hotter than usual", "stormy") is judged in mi
 per second, so a verdict is the same in every unit. The widget has no unit parameter in its address: it takes the
 units from the settings of the browser it runs in.
 
-The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
-for them) nor the radar products.
+### Weather warnings
+
+The app shows DWD's official weather warnings ([Alerts](../data/provider/dwd/alerts/index.md): `GET /api/alerts`, the
+community product, the whole snapshot of Germany) in three places, and in no other (the widget has none):
+
+- **The map.** The chip **Warnings** over the map (`/map?warnings=1`) draws the outline of each warning that has a polygon,
+  under the station dots, in DWD's colour of its level with an edge that is dotted (level 1), dashed (2), solid (3) or
+  a double line (4), and dash-dotted for DWD's preliminary information on severe weather; the legend, in the panel of the layers
+  button, says each in words. The panel lists every warning in force or announced, the most severe first; each row opens to
+  DWD's own text (type, level, times, issue time, areas, headline, description, instruction) and is drawn stronger on the
+  map. A warning that DWD gives by area name alone (the sea and the coast, which the community product has no polygon for)
+  is listed under "Warnings for areas the map cannot draw" and is never given an outline.
+- **The station or place picked, and the Forecast.** A banner lists the warnings whose polygon contains the position (the
+  place picked on the map where a click picked one, else the station's position; in the Forecast the forecast point),
+  tested in the browser against the snapshot (an edge counts as inside, a hole as outside). On a quiet day it is one line
+  ("No DWD warning for this position · Checked: 14:07 · Source: Deutscher Wetterdienst", with a button for the notes), so
+  that the chart under it does not move; a warning opens it. The warnings that name only an area are not matched to a
+  position: the banner says that there are some and where the map lists them. Outside Germany and the sea round it (the box
+  of the network, 3° to 16° E and 47° to 56° N) there is no banner, and nothing is asked for; the Forecast's credits say
+  instead, for every station, "Weather warnings: Germany only, from DWD".
+- **Ask the weather.** "Are there warnings here?" says whether a warning of DWD has an area that contains the place, quotes
+  each in DWD's words and says that they are DWD's own; it rates nothing and says what to do only as DWD does. Its
+  rules are on `/methods#warnings`: each is DWD's CAP profile, with the place in it, or marked as wetterdienst's own.
+
+The snapshot is asked for while a page that shows warnings is open and in front, and again every 5 minutes, which is how long the
+backend keeps it (a request that does not answer in 30 seconds is given up, and the next is scheduled); the clock the warnings are
+judged by is the server's and moves every minute without a request, so a warning that begins or ends changes on the page at once.
+A refresh that fails keeps what is shown and says so, and a snapshot more than 15 minutes old is said to be old: both are said where
+both hold. Nothing is asked for a place outside the box of DWD's network. DWD's polygons are per municipality and the backend does not
+read the height limits of a warning (a warning for heights above 1000 m, say): in the app it is for the whole municipality, and its
+description says the height. The heat and UV warnings are drawn in DWD's own colours for them, with the edge of their level.
+Each warning shows the time DWD issued it, and the page the time it last asked. The texts come in the language of the page
+where DWD writes them (German, English, Spanish and French as products of their own, Polish from the multilingual one);
+in any other language DWD's German text is shown, with a note. The link carries the chip (`warnings=1`).
 
 ### Large selections
 
@@ -116,13 +259,25 @@ setting for it):
 <iframe
   src="https://wetterdienst.eobs.org/widget?station=<station-id>&theme=light"
   title="Weather forecast"
-  width="100%" height="700"
+  width="100%" height="1050"
   style="border: 0"
   loading="lazy"
   referrerpolicy="strict-origin-when-cross-origin"></iframe>
 ```
 
-- The chart is 540 px high and the frame holds a header and a footer around it: 700 px leaves no scroll bar.
+- The height of the frame depends on what the forecast shows. In a frame wider than 40 rem (640 px at the usual text
+  size) the widget draws the chart, whose height is that of the panels it shows: 674 px for the wind, the
+  precipitation, the cloud cover, the temperature and the pressure with the weather symbols above them, and 744 px
+  where a thunderstorm has a probability of 10 % or more in the forecast, which adds a panel of 70 px (its plot and
+  the gap above it). With the frame's header, the credits and the legend under the chart, the provider's credit line
+  and the processing note under it, and the footer, the document is about 900 px high without that panel and about
+  1000 px with it (measured in Chrome at 641 to 1280 px), and about 1020 px where the credit and the note wrap to
+  two lines, as in German and French just above 640 px, a little more where the browser shows scroll bars or the
+  legend wraps: `height="1050"` holds all of them. In a frame of 40 rem or less the widget shows the day cards (about
+  350 px high), and the document is about 450 px high at 640 px and about 500 px at 320 px, where the credit takes
+  more lines. The widget picks the chart or the cards once, when it loads, and keeps
+  them when the frame is resized later, so a frame whose width can change (a phone turned) needs the chart's height.
+  A larger text size in the visitor's browser makes the text under the chart taller.
 - `theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. The browser keeps the
   colours it was last given in the frame's own storage, so a visitor who has seen `theme=dark` keeps it until a
   `theme` says otherwise, even if you drop the parameter later.
@@ -181,7 +336,7 @@ docker compose --profile app up        # the app alone
 The ports are published on `127.0.0.1`; `WETTERDIENST_BIND_HOST=0.0.0.0` in front of the command
 opens them to the network, see [Docker](docker.md#docker-compose).
 
-Without Docker, the backend is `wetterdienst restapi` (it listens on port 7890) and the app is run with Node 24 and
+Without Docker, the backend is `wetterdienst restapi` (it listens on port 7890) and the app is run with Node 26 and
 pnpm from the `app` directory (`pnpm install`, then `pnpm dev` for a development server or `pnpm build` and
 `pnpm preview`):
 
@@ -190,6 +345,13 @@ cd app
 pnpm install
 pnpm dev    # port 4000 on localhost, looking for the backend at http://localhost:7890/api
 ```
+
+The app is written against TypeScript 7 (`pnpm typecheck` runs `tsc` on the `.ts` code), but TypeScript 7 has no
+classic JavaScript API, which `vue-tsc`, typescript-eslint and `openapi-typescript` still load. Each of them gets
+TypeScript 6.0.3 as a dependency of its own (`app/.pnpmfile.cjs`), and `pnpm typecheck` checks the `.vue` files with
+`vue-tsc` on that copy. An editor's Vue language server needs the classic API too: point its TypeScript at the 6.0.3
+copy (in VS Code, `typescript.tsdk` set to `app/node_modules/.pnpm/vue-tsc@<version>/node_modules/typescript/lib`),
+not at the workspace's TypeScript 7.
 
 The app looks for the backend at `http://localhost:7890/api` unless `NUXT_API_BASE` says otherwise.
 The development server (with Nuxt DevTools) listens on `localhost`; `HOST=0.0.0.0 pnpm dev` opens it to the network.
@@ -202,10 +364,17 @@ backend can fail on a request the backend has since changed.
 
 The pages are drawn by script, so the server writes what a crawler or a link preview that runs none needs into the
 HTML it sends: the title, the description, the canonical link and the `og:` and `twitter:` tags of the path, and a
-`<noscript>` text with links to the pages. The script then sets the same tags in the language of the visitor; the
-server writes German, or English for a visitor who chose it or whose browser asks for it first. `/sitemap.xml` lists
-the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
-project and legal pages) and `/robots.txt` names it. `/widget` and `/settings` ask not to be indexed, and a path
+`<noscript>` text with links to the pages, and `<html lang>`. The server writes them in the language the page will
+show: it picks it as the app does at startup, the language of the `wd_lang` cookie if the visitor chose one, else
+the first language of the `Accept-Language` header that the app has, else German. A request with no
+`Accept-Language` at all, as a crawler sends (a browser always sends one), gets English, the language of the page a
+crawler renders. One URL has one language for the HTML and for the page. `/sitemap.xml` lists
+the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the measurement page, the
+project and legal pages, and the page of each provider) and `/robots.txt` names it. The page of a provider
+(`/providers/dwd`) has its own title and description; the server reads the list of providers from the backend's
+`/api/providers` and keeps it for an hour. While the backend cannot be reached it goes on with the list it read last;
+only a server that has read none since it started writes the generic head and lists the fixed pages only.
+`/widget` and `/settings` ask not to be indexed, and a path
 that ends in `.xml` or `.txt` and is none of the app's files is a 404.
 
 Both files, and the canonical links, use the address that `NUXT_PUBLIC_SITE_URL` gives, which is
@@ -213,19 +382,33 @@ Both files, and the canonical links, use the address that `NUXT_PUBLIC_SITE_URL`
 (`https://weather.example.org`, no path) if it is open to search engines; the variable is read when the server
 starts, no rebuild.
 
+To verify the site in Google Search Console with the HTML-file method, set `NUXT_GOOGLE_SITE_VERIFICATION` to the
+name Google gives for the file (`google54ae9a07758f51bd`; a trailing `.html` is accepted). The server then answers
+`/google54ae9a07758f51bd.html` with the one line Google looks for, and nothing else; any other path, and every
+path while the variable is empty (the default), is answered as before. A value that is not `google` and lower-case
+hex is ignored, and the server logs a warning when it starts. The variable is read when the server starts, no
+rebuild. It is a setting and not a file of the build so that an instance does not serve the token of another's
+Google account.
+
 ## Rate limit
 
 The server limits what costs something, per client. It counts the requests to
 
-- `/api/values`, `/api/stations`, `/api/interpolate`, `/api/summarize`, `/api/stripes/*` and `/api/history`,
-  and any other route under `/api` that is not one of the catalogue routes below, and
-- `/mcp` (a session is many small calls),
+- `/api/values`, `/api/stations`, `/api/interpolate`, `/api/summarize` and `/api/history`,
+  and any other route under `/api` that is not one of the catalogue routes below,
+- `/mcp` (a session is many small calls), and
+- `/_ghcn/*`, the app's own routes for NOAA's GHCN daily (the list of its stations for the map, which costs the
+  backend a 44 MB answer the first time, and the climate stripes' annual values and station lists, see below),
+- `/_search/*`, the stations and places the search finds by name (`GET /_search/stations`, matched in the GHCN and DWD measuring station lists the server keeps,
+  and `GET /_search/places`, which asks Photon; a key of the search is a request, so it is counted with the others),
 
 and answers the one past the limit with `429 Too Many Requests` and a problem of the kind
 `urn:wetterdienst:problem:rate-limited`, with `Retry-After` (seconds). It does not count the pages, the assets,
 `/docs` and `/openapi.json`, nor the catalogue routes that every page asks for: `/api/version`, `/api/settings`,
 `/api/providers`, `/api/coverage`, `/api/glossary`, `/api/auth` and `/api/health`. The routes count together, one
-limit for a client.
+limit for a client. The images of the Radar tool's frames (`/api/radar/frame`) are the exception: they are counted in a bucket
+of their own, in the same window, with a larger limit (`NUXT_RATE_LIMIT_FRAME_TOKENS`), since one page of the tool asks for 49 of them and
+the browser keeps them for an hour; the list of the frames (`/api/radar/frames`) is counted with the others.
 
 Every counted answer carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` (when the window
 ends, in seconds since the epoch).
@@ -234,6 +417,7 @@ ends, in seconds since the epoch).
 |---|---|---|
 | `NUXT_RATE_LIMIT_TOKENS` | `300` | Requests per client in a window |
 | `NUXT_RATE_LIMIT_WINDOW_SECONDS` | `300` | The window: 300 in 300 seconds is 60 a minute |
+| `NUXT_RATE_LIMIT_FRAME_TOKENS` | `1000` | Requests per client in a window for the radar's frame images, a bucket of their own |
 | `NUXT_RATE_LIMIT_ENABLED` | `true` | `false` switches the limit off |
 | `NUXT_RATE_LIMIT_CLIENT_IP_HEADER` | empty | See below |
 
@@ -280,6 +464,33 @@ The licences of the packages the browser is served (the copyright notices their 
 go with the code) are one file, `/third-party-licenses.txt`, linked from the footer. The production build writes it
 from the packages the bundle holds, so it is in the Docker image and in the release tarball, and the development server
 answers a note in its place.
+
+The climate stripes are made by the app, from the annual values of the generic API: the stations of
+`/api/stations` and the years of `/api/values` (`dwd/observation`, `annual/climate_summary` and
+`annual/precipitation_more`), with the colour scale (the mean of 1971-2000, the standard deviation of 1901-2000)
+calculated in the browser. NOAA's GHCN daily has daily values only, so the app's own server builds the years from them,
+by the rules of WMO-No. 1203, and lists the stations that have a record long enough:
+
+- `GET /_ghcn/annual?kind=temperature&station=USW00094728` (`kind` is `temperature` or `precipitation`, `unit_targets`
+  optional, as `/api/values` takes it) answers one row for each year, the value `null` where the year fails the rules,
+  with the unit, the way the days of a temperature were calculated (`midrange` of the daily maximum and minimum, or
+  `tavg`) and the provider's credit and licence. It reads the station's days from `/api/values` of the backend (up to about
+  25 MB of JSON for a record of 150 years, a third less with `drop_nulls=true`, which it asks for), and answers a few kilobytes.
+- `GET /_ghcn/stations?kind=temperature` answers the stations of GHCN daily that still report (their record reaches into
+  this or the last year) and span ten years or more in the elements the kind is made of, which is the picker's list. It
+  combines the lists `/api/stations` gives for one daily parameter each, with that element's span (backend 0.194.0): for the
+  precipitation `precipitation_amount`; for the temperature `temperature_air_mean_2m` taken with the years
+  `temperature_air_max_2m` and `temperature_air_min_2m` have in common, and reads them one after another (8 to 21 MB of
+  JSON each).
+
+Both are kept in the memory of the server for twelve hours, as the backend keeps the files of NOAA: a station's years
+(at most 1,000 stations, the one used longest ago going first) and the list of the stations of each kind. A station asked
+for by several clients at once is read once, and a failure is not kept. The two stripes routes run at most four reads of the
+backend between them, side by side (a read holds up to 80 MB of memory while it is parsed); another 16 may wait for their turn, for 30 seconds at the
+most, and a read beyond that is answered `503` with a `Retry-After` of 10 seconds. A read whose client has closed the
+connection is given up, in the queue or under way, unless another client waits for the same station, and a read the backend
+does not answer in 90 seconds is a `504`. Neither route is part of the backend's API: a deployment that serves the app serves them, one that serves the backend
+alone does not.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.
 The `/api` and `/mcp` proxies are for their own path of the backend and nothing else: a request whose path resolves

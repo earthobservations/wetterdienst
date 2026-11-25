@@ -17,7 +17,7 @@ The plausibility checks each have an option, `--plausibility-range`, `--plausibi
 `rejected:<check>,raw:<number>` in `quality_flags`) or `soft` (keep the value, flag it `suspect:<check>`), and
 `WD_TS_PLAUSIBILITY__<CHECK>` sets one for a host. One not given keeps the host's mode, or its default (`stuck`, `step`, `source` and `relations` are soft,
 the others hard). `--plausibility soft` (or `hard`) sets all of them at once, and a check given beside it wins whatever the
-order: `--plausibility soft --plausibility-range hard`; `WD_TS_PLAUSIBILITY=soft` does it for a host. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) is judged soft in every check but `floor` and `limits`, whatever is given: `hard` there is still flagged `suspect:<check>`, never nulled (`limits` follows its mode). `--plausibility-source` is the verdict of the source's own quality flag (GHCN-Daily `QFLAG`, Frost `qualityCode` 7, an
+order: `--plausibility soft --plausibility-range hard`; `WD_TS_PLAUSIBILITY=soft` does it for a host. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`: `kind` `forecast`) is judged soft in every check but `floor` and `limits`, whatever is given: `hard` there is still flagged `suspect:<check>`, never nulled (`limits` follows its mode). `--plausibility-source` is the verdict of the source's own quality flag (GHCN-Daily `QFLAG`, Frost `qualityCode` 7, an
 Environment Agency `Suspect`, DMI `validity:false`, ...): soft by default, it keeps the value and adds `suspect:source`, and `hard`
 nulls it as `rejected:source,raw:<text>`, except the suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`), which stays
 `suspect:source`. See [plausibility checks](../data/plausibility.md).
@@ -49,6 +49,42 @@ wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
 wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 --timestamp=2024-01 \
     --unit-targets='{"temperature": "degree_fahrenheit"}' \
     --limits='{"daily/climate_summary/temperature_air_mean_2m": [-22, 113]}'
+```
+
+`--filter`, `--sort`, `--first`, `--by` and `--max-rows` choose the rows of `values` on the server's words, see
+[Choose the rows](restapi.md#choose-the-rows) for the grammar and what a group is: the whole record is read, and the
+answer holds the rows chosen and `metadata.search`, which says how many values were searched. Quote a text that has `<`,
+`>` or `|` in it, which a shell reads. A text that cannot be read is a usage error (exit 2) that names the position. A
+parameter's name is a column too, for conditions on two parameters at one time
+([Parameters as columns](restapi.md#parameters-as-columns)): `--filter='temperature_air_min_2m<0,wind_gust_max>=17.2'`.
+
+```bash
+# the lowest value of a station in the window, and the coldest day of every year
+wetterdienst values --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
+    --stations=01975 --timestamp=1900/2024 --sort=value --first=1
+wetterdienst values --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
+    --stations=01975 --timestamp=1900/2024 --sort=value --first=1 --by=station_id,year
+
+# the days at or below -20 degrees, latest first
+wetterdienst values --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
+    --stations=01975 --timestamp=1900/2024 --filter='value<=-20' --sort=-timestamp
+```
+
+`wetterdienst statistics` counts, averages, adds up or takes the extremes of each station's values per year, month, day
+or hour (`--aggregate`, `--by`, `--filter`, `--year-start`, `--max-missing`, `--having`, `--sort`, `--first`, `--per`,
+`--max-rows`), on the words of [Statistics](restapi.md#statistics), where the rules of the completeness are written: a
+group that is not over, or has a gap, has no mean or sum unless `--max-missing` allows it, and `searched` and `expected`
+say how many values each group has and should have. It selects the stations with `--all`, `--stations`, `--region`,
+`--name` or a point (`--latitude` and `--longitude` with `--rank` or `--distance`), and writes JSON, CSV or NDJSON.
+
+```bash
+# the frost days of each year at Potsdam, 1961 to 1990, with their mean over the years under over_groups
+wetterdienst statistics --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
+    --stations=03987 --timestamp=1961/1990 --filter='value<0' --aggregate=count --by=year
+
+# the five warmest years of the record
+wetterdienst statistics --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_mean_2m \
+    --stations=03987 --aggregate=mean --by=year --sort=-mean --first=5
 ```
 
 The command line has none of the limits of the REST API on the rows or stations of a request. A long record or a

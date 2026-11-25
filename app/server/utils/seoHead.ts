@@ -1,21 +1,32 @@
-import de from '../../i18n/locales/de.json'
-import en from '../../i18n/locales/en.json'
 // The head and a text for a crawler that runs no script (GH-3497). The app is a single-page app (`ssr: false`), so
 // the page it serves is the same shell for every path, and what a page is called and what it is about is set by
 // script, which a link preview (Slack, Mastodon, a messenger) and some search engines do not run. The server writes
 // the tags of the path into the shell as it sends it (`server/plugins/seo-head.ts`), and a `<noscript>` block with
 // the page's name, what it is about and links to the other pages. The script then replaces them in the language
-// the visitor chose (`app/app.vue`).
+// the visitor is shown (`app/app.vue`).
 //
-// Only German and English are written here: the default locale, and the language a crawler or a preview asks for if
-// it asks for any. The other languages of the app are the visitor's own choice and need the script anyway.
-import { canonicalUrl, findSeoRoute, HOME_TITLE_KEY, isNotIndexed, normalizePath, SEO_ROUTES, siteOrigin } from '../../shared/utils/seo'
+// The head is written in the language the app will render for the request (GH-4106): the rule that picks it is the
+// app's own (`shared/utils/language.ts`), over the same locales (`shared/utils/locales.ts`) and catalogs, so the
+// shell and the page agree about the language of one URL.
+import type { LocaleCode } from '../../shared/utils/locales'
+import type { SeoProvider } from '../../shared/utils/seo'
+import cs from '../../i18n/locales/cs.json'
+import da from '../../i18n/locales/da.json'
+import deHh from '../../i18n/locales/de-hh.json'
+import de from '../../i18n/locales/de.json'
+import en from '../../i18n/locales/en.json'
+import es from '../../i18n/locales/es.json'
+import fr from '../../i18n/locales/fr.json'
+import it from '../../i18n/locales/it.json'
+import lb from '../../i18n/locales/lb.json'
+import nl from '../../i18n/locales/nl.json'
+import pl from '../../i18n/locales/pl.json'
+import { LOCALES } from '../../shared/utils/locales'
+import { canonicalUrl, findProvider, findSeoRoute, HOME_TITLE_KEY, isNotIndexed, normalizePath, providerPath, providerSeoText, SEO_ROUTES, siteOrigin } from '../../shared/utils/seo'
 
-export type SeoLocale = 'de' | 'en'
+export type SeoLocale = LocaleCode
 
-const MESSAGES: Record<SeoLocale, unknown> = { de, en }
-// `og:locale` takes a language and a territory with an underscore (the app's `de-DE`, `en-GB` of nuxt.config.ts)
-const OG_LOCALE: Record<SeoLocale, string> = { de: 'de_DE', en: 'en_GB' }
+const MESSAGES: Record<SeoLocale, unknown> = { 'de': de, 'en': en, 'fr': fr, 'es': es, 'it': it, 'pl': pl, 'nl': nl, 'cs': cs, 'da': da, 'lb': lb, 'de-hh': deHh }
 const SITE_NAME = 'Wetterdienst'
 
 /** The text under a dotted key (`seo.pages.api`) of a catalog, or the key if there is none: a hole shows. */
@@ -29,21 +40,14 @@ export function message(locale: SeoLocale, key: string): string {
   return typeof node === 'string' ? node : key
 }
 
-/**
- * The language of the page a request gets: the one the visitor chose (the cookie of the app's language
- * setting), else the one the browser prefers if that is English, else German, the app's default. A crawler sends
- * neither and gets German.
- *
- * @param cookie The `wd_lang` cookie, if any
- * @param acceptLanguage The `Accept-Language` header, if any
- * @returns `de` or `en`
- */
-export function pickLocale(cookie: string | undefined, acceptLanguage: string | undefined): SeoLocale {
-  if (cookie)
-    return cookie.toLowerCase() === 'en' ? 'en' : 'de'
-  // the first entry's tag, without its weight (`en;q=0.9`)
-  const first = (acceptLanguage ?? '').split(',', 1)[0]?.split(';', 1)[0]?.trim().toLowerCase() ?? ''
-  return first === 'en' || first.startsWith('en-') ? 'en' : 'de'
+/** A text of a catalog with its `{slots}` filled in, as vue-i18n does for the script's. */
+function translate(locale: SeoLocale, key: string, values: Record<string, string> = {}): string {
+  return message(locale, key).replace(/\{(\w+)\}/g, (slot, name: string) => values[name] ?? slot)
+}
+
+/** `og:locale` takes a language and a territory with an underscore: the locale's `de-DE`, as `de_DE` (`app/app.vue`) */
+function ogLocale(locale: SeoLocale): string {
+  return (LOCALES.find(entry => entry.code === locale)?.language ?? 'de-DE').replace('-', '_')
 }
 
 /** Text as it may stand in HTML, in an attribute as well. */
@@ -61,9 +65,13 @@ export function escapeHtml(text: string): string {
  *
  * @param locale The language
  * @param path The path of the page
+ * @param providers The providers of the backend, whose pages are named by their provider
  * @returns The text of `<title>`
  */
-export function pageTitle(locale: SeoLocale, path: string): string {
+export function pageTitle(locale: SeoLocale, path: string, providers: readonly SeoProvider[] = []): string {
+  const provider = findProvider(path, providers)
+  if (provider)
+    return providerSeoText(provider, locale, (key, values) => translate(locale, key, values)).title
   const route = findSeoRoute(path)
   if (!route || route.title === HOME_TITLE_KEY)
     return message(locale, HOME_TITLE_KEY)
@@ -89,15 +97,20 @@ export interface SeoHead {
  * @param path The request path
  * @param locale The language
  * @param siteUrl The `siteUrl` of the runtime configuration
- * @returns The title, the tags and the text. A path that is no page of the index (a provider's page, a path the
- * router does not know) is told as the site: its own page tells more once the script has run, and a canonical link
- * that named the home page for a path that is not would be wrong.
+ * @param providers The providers of the backend (`server/utils/seoProviders.ts`), none if its list is not known
+ * @returns The title, the tags and the text. The page of a provider of the list is told by its provider (GH-4119). A
+ * path that is no page of the index (the page of an id the list does not have, a path the router does not know) is
+ * told as the site: its own page tells more once the script has run, and a canonical link that named the home page
+ * for a path that is not would be wrong.
  */
-export function seoHead(path: string, locale: SeoLocale, siteUrl: unknown): SeoHead {
+export function seoHead(path: string, locale: SeoLocale, siteUrl: unknown, providers: readonly SeoProvider[] = []): SeoHead {
+  const provider = findProvider(path, providers)
   const route = findSeoRoute(path)
   const noindex = isNotIndexed(path)
-  const description = message(locale, route?.description ?? 'seo.description')
-  const title = pageTitle(locale, path)
+  const providerText = provider ? providerSeoText(provider, locale, (key, values) => translate(locale, key, values)) : undefined
+  const description = providerText?.description ?? message(locale, route?.description ?? 'seo.description')
+  const title = providerText?.title ?? pageTitle(locale, path)
+  const canonicalPath = provider ? providerPath(provider.provider) : route?.path
   const origin = siteOrigin(siteUrl)
   const image = `${origin}/apple-touch-icon.png`
   const meta = (attribute: 'name' | 'property', name: string, content: string) =>
@@ -106,13 +119,13 @@ export function seoHead(path: string, locale: SeoLocale, siteUrl: unknown): SeoH
   const tags = [
     meta('name', 'description', description),
     ...(noindex ? [meta('name', 'robots', 'noindex')] : []),
-    ...(route ? [`<link rel="canonical" href="${escapeHtml(canonicalUrl(siteUrl, route.path))}">`] : []),
+    ...(canonicalPath ? [`<link rel="canonical" href="${escapeHtml(canonicalUrl(siteUrl, canonicalPath))}">`] : []),
     meta('property', 'og:type', 'website'),
     meta('property', 'og:site_name', SITE_NAME),
     meta('property', 'og:title', title),
     meta('property', 'og:description', description),
-    ...(route ? [meta('property', 'og:url', canonicalUrl(siteUrl, route.path))] : []),
-    meta('property', 'og:locale', OG_LOCALE[locale]),
+    ...(canonicalPath ? [meta('property', 'og:url', canonicalUrl(siteUrl, canonicalPath))] : []),
+    meta('property', 'og:locale', ogLocale(locale)),
     meta('property', 'og:image', image),
     meta('name', 'twitter:card', 'summary'),
     meta('name', 'twitter:title', title),

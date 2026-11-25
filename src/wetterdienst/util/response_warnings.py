@@ -18,10 +18,13 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, NotRequired
+from typing import TYPE_CHECKING, NotRequired
 
 from typing_extensions import TypedDict
+
+from wetterdienst.util.ui import shown_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -38,7 +41,9 @@ class ResponseWarning(TypedDict):
     #: `other-window-left-out` and `window-not-closed`
     parameter: NotRequired[str]
     #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
-    #: `other-window-left-out`, `window-not-closed`, `station-without-rows`, `source-data-left-out`)
+    #: `other-window-left-out`, `window-not-closed`, `station-without-rows`, `source-data-left-out`,
+    #: `step-without-resolution`, and the counted `missing-value-marker`, `calm-wind-direction` and
+    #: `rejected-by-plausibility`, whose `message` gives the count at each, GH-4424)
     stations: NotRequired[list[str]]
 
 
@@ -51,16 +56,16 @@ RESPONSE_WARNING_RECORD = "response_warning"
 #: the code of the warning that counts the readings the source wrote a marker for, and its message
 MISSING_VALUE_MARKER = "missing-value-marker"
 MISSING_VALUE_MARKER_MESSAGE = (
-    "{count} readings of the source were a marker for a missing value and are null; with drop_nulls they are not in "
-    "the answer, without it the text the source wrote is the `raw:` token of their quality_flags."
+    "{count} readings of the source were a marker for a missing value and are null{where}; with drop_nulls they are "
+    "not in the answer, without it the text the source wrote is the `raw:` token of their quality_flags."
 )
 
 #: the code of the warning that counts the wind directions the source wrote as a calm (GH-3696): a calm is a state of
 #: the wind with no direction, not a reading that is missing, so `missing-value-marker` does not count them
 CALM_WIND_DIRECTION = "calm-wind-direction"
 CALM_WIND_DIRECTION_MESSAGE = (
-    "{count} wind directions were a calm, which the source writes as 0 and which has no direction: they are null, "
-    "and no reading is missing; with drop_nulls they are not in the answer, without it `raw:0` in their "
+    "{count} wind directions were a calm, which the source writes as 0 and which has no direction: they are null"
+    "{where}, and no reading is missing; with drop_nulls they are not in the answer, without it `raw:0` in their "
     "quality_flags keeps them."
 )
 
@@ -69,7 +74,7 @@ CALM_WIND_DIRECTION_MESSAGE = (
 REJECTED_BY_PLAUSIBILITY = "rejected-by-plausibility"
 REJECTED_BY_PLAUSIBILITY_MESSAGE = (
     "{count} values were numbers a plausibility check rejected ({details}; a value several checks rejected is "
-    "counted under each) and are null; with drop_nulls they are not in the answer, without it the number the "
+    "counted under each) and are null{where}; with drop_nulls they are not in the answer, without it the number the "
     "source wrote is the `raw:` token of their quality_flags, after `rejected:<check>`. Set the check to `soft` to "
     "keep them."
 )
@@ -94,8 +99,9 @@ OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
 #: the code of the warning that counts the values whose window had not closed when the request was served (GH-3856):
 #: Frost serves the daily, monthly and annual value of a period that is still going on and marks nothing, so a
 #: value of a day is left out (`note_open_window`, `returned` false) and one of the month or the year is returned,
-#: marked `completeness:Incomplete` in its `quality_flags` (`returned` true). Not missing data: ask again once the
-#: window has closed
+#: marked `completeness:Incomplete` in its `quality_flags` (`returned` true); DMI serves the day, the month and the
+#: year still running the same way (GH-4087: the day left out, the month and the year marked). Not missing data: ask
+#: again once the window has closed
 WINDOW_NOT_CLOSED = "window-not-closed"
 
 #: the code of the one warning an estimate (`interpolate`, `summarize`) tells of the source data its walk left out
@@ -113,12 +119,29 @@ SOURCE_DATA_LEFT_OUT = "source-data-left-out"
 #: `X-Wetterdienst-Truncated` header too
 ANSWER_TRUNCATED = "answer-truncated"
 
+#: the code of the warning an answer carries that `max_rows` cut: more rows matched what `filter`, `sort` and `first`
+#: chose than the answer returns (GH-4411). It says how many of how many, and is no `answer-truncated`, which a tool's
+#: size budget raises; where both are told, the `answer-truncated` note counts the rows that `max_rows` left
+ROWS_CAPPED = "rows-capped"
+
 #: the code of the warning an MCP tool's `values` answer for a forecast network carries when it starts at now
 #: (`ui.forecast_start`, GH-4025): the rows of the model run stamped before the current hour are left out, and the
 #: `message` says which `timestamp` window asks for them. Only a tool's answer is cut so; the REST API, the command
 #: line and the library answer the whole run. The `message` is the note, which for a CSV is the
 #: `X-Wetterdienst-Forecast-From-Now` header too
 FORECAST_FROM_NOW = "forecast-from-now"
+
+#: the code of the warning a search by place (`rank`, `distance`, a bounding box, and so `interpolate` and `summarize`
+#: by a point) carries on a network whose source gives its stations no position (`dwd/pollen`, GH-4088): the answer is
+#: empty by the nature of the network, not because no station is near, and the `message` names the way to find them,
+#: by name or id. Not told for a search by name or id
+POSITIONS_UNAVAILABLE = "positions-unavailable"
+
+#: the code of the warning that names the stations whose file the provider read from its secondary source because the
+#: first one failed (`noaa/ghcn`, GH-4230: NCEI's by_station files, then the AWS mirror, whose files of some stations
+#: are older): the answer holds the values of the mirror, which may lack the most recent days. One for the request,
+#: with the number of stations and the first of them (`note_source_fallback`); a 429 is never one
+SOURCE_FALLBACK = "source-fallback"
 
 
 class SkipCause(Enum):
@@ -147,6 +170,9 @@ class SkipCause(Enum):
     REFUSED = ("the download was refused", "a refused download", False)
     #: the file arrived and would not parse, or held what the reader cannot use
     UNPARSEABLE = ("it would not parse", "a file that would not parse", False)
+    #: the file arrived and was read, and holds nothing of the station: a place or region the source has renamed or
+    #: dropped (`dwd/uvi`'s table names a place and `dwd/pollen`'s a region that the file no longer lists)
+    NO_FORECAST = ("the file holds no forecast of it", "a file with no forecast of the station", False)
 
     def __init__(self, reason: str, noun: str, may_heal: bool) -> None:  # noqa: FBT001
         """Keep the clause of the warning, the noun of the advice and whether the cause can heal."""
@@ -195,11 +221,58 @@ def advise_on_skip_causes(causes: Iterable[SkipCause]) -> str:
 #: the request cannot tell where nothing is recorded (the library as a library)
 _NAMED: ContextVar[set[str] | None] = ContextVar("wetterdienst_named_parameters", default=None)
 _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_response_warnings", default=None)
-#: the warnings that count something across the whole request, by code: the count, the message, where `{count}` is
-#: the number, and the count by detail (`{details}` in the message, as `range 3, stuck 2`)
-_COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
+#: how many stations a counted warning names, with the count at each; the others are told as `and N more stations`
+#: (a request for a hundred stations must not make the warning a hundred names long)
+COUNTED_STATIONS_LISTED = 5
 
 
+@dataclass
+class _Counted:
+    """What a warning that counts something across the request has added up: the total, the details, the stations."""
+
+    message: str
+    count: int = 0
+    #: the count by detail (`{details}` in the message, as `range 3, stuck 2`)
+    details: dict[str, int] = field(default_factory=dict)
+    #: the count at each station that has one, in the order the walk read them: the station's name (or None) and count
+    stations: dict[str, tuple[str | None, int]] = field(default_factory=dict)
+
+    def text(self) -> str:
+        """Give the message with the total, the details and where (`{count}`, `{details}`, `{where}`)."""
+        return self.message.format(count=self.count, details=tell_details(self.details), where=self._where())
+
+    def listed(self) -> list[str]:
+        """Give the ids of the stations the message names."""
+        return list(self.stations)[:COUNTED_STATIONS_LISTED]
+
+    def _where(self) -> str:
+        """Give `, at 01975 Hamburg-Fuhlsbüttel (18), 01048 (3) and 95 more stations`, or nothing without a station.
+
+        The first stations of the walk with their count, as many as `COUNTED_STATIONS_LISTED`, and then how many more
+        there are: the total is in front of it, and the stations that are not named add up to the rest.
+        """
+        if not self.stations:
+            return ""
+        named = [
+            f"{station} {name} ({number})" if name and name != station else f"{station} ({number})"
+            for station, (name, number) in list(self.stations.items())[:COUNTED_STATIONS_LISTED]
+        ]
+        rest = len(self.stations) - len(named)
+        if rest:
+            named.append(f"{rest} more station{'' if rest == 1 else 's'}")
+        return f", at {_joined(named)}"
+
+
+#: the warnings that count something across the whole request, by code
+_COUNTED: ContextVar[dict[str, _Counted] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
+
+
+#: what a provider tells when it reads the file of the station being collected from its secondary source because the
+#: first one failed (`note_source_fallback`): the cause, the name of the primary and of the secondary, set like
+#: `_SKIPPING`
+_FELL_BACK: ContextVar[Callable[[SkipCause, str, str], None] | None] = ContextVar(
+    "wetterdienst_fell_back", default=None
+)
 #: what a provider tells when it lets a file of the station being collected go (`note_skipped_download`): set by the
 #: walk of the values around the collection of one station, and `None` outside it
 _SKIPPING: ContextVar[Callable[[bool, SkipCause], None] | None] = ContextVar("wetterdienst_skipping", default=None)
@@ -219,6 +292,7 @@ def collecting(
     named: set[str] | None = None,
     left_out: Callable[[str, int, str], None] | None = None,
     open_window: Callable[[str, int, datetime, bool], None] | None = None,
+    fell_back: Callable[[SkipCause, str, str], None] | None = None,
 ) -> Iterator[None]:
     """Have `note` told what a provider lets go while the block runs, which is the collection of one station.
 
@@ -227,8 +301,10 @@ def collecting(
     request are not kept outside a response, but the log lines are written all the same, and would repeat. Both are
     the block's alone, so that walks that overlap (interleaved, or one in the other's collection) keep to their own.
     `left_out` is told the rows of another window that the provider left out (`note_left_out`), `open_window` the
-    values of a window that had not closed (`note_open_window`).
+    values of a window that had not closed (`note_open_window`), `fell_back` the station whose file was read from the
+    secondary source of the provider (`note_source_fallback`).
     """
+    falling = _FELL_BACK.set(fell_back)
     skipping = _SKIPPING.set(note)
     watching = _NAMED.set(named)
     leaving = _LEFT_OUT.set(left_out)
@@ -236,6 +312,7 @@ def collecting(
     try:
         yield
     finally:
+        _FELL_BACK.reset(falling)
         _OPEN_WINDOW.reset(opening)
         _LEFT_OUT.reset(leaving)
         _NAMED.reset(watching)
@@ -265,17 +342,59 @@ def note_open_window(parameter: str, count: int, closes: datetime, *, returned: 
     """Tell that `count` values of `parameter` at the station being collected are of a window that had not closed.
 
     For a source that serves the value of a period that is still going on and does not mark it (Frost: the day's
-    extreme, sum or mean before the window ends, the month so far): a daily value of it is a partial extreme, sum or
-    mean that comes back looking like the day's. ``returned`` is whether the provider handed the values over (marked in
-    their `quality_flags`) or left them out of the answer. `WINDOW_NOT_CLOSED` says so once the walk is over
-    (`ParameterRows.warn`), with the number of values and the time the earliest window closes, ``closes``, which is
-    UTC. A parameter whose values were left out is no "the source has no values" (`parameter-without-rows`).
+    extreme, sum or mean before the window ends, the month so far; DMI: the day, the month and the year so far): a
+    daily value of it is a partial extreme, sum or mean that comes back looking like the day's. ``returned`` is
+    whether the provider handed the values over (marked in their `quality_flags`) or left them out of the answer.
+    `WINDOW_NOT_CLOSED` says so once the walk is over (`ParameterRows.warn`), with the number of values and the time
+    the earliest window closes, ``closes``, which is UTC. A parameter whose values were left out is no "the source has
+    no values" (`parameter-without-rows`).
 
     ``parameter`` is `resolution/dataset/parameter`. Nothing happens outside the collection of a station.
     """
     note = _OPEN_WINDOW.get()
     if note is not None and count > 0:
         note(parameter, count, closes, returned)
+
+
+def source_fallback_message(
+    where: str, *, many: bool, primary: str, secondary: str, causes: Iterable[SkipCause]
+) -> str:
+    """Word the warning `source-fallback`: which files were read from the secondary source, why, and what it costs.
+
+    ``where`` names the stations as the warning lists them (`station X`, `3 stations, the first 10 of them ...`),
+    ``primary`` and ``secondary`` the two sources as the provider names them. The advice follows the causes, as
+    `file-skipped`'s does: a failure that can heal is told to be tried again later, a refusal is not.
+    """
+    what = f"The files of {where} were" if many else f"The file of {where} was"
+    return (
+        f"{what} not read from {primary} ({tell_skip_causes(causes)}) and come{'' if many else 's'} from "
+        f"{secondary} instead, whose files may be older: the most recent days of "
+        f"{'these stations' if many else 'this station'} may be missing. {advise_on_skip_causes(causes)}"
+    )
+
+
+def note_source_fallback(station_id: str, cause: SkipCause, *, primary: str, secondary: str) -> None:
+    """Tell that the provider read the file of the station being collected from its secondary source, and why.
+
+    For a provider with a second source for the same files that may be older (`noaa/ghcn` `daily`: NCEI, then the AWS
+    mirror, GH-4230). The walk tells the stations once it is over (`ParameterRows.warn`, `EstimateLeftOut.warn`):
+    one `source-fallback` warning for the request with their number and the first of them, and a station read so is
+    not one `parameter-without-rows` and `station-without-rows` say the source holds nothing for, as the secondary's
+    file may simply end earlier than the primary's. Outside a walk (a provider's reader called by itself) there is
+    nothing to tell it to, and the warning is raised at once for the station. ``cause`` is why the primary was not read.
+    """
+    note = _FELL_BACK.get()
+    if note is not None:
+        note(cause, primary, secondary)
+        return
+    warn_response(
+        logging.getLogger(__name__),
+        SOURCE_FALLBACK,
+        source_fallback_message(
+            f"station {station_id}", many=False, primary=primary, secondary=secondary, causes=[cause]
+        ),
+        stations=[station_id],
+    )
 
 
 def note_skipped_download(cause: SkipCause, *, whole_request: bool = False) -> None:
@@ -312,20 +431,34 @@ def begin_response() -> None:
     _COUNTED.set({})
 
 
-def count_response_warning(code: str, count: int, message: str, *, details: dict[str, int] | None = None) -> None:
+def count_response_warning(
+    code: str,
+    count: int,
+    message: str,
+    *,
+    details: dict[str, int] | None = None,
+    station: str | None = None,
+    station_name: str | None = None,
+) -> None:
     """Add `count` to the warning `code` of the request being served, whose `message` has `{count}` for the total.
 
     For what happens many times in a request, once for each station: the answer tells it once, with the sum.
     `details` splits the count by a reason (the check that rejected a value), summed the same way, and a `message`
-    with `{details}` tells it, largest first. Nothing is recorded outside a request.
+    with `{details}` tells it, largest first. `station` is the station the count is of, and `station_name` its name
+    where it is at hand, which is the source's text and is cleaned of control characters and cut here (`shown_text`):
+    a `message` with `{where}` tells the first stations with their counts (`, at 01975 Hamburg (18), 01048 (3) and 95
+    more stations`, GH-4424), which the answer's `stations` lists too. Nothing is recorded outside a request.
     """
     counted = _COUNTED.get()
     if counted is None or count <= 0:
         return
-    entry = counted.setdefault(code, [0, message, {}])
-    entry[0] += count
+    entry = counted.setdefault(code, _Counted(message))
+    entry.count += count
     for detail, number in (details or {}).items():
-        entry[2][detail] = entry[2].get(detail, 0) + number
+        entry.details[detail] = entry.details.get(detail, 0) + number
+    if station is not None:
+        known_name, known = entry.stations.get(station, (None, 0))
+        entry.stations[station] = (shown_text(station_name) if station_name else known_name, known + count)
 
 
 def warn_response(
@@ -383,17 +516,22 @@ def log_counted_warnings(log: logging.Logger) -> None:
     count, in one line each, marked as `warn_response` marks its lines (`RESPONSE_WARNING_RECORD`, which `--quiet`
     lets through). A library call and a REST answer carry the same counts in `warnings` and log nothing here.
     """
-    for code, (count, message, details) in (_COUNTED.get() or {}).items():
-        log.warning(message.format(count=count, details=tell_details(details)), extra={RESPONSE_WARNING_RECORD: code})
+    for code, entry in (_COUNTED.get() or {}).items():
+        log.warning(entry.text(), extra={RESPONSE_WARNING_RECORD: code})
 
 
 def recorded_warnings() -> list[ResponseWarning]:
     """Give the warnings recorded since `begin_response`, in the order they were raised, the counted ones last."""
-    counted = [
-        ResponseWarning(code=code, message=message.format(count=count, details=tell_details(details)))
-        for code, (count, message, details) in (_COUNTED.get() or {}).items()
-    ]
+    counted = [_counted_warning(code, entry) for code, entry in (_COUNTED.get() or {}).items()]
     return [*(_RECORDED.get() or []), *counted]
+
+
+def _counted_warning(code: str, entry: _Counted) -> ResponseWarning:
+    """Make the warning of a count: its text, and the stations the text names, as the other warnings carry them."""
+    warning = ResponseWarning(code=code, message=entry.text())
+    if entry.stations:
+        warning["stations"] = entry.listed()
+    return warning
 
 
 def tell_details(details: dict[str, int]) -> str:

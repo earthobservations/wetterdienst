@@ -34,7 +34,7 @@ pip install "wetterdienst[interpolation,export]"
 | `export` | files (Zarr, NetCDF, Excel) and SQL databases as export targets, see [Export](export.md) |
 | `duckdb`, `postgresql`, `mysql`, `cratedb`, `influxdb` | the one database of that name as an export target, without the rest of `export` |
 | `excel` | Excel (`.xlsx`) as an export target |
-| `plotting` | charts and images of a result (`to_plot`, `to_image`) and the climate stripes images: Altair draws them, vl-convert renders them, no browser is needed. vl-convert has wheels for Linux (glibc), macOS and Windows x86-64, and Linux and macOS arm64, for every CPython from 3.7; not for musllinux (Alpine), Windows ARM64 or a free-threaded Python |
+| `plotting` | charts and images of a result (`to_plot`, `to_image`): Altair draws them, vl-convert renders them, no browser is needed. vl-convert has wheels for Linux (glibc), macOS and Windows x86-64, and Linux and macOS arm64, for every CPython from 3.7; not for musllinux (Alpine), Windows ARM64 or a free-threaded Python |
 | `radar` | the DWD radar products that are HDF5 or NetCDF |
 | `radarplus` | the packages that radar data is worked with (wradlib, xradar), as in the radar examples |
 | `bufr`, `eccodes` | decoding BUFR, which DWD road weather is (`bufr` brings the reader, `eccodes` only the library) |
@@ -132,4 +132,4 @@ provider that needs a key, a provider that is down, an answer that is empty.
 - **App**: the [web app](app.md), including how to run your own.
 - **The data**: [Data](../data/index.md) for every provider and parameter, the [parameter glossary](../data/parameters.md)
   and what the [quality flags](../data/quality-flags.md) mean. DWD [weather alerts](../data/provider/dwd/alerts/index.md),
-  [Climate Stripes](stripes.md), [Station history](station_history.md).
+  [Station history](station_history.md).
