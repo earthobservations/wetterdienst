@@ -1,0 +1,1090 @@
+[
+ {
+  "ghsa_id": "GHSA-jm3w-gw2p-xjfj",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-jm3w-gw2p-xjfj",
+  "severity": "low",
+  "published_at": "2026-11-08T18:51:53Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-5pv8-vvhc-h7jv",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-5pv8-vvhc-h7jv",
+  "severity": "low",
+  "published_at": "2026-11-08T18:44:21Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-f9xw-jh8m-3mwq",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-f9xw-jh8m-3mwq",
+  "severity": "low",
+  "published_at": "2026-10-07T01:24:31Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-494j-54xm-rwp3",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-494j-54xm-rwp3",
+  "severity": "low",
+  "published_at": "2026-10-07T01:23:58Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-xgw8-8ccx-rmqh",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-xgw8-8ccx-rmqh",
+  "severity": "medium",
+  "published_at": "2026-11-08T18:30:40Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-5wr8-gcqf-gqf3",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-5wr8-gcqf-gqf3",
+  "severity": "low",
+  "published_at": "2026-10-07T01:23:47Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-6cjc-53gc-5rqm",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-6cjc-53gc-5rqm",
+  "severity": "low",
+  "published_at": "2026-10-07T01:23:37Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-gx76-c99x-2c96",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-gx76-c99x-2c96",
+  "severity": "low",
+  "published_at": "2026-10-07T01:23:25Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-pqxq-w44r-73xw",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-pqxq-w44r-73xw",
+  "severity": "low",
+  "published_at": "2026-10-07T01:23:12Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-24c4-3p7v-29cm",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-24c4-3p7v-29cm",
+  "severity": "medium",
+  "published_at": "2026-11-08T18:23:00Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-28qf-cpwq-vmc2",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-28qf-cpwq-vmc2",
+  "severity": "medium",
+  "published_at": "2026-11-08T18:17:48Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-pw86-h8fm-j323",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-pw86-h8fm-j323",
+  "severity": "medium",
+  "published_at": "2026-11-08T18:19:25Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-9xw5-w5jj-pvcg",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-9xw5-w5jj-pvcg",
+  "severity": "medium",
+  "published_at": "2026-10-07T01:22:56Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": ">=2,<=3.14.4",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-3rp8-rxj8-mvjw",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-3rp8-rxj8-mvjw",
+  "severity": "high",
+  "published_at": "2026-11-08T18:20:46Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-5rmc-48h2-hvcm",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-5rmc-48h2-hvcm",
+  "severity": "medium",
+  "published_at": "2026-11-08T18:14:02Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-h4cc-hm5h-fmm9",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-h4cc-hm5h-fmm9",
+  "severity": "low",
+  "published_at": "2026-11-08T18:15:40Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-2g87-pp6c-29x5",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-2g87-pp6c-29x5",
+  "severity": "low",
+  "published_at": "2026-10-07T01:22:06Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.3",
+    "patched_versions": "3.14.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-cq5v-8q36-5273",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-cq5v-8q36-5273",
+  "severity": "high",
+  "published_at": "2026-07-25T12:18:57Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.2",
+    "patched_versions": "3.14.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mfx4-hv73-q22v",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-mfx4-hv73-q22v",
+  "severity": "low",
+  "published_at": "2026-07-26T16:45:44Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.14.1",
+    "patched_versions": "4.14.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mq44-7p77-q5h7",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-mq44-7p77-q5h7",
+  "severity": "low",
+  "published_at": "2026-07-26T16:46:58Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.1",
+    "patched_versions": "3.14.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-xcgm-r5h9-7989",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-xcgm-r5h9-7989",
+  "severity": "medium",
+  "published_at": "2026-06-08T20:11:55Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.0",
+    "patched_versions": "3.14.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-4m7w-qmgq-4wj5",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-4m7w-qmgq-4wj5",
+  "severity": "low",
+  "published_at": "2026-06-08T20:11:35Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.0",
+    "patched_versions": "3.14.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-9x8q-7h8h-wcw9",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-9x8q-7h8h-wcw9",
+  "severity": "low",
+  "published_at": "2026-06-08T20:11:14Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.0",
+    "patched_versions": "3.14.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-4fvr-rgm6-gqmc",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-4fvr-rgm6-gqmc",
+  "severity": "medium",
+  "published_at": "2026-06-08T20:10:36Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.0",
+    "patched_versions": "3.14.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-g3cq-j2xw-wf74",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-g3cq-j2xw-wf74",
+  "severity": "medium",
+  "published_at": "2026-06-08T20:10:02Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.0",
+    "patched_versions": "3.14.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-63hw-fmq6-xxg2",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-63hw-fmq6-xxg2",
+  "severity": "medium",
+  "published_at": "2026-06-08T20:09:48Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.0",
+    "patched_versions": "3.14.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-hpj7-wq8m-9hgp",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-hpj7-wq8m-9hgp",
+  "severity": "low",
+  "published_at": "2026-06-08T20:09:24Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.0",
+    "patched_versions": "3.14.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-2fqr-mr3j-6wp8",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-2fqr-mr3j-6wp8",
+  "severity": "low",
+  "published_at": "2026-06-08T20:09:03Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.14.0",
+    "patched_versions": "3.14.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-m6qw-4cw2-hm4m",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-m6qw-4cw2-hm4m",
+  "severity": "low",
+  "published_at": "2026-06-04T14:41:06Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.13.5",
+    "patched_versions": "3.14.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-hg6j-4rv6-33pg",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-hg6j-4rv6-33pg",
+  "severity": "low",
+  "published_at": "2026-06-02T12:26:30Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<3.14.0",
+    "patched_versions": "3.14.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-c427-h43c-vf67",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-c427-h43c-vf67",
+  "severity": "low",
+  "published_at": "2026-04-01T00:04:36Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-63hf-3vf5-4wqf",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-63hf-3vf5-4wqf",
+  "severity": "low",
+  "published_at": "2026-04-01T00:01:10Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mwh4-6h8g-pg8w",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-mwh4-6h8g-pg8w",
+  "severity": "low",
+  "published_at": "2026-04-01T00:00:48Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-966j-vmvw-g2g9",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-966j-vmvw-g2g9",
+  "severity": "low",
+  "published_at": "2026-04-01T00:00:14Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-3wq7-rqq7-wx6j",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-3wq7-rqq7-wx6j",
+  "severity": "medium",
+  "published_at": "2026-03-31T23:59:54Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-m5qp-6w8w-w647",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-m5qp-6w8w-w647",
+  "severity": "low",
+  "published_at": "2026-03-31T23:59:40Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-p998-jp59-783m",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-p998-jp59-783m",
+  "severity": "low",
+  "published_at": "2026-03-31T23:58:53Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-2vrm-gr82-f7m5",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-2vrm-gr82-f7m5",
+  "severity": "low",
+  "published_at": "2026-03-31T23:58:36Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-hcc4-c3v8-rx92",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-hcc4-c3v8-rx92",
+  "severity": "low",
+  "published_at": "2026-03-31T23:58:04Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-w2fm-2cpv-w7v5",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-w2fm-2cpv-w7v5",
+  "severity": "medium",
+  "published_at": "2026-03-31T23:57:35Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.3",
+    "patched_versions": "3.13.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jg22-mg44-37j8",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-jg22-mg44-37j8",
+  "severity": "medium",
+  "published_at": "2026-06-02T12:26:14Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<3.14",
+    "patched_versions": "3.14"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-g84x-mcqj-x9qq",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-g84x-mcqj-x9qq",
+  "severity": "medium",
+  "published_at": "2026-01-05T21:23:07Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.2",
+    "patched_versions": "3.13.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-fh55-r93g-j68g",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-fh55-r93g-j68g",
+  "severity": "low",
+  "published_at": "2026-01-05T21:14:23Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.2",
+    "patched_versions": "3.13.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-6jhg-hg63-jvvf",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-6jhg-hg63-jvvf",
+  "severity": "high",
+  "published_at": "2026-01-05T21:34:19Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.2",
+    "patched_versions": "3.13.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jj3x-wxrx-4x23",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-jj3x-wxrx-4x23",
+  "severity": "high",
+  "published_at": "2026-01-05T21:33:02Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.2",
+    "patched_versions": "3.13.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-54jq-c3m8-4m76",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-54jq-c3m8-4m76",
+  "severity": "low",
+  "published_at": "2026-01-05T21:11:44Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.2",
+    "patched_versions": "3.13.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mqqc-3gqh-h2x8",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-mqqc-3gqh-h2x8",
+  "severity": "low",
+  "published_at": "2026-01-05T21:08:43Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.2",
+    "patched_versions": "3.13.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-69f9-5gxw-wvc2",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-69f9-5gxw-wvc2",
+  "severity": "low",
+  "published_at": "2026-01-05T21:10:46Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.2",
+    "patched_versions": "3.13.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-9548-qrrj-x5pj",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-9548-qrrj-x5pj",
+  "severity": "low",
+  "published_at": "2025-07-14T13:00:23Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.12.13",
+    "patched_versions": "3.12.14"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-27mf-ghqm-j3j8",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-27mf-ghqm-j3j8",
+  "severity": "medium",
+  "published_at": "2024-11-18T19:49:26Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": ">=3.10.6",
+    "patched_versions": "3.10.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-8495-4g3g-x7pr",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-8495-4g3g-x7pr",
+  "severity": "low",
+  "published_at": "2024-11-18T19:48:52Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.10.10",
+    "patched_versions": "3.10.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jwhx-xcg6-8xhj",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-jwhx-xcg6-8xhj",
+  "severity": "low",
+  "published_at": "2024-08-09T10:31:06Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": ">=3.10, <3.10.2",
+    "patched_versions": "3.10.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-6mq8-rvhq-8wgg",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-6mq8-rvhq-8wgg",
+  "severity": "high",
+  "published_at": "2026-01-05T21:38:24Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.13.2",
+    "patched_versions": "3.13.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-5m98-qgg9-wh84",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-5m98-qgg9-wh84",
+  "severity": "high",
+  "published_at": "2024-05-02T13:34:12Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "< 3.9.4",
+    "patched_versions": "3.9.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-7gpw-8wmc-pm8g",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-7gpw-8wmc-pm8g",
+  "severity": "low",
+  "published_at": "2024-04-17T23:12:43Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<3.9.4",
+    "patched_versions": "3.9.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-5h86-8mv2-jq9f",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-5h86-8mv2-jq9f",
+  "severity": "medium",
+  "published_at": "2024-01-29T21:30:13Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": ">1.0.5",
+    "patched_versions": "3.9.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-8qpw-xqxj-h4r2",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-8qpw-xqxj-h4r2",
+  "severity": "low",
+  "published_at": "2024-01-29T21:29:33Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "< 3.9.1",
+    "patched_versions": "3.9.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-qvrw-v9rv-5rjx",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-qvrw-v9rv-5rjx",
+  "severity": "low",
+  "published_at": "2023-11-26T17:33:31Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<3.9.0",
+    "patched_versions": "3.9.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-q3qx-c6g2-7pw2",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-q3qx-c6g2-7pw2",
+  "severity": "low",
+  "published_at": "2023-11-26T17:33:45Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<3.9.0",
+    "patched_versions": "3.9.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-gfw2-4jvh-wgfg",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-gfw2-4jvh-wgfg",
+  "severity": "medium",
+  "published_at": "2023-11-14T16:36:28Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<3.8.6",
+    "patched_versions": "3.8.6"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-pjjw-qhg8-p2p9",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-pjjw-qhg8-p2p9",
+  "severity": "medium",
+  "published_at": "2023-11-25T21:51:03Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<3.8.6",
+    "patched_versions": "3.8.6"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-45c4-8wx5-qw6w",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-45c4-8wx5-qw6w",
+  "severity": "medium",
+  "published_at": "2023-07-19T18:20:37Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<= 3.8.4",
+    "patched_versions": ">= 3.8.5"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-xx9p-xxvh-7g8j",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-xx9p-xxvh-7g8j",
+  "severity": "low",
+  "published_at": "2023-11-14T17:41:34Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "< 3.8.0",
+    "patched_versions": ">=3.8.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-v6wp-4m6f-gcjg",
+  "html_url": "https://github.com/aio-libs/aiohttp/security/advisories/GHSA-v6wp-4m6f-gcjg",
+  "severity": "low",
+  "published_at": "2021-02-25T18:03:28Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "aiohttp"
+    },
+    "vulnerable_version_range": "<=3.7.3",
+    "patched_versions": ">=3.7.4"
+   }
+  ]
+ }
+]

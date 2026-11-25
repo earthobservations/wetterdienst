@@ -1,0 +1,189 @@
+[
+ {
+  "ghsa_id": "GHSA-p36q-q72m-gchr",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-p36q-q72m-gchr",
+  "severity": "medium",
+  "published_at": "2026-03-23T20:02:25Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "srvx"
+    },
+    "vulnerable_version_range": "< 0.11.13",
+    "patched_versions": "0.11.13"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-fp4x-ggrf-wmc6",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-fp4x-ggrf-wmc6",
+  "severity": "medium",
+  "published_at": "2026-03-21T00:13:45Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": "2.0.1-rc.17",
+    "patched_versions": ">= 2.0.1-rc.18"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-q5pr-72pq-83v3",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-q5pr-72pq-83v3",
+  "severity": "medium",
+  "published_at": "2026-03-21T00:13:39Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": ">= 2.0.0-beta.4",
+    "patched_versions": ">= 2.0.1-rc.18"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-72gr-qfp7-vwhw",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-72gr-qfp7-vwhw",
+  "severity": "medium",
+  "published_at": "2026-03-20T17:33:07Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": "<= 1.15.8",
+    "patched_versions": ">= 1.15.9"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-2j6q-whv2-gh6w",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-2j6q-whv2-gh6w",
+  "severity": "low",
+  "published_at": "2026-03-20T17:34:15Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": ">=2.0.1-alpha.0 <= 2.0.1-rc.16",
+    "patched_versions": ">= 2.0.1-rc.17"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-4hxc-9384-m385",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-4hxc-9384-m385",
+  "severity": "medium",
+  "published_at": "2026-03-20T17:34:32Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": "<= 2.0.1-rc.16",
+    "patched_versions": ">= 1.15.9 || >= v2.0.1-rc.17"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-22cc-p3c6-wpvm",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-22cc-p3c6-wpvm",
+  "severity": "high",
+  "published_at": "2026-03-17T11:38:35Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": "<= 2.0.1-rc.14",
+    "patched_versions": ">=1.15.6 <2.0.0-0 || >=2.0.1-rc.15"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-wr4h-v87w-p3r7",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-wr4h-v87w-p3r7",
+  "severity": "medium",
+  "published_at": "2026-03-17T11:53:54Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": "<= 2.0.1-rc.14",
+    "patched_versions": ">= 1.15.6, >= 2.0.1-rc.15"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-3vj8-jmxq-cgj5",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-3vj8-jmxq-cgj5",
+  "severity": "high",
+  "published_at": "2026-03-17T11:50:55Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": ">= 2.0.0-0, < 2.0.1-rc.15",
+    "patched_versions": ">= 2.0.1-rc.15"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-26f5-8h2x-34xh",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-26f5-8h2x-34xh",
+  "severity": "medium",
+  "published_at": "2026-03-17T11:45:57Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": ">=v2.0.1-beta.0, <=v2.0.0-rc.8",
+    "patched_versions": ">= 2.0.1-rc.9"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mp2g-9vg9-f4cg",
+  "html_url": "https://github.com/h3js/h3/security/advisories/GHSA-mp2g-9vg9-f4cg",
+  "severity": "high",
+  "published_at": "2026-01-15T11:18:57Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "h3"
+    },
+    "vulnerable_version_range": "<= v1.15.4",
+    "patched_versions": ">= v1.15.5"
+   }
+  ]
+ }
+]

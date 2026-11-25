@@ -1,0 +1,24 @@
+{
+ "info": {
+  "name": "yarl",
+  "version": "1.25.1",
+  "home_page": "https://github.com/aio-libs/yarl",
+  "project_urls": {
+   "CI: GitHub Workflows": "https://github.com/aio-libs/yarl/actions?query=branch:master",
+   "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+   "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+   "Code of Conduct": "https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+   "Coverage: codecov": "https://codecov.io/github/aio-libs/yarl",
+   "Docs: Changelog": "https://yarl.aio-libs.org/en/latest/changes/",
+   "Docs: RTD": "https://yarl.aio-libs.org",
+   "GitHub: issues": "https://github.com/aio-libs/yarl/issues",
+   "GitHub: repo": "https://github.com/aio-libs/yarl",
+   "Homepage": "https://github.com/aio-libs/yarl"
+  }
+ },
+ "urls": [
+  {
+   "upload_time_iso_8601": "2026-09-15T19:29:53.114460Z"
+  }
+ ]
+}

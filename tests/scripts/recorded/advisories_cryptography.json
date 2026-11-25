@@ -1,0 +1,325 @@
+[
+ {
+  "ghsa_id": "GHSA-g6cj-pr64-35w5",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-g6cj-pr64-35w5",
+  "severity": "medium",
+  "published_at": "2026-07-31T14:08:08Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">= 44.0.0",
+    "patched_versions": "50.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-537c-gmf6-5ccf",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-537c-gmf6-5ccf",
+  "severity": "medium",
+  "published_at": "2026-06-09T22:34:29Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=0.5",
+    "patched_versions": "48.0.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jwv3-5hgf-82ww",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-jwv3-5hgf-82ww",
+  "severity": "low",
+  "published_at": "2026-07-31T12:17:29Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": "<=48.0.0",
+    "patched_versions": ">=49.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-m2h6-j472-rp4c",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-m2h6-j472-rp4c",
+  "severity": "low",
+  "published_at": "2026-07-31T13:43:06Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": "<=48.0.0",
+    "patched_versions": ">=49.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-p423-j2cm-9vmq",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-p423-j2cm-9vmq",
+  "severity": "medium",
+  "published_at": "2026-04-08T01:50:53Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=45.0.0",
+    "patched_versions": ">=46.0.7"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-m959-cc7f-wv43",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-m959-cc7f-wv43",
+  "severity": "low",
+  "published_at": "2026-03-25T23:27:02Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": "<= 46.0.5",
+    "patched_versions": ">= 46.0.6"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-r6ph-v2qm-q3c2",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-r6ph-v2qm-q3c2",
+  "severity": "high",
+  "published_at": "2026-02-10T19:17:34Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": "<= 46.0.4",
+    "patched_versions": ">=46.0.5"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-79v4-65xg-pq4g",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-79v4-65xg-pq4g",
+  "severity": "low",
+  "published_at": "2025-02-11T16:02:22Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=42.0.0",
+    "patched_versions": ">=44.0.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-h4gh-qq45-vh27",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-h4gh-qq45-vh27",
+  "severity": "medium",
+  "published_at": "2024-09-03T21:52:51Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=37.0.0,<=43.0.0",
+    "patched_versions": ">=43.0.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-6vqw-3v5j-54x4",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-6vqw-3v5j-54x4",
+  "severity": "medium",
+  "published_at": "2024-02-21T03:06:01Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=38.0.0",
+    "patched_versions": ">=42.0.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jfhm-5ghh-2f97",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-jfhm-5ghh-2f97",
+  "severity": "medium",
+  "published_at": "2023-11-27T19:39:15Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">= 3.1",
+    "patched_versions": ">=41.0.6"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-v8gr-m533-ghj9",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-v8gr-m533-ghj9",
+  "severity": "low",
+  "published_at": "2023-09-19T16:33:57Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": ""
+    },
+    "vulnerable_version_range": ">=2.5",
+    "patched_versions": ">=41.0.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jm77-qphf-c4w8",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-jm77-qphf-c4w8",
+  "severity": "low",
+  "published_at": "2023-08-01T20:36:55Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=0.8,<41.0.3",
+    "patched_versions": ">=41.0.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-5cpq-8wj7-hf2v",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-5cpq-8wj7-hf2v",
+  "severity": "low",
+  "published_at": "2023-05-31T02:19:41Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=0.5",
+    "patched_versions": "41.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-w7pp-m8wf-vj6r",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-w7pp-m8wf-vj6r",
+  "severity": "medium",
+  "published_at": "2023-02-07T19:48:20Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=1.8",
+    "patched_versions": ">=39.0.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-x4qr-2fvf-3mr5",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-x4qr-2fvf-3mr5",
+  "severity": "medium",
+  "published_at": "2023-02-07T19:48:23Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=0.8.1",
+    "patched_versions": ">=39.0.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-39hc-v87j-747x",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-39hc-v87j-747x",
+  "severity": "medium",
+  "published_at": "2022-11-02T00:35:49Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">=37.0.0",
+    "patched_versions": ">=38.0.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-rhm9-p9w5-fwm7",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-rhm9-p9w5-fwm7",
+  "severity": "medium",
+  "published_at": "2021-02-07T17:01:26Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pypi",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": ">3.1",
+    "patched_versions": "3.3.2+"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-hggm-jpg3-v476",
+  "html_url": "https://github.com/pyca/cryptography/security/advisories/GHSA-hggm-jpg3-v476",
+  "severity": "medium",
+  "published_at": "2020-10-26T22:28:27Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pypi",
+     "name": "cryptography"
+    },
+    "vulnerable_version_range": "<3.2",
+    "patched_versions": "3.2"
+   }
+  ]
+ }
+]

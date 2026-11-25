@@ -1,0 +1,1233 @@
+[
+ {
+  "ghsa_id": "GHSA-vrh2-cfcx-c3fg",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-vrh2-cfcx-c3fg",
+  "severity": "medium",
+  "published_at": "2026-11-24T15:14:03Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.7.0",
+    "patched_versions": "4.7.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.0.0, < 4.0.0",
+    "patched_versions": null
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.2.0, < 4.7.0",
+    "patched_versions": "4.7.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 3.20.0, < 4.0.0",
+    "patched_versions": null
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-server"
+    },
+    "vulnerable_version_range": ">= 4.6.0, < 4.7.0",
+    "patched_versions": "4.7.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-h5xj-x893-p5f7",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-h5xj-x893-p5f7",
+  "severity": "low",
+  "published_at": "2026-11-24T15:14:17Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-builder"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.7.0",
+    "patched_versions": "4.7.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-builder"
+    },
+    "vulnerable_version_range": ">= 3.0.0, < 4.0.0",
+    "patched_versions": null
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jxc9-w3j6-pwp2",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-jxc9-w3j6-pwp2",
+  "severity": "medium",
+  "published_at": "2026-11-24T15:16:06Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.2.0, < 4.7.0",
+    "patched_versions": "4.7.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 3.20.0, < 4.0.0",
+    "patched_versions": null
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.2.0",
+    "patched_versions": "4.7.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.0.0, < 3.20.0",
+    "patched_versions": null
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mjrq-cffv-q4qc",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-mjrq-cffv-q4qc",
+  "severity": "medium",
+  "published_at": "2026-11-02T20:55:43Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/schema"
+    },
+    "vulnerable_version_range": ">= 3.5.0, < 4.0.0",
+    "patched_versions": null
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/schema"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-f3x9-2chm-73c8",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-f3x9-2chm-73c8",
+  "severity": "medium",
+  "published_at": "2026-11-02T20:56:05Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.0.0, < 4.0.0",
+    "patched_versions": ""
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.2.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 3.20.0, < 4.0.0",
+    "patched_versions": ""
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-server"
+    },
+    "vulnerable_version_range": ">= 4.6.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-x2wv-5868-p7v2",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-x2wv-5868-p7v2",
+  "severity": "low",
+  "published_at": "2026-11-02T20:56:22Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/webpack-builder"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/webpack-builder"
+    },
+    "vulnerable_version_range": ">= 3.0.0, < 4.0.0",
+    "patched_versions": null
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/rspack-builder"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/rspack-builder"
+    },
+    "vulnerable_version_range": ">= 3.12.2, < 4.0.0",
+    "patched_versions": null
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-r9jc-w898-3fv6",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-r9jc-w898-3fv6",
+  "severity": "low",
+  "published_at": "2026-11-02T20:59:19Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.6.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-96x6-fvhx-49hg",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-96x6-fvhx-49hg",
+  "severity": "medium",
+  "published_at": "2026-11-02T20:59:31Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.0.0, < 4.0.0",
+    "patched_versions": null
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-p4h3-4h99-9665",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-p4h3-4h99-9665",
+  "severity": "low",
+  "published_at": "2026-11-02T20:59:42Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-server"
+    },
+    "vulnerable_version_range": ">= 4.6.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-hf59-9xwc-2g4p",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-hf59-9xwc-2g4p",
+  "severity": "low",
+  "published_at": "2026-11-02T20:59:56Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.4.6, < 4.6.4",
+    "patched_versions": "4.6.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.21.6, < 4.0.0",
+    "patched_versions": null
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.4.6, < 4.6.4",
+    "patched_versions": "4.6.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 3.21.6, < 4.0.0",
+    "patched_versions": null
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-r99w-jh2x-3mg9",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-r99w-jh2x-3mg9",
+  "severity": "medium",
+  "published_at": "2026-11-02T21:00:20Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.6.0, < 4.6.4",
+    "patched_versions": "4.6.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-x287-wcfc-q46c",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-x287-wcfc-q46c",
+  "severity": "medium",
+  "published_at": "2026-10-27T01:09:38Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-builder"
+    },
+    "vulnerable_version_range": ">= 4.6.0 < 4.6.3",
+    "patched_versions": "4.6.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-648h-gw55-m2g7",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-648h-gw55-m2g7",
+  "severity": "medium",
+  "published_at": "2026-10-27T01:09:30Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-builder"
+    },
+    "vulnerable_version_range": ">= 3.0.0 < 4.0.0",
+    "patched_versions": ""
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-builder"
+    },
+    "vulnerable_version_range": ">= 4.0.0 < 4.6.3",
+    "patched_versions": "4.6.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-9v7c-q64q-vv33",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-9v7c-q64q-vv33",
+  "severity": "medium",
+  "published_at": "2026-10-27T01:09:53Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.6.0 < 4.6.3",
+    "patched_versions": "4.6.3"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.6.0 < 4.6.3",
+    "patched_versions": "4.6.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-2fxj-c3j7-rr69",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-2fxj-c3j7-rr69",
+  "severity": "low",
+  "published_at": "2026-10-27T01:10:09Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.11.0 < 4.6.3",
+    "patched_versions": "4.6.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-3xf4-9g3c-4h4w",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-3xf4-9g3c-4h4w",
+  "severity": "medium",
+  "published_at": "2026-10-27T01:10:29Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-builder"
+    },
+    "vulnerable_version_range": ">= 4.6.0 < 4.6.3",
+    "patched_versions": "4.6.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-xfq5-w38q-pc2x",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-xfq5-w38q-pc2x",
+  "severity": "medium",
+  "published_at": "2026-10-16T18:58:40Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0 < 4.6.2",
+    "patched_versions": "4.6.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.13.0 < 4.0.0",
+    "patched_versions": ""
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-w7gw-66vg-99gq",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-w7gw-66vg-99gq",
+  "severity": "low",
+  "published_at": "2026-10-16T18:58:57Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.6.0 < 4.6.2",
+    "patched_versions": "4.6.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.6.0 < 4.6.2",
+    "patched_versions": "4.6.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jjm6-p2m9-9w4x",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-jjm6-p2m9-9w4x",
+  "severity": "low",
+  "published_at": "2026-10-16T16:59:15Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0 < 4.6.0",
+    "patched_versions": "4.6.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.0.0 < 4.0.0",
+    "patched_versions": ""
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-vjh5-4x84-xrqp",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-vjh5-4x84-xrqp",
+  "severity": "medium",
+  "published_at": "2026-10-16T18:59:04Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0 < 4.6.2",
+    "patched_versions": "4.6.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.0.0 < 4.0.0",
+    "patched_versions": ""
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.2.0 < 4.6.2",
+    "patched_versions": "4.6.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 3.20.0 < 4.0.0",
+    "patched_versions": ""
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-6gq8-jgmh-3ffp",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-6gq8-jgmh-3ffp",
+  "severity": "medium",
+  "published_at": "2026-10-16T16:58:28Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0 < 4.4.4",
+    "patched_versions": "4.4.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.11.0 < 3.21.4",
+    "patched_versions": "3.21.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-48hr-524c-v5w3",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-48hr-524c-v5w3",
+  "severity": "medium",
+  "published_at": "2026-07-27T10:24:12Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.5.1",
+    "patched_versions": "4.5.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.1.0, < 3.21.10",
+    "patched_versions": "3.21.10"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-9473-5f9j-94wq",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-9473-5f9j-94wq",
+  "severity": "high",
+  "published_at": "2026-07-27T10:25:01Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.5.1",
+    "patched_versions": "4.5.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.4.0, < 3.21.10",
+    "patched_versions": "3.21.10"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-wm8w-6qjm-cv43",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-wm8w-6qjm-cv43",
+  "severity": "high",
+  "published_at": "2026-07-27T10:25:12Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.4.0, <= 4.5.0",
+    "patched_versions": "4.5.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-279x-mwfv-vcqv",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-279x-mwfv-vcqv",
+  "severity": "critical",
+  "published_at": "2026-07-27T10:25:21Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/devtools"
+    },
+    "vulnerable_version_range": "< 3.3.1",
+    "patched_versions": "3.3.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-7c4v-fwgw-9rf7",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-7c4v-fwgw-9rf7",
+  "severity": "low",
+  "published_at": "2026-07-27T10:25:30Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.4.7, < 4.5.1",
+    "patched_versions": "4.5.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.21.7, < 3.21.10",
+    "patched_versions": "3.21.10"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-hxvh-4h3w-prp9",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-hxvh-4h3w-prp9",
+  "severity": "high",
+  "published_at": "2026-07-27T10:25:38Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.4.7, < 4.5.1",
+    "patched_versions": "4.5.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.21.7, < 3.21.10",
+    "patched_versions": "3.21.10"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-9pgf-384g-p7mv",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-9pgf-384g-p7mv",
+  "severity": "high",
+  "published_at": "2026-07-27T10:25:57Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.5.1",
+    "patched_versions": "4.5.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.1.0, < 3.21.10",
+    "patched_versions": "3.21.10"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-hxcr-hm88-mpq6",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-hxcr-hm88-mpq6",
+  "severity": "high",
+  "published_at": "2026-07-27T10:26:01Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.5.1",
+    "patched_versions": "4.5.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.1.0, < 3.21.10",
+    "patched_versions": "3.21.10"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mm7m-92g8-7m47",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-mm7m-92g8-7m47",
+  "severity": "high",
+  "published_at": "2026-06-02T14:32:00Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.4.7",
+    "patched_versions": "4.4.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.11.0, < 3.21.7",
+    "patched_versions": "3.21.7"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-m3q2-p4fw-w38m",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-m3q2-p4fw-w38m",
+  "severity": "low",
+  "published_at": "2026-06-02T14:32:06Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.4.7",
+    "patched_versions": "4.4.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": "< 3.21.7",
+    "patched_versions": "3.21.7"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-c9cv-mq2m-ppp3",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-c9cv-mq2m-ppp3",
+  "severity": "medium",
+  "published_at": "2026-06-02T14:32:10Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.4.7",
+    "patched_versions": "4.4.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": "< 3.21.7",
+    "patched_versions": "3.21.7"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-534h-c3cw-v3h9",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-534h-c3cw-v3h9",
+  "severity": "medium",
+  "published_at": "2026-06-02T14:32:16Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.4.7",
+    "patched_versions": "4.4.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.18.0, < 3.21.7",
+    "patched_versions": "3.21.7"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-x6qj-4h56-5rj5",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-x6qj-4h56-5rj5",
+  "severity": "medium",
+  "published_at": "2026-06-02T14:32:20Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/webpack-builder"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.4.7",
+    "patched_versions": "4.4.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/webpack-builder"
+    },
+    "vulnerable_version_range": ">= 3.15.4, < 3.21.7",
+    "patched_versions": "3.21.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/rspack-builder"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.4.7",
+    "patched_versions": "4.4.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/rspack-builder"
+    },
+    "vulnerable_version_range": ">= 3.15.4, < 3.21.7",
+    "patched_versions": "3.21.7"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-934w-87qh-qr26",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-934w-87qh-qr26",
+  "severity": "medium",
+  "published_at": "2026-06-02T14:32:24Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.4.7",
+    "patched_versions": "4.4.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": "< 3.21.7",
+    "patched_versions": "3.21.7"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-rq7w-g337-39qq",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-rq7w-g337-39qq",
+  "severity": "low",
+  "published_at": "2026-06-02T14:32:30Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0-alpha.1, < 4.4.7",
+    "patched_versions": "4.4.7"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-fx6j-w5w5-h468",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-fx6j-w5w5-h468",
+  "severity": "medium",
+  "published_at": "2026-05-18T11:07:53Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.4.3, <= 3.21.5",
+    "patched_versions": "> 3.21.5, < 4.0.0-alpha.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0-alpha.1, <= 4.4.5",
+    "patched_versions": "> 4.4.5"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-6m52-m754-pw2g",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-6m52-m754-pw2g",
+  "severity": "medium",
+  "published_at": "2026-05-18T11:08:05Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/rspack-builder"
+    },
+    "vulnerable_version_range": ">= 3.15.4, <= 3.21.5",
+    "patched_versions": "> 3.21.5, < 4.0.0-alpha.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/rspack-builder"
+    },
+    "vulnerable_version_range": ">=4.0.0-alpha.1, <= 4.4.5",
+    "patched_versions": "> 4.4.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/webpack-builder"
+    },
+    "vulnerable_version_range": ">= 3.15.4, <= 3.21.5",
+    "patched_versions": "> 3.21.5, < 4.0.0-alpha.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/webpack-builder"
+    },
+    "vulnerable_version_range": ">=4.0.0-alpha.1, <= 4.4.5",
+    "patched_versions": "> 4.4.5"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-g8wj-3cr3-6w7v",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-g8wj-3cr3-6w7v",
+  "severity": "low",
+  "published_at": "2026-05-18T11:08:51Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">=3.1.0, <= 3.21.5",
+    "patched_versions": ">= 3.21.6, < 4.0.0-alpha.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0-alpha.1, <= 4.4.5",
+    "patched_versions": ">= 4.4.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 3.20.0, <= 3.21.5",
+    "patched_versions": ">= 3.21.6, < 4.0.0-alpha.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.2.0, <= 4.4.5",
+    "patched_versions": ">= 4.4.6"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-hg3f-28rg-4jxj",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-hg3f-28rg-4jxj",
+  "severity": "medium",
+  "published_at": "2026-05-18T11:08:49Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.11.0, <= 3.21.5",
+    "patched_versions": ">= 3.21.6, < 4.0.0-alpha.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 3.20.0, <= 3.21.5",
+    "patched_versions": ">= 3.21.6, < 4.0.0-alpha.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/nitro-server"
+    },
+    "vulnerable_version_range": ">= 4.2.0, <= 4.4.5",
+    "patched_versions": ">= 4.4.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 4.0.0-alpha.1, <= 4.4.5",
+    "patched_versions": ">= 4.4.6"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-p6jq-8vc4-79f6",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-p6jq-8vc4-79f6",
+  "severity": "low",
+  "published_at": "2025-09-17T17:22:01Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">=3.6.0 <3.19.0, >=4.0.0 <4.1.0",
+    "patched_versions": ">=3.19.0 <4.0.0 || >=4.1.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jvhm-gjrh-3h93",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-jvhm-gjrh-3h93",
+  "severity": "high",
+  "published_at": "2025-03-19T18:44:47Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">3.0.0 < 3.16.0",
+    "patched_versions": "3.16.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-4gf7-ff8x-hq99",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-4gf7-ff8x-hq99",
+  "severity": "medium",
+  "published_at": "2025-01-24T23:51:19Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/webpack-builder"
+    },
+    "vulnerable_version_range": ">=3.0.0 <3.15.4",
+    "patched_versions": ">=3.15.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/rspack-builder"
+    },
+    "vulnerable_version_range": ">=3.12.2 <3.15.4",
+    "patched_versions": ">=3.15.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-2452-6xj8-jh47",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-2452-6xj8-jh47",
+  "severity": "medium",
+  "published_at": "2025-01-24T23:51:14Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/vite-builder"
+    },
+    "vulnerable_version_range": ">=3.8.1<3.15.3",
+    "patched_versions": ">=3.15.3"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-v784-fjjh-f8r4",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-v784-fjjh-f8r4",
+  "severity": "high",
+  "published_at": "2024-08-05T16:59:38Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": ">= 3.4.0 < 3.12.4",
+    "patched_versions": ">= 3.12.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-vf6r-87q4-2vjf",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-vf6r-87q4-2vjf",
+  "severity": "medium",
+  "published_at": "2024-08-05T17:00:26Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "nuxt"
+    },
+    "vulnerable_version_range": "< 3.12.4",
+    "patched_versions": ">= 3.12.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-rcvg-rgf7-pppv",
+  "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-rcvg-rgf7-pppv",
+  "severity": "high",
+  "published_at": "2024-08-05T17:03:38Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "@nuxt/devtools"
+    },
+    "vulnerable_version_range": "< 1.3.9",
+    "patched_versions": ">= 1.3.9"
+   }
+  ]
+ }
+]

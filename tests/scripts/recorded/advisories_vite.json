@@ -1,0 +1,1082 @@
+[
+ {
+  "ghsa_id": "GHSA-p4f5-76q4-ffq7",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-p4f5-76q4-ffq7",
+  "severity": "critical",
+  "published_at": "2026-11-10T01:35:55Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.3.0,<=8.3.6",
+    "patched_versions": "8.3.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.2.0,<=8.2.4",
+    "patched_versions": "8.2.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.0.0,<=8.1.6",
+    "patched_versions": "8.1.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.3.7",
+    "patched_versions": "7.3.8"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">= 4.0.0,<=6.4.5",
+    "patched_versions": "6.4.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite-plus"
+    },
+    "vulnerable_version_range": "<=1.5.0",
+    "patched_versions": "1.5.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-8g5g-mxqh-grgj",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-8g5g-mxqh-grgj",
+  "severity": "medium",
+  "published_at": "2026-10-21T05:36:46Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "6.4.4",
+    "patched_versions": "6.4.5"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-rq7h-c2jc-7f22",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-rq7h-c2jc-7f22",
+  "severity": "medium",
+  "published_at": "2026-10-06T14:15:31Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.3.0,<=8.3.2",
+    "patched_versions": "8.3.3"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.2.0,<=8.2.3",
+    "patched_versions": "8.2.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.0.0,<=8.1.5",
+    "patched_versions": "8.1.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.3.6",
+    "patched_versions": "7.3.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=6.4.3",
+    "patched_versions": "6.4.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite-plus"
+    },
+    "vulnerable_version_range": "<=1.0.0",
+    "patched_versions": "1.1.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-vfpm-58rq-9qcg",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-vfpm-58rq-9qcg",
+  "severity": "medium",
+  "published_at": "2026-10-06T14:15:34Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.3.0,<=8.3.2",
+    "patched_versions": "8.3.3"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">= 8.2.0, <= 8.2.3",
+    "patched_versions": "8.2.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite-plus"
+    },
+    "vulnerable_version_range": ">=0.2.8, <=1.0.0",
+    "patched_versions": "1.1.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-9jrq-w75r-8gcw",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-9jrq-w75r-8gcw",
+  "severity": "low",
+  "published_at": "2026-10-06T14:15:37Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.3.0,<=8.3.2",
+    "patched_versions": "8.3.3"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.2.0,<=8.2.3",
+    "patched_versions": "8.2.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.0.0,<=8.1.5",
+    "patched_versions": "8.1.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.3.6",
+    "patched_versions": "7.3.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=6.4.3",
+    "patched_versions": "6.4.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite-plus"
+    },
+    "vulnerable_version_range": "<=1.0.0",
+    "patched_versions": "1.1.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-fx2h-pf6j-xcff",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-fx2h-pf6j-xcff",
+  "severity": "medium",
+  "published_at": "2026-06-01T13:32:24Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.0.0,<=8.0.15",
+    "patched_versions": "8.0.16"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.3.4",
+    "patched_versions": "7.3.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=6.4.2",
+    "patched_versions": "6.4.3"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite-plus"
+    },
+    "vulnerable_version_range": "<=0.1.23",
+    "patched_versions": "0.1.24"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-4w7w-66w2-5vf9",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-4w7w-66w2-5vf9",
+  "severity": "medium",
+  "published_at": "2026-04-06T12:13:21Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.0.0,<=8.0.4",
+    "patched_versions": "8.0.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.3.1",
+    "patched_versions": "7.3.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=6.4.1",
+    "patched_versions": "6.4.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite-plus"
+    },
+    "vulnerable_version_range": "<=0.1.15",
+    "patched_versions": "0.1.16"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-v2wj-q39q-566r",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-v2wj-q39q-566r",
+  "severity": "medium",
+  "published_at": "2026-04-06T12:12:37Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.0.0,<=8.0.4",
+    "patched_versions": "8.0.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.1.0,<=7.3.1",
+    "patched_versions": "7.3.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite-plus"
+    },
+    "vulnerable_version_range": "<=0.1.15",
+    "patched_versions": "0.1.16"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-p9ff-h696-f583",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-p9ff-h696-f583",
+  "severity": "high",
+  "published_at": "2026-04-06T12:11:59Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=8.0.0,<=8.0.4",
+    "patched_versions": "8.0.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.3.1",
+    "patched_versions": "7.3.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0,<=6.4.1",
+    "patched_versions": "6.4.2"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite-plus"
+    },
+    "vulnerable_version_range": "<=0.1.15",
+    "patched_versions": "0.1.16"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-93m4-6634-74q7",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-93m4-6634-74q7",
+  "severity": "medium",
+  "published_at": "2025-10-20T05:41:09Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.1.0,<=7.1.10",
+    "patched_versions": "7.1.11"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.0.7",
+    "patched_versions": "7.0.8"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0,<=6.4.0",
+    "patched_versions": "6.4.1"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=2.9.18,<3.0.0,>=3.2.9,<4.0.0,>=4.5.3,<5.0.0,>=5.2.6,<=5.4.20",
+    "patched_versions": "5.4.21"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-g4jq-h2w9-997c",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-g4jq-h2w9-997c",
+  "severity": "medium",
+  "published_at": "2025-09-08T07:03:21Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.1.0,<=7.1.4",
+    "patched_versions": "7.1.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.0.6",
+    "patched_versions": "7.0.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0,<=6.3.5",
+    "patched_versions": "6.3.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=5.4.19",
+    "patched_versions": "5.4.20"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-jqfw-vq24-v9c3",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-jqfw-vq24-v9c3",
+  "severity": "medium",
+  "published_at": "2025-09-08T07:03:19Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.1.0,<=7.1.4",
+    "patched_versions": "7.1.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=7.0.0,<=7.0.6",
+    "patched_versions": "7.0.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0,<=6.3.5",
+    "patched_versions": "6.3.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=5.4.19",
+    "patched_versions": "5.4.20"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-859w-5945-r5v3",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-859w-5945-r5v3",
+  "severity": "medium",
+  "published_at": "2025-04-30T08:11:08Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.3.0, <=6.3.3",
+    "patched_versions": ">=6.3.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.2.0, <=6.2.6",
+    "patched_versions": ">=6.2.7, <6.3.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0, <=6.1.5",
+    "patched_versions": ">=6.1.6, <6.2.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.4.18",
+    "patched_versions": ">=5.4.19, <6.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=4.5.13",
+    "patched_versions": ">=4.5.14, <5.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-356w-63v5-8wf4",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-356w-63v5-8wf4",
+  "severity": "high",
+  "published_at": "2025-04-10T07:07:20Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.2.0, <=6.2.5",
+    "patched_versions": ">=6.2.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.1.0, <=6.1.4",
+    "patched_versions": ">=6.1.5, <6.2.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0, <=6.0.14",
+    "patched_versions": ">=6.0.15, <6.1.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.4.17",
+    "patched_versions": ">=5.4.18, <6.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=4.5.12",
+    "patched_versions": ">=4.5.13, <5.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-xcj6-pq6g-qj4x",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-xcj6-pq6g-qj4x",
+  "severity": "high",
+  "published_at": "2025-04-03T10:01:21Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.2.0, <=6.2.4",
+    "patched_versions": ">=6.2.5"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.1.0, <=6.1.3",
+    "patched_versions": ">=6.1.4, <6.2.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0, <=6.0.13",
+    "patched_versions": ">=6.0.14, <6.1.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.4.16",
+    "patched_versions": ">=5.4.17, <6.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=4.5.11",
+    "patched_versions": ">=4.5.12, <5.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-4r4m-qw57-chr8",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-4r4m-qw57-chr8",
+  "severity": "high",
+  "published_at": "2025-03-31T10:12:27Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.2.0, <=6.2.3",
+    "patched_versions": ">=6.2.4"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.1.0, <=6.1.2",
+    "patched_versions": ">=6.1.3, <6.2.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0, <=6.0.12",
+    "patched_versions": ">=6.0.13, <6.1.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.4.15",
+    "patched_versions": ">=5.4.16, <6.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=4.5.10",
+    "patched_versions": ">=4.5.11, <5.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-x574-m823-4x7w",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-x574-m823-4x7w",
+  "severity": "high",
+  "published_at": "2025-03-24T10:24:13Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.2.0, <=6.2.2",
+    "patched_versions": ">=6.2.3"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.1.0, <=6.1.1",
+    "patched_versions": ">=6.1.2, <6.2.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0, <=6.0.11",
+    "patched_versions": ">=6.0.12, <6.1.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.4.14",
+    "patched_versions": ">=5.4.15, <6.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=4.5.9",
+    "patched_versions": ">=4.5.10, <5.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-vg6x-rcgg-rjx6",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-vg6x-rcgg-rjx6",
+  "severity": "medium",
+  "published_at": "2025-01-20T10:10:42Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=6.0.0, <=6.0.8",
+    "patched_versions": ">=6.0.9"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.4.11",
+    "patched_versions": ">=5.4.12, <6.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=4.5.5",
+    "patched_versions": ">=4.5.6, <5.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-64vr-g452-qvp3",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-64vr-g452-qvp3",
+  "severity": "medium",
+  "published_at": "2024-09-17T09:12:49Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.4.0, <=5.4.5",
+    "patched_versions": ">=5.4.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.3.0, <=5.3.5",
+    "patched_versions": ">=5.3.6, <5.4.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.1.0, <=5.2.13",
+    "patched_versions": ">=5.2.14, <5.3.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.1.7",
+    "patched_versions": ">=5.1.8, <5.2.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.0.0, <=4.5.3",
+    "patched_versions": ">=4.5.5, <5.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=3.2.10",
+    "patched_versions": ">=3.2.11, <4.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-9cwx-2883-4wfx",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-9cwx-2883-4wfx",
+  "severity": "high",
+  "published_at": "2024-09-17T09:12:39Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.4.0, <=5.4.5",
+    "patched_versions": ">=5.4.6"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.3.0, <=5.3.5",
+    "patched_versions": ">=5.3.6, <5.4.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.2.13",
+    "patched_versions": ">=5.2.14, <5.3.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.1.7",
+    "patched_versions": ">=5.1.8, <5.2.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.0.0, <=4.5.3",
+    "patched_versions": ">=4.5.5, <5.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "<=3.2.10",
+    "patched_versions": ">=3.2.11, <4.0.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-8jhw-289h-jh2g",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-8jhw-289h-jh2g",
+  "severity": "medium",
+  "published_at": "2024-04-03T11:28:40Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=2.7.0, <= 2.9.17",
+    "patched_versions": "2.9.18"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=3.0.0, <=3.2.8",
+    "patched_versions": "3.2.10"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.0.0, <=4.5.2",
+    "patched_versions": "4.5.3"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0, <=5.0.12",
+    "patched_versions": "5.0.13"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.1.0, <=5.1.6",
+    "patched_versions": "5.1.7"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.2.0, <=5.2.5",
+    "patched_versions": "5.2.6"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-c24v-8rfc-w8vw",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-c24v-8rfc-w8vw",
+  "severity": "medium",
+  "published_at": "2024-01-19T14:22:35Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=2.7.0 <=2.9.16",
+    "patched_versions": ">=2.9.17 <3.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=3.0.0 <=3.2.7",
+    "patched_versions": ">=3.2.8 <4.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.0.0 <=4.5.1",
+    "patched_versions": ">=4.5.2 <5.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0 <=5.0.11",
+    "patched_versions": ">=5.0.12"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-92r3-m2mg-pj97",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-92r3-m2mg-pj97",
+  "severity": "low",
+  "published_at": "2023-12-04T22:07:59Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.4.0 <=4.4.11",
+    "patched_versions": ">=4.4.12 <4.5.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "4.5.0",
+    "patched_versions": ">=4.5.1 <5.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=5.0.0 <=5.0.4",
+    "patched_versions": ">=5.0.5"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-353f-5xf4-qw67",
+  "html_url": "https://github.com/vitejs/vite/security/advisories/GHSA-353f-5xf4-qw67",
+  "severity": "medium",
+  "published_at": "2023-06-01T11:09:57Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": "2.9.15",
+    "patched_versions": ">=2.9.16 <3.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=3.0.2 <=3.2.6",
+    "patched_versions": ">=3.2.7 <4.0.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.0.0 <=4.0.4",
+    "patched_versions": ">=4.0.5 <4.1.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.1.0 <=4.1.4",
+    "patched_versions": ">=4.1.5 <4.2.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.2.0 <=4.2.2",
+    "patched_versions": ">=4.2.3 <4.3.0"
+   },
+   {
+    "package": {
+     "ecosystem": "npm",
+     "name": "vite"
+    },
+    "vulnerable_version_range": ">=4.3.0 <=4.3.8",
+    "patched_versions": ">=4.3.9"
+   }
+  ]
+ }
+]

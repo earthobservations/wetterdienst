@@ -1,0 +1,563 @@
+[
+ {
+  "ghsa_id": "GHSA-78c8-3jhx-5mg7",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-78c8-3jhx-5mg7",
+  "severity": "medium",
+  "published_at": "2026-11-21T05:31:47Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 2.13.0, <= 4.2.3",
+    "patched_versions": "4.2.4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-7xgj-8392-5q4r",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-7xgj-8392-5q4r",
+  "severity": "medium",
+  "published_at": "2026-10-20T14:50:17Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 3.0.0, < 3.4.10",
+    "patched_versions": "3.4.10"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.1.2",
+    "patched_versions": "4.1.2"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp-slim"
+    },
+    "vulnerable_version_range": ">= 3.0.0, < 3.4.10",
+    "patched_versions": "3.4.10"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp-slim"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.1.2",
+    "patched_versions": "4.1.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-qvjc-pw7p-hvg5",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-qvjc-pw7p-hvg5",
+  "severity": "medium",
+  "published_at": "2026-10-16T15:19:37Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "< 3.4.8",
+    "patched_versions": "3.4.8"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.0.11",
+    "patched_versions": "4.0.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-vqqp-x5qm-5qp4",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-vqqp-x5qm-5qp4",
+  "severity": "medium",
+  "published_at": "2026-10-20T14:51:35Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0a1, < 4.1.2",
+    "patched_versions": "4.1.2"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp-slim"
+    },
+    "vulnerable_version_range": ">= 4.0.0a1, < 4.1.2",
+    "patched_versions": "4.1.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-c3q8-4mcq-p7vg",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-c3q8-4mcq-p7vg",
+  "severity": "medium",
+  "published_at": "2026-10-16T15:19:28Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 3.2.0, < 3.4.8",
+    "patched_versions": "3.4.8"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.0.11",
+    "patched_versions": "4.0.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-gpgx-58w2-xwwf",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-gpgx-58w2-xwwf",
+  "severity": "critical",
+  "published_at": "2026-10-16T18:05:54Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 2.10.0, < 3.4.8",
+    "patched_versions": "3.4.8"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0a1, < 4.0.11",
+    "patched_versions": "4.0.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-63pr-7fpf-v477",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-63pr-7fpf-v477",
+  "severity": "medium",
+  "published_at": "2026-10-16T15:19:30Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "< 3.4.8",
+    "patched_versions": "3.4.8"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.0.11",
+    "patched_versions": "4.0.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-99xm-8q53-5c8p",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-99xm-8q53-5c8p",
+  "severity": "medium",
+  "published_at": "2026-10-16T17:38:00Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.1.0",
+    "patched_versions": "4.1.0"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "< 3.4.9",
+    "patched_versions": "3.4.9"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-pwp3-fpg3-p53c",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-pwp3-fpg3-p53c",
+  "severity": "low",
+  "published_at": "2026-10-16T17:38:01Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0b1, < 4.1.0",
+    "patched_versions": "4.1.0"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 3.0.0b1, < 3.4.9",
+    "patched_versions": "3.4.9"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-6868-q46w-rmjv",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-6868-q46w-rmjv",
+  "severity": "medium",
+  "published_at": "2026-10-16T15:19:34Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 3.4.3, < 3.4.8",
+    "patched_versions": "3.4.8"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.0.11",
+    "patched_versions": "4.0.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-76mv-6cmh-q7fj",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-76mv-6cmh-q7fj",
+  "severity": "medium",
+  "published_at": "2026-10-16T17:38:02Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0b1, < 4.1.0",
+    "patched_versions": "4.1.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-57vm-5fr9-3r5x",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-57vm-5fr9-3r5x",
+  "severity": "high",
+  "published_at": "2026-10-16T15:19:31Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "< 3.4.8",
+    "patched_versions": "3.4.8"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0, < 4.0.11",
+    "patched_versions": "4.0.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-p8g9-xjch-9mxg",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-p8g9-xjch-9mxg",
+  "severity": "high",
+  "published_at": "2026-10-16T20:48:47Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 2.6.0, < 3.4.9",
+    "patched_versions": "3.4.9"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0a1, < 4.1.0",
+    "patched_versions": "4.1.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-2qh8-g8rv-3mx5",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-2qh8-g8rv-3mx5",
+  "severity": "high",
+  "published_at": "2026-10-16T18:05:56Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 3.0.0b2, < 3.4.8",
+    "patched_versions": "3.4.8"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0a1, < 4.0.0b4",
+    "patched_versions": "4.0.0b4"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-cg3c-5x66-h9cc",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-cg3c-5x66-h9cc",
+  "severity": "high",
+  "published_at": "2026-10-18T14:41:22Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 3.1.0, < 3.4.9",
+    "patched_versions": "3.4.9"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0a1, < 4.1.1",
+    "patched_versions": "4.1.1"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp-slim"
+    },
+    "vulnerable_version_range": ">= 4.0.0a1, < 4.1.1",
+    "patched_versions": "4.1.1"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-m2xc-hx3h-rjf6",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-m2xc-hx3h-rjf6",
+  "severity": "medium",
+  "published_at": "2026-10-16T15:19:33Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 2.5.0, < 3.4.8",
+    "patched_versions": "3.4.8"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mhwm-p596-p7q4",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-mhwm-p596-p7q4",
+  "severity": "high",
+  "published_at": "2026-10-16T15:19:36Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 3.0.0b1, < 3.4.8",
+    "patched_versions": "3.4.8"
+   },
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": ">= 4.0.0a1, < 4.0.11",
+    "patched_versions": "4.0.11"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-vv7q-7jx5-f767",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-vv7q-7jx5-f767",
+  "severity": "high",
+  "published_at": "2026-03-31T14:42:36Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "< 3.2.0",
+    "patched_versions": "3.2.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-rcfx-77hg-w2wv",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-rcfx-77hg-w2wv",
+  "severity": "low",
+  "published_at": "2025-12-26T21:38:33Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "<2.14",
+    "patched_versions": ">=2.14"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-rww4-4w9c-7733",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-rww4-4w9c-7733",
+  "severity": "high",
+  "published_at": "2026-03-31T14:43:07Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "<3.2.0",
+    "patched_versions": "3.2.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-5h2m-4q8j-pqpj",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-5h2m-4q8j-pqpj",
+  "severity": "medium",
+  "published_at": "2026-03-15T18:01:33Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "<2.14.2",
+    "patched_versions": ">=2.14.2"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-m8x7-r2rg-vh5g",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-m8x7-r2rg-vh5g",
+  "severity": "medium",
+  "published_at": "2026-03-31T14:43:20Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "",
+     "name": "FastMCP"
+    },
+    "vulnerable_version_range": "<3.2.0",
+    "patched_versions": "3.2.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-mxxr-jv3v-6pgc",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-mxxr-jv3v-6pgc",
+  "severity": "medium",
+  "published_at": "2025-10-28T20:14:29Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "<2.13.0",
+    "patched_versions": "2.13.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-c2jp-c369-7pvx",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-c2jp-c369-7pvx",
+  "severity": "high",
+  "published_at": "2025-10-28T20:09:47Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": "fastmcp"
+    },
+    "vulnerable_version_range": "< 2.13.0",
+    "patched_versions": "2.13.0"
+   }
+  ]
+ },
+ {
+  "ghsa_id": "GHSA-rj5c-58rq-j5g5",
+  "html_url": "https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-rj5c-58rq-j5g5",
+  "severity": "medium",
+  "published_at": "2025-10-28T20:14:51Z",
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "pip",
+     "name": ""
+    },
+    "vulnerable_version_range": "< 2.13.0",
+    "patched_versions": "2.13.0"
+   }
+  ]
+ }
+]

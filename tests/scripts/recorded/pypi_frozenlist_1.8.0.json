@@ -1,0 +1,24 @@
+{
+ "info": {
+  "name": "frozenlist",
+  "version": "1.8.0",
+  "home_page": "https://github.com/aio-libs/frozenlist",
+  "project_urls": {
+   "CI: Github Actions": "https://github.com/aio-libs/frozenlist/actions",
+   "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+   "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+   "Code of Conduct": "https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+   "Coverage: codecov": "https://codecov.io/github/aio-libs/frozenlist",
+   "Docs: Changelog": "https://github.com/aio-libs/frozenlist/blob/master/CHANGES.rst#changelog",
+   "Docs: RTD": "https://frozenlist.aio-libs.org",
+   "GitHub: issues": "https://github.com/aio-libs/frozenlist/issues",
+   "GitHub: repo": "https://github.com/aio-libs/frozenlist",
+   "Homepage": "https://github.com/aio-libs/frozenlist"
+  }
+ },
+ "urls": [
+  {
+   "upload_time_iso_8601": "2025-10-06T05:35:23.699793Z"
+  }
+ ]
+}

@@ -82,21 +82,26 @@ that does not change.
 
 ## Advisories
 
-`advisories.yml` (Mondays 04:53 UTC and on request, never on a pull request) reads the advisories that the
-packages publish in their *own* repositories against the locked versions of `uv.lock` and
+`advisories.yml` (Mondays 04:53 UTC and on request from `main`, never on a pull request) reads the advisories
+that the packages publish in their *own* repositories against the locked versions of `uv.lock` and
 `app/pnpm-lock.yaml`, because `uv audit`, `pnpm audit` and GitHub's alerts list them days or weeks later
-(GH-4378). The job has `contents: read` and `issues: write` and the job token as its only credential; the
-script (`scripts/repo_advisories.py`, tests under `tests/scripts`) is the only thing it runs, and no text of an
-advisory goes into a shell or into the issue. The result is one issue, found by its fixed title and a marker in
-its body: it is updated while it is open (a clean run rewrites it to "None now" and leaves closing to a
-person), a closed one with the same findings is not opened again, and different findings open a new one.
-An advisory that does not affect us goes in `scripts/repo_advisories_ignore.toml` with a reason and a date.
-The same reading runs locally as `uv run poe advisories`, a table, which is the check before a release
-(`.github/RELEASE_STRATEGY.md`).
+(GH-4378). The job has `contents: read` and `issues: write` and the job token as its only credential. It runs
+`scripts/repo_advisories.py` (tests under `tests/scripts`) in an isolated environment (`uv run --no-project
+--isolated --with packaging==<pin> python -I`), so no package of the project runs beside the token; no text of an
+advisory goes into a shell or into the issue. The result is one issue, found among the issues of
+`github-actions[bot]` with the label `security` by its fixed title and a marker in its body (nobody else can hold
+the title). While it is open it is updated; when its findings change (the fingerprint holds the version and the
+fix too) one comment of a fixed text says so, since an edit of a body notifies nobody. A clean run rewrites it to
+"None now" and leaves closing to a person; a package that was listed and can no longer be read stays listed. A
+closed issue with the same findings is not opened again, and different findings open a new one. An advisory that
+does not affect us goes in `scripts/repo_advisories_ignore.toml` with the range and patched versions it states, a
+reason and a date, and comes back when the advisory changes. Only the workflow writes the issue (`--issue`
+without `--dry-run` is refused elsewhere); the same reading runs locally as `uv run poe advisories`, a table,
+which is the check before a release (`.github/RELEASE_STRATEGY.md`).
 
 | Event | What it does |
 |---|---|
-| `schedule`, `workflow_dispatch` | reads the locks, creates or updates the one issue; exits 2 (a red run, the issue untouched) on a rate limit or an outage of PyPI, npm or GitHub |
+| `schedule`, `workflow_dispatch` | reads the locks, creates or updates the one issue; exits 2 (a red run, the issue untouched) on a rate limit, a refusal or an outage of PyPI, npm or GitHub, or on a lock it cannot read |
 
 ## Docs CI
 

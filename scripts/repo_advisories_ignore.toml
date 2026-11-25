@@ -2,24 +2,35 @@
 # `scripts/repo_advisories.py` (the weekly check of GH-4378, and `uv run poe advisories`).
 #
 # One entry per package and advisory, never a wildcard. `reason` says why we are not affected (or why the
-# advisory does not apply to the locked version); `date` is the day it was read (YYYY-MM-DD). An entry
-# stays for any version of the package, so read the reason again when the advisory is about a feature we start
-# to use. The check lists an entry whose advisory no longer matches the locked version, so it can be removed.
+# advisory does not apply to the locked version); `date` is the day it was read (YYYY-MM-DD).
+#
+# An entry also holds what the advisory said when it was read: `range` and `patched` are its
+# `vulnerable_version_range` and `patched_versions` for the package, letter for letter (`patched = ""`
+# when it names none). When the advisory is edited, so that it says something else, the entry stops hiding it
+# and the check reports it again; the reason is read once more. Instead of `range` an entry may hold the
+# locked `version` it is about (it then holds for that version only). An entry older than 180 days is
+# listed for a second look, and one whose advisory no longer matches the locked version is listed to be removed.
 
 [[ignore]]
 package = "anyio"
 advisory = "GHSA-g36m-r6gw-cj73"
+range = ">= 4.5.0, <= 4.16.0"
+patched = ""
 reason = "affects anyio.run_process() with a single PathLike command; wetterdienst never runs a process through anyio (no fix released yet)"
 date = "2026-11-25"
 
 [[ignore]]
 package = "fastmcp"
 advisory = "GHSA-78c8-3jhx-5mg7"
+range = ">= 2.13.0, <= 4.2.3"
+patched = "4.2.4"
 reason = "affects OAuthProxy; the MCP server of wetterdienst is open and has no authentication provider (src/wetterdienst/ui/restapi.py answers 404 for OAuth discovery)"
 date = "2026-11-25"
 
 [[ignore]]
 package = "pydantic"
 advisory = "GHSA-5jqp-qgf6-3pvh"
+range = "all"
+patched = "v1.8.2,v1.7.4,v1.6.2"
 reason = "a 2021 advisory about pydantic 1.x (fixed in 1.6.2, 1.7.4 and 1.8.2) whose range is recorded as 'all'; wetterdienst uses pydantic 2"
 date = "2026-11-25"

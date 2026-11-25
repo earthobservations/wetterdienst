@@ -1,0 +1,24 @@
+{
+ "info": {
+  "name": "multidict",
+  "version": "6.9.1",
+  "home_page": "https://github.com/aio-libs/multidict",
+  "project_urls": {
+   "CI: GitHub": "https://github.com/aio-libs/multidict/actions",
+   "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+   "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+   "Code of Conduct": "https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+   "Coverage: codecov": "https://codecov.io/github/aio-libs/multidict",
+   "Docs: Changelog": "https://multidict.aio-libs.org/en/latest/changes/",
+   "Docs: RTD": "https://multidict.aio-libs.org",
+   "GitHub: issues": "https://github.com/aio-libs/multidict/issues",
+   "GitHub: repo": "https://github.com/aio-libs/multidict",
+   "Homepage": "https://github.com/aio-libs/multidict"
+  }
+ },
+ "urls": [
+  {
+   "upload_time_iso_8601": "2026-09-21T17:54:14.957153Z"
+  }
+ ]
+}

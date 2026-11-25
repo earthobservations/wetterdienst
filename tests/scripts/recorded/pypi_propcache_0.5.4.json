@@ -1,0 +1,24 @@
+{
+ "info": {
+  "name": "propcache",
+  "version": "0.5.4",
+  "home_page": "https://github.com/aio-libs/propcache",
+  "project_urls": {
+   "CI: GitHub Workflows": "https://github.com/aio-libs/propcache/actions?query=branch:master",
+   "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+   "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+   "Code of Conduct": "https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+   "Coverage: codecov": "https://codecov.io/github/aio-libs/propcache",
+   "Docs: Changelog": "https://propcache.readthedocs.io/en/latest/changes/",
+   "Docs: RTD": "https://propcache.readthedocs.io",
+   "GitHub: issues": "https://github.com/aio-libs/propcache/issues",
+   "GitHub: repo": "https://github.com/aio-libs/propcache",
+   "Homepage": "https://github.com/aio-libs/propcache"
+  }
+ },
+ "urls": [
+  {
+   "upload_time_iso_8601": "2026-09-16T00:13:43.864723Z"
+  }
+ ]
+}
