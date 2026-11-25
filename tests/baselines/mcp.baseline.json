@@ -74,10 +74,6 @@
             "csv"
           ],
           "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": []
@@ -131,10 +127,6 @@
               "type": "null"
             }
           ]
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": [
@@ -274,10 +266,6 @@
           "default": false
         },
         "with_stations": {
-          "type": "boolean",
-          "default": false
-        },
-        "pretty": {
           "type": "boolean",
           "default": false
         }
@@ -468,13 +456,7 @@
           "enum": [
             "json",
             "geojson",
-            "csv",
-            "html",
-            "png",
-            "jpg",
-            "webp",
-            "svg",
-            "pdf"
+            "csv"
           ],
           "default": "json"
         },
@@ -485,43 +467,6 @@
         "with_stations": {
           "type": "boolean",
           "default": false
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "width": {
-          "anyOf": [
-            {
-              "type": "integer",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "height": {
-          "anyOf": [
-            {
-              "type": "integer",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "scale": {
-          "anyOf": [
-            {
-              "type": "number",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
         }
       },
       "required": [
@@ -656,10 +601,6 @@
             "csv"
           ],
           "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": [
@@ -679,10 +620,6 @@
               "type": "null"
             }
           ]
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": []
@@ -736,10 +673,6 @@
             "csv"
           ],
           "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": []
@@ -991,58 +924,263 @@
             "json",
             "geojson",
             "csv",
-            "ndjson",
-            "html",
-            "png",
-            "jpg",
-            "webp",
-            "svg",
-            "pdf"
+            "ndjson"
           ],
           "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "width": {
-          "anyOf": [
-            {
-              "type": "integer",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "height": {
-          "anyOf": [
-            {
-              "type": "integer",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "scale": {
-          "anyOf": [
-            {
-              "type": "number",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
         }
       },
       "required": [
         "provider",
         "network",
         "parameters"
+      ]
+    },
+    "statistics": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "periods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "all": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": false
+        },
+        "stations": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "region": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 1000000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "aggregate": {
+          "type": "string"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "year_start": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 12.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_missing": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 10000.0,
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "having": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 10000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "per": {
+          "type": "string",
+          "enum": [
+            "station",
+            "none"
+          ],
+          "default": "station"
+        },
+        "max_rows": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 10000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv",
+            "ndjson"
+          ],
+          "default": "json"
+        }
+      },
+      "required": [
+        "provider",
+        "network",
+        "parameters",
+        "aggregate"
       ]
     },
     "storm_cells": {
@@ -1173,10 +1311,6 @@
             "csv"
           ],
           "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": []
@@ -1356,13 +1490,7 @@
           "enum": [
             "json",
             "geojson",
-            "csv",
-            "html",
-            "png",
-            "jpg",
-            "webp",
-            "svg",
-            "pdf"
+            "csv"
           ],
           "default": "json"
         },
@@ -1373,43 +1501,6 @@
         "with_stations": {
           "type": "boolean",
           "default": false
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "width": {
-          "anyOf": [
-            {
-              "type": "integer",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "height": {
-          "anyOf": [
-            {
-              "type": "integer",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "scale": {
-          "anyOf": [
-            {
-              "type": "number",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
         }
       },
       "required": [
@@ -1672,52 +1763,9 @@
             "json",
             "geojson",
             "csv",
-            "ndjson",
-            "html",
-            "png",
-            "jpg",
-            "webp",
-            "svg",
-            "pdf"
+            "ndjson"
           ],
           "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "width": {
-          "anyOf": [
-            {
-              "type": "integer",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "height": {
-          "anyOf": [
-            {
-              "type": "integer",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "scale": {
-          "anyOf": [
-            {
-              "type": "number",
-              "exclusiveMinimum": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ]
         },
         "timestamp": {
           "anyOf": [
@@ -1978,5 +2026,5 @@
       ]
     }
   },
-  "x-release": "0.199.0"
+  "x-release": "0.200.0"
 }
