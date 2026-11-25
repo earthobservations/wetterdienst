@@ -19,7 +19,7 @@ providers, so run the cases you need. Nothing of it lives in `.claude/`: it is a
 ## Run it
 
 Open Claude Code in a checkout of the repository and tell it: *"follow `benchmarks/mcp/README.md` for the smoke run"* (all
-28 cases that need no key, both tiers, 1 repeat: 56 runs) or *"... for the baseline"* (the same with 5 repeats: 280 runs).
+37 cases that need no key, both tiers, 1 repeat: 74 runs) or *"... for the baseline"* (the same with 5 repeats: 370 runs).
 The README is the whole instruction: prerequisites, a local server of `main` in a git worktree, the results file, the runs
 (at most 3 at once), how the orchestrating Claude judges what has to be read, how it reports on
 the strategy's issue it is given ([#4318](https://github.com/earthobservations/wetterdienst/issues/4318) for the schema work,
@@ -125,6 +125,10 @@ Append an object to `benchmarks/mcp/cases.json`: `id`, `question`, `kind`, `max_
 - Check facts against a call the judge makes, never against a number written in the case (the source moves);
   an `expected` value only shows that it drifted. A forecast gets a span of forecast hours, not a value.
 - Name a provider, network, parameter or period as a literal when it must exist: the offline test holds them to the code.
+- Compute the `expected` value outside wetterdienst (the provider's own files or table, a script of the standard
+  library), from closed past data where it exists, and write its source and the numbers into `notes`: a case whose only
+  truth is the library's own output cannot show a change that moves the output. Ask what a person would ask; a question
+  names no tool and no option.
 
 Then run `uv run pytest tests/ui/test_mcp_benchmark_cases.py tests/ui/test_mcp_benchmark_scripts.py`. They call no model:
 the first checks that every tool, argument and enum value, provider, network, parameter and period a case names exists,

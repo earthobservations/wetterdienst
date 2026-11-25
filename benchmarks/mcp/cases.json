@@ -2881,6 +2881,995 @@
       "tiers": ["small", "large"],
       "needs_key": false,
       "notes": "The value comes back in degrees Celsius; the conversion is the model's, or the server's with `unit_targets={'temperature': 'degree_fahrenheit'}`, which is a valid route. The Fahrenheit figure must be there, in the Fahrenheit unit, and be right."
+    },
+    {
+      "id": "kostra-hamburg-100-year-hour",
+      "question": "Für die Bemessung eines Regenrückhaltebeckens in Hamburg (53.55 N, 10.00 E): Welche Regenhöhe und welche Regenspende hat nach DWD ein Starkregen von 60 Minuten Dauer, der statistisch einmal in 100 Jahren auftritt?",
+      "kind": "kostra",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-the-design-rain",
+          "description": "reads DWD's design rainfall (KOSTRA) of a point in Hamburg",
+          "match": [{"tool": "kostra", "args": {"latitude": {"between": [53.4, 53.7]}, "longitude": {"between": [9.8, 10.2]}}}]
+        },
+        {
+          "id": "asks-one-duration",
+          "description": "narrows the table to the 60 minutes (the answer is then one row, not 22 tables of 9 return periods)",
+          "any_order": true,
+          "match": [{"tool": "kostra", "args": {"duration": 60}}]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "fetches-measurements",
+          "description": "reads measurements or estimates for a question about a design rain, which is a statistic and no reading",
+          "kind": "call",
+          "match": {"tool": ["values", "interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-kostra",
+          "description": "calls kostra more than 2 times with the same arguments",
+          "kind": "repeat",
+          "tool": "kostra",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "depth",
+          "description": "the rainfall depth the answer gives for 60 minutes and 100 years equals the one the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {"tool": "kostra", "args": {"latitude": 53.55, "longitude": 10.0, "duration": 60, "return_period": 100}},
+            "pick": "depth_mm of the row for 60 minutes and 100 years"
+          },
+          "expected": 35.7,
+          "tolerance": 0.1,
+          "unit": "millimetre"
+        },
+        {
+          "id": "intensity",
+          "description": "the rainfall intensity (Regenspende, l/(s ha)) the answer gives equals the one the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {"tool": "kostra", "args": {"latitude": 53.55, "longitude": 10.0, "duration": 60, "return_period": 100}},
+            "pick": "intensity_l_s_ha of the row for 60 minutes and 100 years"
+          },
+          "expected": 99.2,
+          "tolerance": 0.1,
+          "unit": "litre_per_second_hectare"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Truth, computed on 2026-11-25 without wetterdienst: DWD's own table StatRR_KOSTRA-DWD-2020_D00060.csv.zip (opendata.dwd.de, climate_environment/CDC/grids_germany/return_periods/precipitation/KOSTRA/KOSTRA_DWD_2020/tab), the cell found by DWD's grid rule (ETRS89-LAEA, EPSG:3035 through pyproj; 300 x 300 cells of 5 km from 3,600,000 / 2,300,000; INDEX_RC = row * 1000 + column, row from the north): 53.55 N, 10.00 E is the cell 083144 (row 83, column 144, well inside it), whose HN_100A is 35,7 mm, RN_100A 99,2 l/(s ha) and UC_100A 22 %. The files are static (written 2022-12-12), so this truth does not move. The traps: a call without `duration` reads all 22 tables (about 24,000 characters); depth (mm) and intensity (l/(s ha)) are two numbers, and a model may give one and call it the other; the figure is DWD's estimate for the 5 km cell and no measurement. The question is German on purpose: the answer may be German or English, the figures and units decide."
+    },
+    {
+      "id": "station-ids-eddh",
+      "question": "I only have the ICAO code EDDH of a weather station. What is it called, and which station ids does DWD use for it in its daily climate observations and in its MOSMIX forecasts?",
+      "kind": "station-ids",
+      "max_steps": 5,
+      "checkpoints": [
+        {
+          "id": "looks-up-the-code",
+          "description": "looks the ICAO code up (the cross-provider search, or `stations` of a network that lists the code)",
+          "match": [
+            {"tool": "station_ids", "args": {"icao_id": {"regex": "(?i)EDDH"}}},
+            {"tool": "stations", "args": {"icao_id": {"regex": "(?i)EDDH"}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "reads measurements or estimates for a question about ids",
+          "kind": "call",
+          "match": {"tool": ["values", "interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-station-ids",
+          "description": "calls station_ids twice with the same arguments (the tool says: do not repeat the search)",
+          "kind": "repeat",
+          "tool": "station_ids",
+          "max_identical": 1
+        }
+      ],
+      "facts": [
+        {
+          "id": "names-the-station",
+          "description": "the answer names the station: Hamburg airport, Hamburg-Fuhlsbüttel",
+          "kind": "answer_regex",
+          "any_of": ["(?i)hamburg"]
+        },
+        {
+          "id": "observation-id",
+          "description": "the id of the daily climate observations (dwd/observation) the answer gives is the one of the judge's list",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {"tool": "station_ids", "args": {"icao_id": "EDDH"}},
+            "pick": "the station_id of the row of provider dwd, network observation (01975)"
+          },
+          "expected": "01975",
+          "answer_matches_any_of": ["\\b01975\\b"]
+        },
+        {
+          "id": "mosmix-id",
+          "description": "the id of the MOSMIX forecasts (dwd/mosmix) the answer gives is the one of the judge's list",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {"tool": "station_ids", "args": {"icao_id": "EDDH"}},
+            "pick": "the station_id of the row of provider dwd, network mosmix (10147)"
+          },
+          "expected": "10147",
+          "answer_matches_any_of": ["\\b10147\\b"]
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Truth, computed on 2026-11-25 without wetterdienst, from DWD's own files: the MOSMIX station catalogue (mosmix_stationskatalog.cfg) has `10147 EDDH HAMBURG-FU.`; DWD's Stationslexikon (statlex_html.html?view=nasPublication) lists the station 1975 Hamburg-Fuhlsbüttel with the WMO number 10147 (rows SY and MN, Stationskennung 10147); the daily climate station list (KL_Tageswerte_Beschreibung_Stationen.txt) has 01975 Hamburg-Fuhlsbüttel. So the observation id 01975 is reached through the WMO number 10147, which the ICAO code does not list at DWD's observation network: that is the `equivalent` match the tool is for. The first call reads the station lists of about 18 networks (30 MB, about 9 s cold, keyed networks are named in a warning and skipped); the tool says not to repeat it, hence the rule. NOAA GHCN and others may appear in the answer: only DWD's two ids are the facts."
+    },
+    {
+      "id": "storm-cells-munich",
+      "question": "Gibt es gerade Gewitterzellen über München oder im Umkreis von 30 km? Falls ja: wie stark ist die stärkste?",
+      "kind": "storm-cells",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "reads-the-cells-of-munich",
+          "description": "reads DWD's storm cells for Munich (a point with a distance, or a box around it)",
+          "match": [
+            {
+              "tool": "storm_cells",
+              "args": {"latitude": {"between": [47.9, 48.4]}, "longitude": {"between": [11.2, 11.9]}}
+            },
+            {"tool": "storm_cells", "args": {"left": {"present": true}, "bottom": {"present": true}}}
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "reads-every-cell-of-germany",
+          "description": "asks for the cells without a place: every cell of Germany, several hundred KB on a day of storms",
+          "kind": "call",
+          "match": {"tool": "storm_cells", "args": {"latitude": {"absent": true}, "left": {"absent": true}}}
+        },
+        {
+          "id": "reads-warnings-or-weather-instead",
+          "description": "answers a question about the radar's cells from warnings or measurements",
+          "kind": "call",
+          "match": {"tool": ["alerts", "values", "interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-storm-cells",
+          "description": "calls storm_cells more than 2 times with the same arguments",
+          "kind": "repeat",
+          "tool": "storm_cells",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "matches-the-subjects-scan",
+          "description": "the answer agrees with the scan the subject itself read: the judge calls storm_cells again for the same place with `timestamp` set to the `data_updated_at` of the subject's result (else its `reference_time`), so that both read the same scan; the answer says how many cells are there and the severity of the strongest (0 weak to 3 extreme), or that there is none, which most scans hold",
+          "kind": "ground_truth_set",
+          "ground_truth": {
+            "call": {
+              "tool": "storm_cells",
+              "args": {
+                "latitude": 48.14,
+                "longitude": 11.58,
+                "distance": 30,
+                "timestamp": "$subject_snapshot",
+                "track": false,
+                "geometry": "centroid"
+              }
+            },
+            "pick": "the number of cells and the highest severity of the scan the subject read, or that it holds none"
+          }
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "No fixed truth: the radar scan changes every 5 minutes and most scans hold no cell near Munich, so the right answer is usually 'none right now', which is accepted, and the judge verifies it against the scan the subject read (an empty `cells` carries the `reference_time` of the scan; a filter that leaves no cell of a scan that has some carries a `no-storm-cells-for-place` warning, a scan more than 20 minutes old a `scan-stale` one: an empty answer of a stale scan is no all-clear, and the answer should say so). A model that reads the DWD warnings (alerts) instead answers another question. Without a place the answer is every cell of Germany."
+    },
+    {
+      "id": "issues-mosmix-hamburg",
+      "question": "Which forecast runs of DWD's MOSMIX-L model are available for Hamburg-Fuhlsbüttel (station 10147) at the moment, and when was the newest one issued?",
+      "kind": "issues",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "lists-the-runs",
+          "description": "lists the MOSMIX-L runs of station 10147 (`dataset` absent is MOSMIX-L, the default)",
+          "match": [
+            {
+              "tool": "issues",
+              "args": {"provider": "dwd", "network": "mosmix", "station": {"any_of": ["10147"]}, "dataset": {"absent": true}}
+            },
+            {
+              "tool": "issues",
+              "args": {"provider": "dwd", "network": "mosmix", "station": {"any_of": ["10147"]}, "dataset": "large"}
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "lists-another-product",
+          "description": "lists the runs of MOSMIX-S or MOSMIX-SNOW: the question names MOSMIX-L",
+          "kind": "call",
+          "match": {"tool": "issues", "args": {"dataset": {"any_of": ["small", "snow"]}}}
+        },
+        {
+          "id": "repeats-issues",
+          "description": "calls issues more than 2 times with the same arguments",
+          "kind": "repeat",
+          "tool": "issues",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "newest-run",
+          "description": "the newest run the answer names is the newest of the judge's list; a run that DWD published while the model worked (newer than the answer's) is no failure",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {"tool": "issues", "args": {"provider": "dwd", "network": "mosmix", "station": "10147", "dataset": "large"}},
+            "pick": "the latest issue datetime (UTC) of the list"
+          },
+          "expected": "2026-11-25T21:00:00Z"
+        },
+        {
+          "id": "number-of-runs",
+          "description": "the number of runs the answer gives equals the length of the judge's list (one more or less where a run was published meanwhile)",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {"tool": "issues", "args": {"provider": "dwd", "network": "mosmix", "station": "10147", "dataset": "large"}},
+            "pick": "the number of issue datetimes in the list"
+          },
+          "expected": 8,
+          "tolerance": 1,
+          "unit": "count"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Depends on the day: MOSMIX-L comes four times a day (03, 09, 15 and 21 UTC) and DWD keeps two days of runs, so the list holds 8 and the newest is at most 6 hours old (`expected` is the list of 2026-11-25 22:56 UTC, only to see a drift). Truth, computed on 2026-11-25 without wetterdienst: the directory listing of opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/single_stations/10147/kml/ held 8 files MOSMIX_L_<YYYYMMDDHH>_10147.kmz, from 2026112403 to 2026112521. Judge soon after the run, the same day. The trap is the product: MOSMIX-S has a run every hour (48 and more in the list), which answers a question about MOSMIX-L wrongly."
+    },
+    {
+      "id": "stations-thueringen-2025",
+      "question": "Welche DWD-Stationen in Thüringen haben Tageswerte (Klimadaten) für das Jahr 2025? Bitte alle mit Namen nennen.",
+      "kind": "stations",
+      "max_steps": 4,
+      "checkpoints": [
+        {
+          "id": "lists-the-stations",
+          "description": "lists the stations of dwd/observation for the state (by region, or by a box around it)",
+          "match": [
+            {
+              "tool": "stations",
+              "args": {"provider": "dwd", "network": "observation", "region": {"regex": "(?i)th(ü|u|ue)ringen"}}
+            },
+            {
+              "tool": "stations",
+              "args": {"provider": "dwd", "network": "observation", "left": {"present": true}, "bottom": {"present": true}}
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "reads-measurements-for-a-list",
+          "description": "fetches values or estimates for a question about which stations exist",
+          "kind": "call",
+          "match": {"tool": ["values", "interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-stations",
+          "description": "calls stations more than 2 times with the same arguments",
+          "kind": "repeat",
+          "tool": "stations",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "names-every-station",
+          "description": "the stations the answer names are exactly those of the judge's list: every station of Thuringia whose daily record overlaps 2025, none of another state, none whose record ended before 2025 (the answer may give the name or the id)",
+          "kind": "ground_truth_set",
+          "ground_truth": {
+            "call": {
+              "tool": "stations",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/climate_summary",
+                "region": "Thüringen",
+                "timestamp": "2025"
+              }
+            },
+            "pick": "the name and id of every station of the list (28)"
+          },
+          "expected": {
+            "00198": "Artern",
+            "00379": "Berka, Bad (Flugplatz)",
+            "00896": "Dachwig",
+            "01270": "Erfurt-Weimar",
+            "01411": "Birx/Rhön",
+            "01612": "Gera-Leumnitz",
+            "02444": "Jena (Sternwarte)",
+            "02618": "Kleiner Inselsberg",
+            "02925": "Leinefelde",
+            "03034": "Lobenstein, Bad",
+            "03204": "Martinroda",
+            "03231": "Meiningen",
+            "03289": "Schmieritz-Weltwitz",
+            "03513": "Neuhaus am Rennweg",
+            "04464": "Schleiz",
+            "04501": "Schmücke",
+            "04605": "Schwarzburg",
+            "04748": "Sondershausen",
+            "04997": "Starkenberg-Tegkwitz",
+            "05335": "Waltershausen",
+            "05424": "Weimar-Schöndorf",
+            "06272": "Salzungen, Bad-Gräfen-Nitzendorf",
+            "06305": "Mühlhausen/Thüringen-Görmar",
+            "07321": "Olbersleben",
+            "07368": "Eisenach",
+            "07419": "Langenwetzendorf-Göttendorf",
+            "07428": "Veilsdorf",
+            "13711": "Krölpa-Rockendorf"
+          }
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "A long list: 28 stations. Truth, computed on 2026-11-25 without wetterdienst: DWD's station description of the daily climate product (climate/daily/kl/historical/KL_Tageswerte_Beschreibung_Stationen.txt), the stations whose Bundesland is Thüringen and whose von_datum is on or before 2025-12-31 and bis_datum on or after 2025-01-01: 28 (the library's own listing has the same 28). A closed question: a station that opens after 2025 or a station that ends does not change it. The traps: without the window the list holds every station Thuringia ever had (more than 28, with ended ones), a box around the state takes in stations of Hesse, Bavaria, Saxony and Lower Saxony, and a model that stops at the first ten or lists names it did not read."
+    },
+    {
+      "id": "statistics-frost-days-potsdam",
+      "question": "Wie viele Frosttage (Tiefsttemperatur unter 0 °C) gab es in Potsdam in den Jahren 2015 bis 2024, Jahr für Jahr? Und in welchem Jahr gab es die meisten?",
+      "kind": "statistics",
+      "max_steps": 5,
+      "checkpoints": [
+        {
+          "id": "finds-potsdam",
+          "description": "finds Potsdam (03987) on dwd/observation, by name or by point, or goes straight to the counting",
+          "match": [
+            {
+              "tool": "stations",
+              "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)potsdam"}}
+            },
+            {
+              "tool": "stations",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [52.2, 52.6]},
+                "longitude": {"between": [12.9, 13.3]}
+              }
+            },
+            {
+              "tool": "statistics",
+              "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)potsdam"}}
+            },
+            {
+              "tool": "statistics",
+              "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["03987"]}}
+            },
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)potsdam"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["03987"]}}}
+          ]
+        },
+        {
+          "id": "counts-the-frost-days",
+          "description": "gets the frost days per year: counts the daily minimum below 0 (statistics), or reads DWD's own annual count of frost days (values of annual/climate_indices)",
+          "match": [
+            {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_min_2m", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["03987"]}
+              }
+            },
+            {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_min_2m", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)potsdam"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {
+                  "any_of": ["annual/climate_indices/count_days_frost", "annual/climate_indices"]
+                },
+                "stations": {"any_of": ["03987"]}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {
+                  "any_of": ["annual/climate_indices/count_days_frost", "annual/climate_indices"]
+                },
+                "name": {"regex": "(?i)potsdam"}
+              }
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for named stations with a past date",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-statistics",
+          "description": "calls statistics more than 2 times with the same arguments",
+          "kind": "repeat",
+          "tool": "statistics",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "frost-days-per-year",
+          "description": "the count the answer gives for each of the ten years equals the judge's, and it names all ten years",
+          "kind": "ground_truth_set",
+          "ground_truth": {
+            "call": {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/climate_summary/temperature_air_min_2m",
+                "stations": "03987",
+                "timestamp": "2015/2024",
+                "aggregate": "count",
+                "by": "year",
+                "filter": "value<0"
+              }
+            },
+            "pick": "the count of each year 2015 to 2024 (ten groups, all complete)"
+          },
+          "expected": {
+            "2015": 58,
+            "2016": 71,
+            "2017": 67,
+            "2018": 72,
+            "2019": 46,
+            "2020": 47,
+            "2021": 82,
+            "2022": 63,
+            "2023": 56,
+            "2024": 47
+          }
+        },
+        {
+          "id": "most-frost-days",
+          "description": "the year with the most frost days the answer names is the judge's: 2021 (82 days)",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/climate_summary/temperature_air_min_2m",
+                "stations": "03987",
+                "timestamp": "2015/2024",
+                "aggregate": "count",
+                "by": "year",
+                "filter": "value<0"
+              }
+            },
+            "pick": "the year of the highest count of the ten (2021)"
+          },
+          "expected": "2021"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Truth, computed on 2026-11-25 without wetterdienst, from DWD's own files, two ways that agree: (1) the daily climate file of Potsdam (tageswerte_KL_03987_18930101_20251231_hist.zip, TNK < 0, -999 is missing; every day of the ten years has a reading) counted per year: 2015 58, 2016 71, 2017 67, 2018 72, 2019 46, 2020 47, 2021 82, 2022 63, 2023 56, 2024 47; (2) DWD's annual climate indices (annual/climate_indices/kl, jahreswerte_KLINDEX_03987_18930101_20251231_hist.zip, JA_FROSTTAGE): the same ten numbers. The window is closed (2025 is in the historical files). So both a counting of the daily minima and a reading of DWD's annual count are right. The trap is a model that cannot count ten years of daily rows: it reads them and counts by hand, or gives a mean, or one year. The question is German: 'Frosttag' is a day whose minimum is below 0 °C."
+    },
+    {
+      "id": "statistics-incomplete-year-hamburg",
+      "question": "What was the total precipitation at Hamburg-Fuhlsbüttel in 2023?",
+      "kind": "statistics",
+      "max_steps": 5,
+      "checkpoints": [
+        {
+          "id": "finds-hamburg",
+          "description": "finds Hamburg-Fuhlsbüttel (01975) on dwd/observation, by name or by point, or goes straight to the data",
+          "match": [
+            {
+              "tool": "stations",
+              "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)hamburg"}}
+            },
+            {
+              "tool": "stations",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [53.4, 53.7]},
+                "longitude": {"between": [9.8, 10.2]}
+              }
+            },
+            {
+              "tool": "statistics",
+              "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)hamburg"}}
+            },
+            {
+              "tool": "statistics",
+              "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["01975"]}}
+            },
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)hamburg"}}},
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["01975"]}}}
+          ]
+        },
+        {
+          "id": "reads-the-year",
+          "description": "reads the precipitation of 2023: a sum per year (statistics), DWD's annual value, or the daily values",
+          "match": [
+            {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["01975"]}
+              }
+            },
+            {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)hamburg"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["annual/climate_summary/precipitation_amount", "annual/climate_summary", "annual/kl"]},
+                "stations": {"any_of": ["01975"]}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["01975"]},
+                "timestamp": {"on_date": "2023-07-01"}
+              }
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for named stations with a past date",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-statistics",
+          "description": "calls statistics more than 2 times with the same arguments",
+          "kind": "repeat",
+          "tool": "statistics",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "says-the-year-is-incomplete",
+          "description": "the answer says that days of 2023 have no reading, so the total is not the year's (the wording is free)",
+          "kind": "answer_regex",
+          "any_of": [
+            "(?i)\\b(missing|incomplete|gaps?|lacks?|lacking|not complete|unavailable|without (a |any )?(reading|measurement|value|data)s?|no (reading|measurement|value|data|record|sunshine)s?|not (measured|recorded|available|reported))\\b",
+            "(?i)(fehl\\w*|unvollst\\w+|l[üu]cke\\w*|nicht vollst\\w+|keine? (messung|messwert\\w*|daten|wert\\w*|angabe\\w*|sonnenschein\\w*)|nicht (gemessen|erfasst|verf[üu]gbar|vorhanden))"
+          ]
+        },
+        {
+          "id": "gap-size",
+          "description": "the number of days without a reading the answer gives is 9 (an answer of `356 of 365 days` counts)",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/climate_summary/precipitation_amount",
+                "stations": "01975",
+                "timestamp": "2023",
+                "aggregate": "sum,count",
+                "by": "year"
+              }
+            },
+            "pick": "expected minus searched of the 2023 group (9 days)"
+          },
+          "expected": 9,
+          "tolerance": 0,
+          "unit": "day"
+        },
+        {
+          "id": "partial-total",
+          "description": "the total the answer gives is the sum of the 356 days with a reading (926.3 mm) and is called a total of those days, a lower bound, never the year's total; no figure at all is no answer to the question",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/climate_summary/precipitation_amount",
+                "stations": "01975",
+                "timestamp": "2023",
+                "aggregate": "sum",
+                "by": "year",
+                "max_missing": 9
+              }
+            },
+            "pick": "the sum of the 2023 group with the nine missing days allowed (926.3 mm)"
+          },
+          "expected": 926.3,
+          "tolerance": 0.5,
+          "unit": "millimetre"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "A group that is not complete. Truth, computed on 2026-11-25 without wetterdienst, from DWD's own files: the daily climate file of Hamburg-Fuhlsbüttel (tageswerte_KL_01975_19360101_20251231_hist.zip, RSK, -999 is missing) has no reading on nine days of 2023 (2023-06-17, 2023-06-20 and 2023-10-09 to 2023-10-15); the other 356 days sum to 926.3 mm. DWD's annual file (annual/kl, jahreswerte_KL_01975_..., JA_RR) has -999 for 2023: DWD publishes no annual total for the year either. The statistics tool says the same (`complete: false`, `sum` null, `searched` 356, `expected` 365). The honest answer says that nine days are missing and that no complete total exists, and may give 926.3 mm as the sum of the days read; a plain `926 mm` or a figure of memory (about 700 to 1000 mm) as the year's total fails `says-the-year-is-incomplete` or `partial-total`. A model that retries with `max_missing` is right if it says so. Judge `is_answer` as the rule of the hedge: an answer that names the partial sum and says what it rests on is an answer."
+    },
+    {
+      "id": "values-four-stations-2025-07-02",
+      "question": "Which of these stations had the highest daily maximum air temperature on 2 July 2025: Hamburg-Fuhlsbüttel, Berlin-Tempelhof, Potsdam or Kiel-Holtenau? Give each station's maximum.",
+      "kind": "observation",
+      "max_steps": 8,
+      "checkpoints": [
+        {
+          "id": "find-stations",
+          "description": "finds one of the four stations on dwd/observation, by name or by point, or goes straight to values",
+          "match": [
+            {
+              "tool": "stations",
+              "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)(hamburg|tempelhof|potsdam|kiel)"}}
+            },
+            {
+              "tool": "stations",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "stations": {"any_of": ["01975", "00433", "03987", "02564"]}
+              }
+            },
+            {
+              "tool": "stations",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [52.2, 54.5]},
+                "longitude": {"between": [9.8, 13.3]}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)(hamburg|tempelhof|potsdam|kiel)"}}
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "stations": {"any_of": ["01975", "00433", "03987", "02564"]}
+              }
+            }
+          ]
+        },
+        {
+          "id": "reads-the-maxima",
+          "description": "reads the daily maximum air temperature of 2 July 2025 of the stations (one call with the ids, or one call a station)",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_max_2m", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["01975", "00433", "03987", "02564"]},
+                "timestamp": {"on_date": "2025-07-02"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_max_2m", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)(hamburg|tempelhof|potsdam|kiel)"},
+                "timestamp": {"on_date": "2025-07-02"}
+              }
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for named stations with a past date",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than 2 times with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "maximum-hamburg",
+          "description": "the highest air temperature the answer gives for Hamburg-Fuhlsbüttel equals the daily maximum the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_max_2m"],
+                "stations": ["01975"],
+                "timestamp": "2025-07-02"
+              }
+            },
+            "pick": "the value"
+          },
+          "expected": 35.3,
+          "tolerance": 0.1,
+          "unit": "degree_celsius"
+        },
+        {
+          "id": "maximum-berlin",
+          "description": "the highest air temperature the answer gives for Berlin-Tempelhof equals the daily maximum the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_max_2m"],
+                "stations": ["00433"],
+                "timestamp": "2025-07-02"
+              }
+            },
+            "pick": "the value"
+          },
+          "expected": 37.6,
+          "tolerance": 0.1,
+          "unit": "degree_celsius"
+        },
+        {
+          "id": "maximum-potsdam",
+          "description": "the highest air temperature the answer gives for Potsdam equals the daily maximum the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_max_2m"],
+                "stations": ["03987"],
+                "timestamp": "2025-07-02"
+              }
+            },
+            "pick": "the value"
+          },
+          "expected": 38.8,
+          "tolerance": 0.1,
+          "unit": "degree_celsius"
+        },
+        {
+          "id": "maximum-kiel",
+          "description": "the highest air temperature the answer gives for Kiel-Holtenau equals the daily maximum the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_max_2m"],
+                "stations": ["02564"],
+                "timestamp": "2025-07-02"
+              }
+            },
+            "pick": "the value"
+          },
+          "expected": 33.1,
+          "tolerance": 0.1,
+          "unit": "degree_celsius"
+        },
+        {
+          "id": "hottest",
+          "description": "the station the answer names as the hottest is the one with the highest of the four values: Potsdam",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_max_2m"],
+                "stations": ["01975", "00433", "03987", "02564"],
+                "timestamp": "2025-07-02"
+              }
+            },
+            "pick": "the station with the highest of the four daily maxima (Potsdam)"
+          },
+          "expected": "Potsdam"
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "Several stations in one answer: the rows of four stations sit in one table, and a model may give one station's figure to another. Truth, computed on 2026-11-25 without wetterdienst, from DWD's daily climate files (tageswerte_KL_<id>_..._20251231_hist.zip, TXK of 2025-07-02): Hamburg-Fuhlsbüttel 01975 35.3, Berlin-Tempelhof 00433 37.6, Potsdam 03987 38.8, Kiel-Holtenau 02564 33.1 degrees Celsius. A closed day (the hot day of 2 July 2025, in the historical files). The names are the DWD station names; 'Berlin-Tempelhof' and 'Potsdam' lie 25 km apart, so a point near Berlin finds both."
+    },
+    {
+      "id": "values-missing-sunshine-tempelhof",
+      "question": "How long did the sun shine on 2 July 2025 at Berlin-Tempelhof and at Potsdam?",
+      "kind": "observation",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "find-stations",
+          "description": "finds one of the two stations on dwd/observation, by name or by point, or goes straight to values",
+          "match": [
+            {
+              "tool": "stations",
+              "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)(tempelhof|potsdam)"}}
+            },
+            {
+              "tool": "stations",
+              "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["00433", "03987"]}}
+            },
+            {
+              "tool": "stations",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [52.2, 52.6]},
+                "longitude": {"between": [12.9, 13.5]}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)(tempelhof|potsdam)"}}
+            },
+            {
+              "tool": "values",
+              "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["00433", "03987"]}}
+            }
+          ]
+        },
+        {
+          "id": "reads-the-sunshine",
+          "description": "reads the daily sunshine duration of 2 July 2025 of the stations",
+          "match": [
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/sunshine_duration", "daily/climate_summary", "daily/kl"]},
+                "stations": {"any_of": ["00433", "03987"]},
+                "timestamp": {"on_date": "2025-07-02"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/sunshine_duration", "daily/climate_summary", "daily/kl"]},
+                "name": {"regex": "(?i)(tempelhof|potsdam)"},
+                "timestamp": {"on_date": "2025-07-02"}
+              }
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "estimates-instead",
+          "description": "uses interpolate or summarize for named stations with a past date",
+          "kind": "call",
+          "match": {"tool": ["interpolate", "summarize"]}
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than 2 times with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "potsdam-sunshine",
+          "description": "the sunshine duration the answer gives for Potsdam equals the one the judge reads",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/sunshine_duration"],
+                "stations": ["03987"],
+                "timestamp": "2025-07-02"
+              }
+            },
+            "pick": "the value"
+          },
+          "expected": 14.5,
+          "tolerance": 0.05,
+          "unit": "hour"
+        },
+        {
+          "id": "tempelhof-has-no-value",
+          "description": "the answer says Berlin-Tempelhof has no sunshine duration for that day (no reading) and gives no figure for it, not Potsdam's under Tempelhof's name",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/sunshine_duration"],
+                "stations": ["00433"],
+                "timestamp": "2025-07-02"
+              }
+            },
+            "pick": "that the station has no row: the source's marker for a missing value (a `parameter-without-rows` warning)"
+          },
+          "expected": "no value"
+        },
+        {
+          "id": "says-no-reading",
+          "description": "the answer says in its own words that there is no reading, no data or no measurement (the wording is free)",
+          "kind": "answer_regex",
+          "any_of": [
+            "(?i)\\b(missing|incomplete|gaps?|lacks?|lacking|not complete|unavailable|without (a |any )?(reading|measurement|value|data)s?|no (reading|measurement|value|data|record|sunshine)s?|not (measured|recorded|available|reported))\\b",
+            "(?i)(fehl\\w*|unvollst\\w+|l[üu]cke\\w*|nicht vollst\\w+|keine? (messung|messwert\\w*|daten|wert\\w*|angabe\\w*|sonnenschein\\w*)|nicht (gemessen|erfasst|verf[üu]gbar|vorhanden))"
+          ]
+        }
+      ],
+      "tiers": ["small", "large"],
+      "needs_key": false,
+      "notes": "A missing value in a table with another station's value: the rows of the station that has none are dropped (`drop_nulls`), so the answer holds one row (Potsdam) and a warning (`parameter-without-rows`, `missing-value-marker`), and a model may read the one row as both stations' or as Tempelhof's. Truth, computed on 2026-11-25 without wetterdienst, from DWD's daily climate files (tageswerte_KL_03987_18930101_20251231_hist.zip and tageswerte_KL_00433_19480101_20251231_hist.zip, column SDK): Potsdam 03987 on 2025-07-02 is 14.500 h; Berlin-Tempelhof 00433 has -999 (DWD's missing value) in SDK on every day of 2025, the station measures no sunshine. The answer that gives Tempelhof no figure and says why is right, whether it gives Potsdam's value or names a station near Tempelhof that measures it (not part of the facts)."
     }
   ]
 }

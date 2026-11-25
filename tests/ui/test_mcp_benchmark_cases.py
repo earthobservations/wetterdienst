@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -53,6 +54,12 @@ KINDS = {
     "coverage",
     "unanswerable",
     "units",
+    "kostra",
+    "station-ids",
+    "storm-cells",
+    "issues",
+    "stations",
+    "statistics",
 }
 TIERS = {"small", "large"}
 #: the fields each kind of fact must carry; any other field of a fact is one of OPTIONAL_FACT_FIELDS
@@ -103,6 +110,10 @@ ENUM_ARGS = (
     ("alerts", "granularity"),
     ("alerts", "language"),
     ("history", "sections"),
+    ("issues", "dataset"),
+    ("storm_cells", "geometry"),
+    ("kostra", "duration"),
+    ("kostra", "return_period"),
 )
 PERIODS = {period.value for period in Period}
 
@@ -206,6 +217,43 @@ REGEX_TESTS = (
         "refuses-as-german",
         ["This is not eligible: German provider only."],
         ["Vienna was 11 C at Hohe Warte."],
+    ),
+    (
+        "statistics-incomplete-year-hamburg",
+        "says-the-year-is-incomplete",
+        [
+            "Nine days of 2023 are missing, so there is no complete total.",
+            "The year has gaps: 356 of 365 days have a reading.",
+            "For 9 days there is no reading.",
+            "Für neun Tage fehlen die Messwerte, das Jahr ist unvollständig.",
+            "Die Reihe ist nicht vollständig.",
+        ],
+        [
+            "The total precipitation in 2023 was 926.3 mm.",
+            "Hamburg-Fuhlsbüttel recorded 926 mm over the year.",
+            "2023 was a wet year in Hamburg.",
+        ],
+    ),
+    (
+        "values-missing-sunshine-tempelhof",
+        "says-no-reading",
+        [
+            "Berlin-Tempelhof has no sunshine duration for that day.",
+            "Tempelhof: no data, the station does not measure sunshine.",
+            "The value is missing for Tempelhof.",
+            "Für Tempelhof liegt keine Sonnenscheindauer vor.",
+            "Die Sonnenscheindauer wird in Tempelhof nicht gemessen.",
+        ],
+        [
+            "Potsdam had 14.5 hours of sun on 2 July 2025.",
+            "Both stations are in Berlin and Brandenburg.",
+        ],
+    ),
+    (
+        "station-ids-eddh",
+        "names-the-station",
+        ["Hamburg-Fuhlsbüttel", "Hamburg Airport (EDDH)"],
+        ["Berlin-Brandenburg airport", "station 10147"],
     ),
     (
         "observation-london-yesterday",
@@ -352,10 +400,12 @@ def _check_match(
             allowed = _enums(properties[argument])
             if allowed is None:
                 continue
+            # an enumeration of numbers (the durations of `kostra`) is held as well: a whole number is one of its texts
+            values += [v for v in _flat(_literals(rule)) if isinstance(v, int) and not isinstance(v, bool)]
             found.extend(
                 f"{where}: {name}.{argument} takes none of {value!r} (it takes {sorted(allowed)})"
                 for value in values
-                if value not in allowed
+                if str(value) not in allowed
             )
     return found
 
@@ -716,30 +766,97 @@ def test_the_cases_are_true_to_the_code(tools: dict[str, dict[str, Any]]) -> Non
     assert problems(load_cases(), tools) == []
 
 
-def test_there_are_enough_cases_and_they_cover_the_tools(tools: dict[str, dict[str, Any]]) -> None:
-    """The set asks about the main tools: a tool nobody asks about is a tool no run tests."""
-    data = load_cases()
-    named = {
+#: the tools no case asks about, and why: `auth` checks the credentials of the server and a case would need a key
+NOT_ASKED_ABOUT = {"auth"}
+
+
+def _named_tools(data: dict[str, Any]) -> set[str]:
+    """Collect every tool a checkpoint, a forbidden call or a ground-truth call of the cases names."""
+    return {
         name
         for case in data["cases"]
         for _, m in _calls(case)
         for name in ([m["tool"]] if isinstance(m["tool"], str) else m["tool"])
     }
 
+
+def test_there_are_enough_cases_and_they_cover_the_tools(tools: dict[str, dict[str, Any]]) -> None:
+    """The set asks about every tool the server lists: a tool nobody asks about is a tool no run tests (GH-4445)."""
+    data = load_cases()
+    named = _named_tools(data)
+
     assert len(data["cases"]) >= 16
-    assert named >= {
-        "stations",
-        "values",
-        "interpolate",
-        "summarize",
-        "alerts",
-        "history",
-        "coverage",
-        "glossary",
-        "providers",
-    }
+    assert named >= set(tools) - NOT_ASKED_ABOUT, sorted(set(tools) - NOT_ASKED_ABOUT - named)
     assert all(name in tools for name in named)
     assert any(case["needs_key"] for case in data["cases"]), "the skipped-by-default case is gone"
+
+
+def test_every_tool_is_asked_for_by_the_first_checkpoint_of_a_case(tools: dict[str, dict[str, Any]]) -> None:
+    """A tool that only a forbidden rule or a ground truth names is asked for by no case: a first checkpoint has it."""
+    first = {
+        name
+        for case in load_cases()["cases"]
+        for m in case["checkpoints"][0]["match"]
+        for name in ([m["tool"]] if isinstance(m["tool"], str) else m["tool"])
+    }
+
+    assert first >= set(tools) - NOT_ASKED_ABOUT, sorted(set(tools) - NOT_ASKED_ABOUT - first)
+
+
+def _bench_module() -> Any:  # noqa: ANN401
+    """Load `benchmarks/mcp/scripts/bench.py` as a module, as the tests of the script do."""
+    spec = importlib.util.spec_from_file_location("mcp_benchmark_bench_cases", BENCH_DIR / "scripts" / "bench.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_prompt_names_every_tool_of_the_server_and_no_other(tools: dict[str, dict[str, Any]]) -> None:
+    """The tested model is told all the tools of the server: a tool left out of the prompt is one it may not try."""
+    bench = _bench_module()
+    named = [name.strip() for name in bench.PROMPT_TOOLS.split(",")]
+
+    assert sorted(named) == named, "the names are in alphabetical order, so that no tool is put first"
+    assert set(named) == set(tools), (sorted(set(tools) - set(named)), sorted(set(named) - set(tools)))
+
+
+def test_the_prompt_hash_includes_the_tools_it_names() -> None:
+    """Two results files made with other lists of tools are not comparable, so `compare` must see another prompt."""
+    bench = _bench_module()
+    before = bench.prompt_version()
+
+    bench.PROMPT_TOOLS += ", extra"
+
+    assert bench.prompt_version() != before
+
+
+def _question_names(data: dict[str, Any], tools: dict[str, dict[str, Any]]) -> list[str]:
+    """List the questions that name a tool, an argument with an underscore or the protocol, as `case: word`."""
+    arguments = {argument for schema in tools.values() for argument in schema.get("properties", {})}
+    forbidden = {name for name in {*tools, *arguments} if "_" in name} | {"MCP", "tool", "wetterdienst"}
+    found = []
+    for case in data["cases"]:
+        words = set(re.findall(r"[A-Za-z_]+", case["question"]))
+        found.extend(f"{case['id']}: {word}" for word in sorted(words & forbidden))
+    return found
+
+
+def test_a_question_names_no_tool_and_no_option(tools: dict[str, dict[str, Any]]) -> None:
+    """A question is what a person would ask: no tool name, no argument of a tool, no word of the protocol."""
+    assert _question_names(load_cases(), tools) == []
+
+
+def test_a_question_that_names_a_tool_or_an_option_is_found(tools: dict[str, dict[str, Any]]) -> None:
+    """The guard on the questions is not vacuous: a question with `max_missing` or `storm_cells` in it is named."""
+    data = copy.deepcopy(load_cases())
+    data["cases"][0]["question"] = "Ask storm_cells for Munich with max_missing 3 and tell me."
+
+    assert _question_names(data, tools) == [
+        f"{data['cases'][0]['id']}: max_missing",
+        f"{data['cases'][0]['id']}: storm_cells",
+    ]
 
 
 def test_the_runbook_and_the_cases_hold_no_credential_or_personal_data() -> None:
@@ -882,6 +999,14 @@ def _mutated(data: dict[str, Any], old: str, new: str) -> dict[str, Any]:
         pytest.param("The other opt-in tool", "write to someone@example.org", "personal data", id="email"),
         pytest.param("The other opt-in tool", "call +49 40 1234567", "personal data", id="phone"),
         pytest.param("The other opt-in tool", "write to someone@pm.me", "personal data", id="personal-mailbox"),
+        pytest.param('"tool": "storm_cells"', '"tool": "storm_cell"', "no such tool", id="storm-cells-renamed"),
+        pytest.param('"return_period": 100', '"return_period_years": 100', "takes no argument", id="kostra-argument"),
+        pytest.param('"duration": 60', '"duration": 61', "takes none of", id="kostra-duration-not-published"),
+        pytest.param('"icao_id": "EDDH"', '"icao": "EDDH"', "takes no argument", id="station-ids-argument"),
+        pytest.param('"max_missing": 9', '"max_missing_days": 9', "takes no argument", id="statistics-argument"),
+        pytest.param('"dataset": "large"', '"dataset": "big"', "takes none of", id="issues-dataset"),
+        pytest.param('"geometry": "centroid"', '"geometry": "point"', "takes none of", id="storm-cells-geometry"),
+        pytest.param('"region": "Thüringen"', '"regions": "Thüringen"', "takes no argument", id="stations-region"),
         pytest.param('"latitude": -23.55', '"latitude": -123.55', "place without", id="place-out-of-range"),
         pytest.param('"radius_km": 150', '"radius_km": -1', "radius_km", id="radius-not-positive"),
     ],
