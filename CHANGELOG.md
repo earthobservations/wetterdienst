@@ -49,6 +49,12 @@ Types of changes:
   in hand and nothing more is downloaded for it. A stream whose client has gone stops too. A request
   that ends in time is unchanged; Python and the command line have no timeout and are not affected
   (GH-4429)
+- The warnings `missing-value-marker`, `calm-wind-direction` and `rejected-by-plausibility` say
+  at which stations their count is: the total, then the first five stations with their name and
+  count (`at 01975 Hamburg-Fuhlsbüttel (18)`) and `and N more stations`, and `stations` lists the
+  ones named. Before, a count of one station read as the answer's. The text is the same in every
+  answer with a `warnings` block and on the command line's stderr; what is counted is unchanged, so
+  a named station may have no row left in the answer (GH-4424)
 
 ### Fixed
 
