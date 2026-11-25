@@ -153,7 +153,7 @@ cratedb = [
 ]
 duckdb = [
     # >=1.5.3: the same release as the `sql` extra, so that one install holds both
-    "duckdb>=1.5.3,<2",
+    "duckdb>=1.5.3,<3",
     "pandas>=2.2.2,<4",
 ]
 # kept for the installs that name it; `bufr` carries this and the reader both. The floor is the
@@ -240,7 +240,7 @@ restapi = [
 ]
 sql = [
     # >=1.5.3: the filter refuses an older DuckDB (`wetterdienst.io.sql_filter.MINIMUM_DUCKDB`)
-    "duckdb>=1.5.3,<2",
+    "duckdb>=1.5.3,<3",
 ]
 mcp = [
     "wetterdienst[restapi]",
