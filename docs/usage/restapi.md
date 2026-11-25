@@ -1455,7 +1455,7 @@ groups, never the readings of a hundred stations. The shape is always long, and 
 | `filter` | the grammar of [`values`](#the-grammar): `year`, `month`, `day`, `hour` say which values are looked at, `value` which of them count | `value<0`, `month=12\|1\|2,value>=25` |
 | `year_start` | the month a `year` begins (1 to 12, default 1); the year is named by the year it ends in | `12` |
 | `max_missing` | how many values a group may lack and still be `complete`, with a `mean` and a `sum` (0 to 10,000, default 0); with any aggregate | `40` |
-| `having` | keep the groups that meet conditions on the results: the aggregates asked for, `searched`, `expected`, `complete` (1 or 0; the word `complete` alone is `complete=1`) | `count>=100`, `searched<360`, `complete` |
+| `having` | keep the groups that meet conditions on the results: the aggregates asked for, `searched`, `expected`, `complete` (1 or 0, or `true`, `yes`, `false`, `no`; the word `complete` alone is `complete=1`) | `count>=100`, `searched<360`, `complete` |
 | `sort` | the order of the groups: the aggregates asked for, the columns of `by`, `station_id`, `searched`, `expected`, `complete`; `-` for descending | `-mean`, `count,year`, `-complete,-mean` |
 | `first` | the first N groups of the `sort` order, exactly N; needs `sort` | `5` |
 | `per` | over what `first` counts: `station` (each series, the default) or `none` (the stations of one parameter together: each group gets its `rank`) | `none` |
@@ -1469,7 +1469,8 @@ so `first=5` still gives the mean of all the years.
 **What a group is.** A group is one series and one value of each column of `by`. `by=year` is a group a year;
 `by=year,month` a group a month; `by=month` puts every January together (the climate normal); `by=hour` the hours of the
 day over all days; without `by` the whole window of a series is one group. The groups are those of the window (without a
-`timestamp`, from the first value to the last). A group that lies wholly before the first or after the last value of a
+`timestamp`, from the first value to the last): a period that has no step inside it, the months of a year that the window
+leaves out, is no group. A group that lies wholly before the first or after the last value of a
 series is no row, but is counted (`groups_not_listed`); a hole inside the record is a row.
 
 ### How complete a group is
@@ -1483,7 +1484,8 @@ follow these twelve rules, each held by a test that works the case out by hand (
 2. **Cells.** The cells of a group are the steps of its series' resolution (days for daily, hours for hourly, calendar
    months and years for monthly and annual values) that lie in its period and pass the time conditions of `filter`.
    `expected` is the number of cells, counted by the calendar (a leap day, the length of a month). Steps finer than an
-   hour count by the hour: a day of 10-minute values has 144 cells.
+   hour count by the hour: a day of 10-minute values has 144 cells. The steps are those of the clock (a 10-minute
+   value is dated 00:10, 00:20), so a window from 00:05 begins at 00:10.
 3. **The period of a group.** With `year` in `by`, the calendar year (or the season of `year_start`), **whole**: not cut
    by the window, nor by the start of the record, nor by today. A station that began in March has an incomplete first
    year, a year that is not over is incomplete until it is, and so is the first or the last year or season a `timestamp`
@@ -1550,8 +1552,9 @@ degrees, and tie): the ties are ordered by the columns of `by` and then by stati
 how many more tie with the last group shown. In `values` the ties of the last row are kept.
 
 **Ranking over the stations.** With `per=none` the groups of one parameter compete across the stations, and each
-group has its `rank` (1 is the best, in front of the columns of `by`). The series are listed in the order of their best
-group; a series that kept no group is not listed (`metadata.search.totals.series` counts all of them), and `max_rows` and
+group has its `rank` (1 is the best, in front of the columns of `by`; groups that tie have distinct ranks, in the order
+of `by` and then of the station, so the rank is a place in the list and not a competition rank). The series are listed in
+the order of their best group; a series that kept no group is not listed (`metadata.search.totals.series` counts all of them), and `max_rows` and
 the cut of a tool keep the groups of the first ranks.
 
 ### The answer
@@ -1588,7 +1591,7 @@ warnings and the series without their groups. Both are one body and are not stre
 
 | Warning | Meaning |
 | --- | --- |
-| `incomplete-groups` | how many groups have fewer values than expected, by station, whatever is asked: `complete` is false, and their `mean` and `sum` are null |
+| `incomplete-groups` | how many groups have fewer values than expected, by station, whatever is asked, and how many of them are in the answer: `complete` is false, and their `mean` and `sum` are null |
 | `no-values-in-groups` | how many groups lie before the first or after the last value and are not listed |
 | `completeness-unknown` | for how many series how many values a group should have is not known |
 | `ties-not-shown` | how many more groups tie with the last one `first` shows |
@@ -1653,7 +1656,7 @@ http localhost:7890/api/statistics provider==dwd network==observation parameters
 # The same station with a gap of 40 days allowed: 1976 (31 days short) has a mean now, 1988 (121 short) has none.
 http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_min_2m stations==01979 timestamp==1951/2006 aggregate==count,mean by==year having=='searched<360' max_missing==40
 
-# The warmest year of every station of a list, over the stations (per=none), as CSV.
+# The three warmest years of all the stations of a list together (per=none), each with its rank, as CSV.
 http localhost:7890/api/statistics provider==dwd network==observation parameters==daily/climate_summary/temperature_air_mean_2m stations==03987,01975 timestamp==1893/2024 aggregate==mean by==year sort==-mean first==3 per==none format==csv
 ```
 

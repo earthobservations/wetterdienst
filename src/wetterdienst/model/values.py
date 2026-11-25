@@ -672,7 +672,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if hpm is not None:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             # what the selection searches, as the answer names it, counted before it chooses
-            searched = self._searched_of(df) if selection is not None or statistics is not None else None
+            searched = (
+                self._searched_of(df, stamped_on_the_day=statistics is not None)
+                if selection is not None or statistics is not None
+                else None
+            )
             if not self.sr.options.tidy:
                 df = self._widen_df(df=df)
             # sorted by resolution first in either shape: two resolutions are two series, and
@@ -699,7 +703,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
 
-    def _searched_of(self, df: pl.DataFrame) -> pl.DataFrame:
+    def _searched_of(self, df: pl.DataFrame, *, stamped_on_the_day: bool = False) -> pl.DataFrame:
         """Count what the rows of a station hold for the report, with the window, the station's name and the kind."""
         if self._names is None:
             self._names = station_names(self.sr.df)
@@ -708,6 +712,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             (self.sr.start, self.sr.end),
             names=self._names,
             forecast=self.sr.request.metadata.kind == "forecast",
+            stamped_on_the_day=stamped_on_the_day,
         )
 
     def _choose_rows(

@@ -265,7 +265,7 @@ def test_rule_8_the_warnings_say_what_was_not_listed_and_what_is_incomplete(monk
     assert result.totals()["groups_not_listed"] == 2
     codes = {warning["code"]: warning["message"] for warning in recorded_warnings()}
     assert "2 groups lie before the first or after the last value" in codes["no-values-in-groups"]
-    assert "1 groups have fewer values than expected" in codes["incomplete-groups"]
+    assert "1 group has fewer values than expected" in codes["incomplete-groups"]
     assert "`max_missing` is 0" in codes["incomplete-groups"]
 
 

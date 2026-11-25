@@ -58,7 +58,7 @@ RESTAPI_MAX_ROWS = 500_000
 #: the rows of an answer streamed (ndjson, csv), which is held one station at a time: bounded by the time it takes
 RESTAPI_MAX_STREAM_ROWS = 10_000_000
 #: the groups of the answer of `statistics`, which is built and sent as one body and held as the stations are read:
-#: a group of the JSON is about 150 bytes, so about 8 MB
+#: measured: 50,000 groups take 13 to 30 MB, by the aggregates asked for
 RESTAPI_MAX_GROUPS = 50_000
 #: seconds a request may take before its answer begins; a reverse proxy usually gives up after 60
 RESTAPI_TIMEOUT = 60.0

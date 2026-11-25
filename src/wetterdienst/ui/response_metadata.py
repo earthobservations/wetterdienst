@@ -714,6 +714,8 @@ def statistics_metadata(result: StatisticsResult, *, provider: str, network: str
 
     stations = result.stations
     ids = _unique(series.station_id for series in result.series)
+    # the stations searched, those whose series kept no group under `per=none` included
+    searched = _unique(series.station_id for series in [*result.series, *result.left_out])
     search = StatisticsSearch.model_validate(result.search())
     return StatisticsMetadata(
         api_version=API_VERSION,
@@ -729,8 +731,8 @@ def statistics_metadata(result: StatisticsResult, *, provider: str, network: str
             end=format_timestamp(stations.end) if stations.end else None,
             stations=StationsSelected(
                 filter=stations._stations_filter.value,  # noqa: SLF001
-                count=len(ids),
-                ids=ids if len(ids) <= MAX_LISTED_STATION_IDS else None,
+                count=len(searched),
+                ids=searched if len(searched) <= MAX_LISTED_STATION_IDS else None,
             ),
         ),
         counts=Counts(stations=len(ids), rows=search.totals.groups_returned),

@@ -278,8 +278,8 @@ plain-language "summary". `history` is different again: it returns a station's *
 (a point is the reliable way). For design rainfall at a point in Germany (rain depth by duration \
 and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`.
 
-For counts, sums or means per year, month or day (frost days, the coldest winter) use `statistics`; \
-for a record, `values` with `sort` and `first`.
+For counts, sums or means per year, month or day (frost days, the coldest winter or the hottest \
+days) use `statistics`; for a record, `values` with `sort` and `first`.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -295,7 +295,7 @@ them or none are configured, and null when that could not be told (treat it as u
 rejected). `providers` does not check them and has no `valid`: it says whether they are `configured`.
 
 ## Conventions
-- provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
+- provider/network: use "dwd"/"observation" for German ground observations. Call \
 `providers` to list every provider and its networks.
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \
@@ -314,7 +314,8 @@ dwd/phenology. Most other providers have a single period; asking for one their d
 error.
 - lists: an argument that takes several (`parameters`, `stations`, `periods`) is plural and takes them \
 comma-separated, e.g. stations="01975,04411". `interpolate` and `summarize` take one reference `station`.
-- Handy DWD datasets: daily/kl (= climate_summary), hourly/air_temperature, hourly/precipitation.
+- Handy DWD datasets: daily/kl (= climate_summary: temperature, precipitation, wind, sunshine), \
+hourly/air_temperature, hourly/precipitation.
 
 ## Reading results
 - By default (shape="long" unless the server is configured otherwise, format="json") `values` \
@@ -325,7 +326,7 @@ choose the rows). `quality_flags` is null or the \
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
-- Responses are compact (just the `values`). Always give `values` a `timestamp` window and a \
+- Always give `values` a `timestamp` window and a \
 single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters, with an `answer-truncated` \
 warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
 hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \

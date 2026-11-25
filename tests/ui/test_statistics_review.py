@@ -125,7 +125,9 @@ def test_the_tool_cuts_per_none_by_rank(monkeypatch: pytest.MonkeyPatch) -> None
     assert ranks == list(range(1, len(ranks) + 1))
     assert 0 < len(ranks) < len(_flat(whole))
     assert "answer-truncated" in {w["code"] for w in answer["metadata"]["warnings"]}
-    assert answer["metadata"]["search"]["totals"] == whole["metadata"]["search"]["totals"]
+    totals = answer["metadata"]["search"]["totals"]
+    assert totals["groups_returned"] == len(ranks) == answer["metadata"]["counts"]["rows"]
+    assert {**totals, "groups_returned": 0} == {**whole["metadata"]["search"]["totals"], "groups_returned": 0}
     kept = {(s, g["rank"], g["mean"]) for s, g in _flat(answer)}
     assert kept <= {(s, g["rank"], g["mean"]) for s, g in _flat(whole)}
 
@@ -151,9 +153,12 @@ def test_a_tool_lists_20_series_and_says_the_totals_cover_all(monkeypatch: pytes
     assert (len(rest["series"]), len(tool["series"])) == (30, 20)
     assert [s["station_id"] for s in tool["series"]] == [s["station_id"] for s in rest["series"]][:20]
     message = _warning(tool, "answer-truncated") or ""
-    assert "the first 20 of 30 series" in message
+    # a cap of series, not a cut to the 40,000 characters: it says which, and that every group of the 20 is there
+    assert "The answer lists 20 of 30 series that have a group" in message
+    assert "40,000" not in message
     assert tool["metadata"]["search"]["totals"]["series"] == 30
     assert tool["metadata"]["counts"]["rows"] == 60
+    assert tool["metadata"]["search"]["totals"]["groups_returned"] == 60
 
 
 def test_the_groups_limit_is_its_own_setting_and_reported(monkeypatch: pytest.MonkeyPatch) -> None:

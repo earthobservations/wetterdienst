@@ -76,6 +76,7 @@ def searched_of(
     *,
     names: Mapping[str, str | None] | None = None,
     forecast: bool = False,
+    stamped_on_the_day: bool = False,
 ) -> pl.DataFrame:
     """Count what a frame of values holds per station and series, before any selection: the report's raw rows.
 
@@ -159,11 +160,16 @@ def searched_of(
             if coarser:
                 pass
             elif row["first"] is not None:
-                span = count_readings(resolution, row["first"], row["last"])
+                span = count_readings(resolution, row["first"], row["last"], own_stamp=stamped_on_the_day)
                 covered = span
                 if has_window:
                     until = min(end or latest, latest)
-                    covered = count_readings(resolution, min(start, row["first"]), max(until, row["last"]))
+                    covered = count_readings(
+                        resolution,
+                        min(start, row["first"]),
+                        max(until, row["last"]),
+                        own_stamp=stamped_on_the_day and row["first"] <= start,
+                    )
             elif has_window:
                 covered = count_readings(resolution, start, min(end or latest, latest))
             if span is not None and row["searched"] > span:

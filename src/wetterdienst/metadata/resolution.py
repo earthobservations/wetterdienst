@@ -97,7 +97,9 @@ def reading_interval(resolution: Resolution) -> str | None:
     return _RESOLUTION_INTERVALS.get(resolution)
 
 
-def count_readings(resolution: Resolution, start_date: dt.datetime, end_date: dt.datetime) -> int | None:
+def count_readings(
+    resolution: Resolution, start_date: dt.datetime, end_date: dt.datetime, *, own_stamp: bool = False
+) -> int | None:
     """Count the readings a resolution can hold in a window, both ends included.
 
     Counted arithmetically rather than by building the timestamps and measuring them, so the
@@ -108,6 +110,10 @@ def count_readings(resolution: Resolution, start_date: dt.datetime, end_date: dt
     resolutions are counted from the anchors instead, since a reading of a month or a year is
     dated to its first day and a window that begins mid-month does not contain that anchor.
 
+    `own_stamp` says that `start_date` is a reading's own timestamp and not the start of a window: a monthly or annual
+    reading dated at any time of the 1st (06:00, say) is that month's or year's, so it is counted, where a window that
+    begins at 06:00 of the 1st has passed the anchor.
+
     Returns None for a resolution that names no interval, where the question has no answer.
     """
     if resolution not in _RESOLUTION_INTERVALS:
@@ -116,8 +122,7 @@ def count_readings(resolution: Resolution, start_date: dt.datetime, end_date: dt
         return 0
     if resolution == Resolution.MONTHLY:
         anchor = start_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        # a start on the 1st counts the month at whatever time of the day it is (a value dated 06:00 is that month's)
-        if anchor.date() < start_date.date():
+        if (anchor.date() < start_date.date()) if own_stamp else (anchor < start_date):
             anchor = anchor.replace(
                 year=anchor.year + anchor.month // 12,
                 month=anchor.month % 12 + 1,
@@ -127,7 +132,7 @@ def count_readings(resolution: Resolution, start_date: dt.datetime, end_date: dt
         return (end_date.year - anchor.year) * 12 + end_date.month - anchor.month + 1
     if resolution == Resolution.ANNUAL:
         anchor = start_date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        if anchor.date() < start_date.date():
+        if (anchor.date() < start_date.date()) if own_stamp else (anchor < start_date):
             anchor = anchor.replace(year=anchor.year + 1)
         if anchor > end_date:
             return 0

@@ -107,9 +107,15 @@ def expected_series(readings: Mapping[dt.date, float], case: Case) -> dict[str, 
         for day in _days(*bounds):
             if case.time(day, season_year(day, case.year_start)):
                 cells.setdefault(_key(day, case.by, case.year_start), []).append(day)
-    # a period that has not begun is no group
+    # a period that has not begun is no group, and neither is one with no step inside the window (without one, inside
+    # the values)
+    low = w0 if w0 is not None else first
+    high = w1 if w1 is not None else (last if w0 is None else None)
     cells = {
-        key: days for key, days in cells.items() if dt.datetime(*days[0].timetuple()[:3], tzinfo=dt.UTC) <= case.now
+        key: days
+        for key, days in cells.items()
+        if dt.datetime(*days[0].timetuple()[:3], tzinfo=dt.UTC) <= case.now
+        and any((low is None or day >= low) and (high is None or day <= high) for day in days)
     }
     # a value outside every cell makes its group's expectation unknown; the stub's values lie inside its window
     groups = []

@@ -429,7 +429,10 @@ def test_a_cut_tool_answer_keeps_the_order_of_the_answer_and_says_how_many_group
     flat = [g for s in whole["series"] for g in s["groups"]]
     assert [g for s in answer["series"] for g in s["groups"]] == flat[:shown]
     assert answer["metadata"]["counts"]["rows"] == shown
-    assert answer["metadata"]["search"]["totals"] == whole["metadata"]["search"]["totals"]
+    # the totals count everything searched, but the groups returned are the cut number (`counts.rows` has it too)
+    totals = answer["metadata"]["search"]["totals"]
+    assert totals["groups_returned"] == shown
+    assert {**totals, "groups_returned": 0} == {**whole["metadata"]["search"]["totals"], "groups_returned": 0}
     kept = {s["station_id"]: s["over_groups"] for s in answer["series"]}
     assert all(kept[s["station_id"]] == s["over_groups"] for s in whole["series"] if s["station_id"] in kept)
 

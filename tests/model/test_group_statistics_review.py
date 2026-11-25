@@ -127,7 +127,9 @@ def test_an_incomplete_group_is_warned_of_whatever_is_asked(monkeypatch: pytest.
     result = request.values().statistics("count", by="year")
     assert [row["complete"] for row in _rows(result)] == [True, False]
     message = _codes()["incomplete-groups"]
-    assert message.startswith("1 groups have fewer values than expected, at 00001 Station 00001 (1)")
+    assert message.startswith(
+        "1 group has fewer values than expected, at 00001 Station 00001 (1) (it is in this answer)"
+    )
     assert "`complete` is false" in message
     assert "`max_missing` is 0" in message
 
@@ -327,9 +329,9 @@ def test_the_name_of_the_one_parameter_of_the_request_is_value(monkeypatch: pyte
     assert _rows(plain) == _rows(named)
 
 
-@pytest.mark.parametrize("name", ["wind_gust_max", "temperature_air_max_2m", "precipitation_amount"])
+@pytest.mark.parametrize("name", ["temperature_air_max_2m", "precipitation_amount"])
 def test_any_other_name_is_refused_with_what_to_write(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
-    """A name of the request's other parameter, or of any parameter, is no column: `value`, with one parameter."""
+    """The name of a parameter that is not in the request is no column: `value`, with one parameter."""
     serve(monkeypatch)
     request = DwdObservationRequest(parameters=[TMIN, GUST], start=at(2018, 1, 1), end=at(2018, 12, 31)).all()
     with pytest.raises(
@@ -337,6 +339,21 @@ def test_any_other_name_is_refused_with_what_to_write(monkeypatch: pytest.Monkey
     ):
         request.values().statistics("count", filter=f"{name}<0")
     assert name in PARAMETERS
+
+
+@pytest.mark.parametrize("name", ["wind_gust_max", "temperature_air_min_2m"])
+def test_the_refusal_of_a_name_of_the_request_does_not_suggest_that_name(
+    monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    """A parameter of the request among two is no typo: the refusal says why it is no column, not `did you mean`."""
+    serve(monkeypatch)
+    request = DwdObservationRequest(parameters=[TMIN, GUST], start=at(2018, 1, 1), end=at(2018, 12, 31)).all()
+    with pytest.raises(RowSelectionError) as refused:
+        request.values().statistics("count", filter=f"{name}<0")
+    text = str(refused.value)
+    assert f"`{name}` is a parameter of this request" in text
+    assert "did you mean" not in text
+    assert "ask for it alone" in text
 
 
 def test_the_reserved_words_are_no_names() -> None:

@@ -142,11 +142,29 @@ _SUMMABLE: Final = frozenset({"sum", "count", "occurrence"})
 
 #: the codes of the warnings of an answer of `statistics`
 INCOMPLETE_GROUPS = "incomplete-groups"
-INCOMPLETE_GROUPS_MESSAGE = (
-    "{count} groups have fewer values than expected{where}: their `mean` and `sum` are null (`max_missing` is "
-    "{maximum}); their `count`, `min`, `max`, `earliest` and `latest` are of the values there are, `complete` is "
-    "false, and `searched` and `expected` beside them say how many."
-)
+
+
+def incomplete_groups_message(total: int, shown: int, maximum: int) -> str:
+    """Write the warning about groups with fewer values than expected, for `total` of them, `shown` in the answer.
+
+    `{count}` and `{where}` are left for the sum over the series and the stations that have one.
+    """
+    if total == 1:
+        return (
+            "{count} group has fewer values than expected{where} ("
+            + ("it is in this answer" if shown else "it is not in this answer")
+            + f"): its `mean` and `sum` are null (`max_missing` is {maximum}); its `count`, `min`, `max`, "
+            "`earliest` and `latest` are of the values there are, `complete` is false, and `searched` and `expected` "
+            "beside it say how many."
+        )
+    return (
+        "{count} groups have fewer values than expected{where} "
+        f"({shown:,} of them in this answer): their `mean` and `sum` are null (`max_missing` is {maximum}); their "
+        "`count`, `min`, `max`, `earliest` and `latest` are of the values there are, `complete` is false, and "
+        "`searched` and `expected` beside them say how many."
+    )
+
+
 NO_VALUES_IN_GROUPS = "no-values-in-groups"
 NO_VALUES_IN_GROUPS_MESSAGE = (
     "{count} groups lie before the first or after the last value of their series and are not listed{where}; "
@@ -235,11 +253,18 @@ class StatisticsPlan:
             if len(columns) == 1 and condition.column in names.lookup:
                 conditions.append(replace(condition, column="value"))
                 continue
-            close = names.close_to(condition.column)
-            hint = (f"did you mean {' or '.join(close)}? " if close and len(columns) != 1 else "") + (
-                "A parameter's name is no column of `statistics` unless the request has that one parameter: "
-                "write `value`, with one parameter in `parameters`."
-            )
+            if condition.column in names.lookup:
+                # a name of the request is no typo: it is only that two parameters cannot both be `value`
+                hint = (
+                    f"`{condition.column}` is a parameter of this request, but a parameter's name is a column of "
+                    "`statistics` only where the request has that one parameter: ask for it alone and write `value`."
+                )
+            else:
+                close = names.close_to(condition.column)
+                hint = (f"did you mean {' or '.join(close)}? " if close else "") + (
+                    "A parameter's name is no column of `statistics` unless the request has that one parameter: "
+                    "write `value`, with one parameter in `parameters`."
+                )
             raise _refusal(
                 "filter",
                 f"`{condition.column}` is no column of this option",
@@ -298,10 +323,23 @@ def _resolver(
     return resolve
 
 
+_TRUTH: Final = {"true": "1", "yes": "1", "false": "0", "no": "0"}
+
+
 def _bare_complete(text: str) -> str:
-    """Read the word `complete` alone, as a condition of `having`, as `complete=1`: `having=complete`."""
-    parts = text.split(",")
-    return ",".join("complete=1" if part.strip().lower() == "complete" else part for part in parts)
+    """Read `complete` as a condition of `having`: alone it is `complete=1`; `true`, `yes`, `false`, `no` are 1, 0."""
+    parts = []
+    for part in text.split(","):
+        word = part.strip().lower()
+        if word == "complete":
+            part = "complete=1"
+        else:
+            found = re.fullmatch(r"\s*complete\s*(!?=)\s*(.+?)\s*", part, flags=re.IGNORECASE)
+            if found:
+                values = "|".join(_TRUTH.get(v.strip().lower(), v) for v in found.group(2).split("|"))
+                part = f"complete{found.group(1)}{values}"
+        parts.append(part)
+    return ",".join(parts)
 
 
 def _filter_resolver() -> Callable[[_Scanner, str, int], str]:
@@ -779,10 +817,10 @@ def _cells(resolution: str, low: dt.datetime, high: dt.datetime) -> pl.DataFrame
 
     A step finer than an hour is counted by the hour, so that a station of one-minute readings costs no more than one of
     hourly ones: a cell is an hour and stands for the steps of it that lie in the period, which is all of `60 //
-    minutes` of them but in the first hour and the last, where the period begins and ends. The steps are counted from
-    `low`, as `count_readings` counts them, and the first and the last cell are stamped at the first and the last step,
-    so that what lies before the first step and after the last is neither expected nor an edge. The cells of a calendar
-    resolution are its anchors.
+    minutes` of them but in the first hour and the last, where the period begins and ends. The steps are those of the
+    clock (a 10-minute value is dated 00:10, 00:20, so a period from 00:05 begins at 00:10), and the first and the last
+    cell are stamped at the first and the last step, so that what lies before the first step and after the last is
+    neither expected nor an edge. The cells of a calendar resolution are its anchors.
     """
     import polars as pl  # noqa: PLC0415
 
@@ -810,12 +848,22 @@ def _refuse_wide_window(resolution: str, cells: float) -> None:
         raise RowSelectionRefusedError(message)
 
 
+def _on_the_clock(stamp: dt.datetime, minutes: int, *, up: bool) -> dt.datetime:
+    """Give the step of the clock (every `minutes` minutes of the hour) at or after a stamp, or at or before it."""
+    floor = stamp.replace(minute=stamp.minute - stamp.minute % minutes, second=0, microsecond=0)
+    return floor + dt.timedelta(minutes=minutes) if up and floor != stamp else floor
+
+
 def _sub_hourly_cells(minutes: int, low: dt.datetime, high: dt.datetime) -> pl.DataFrame:
     """Make the hourly cells of a period of steps finer than an hour, each with the steps of it in the period."""
     import polars as pl  # noqa: PLC0415
 
     step = dt.timedelta(minutes=minutes)
-    last = low + ((high - low) // step) * step
+    # the steps are those of the clock (a 10-minute value is dated 00:10, 00:20), not counted from where the period
+    # begins: a window from 00:05 has its first step at 00:10 and a window to 03:00 its last at 03:00
+    low = _on_the_clock(low, minutes, up=True)
+    last = _on_the_clock(high, minutes, up=False)
+    high = last
     hour = dt.timedelta(hours=1)
     first_hour = low.replace(minute=0, second=0, microsecond=0)
     last_hour = last.replace(minute=0, second=0, microsecond=0)
@@ -877,6 +925,10 @@ def condition_expr(condition: Condition) -> pl.Expr:
 
     column = pl.col(condition.column)
     values = list(condition.values)
+    if isinstance(values[0], (int, float)) and not isinstance(values[0], bool):
+        # a list of whole numbers meets a column of integers of any width and a float as well (`count=90|365`)
+        column = column.cast(pl.Float64)
+        values = [float(v) for v in values]
     match condition.operator:
         case "=":
             expr = column.is_in(values) if len(values) > 1 else column == values[0]
@@ -1001,15 +1053,26 @@ def reduce_series(  # noqa: C901
             cells = keep(_keyed(cells, plan.year_start, calendar), plan.time_conditions)
             if not plan.by:
                 cells = cells.with_columns(pl.lit(0).alias("_all"))
+            # a group is a period with a step inside the window (without one, inside the values): the months of a year
+            # the window cuts that lie outside it are no groups, not groups without a value
+            low = w0 if w0 is not None else first_ts
+            high = w1 if w1 is not None else (last_ts if w0 is None else None)
+            inside = pl.lit(value=True)
+            if low is not None:
+                inside &= pl.col("timestamp") >= low
+            if high is not None:
+                inside &= pl.col("timestamp") <= high
             expected = (
                 cells.group_by(keys)
                 .agg(
                     pl.col("_w").sum().alias("expected"),
                     pl.col("timestamp").min().alias("_cmin"),
                     pl.col("timestamp").max().alias("_cmax"),
+                    inside.any().alias("_inside"),
                 )
                 # a period that has not begun (December of the running year) is no group
-                .filter(pl.col("_cmin") <= now)
+                .filter((pl.col("_cmin") <= now) & pl.col("_inside"))
+                .drop("_inside")
             )
     searched_by = looked.group_by(keys).agg(pl.len().cast(pl.Int64).alias("searched"))
     if expected is not None:
@@ -1266,6 +1329,9 @@ class StatisticsRun:
         self.now = _now()
         self._held = 0
         self._since_compaction = 0
+        #: per parameter under `per=none`: the key of the N-th group at the last compaction, and how many groups that
+        #: dropped have it too (they tie with the N-th, whatever comes later)
+        self._carried: dict[tuple[str, str, str], tuple[tuple[Any, ...], int]] = {}
 
     @classmethod
     def for_stations(
@@ -1348,6 +1414,10 @@ class StatisticsRun:
             )
             stats = reduce_series(self.plan, series, reports.get(key), self.window, self.now)
             self._keep(stats)
+        if self.limit and self._held > self.limit and not self.plan.per_station and self.plan.first:
+            # the candidates are cut to the first N before the limit says they are too many: only what cannot be among
+            # the first N is let go
+            self._compact()
         if self.limit and self._held > self.limit:
             raise GroupsOverLimitError(self._held, self.limit)
 
@@ -1387,12 +1457,18 @@ class StatisticsRun:
             groups.setdefault((stats.resolution, stats.dataset, stats.parameter), []).append(stats)
         return groups
 
-    def _across(self, *, exact: bool) -> int:
-        """Choose the first N over the stations of each parameter (`per=none`), and give how many more tie."""
+    def _across(self, *, final: bool) -> int:
+        """Keep the first N over the stations of each parameter (`per=none`), and give how many more tie.
+
+        Exactly N, in the order of `sort`: what is dropped cannot come back, so the number of dropped groups that have
+        the key of the N-th is carried (`_carried`) and counted as tying with it as long as the N-th key is the same.
+        `final` also ranks the groups.
+        """
         import polars as pl  # noqa: PLC0415
 
         tied_total = 0
-        for members in self._by_parameter().values():
+        columns = [key.column for key in self.plan.sort]
+        for parameter, members in self._by_parameter().items():
             pool = pl.concat(
                 [
                     _with_station(m.frame, m.station_id).with_columns(pl.lit(index).alias("_s"))
@@ -1400,20 +1476,28 @@ class StatisticsRun:
                 ],
                 how="diagonal_relaxed",
             )
-            chosen, tied = _first_of(self.plan, pool, exact=exact)
-            if exact:
+            chosen, tied = _first_of(self.plan, pool, exact=True)
+            carried = self._carried.get(parameter)
+            if chosen.height:
+                key = tuple(chosen.row(-1, named=True)[column] for column in columns)
+                before = carried[1] if carried is not None and carried[0] == key else 0
+                if tied + before:
+                    self._carried[parameter] = (key, tied + before)
+                else:
+                    self._carried.pop(parameter, None)
+                tied_total += tied + before
+            if final:
                 # the place of each group over the stations of the parameter
                 chosen = chosen.with_row_index("rank", offset=1).with_columns(pl.col("rank").cast(pl.Int64))
-            tied_total += tied
             for index, member in enumerate(members):
-                member.frame = chosen.filter(pl.col("_s") == index).drop("_s", "station_id")
+                member.frame = chosen.filter(pl.col("_s") == index).drop("_s", "station_id", strict=False)
                 member.tied = 0
         self._held = sum(m.frame.height for m in self.series)
         return tied_total
 
     def _compact(self) -> None:
-        """Drop the candidates that can no longer be among the first N of their parameter, keeping every tie."""
-        self._across(exact=False)
+        """Drop the candidates that cannot be among the first N of their parameter, keeping the count of the ties."""
+        self._across(final=False)
         self._since_compaction = 0
 
     def finish(
@@ -1427,7 +1511,7 @@ class StatisticsRun:
         tied = 0
         series, left_out = self.series, []
         if not self.plan.per_station and self.plan.first:
-            tied = self._across(exact=True)
+            tied = self._across(final=True)
             series, left_out = self._in_rank_order()
         tied += sum(s.tied for s in series)
         result = StatisticsResult(
@@ -1577,13 +1661,16 @@ class StatisticsResult:
             return
         self.warnings_made = True
         plan = self.plan
-        for s in [*self.series, *self.left_out]:
+        every = [*self.series, *self.left_out]
+        in_answer = sum(int(s.frame.get_column("_incomplete").sum()) for s in self.series)
+        message = incomplete_groups_message(sum(s.incomplete for s in every), in_answer, plan.max_missing)
+        for s in every:
             name = s.name
             if s.incomplete:
                 count_response_warning(
                     INCOMPLETE_GROUPS,
                     s.incomplete,
-                    INCOMPLETE_GROUPS_MESSAGE.replace("{maximum}", str(plan.max_missing)),
+                    message,
                     station=s.station_id,
                     station_name=name,
                 )
@@ -1774,7 +1861,9 @@ def statistics_of_frame(
     if not df.is_empty():
         for station in df.partition_by("station_id", maintain_order=True):
             read += 1
-            report = searched_of(station, run.window, run.now, names=names, forecast=run.forecast)
+            report = searched_of(
+                station, run.window, run.now, names=names, forecast=run.forecast, stamped_on_the_day=True
+            )
             run.add_station(station, report)
     return run.finish(stations, stations_read=read)
 

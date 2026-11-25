@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
     from wetterdienst.core.station_search import StationIdSearchResult
-    from wetterdienst.model.group_statistics import StatisticsResult
+    from wetterdienst.model.group_statistics import SeriesStatistics, StatisticsResult
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
     from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
@@ -731,6 +731,28 @@ def _cut_statistics(result: StatisticsResult, groups: int) -> tuple[StatisticsRe
     return cut, sum(s.frame.height for s in cut.series), len(cut.series)
 
 
+def _first_series(result: StatisticsResult, count: int) -> list[SeriesStatistics]:
+    """Give the `count` series an answer lists first, in the order the answer has them: those with a group.
+
+    Under `per=none` the series with the best groups, by rank over all parameters (the order `head` cuts groups in), so
+    that the series of one parameter are not all taken before another parameter's best; otherwise the first.
+    """
+    held = [series for series in result.series if series.frame.height]
+    if result.plan.per_station:
+        return held[:count]
+    order = {key: n for n, key in enumerate(dict.fromkeys((s.resolution, s.dataset, s.parameter) for s in held))}
+    ranked = sorted(
+        enumerate(held),
+        key=lambda item: (
+            item[1].frame.get_column("rank").min(),
+            order[(item[1].resolution, item[1].dataset, item[1].parameter)],
+            item[0],
+        ),
+    )
+    chosen = {n for n, _ in ranked[:count]}
+    return [series for n, series in enumerate(held) if n in chosen]
+
+
 def fit_statistics(
     result: StatisticsResult,
     fmt: str,
@@ -740,45 +762,59 @@ def fit_statistics(
 ) -> tuple[str | bytes, StatisticsMetadata]:
     """Cut the answer of a `statistics` tool call to the budget, keeping the first groups in the order of the answer.
 
-    An answer lists at most `MAX_TOOL_SERIES` series, each with a header of its own; one of more says so. Where it fits
+    An answer lists at most `MAX_TOOL_SERIES` series that have a group, each with a header of its own (under `per=none`
+    those with the best groups over all parameters); one of more says so, and is not a cut to the budget. Where it fits
     it is otherwise unchanged. Otherwise the first groups that fit are kept, in the order the answer has them (the order
     of `sort`, or the columns of `by`, series by series; by rank under `per=none`), and the `answer-truncated` warning
     of its block says how many of how many are shown. What the block and each series' `over_groups` say covers all the
-    groups: the totals of `metadata.search` and the statistics over the groups are not cut, only the rows. Where not
-    even one group fits beside them the first is kept and the note says that the answer is still over the budget.
-    `render` writes the answer for a cut result and the block it is given.
+    groups: the totals of `metadata.search` (with `groups_returned`, the groups shown) and the statistics over the
+    groups are not cut, only the rows. Where not even one group fits beside them the first is kept and the note says
+    that the answer is still over the budget. `render` writes the answer for a cut result and the block it is given.
     """
     size = _size_in(content, fmt, metadata)
-    many = len(result.series) > MAX_TOOL_SERIES
+    held = [series for series in result.series if series.frame.height]
+    many = len(held) > MAX_TOOL_SERIES
     if size <= ANSWER_BUDGET and not many:
         return content, metadata
-    base = (
-        replace(
+    if many:
+        chosen = _first_series(result, MAX_TOOL_SERIES)
+        base = replace(
             result,
-            series=result.series[:MAX_TOOL_SERIES],
-            left_out=[*result.left_out, *result.series[MAX_TOOL_SERIES:]],
+            series=chosen,
+            left_out=[*result.left_out, *(s for s in result.series if not any(s is c for c in chosen))],
         )
-        if many
-        else result
-    )
+    else:
+        base = result
     total = sum(series.frame.height for series in result.series)
     in_base = sum(series.frame.height for series in base.series)
     tried: dict[int, tuple[str | bytes, StatisticsMetadata, int]] = {}
 
     def attempt(count: int, *, honest: bool) -> bool:
         cut, shown, series = _cut_statistics(base, count)
-        where = f" of the first {series:,} of {len(result.series):,} series" if series < len(result.series) else ""
-        note = (
-            f"{_head(honest=honest)}the first {shown:,} of {total:,} groups{where} are returned, in the answer's "
-            "order; `metadata.search.totals` and `over_groups` cover all of them. "
-            "Narrow with `having`, `first` or `filter`."
-            if shown < total
-            else f"The answer lists the first {series:,} of {len(result.series):,} series; "
-            "`metadata.search.totals` covers all of them. Name fewer stations or parameters for the others."
-        )
+        where = f" of the first {series:,} of {len(held):,} series" if series < len(held) else ""
+        if shown < in_base:
+            note = (
+                f"{_head(honest=honest)}the first {shown:,} of {total:,} groups{where} are returned, in the answer's "
+                "order; `metadata.search.totals` and `over_groups` cover all of them. "
+                "Narrow with `having`, `first` or `filter`."
+            )
+        elif many:
+            note = (
+                f"The answer lists {series:,} of {len(held):,} series that have a group, the series with the best "
+                "groups; `metadata.search.totals` covers all of them. Name fewer stations or parameters for the others."
+            )
+        else:
+            note = (
+                "The series with no group are left out of the answer; `metadata.search.totals` counts them. "
+                "Name fewer stations or parameters to see the others."
+            )
+        search = metadata.search
+        if search is not None:
+            search = search.model_copy(update={"totals": search.totals.model_copy(update={"groups_returned": shown})})
         block = metadata.model_copy(
             update={
                 "counts": Counts(stations=metadata.counts.stations, rows=shown),
+                "search": search,
                 "warnings": [*metadata.warnings, ResponseWarning(code=ANSWER_TRUNCATED, message=note)],
             }
         )
