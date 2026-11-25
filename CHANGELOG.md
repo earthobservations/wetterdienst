@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A parameter's name is a column of `filter` and `sort` (REST, MCP, command line, Python):
+  `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the timestamps of a station where all
+  conditions hold, a missing value meeting none, with the rows of every requested parameter there;
+  `filter=wind_gust_max>=0&sort=temperature_air_min_2m&first=10` ranks timestamps, so the wind of
+  the ten coldest days with a gust comes back. One resolution, names of the request, no `value`
+  beside a name; an unknown name is refused with the request's names (GH-4419)
+
 ### Changed
 
 - **Breaking**: the `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock),
@@ -28,6 +37,14 @@ Types of changes:
 - A new `duckdb://` file is written in the storage format of DuckDB 1.0, so that DuckDB 1.5 can read
   what DuckDB 2 wrote, and a column with no value is text, so that a later append of values to it
   works on DuckDB 2 (GH-4348)
+- **Breaking**: the MCP tools no longer take the options that only the REST API needs: `pretty`
+  (every tool but `auth`, `glossary` and `issues`) and the `width`, `height` and `scale` of an image
+  (`stations`, `values`, `interpolate`, `summarize`), and `format` no longer offers `html`, `png`,
+  `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, or a `null` size option, is
+  answered as one without; a size with a value and a `format` the tool does not offer are tool
+  errors that say what the tool answers: charts through the tools are gone.
+  The input schemas shrink by 3,441 of 54,314 characters. REST, the command line and Python are
+  unchanged: ask the REST API for a chart (GH-4318)
 
 ## [0.199.0] - 2026-11-25
 

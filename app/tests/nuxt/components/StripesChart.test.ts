@@ -309,6 +309,49 @@ describe('the variants (GH-4156)', () => {
     expect(textsOf(svgOf())).toContain('Relative to the mean of 1971–2000 [°C]')
   })
 
+  it('writes a line on where the days came from into the saved image, and nothing where there is none (GH-4390)', async () => {
+    const notice = 'Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record read there ends in 2011.'
+    const heightOf = (svg: string) => Number(/height="(\d+)"/.exec(svg)![1])
+    const plain = await showChart()
+    await (plain.vm as any).save({ format: 'svg', filename: 'plain', width: 1400, height: 600, scale: 1 })
+    expect(textsOf(svgOf()).join(' ')).not.toContain('mirror')
+    const plainHeight = heightOf(svgOf())
+    plain.unmount()
+    const shown = await showChart({ noticeLine: notice })
+    await (shown.vm as any).save({ format: 'svg', filename: 'mirror', width: 1400, height: 600, scale: 1 })
+    // the svg escapes the apostrophe
+    expect(textsOf(svgOf()).join(' ').replaceAll('&#39;', '\'')).toContain(notice)
+    // the image is higher by the line
+    expect(heightOf(svgOf())).toBeGreaterThan(plainHeight)
+  })
+
+  it('breaks the line on where the days came from for a narrow image, into lines none of which is the whole of it, which make the image higher (GH-4390)', async () => {
+    const notice = 'Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record read there ends in 2011.'
+    const heightOf = (svg: string) => Number(/height="(\d+)"/.exec(svg)![1])
+    const plain = (svg: string) => textsOf(svg).map(text => text.replaceAll('&#39;', '\''))
+    const shown = await showChart({ noticeLine: notice })
+    await (shown.vm as any).save({ format: 'svg', filename: 'wide', width: 1400, height: 600, scale: 1 })
+    const wide = { texts: plain(svgOf()), height: heightOf(svgOf()) }
+    await (shown.vm as any).save({ format: 'svg', filename: 'narrow', width: 400, height: 600, scale: 1 })
+    const narrow = { texts: plain(svgOf()), height: heightOf(svgOf()) }
+    // wide enough, one line holds it all; narrow, no line does, and the lines together are the notice
+    expect(wide.texts).toContain(notice)
+    expect(narrow.texts).not.toContain(notice)
+    expect(narrow.texts.join(' ')).toContain(notice)
+    expect(narrow.height).toBeGreaterThan(wide.height)
+  })
+
+  it('writes the line on where the days came from where the source line is not shown, which it is not under (GH-4390)', async () => {
+    const notice = 'Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing.'
+    const shown = await showChart({ noticeLine: notice, display: { ...DISPLAY, showSource: false } })
+    await (shown.vm as any).save({ format: 'svg', filename: 'no-source', width: 1400, height: 600, scale: 1 })
+    const texts = textsOf(svgOf()).map(text => text.replaceAll('&#39;', '\''))
+    expect(texts).toContain(notice)
+    // no source line and no note of what wetterdienst did to the data: the notice is the first line under the colours' sentence
+    expect(texts.join(' ')).not.toContain('Source:')
+    expect(texts.join(' ')).not.toContain('Processed by wetterdienst')
+  })
+
   it('breaks a long subtitle into lines for a narrow image, which make it higher', async () => {
     const shown = await showChart({ variant: 'barsScale' })
     await (shown.vm as any).save({ format: 'svg', filename: 'wide', width: 800, height: 600, scale: 1 })

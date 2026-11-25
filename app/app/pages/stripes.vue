@@ -8,7 +8,7 @@ import { formatNumber, formatSigned } from '~/utils/format'
 import { ghcnCountryName } from '~/utils/ghcn-country'
 import { GHCN_NETWORK } from '~/utils/map-tool'
 import { processingNote } from '~/utils/processing-note'
-import { stripesMethodNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { stripesMethodNote, stripesMirrorNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery, stripesYearFromQuery } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
 import { MIN_RECORD_YEARS, StripesRefusedError } from '~/utils/stripes-scale'
@@ -160,6 +160,9 @@ const referenceFull = computed(() => lastFetchedData.value
 // how a day's temperature was made where the years were built from the days (GHCN daily): the midrange of the daily maximum and minimum,
 // no 24-hour mean (GH-4222, GH-4078). DWD's own annual values and the precipitation have none
 const methodNote = computed(() => stripesMethodNote(lastFetchedData.value?.series.method, t))
+// the days were read from the mirror of NOAA's data on AWS, because NCEI did not give the station's file, and its file may end early (GH-4390): said wherever the
+// stripes are, and in the saved files with the credit
+const mirrorNote = computed(() => stripesMirrorNote(lastFetchedData.value?.mirror, t))
 /** The line of a saved image on how the day's temperature was made: GHCN daily's temperature only (the answer's `method`) */
 const methodLine = computed(() => {
   const method = lastFetchedData.value?.series.method
@@ -199,6 +202,8 @@ let fetchesStarted = 0
 const fetchError = ref<string | null>(null)
 // the fetch failed because the station has no record long enough, which is no failure of the request but the answer (told in words of the page's own)
 const fetchRefused = ref(false)
+// where that refusal's record was read from the mirror of NOAA's data on AWS, whose file may be the reason it is too short (GH-4390): the line that says so
+const fetchMirrorNote = ref('')
 
 // What the stripes shown are of, as it was asked: the station and the years of the fetch, not what the form says now
 // (GH-3980). A unit changed in the settings fetches this again, so that no selection the user has not confirmed is drawn
@@ -225,6 +230,7 @@ async function fetchAndPlotStripes(target?: ShownStripes) {
   isLoading.value = true
   fetchError.value = null
   fetchRefused.value = false
+  fetchMirrorNote.value = ''
   // this fetch reads the unit as it is now
   refetchShownAfter = false
   // the station of the stripes, as the list has it: the answer is made of its years and names it as the page does
@@ -258,6 +264,7 @@ async function fetchAndPlotStripes(target?: ShownStripes) {
     // told above any stripes shown, which are this station's
     fetchRefused.value = error instanceof StripesRefusedError && error.reason === 'record-too-short'
     fetchError.value = fetchRefused.value ? t('stripes.noRecord', { years: MIN_RECORD_YEARS }) : describeFetchError(error)
+    fetchMirrorNote.value = fetchRefused.value && error instanceof StripesRefusedError ? stripesMirrorNote(error.mirror, t) : ''
   }
   finally {
     if (started === fetchesStarted) {
@@ -317,6 +324,7 @@ function csvComments(data: StripesValuesResponse): string[] {
     plotTitle(data),
     referenceFull.value,
     methodNote.value,
+    mirrorNote.value,
     creditLine(provider?.attribution) || t('stripes.plotSource'),
     licence ? t('credit.licence', { name: licence.name, url: licence.url }) : '',
     processingNote(t),
@@ -333,6 +341,7 @@ function clearStripes() {
   isLoading.value = false
   fetchError.value = null
   fetchRefused.value = false
+  fetchMirrorNote.value = ''
 }
 
 const router = useRouter()
@@ -610,7 +619,11 @@ watch([
                 :class="hasPlot ? 'pb-4' : 'h-64'"
               >
                 <!-- a station with no record long enough is not a failure: the sentence alone, which is the answer -->
-                <span v-if="fetchRefused" class="font-medium" data-testid="stripes-no-record">{{ fetchError }}</span>
+                <template v-if="fetchRefused">
+                  <span class="font-medium" data-testid="stripes-no-record">{{ fetchError }}</span>
+                  <!-- the record may be short because NCEI did not give the station's file and the mirror's file ends early (GH-4390) -->
+                  <span v-if="fetchMirrorNote" class="text-sm text-muted" data-testid="stripes-no-record-mirror">{{ fetchMirrorNote }}</span>
+                </template>
                 <template v-else>
                   <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
                   <span class="text-sm">{{ fetchError }}</span>
@@ -632,6 +645,7 @@ watch([
                 :camera-file="cameraFile"
                 :source-text="source === 'ghcn' ? t('stripes.plotSourceGhcn') : undefined"
                 :method-line="methodLine"
+                :notice-line="mirrorNote || undefined"
               />
               <!-- under the source line the chart draws, and with it: where the source is not shown, no more is this (GH-3799) -->
               <ProcessingNote v-if="hasPlot && !plotFailed && showSource && !showsTable" class="mt-1 text-center" data-testid="stripes-processing-note" />
@@ -644,6 +658,10 @@ watch([
               <!-- how the temperature of a day was made, for the years of GHCN daily: said wherever its stripes are shown -->
               <p v-if="hasPlot && !plotFailed && methodNote" data-testid="stripes-method" class="mt-2 text-sm text-muted">
                 {{ methodNote }}
+              </p>
+              <!-- the days came from the mirror of NOAA's data on AWS (NCEI did not give the station's file): the most recent may be missing, and the record may end early (GH-4390) -->
+              <p v-if="hasPlot && !plotFailed && mirrorNote" data-testid="stripes-mirror" class="mt-2 text-sm text-muted">
+                {{ mirrorNote }}
               </p>
               <!-- the table is a view of its own (GH-4233), as the forecast's is: the same switch, the whole width -->
               <ValuesTable

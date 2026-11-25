@@ -221,7 +221,10 @@ Frozen:
   order of the answer, and `metadata.search` with its members. A column or an operator may be added in a minor release
   (a name that is none of them is refused with the list, so that none is taken by accident); one is not removed
   or given another meaning. `rows-capped` is its warning code. `window`, `year_start`, `timezone`, `aggregate`, `having`, `per` and `max_missing` are
-  reserved for later options: no option, column or parameter is given them for another meaning. The grammar is
+  reserved for later options: no option, column or parameter is given them for another meaning. A parameter's name is a
+  column of `filter` and `sort` ([Parameters as columns](restapi.md#parameters-as-columns)), so no parameter of any
+  provider is given the name of a column or of a reserved word, and `tests/model/test_row_selection_names.py` holds
+  every parameter of every provider to it. The grammar is
   held by `tests/model/test_row_selection.py`, what it chooses by `tests/model/test_row_selection_semantics.py`.
 
 `tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed, without its `info.version`
@@ -267,12 +270,19 @@ releases after a `/api/v2` exists is written down and not held by a test.
 
 The endpoint is `/mcp/v1`, and `/mcp` is its alias for the current version, as `/api` is for `/api/v1`. The tools
 are the REST routes, generated from them: a tool has the name given in the table of the [MCP page](mcp.md#the-tools),
-the arguments are the query parameters of its route with the same names, and the answer is the REST answer.
+the arguments are the query parameters of its route with the same names but for those only REST needs (`pretty`, the
+size and scale of an image; see below), and the answer is the REST answer.
 
 - A breaking change of a tool (its name, an argument, the answer) comes with `/mcp/v2`, and `/mcp/v1` keeps serving the
   tools as they were for at least two minor releases, announced in the changelog.
 - A new tool, an optional argument and a new member of an answer are not breaking.
-- An argument a tool does not take is refused with the names of those it takes.
+- An argument a tool does not take is refused with the names of those it takes, with one exception: `pretty` at any
+  value and `width`, `height` and `scale` as `null`, which the tools took until the options that only REST needs were
+  dropped from their schemas (GH-4318), are let go by the tools whose routes had them, since they change nothing of a
+  data answer. A `width`, `height` or `scale` with a value and a `format` the tool does not offer (a chart format
+  among them, which the tools no longer offer) are refused, naming the formats the tool answers. That removal is a
+  break of `/mcp/v1` made before 1.0.0, **Breaking** in the changelog and named in `ACCEPTED_BREAKS` of
+  `tests/baselines/mcp.py`; after 1.0.0 it would be `/mcp/v2`.
 - The descriptions of the tools and the instructions the server gives are written for agents and are improved without
   a new version.
 - The endpoint is stateless: it keeps no session. `initialize` returns an `Mcp-Session-Id` that is neither stored nor

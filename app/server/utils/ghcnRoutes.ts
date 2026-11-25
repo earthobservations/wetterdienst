@@ -1,7 +1,7 @@
 import type { AnnualKind } from './ghcnAnnual'
 import type { BackendRead } from './ghcnStripes'
 import { useApiBase } from './apiBase'
-import { backendReader, GHCN_TTL_MS, GHCN_UNIT_TYPE, readGhcnAnnual, readGhcnStations, UpstreamProblem } from './ghcnStripes'
+import { backendReader, GHCN_TTL_MS, GHCN_UNIT_TYPE, MIRROR_TTL_MS, readFromMirror, readGhcnAnnual, readGhcnStations, UpstreamProblem } from './ghcnStripes'
 import { requestIdOf } from './requestId'
 import { AbortedError, createLimiter, QueueFullError, QueueTimeoutError, TtlCache } from './ttlCache'
 
@@ -10,7 +10,9 @@ import { AbortedError, createLimiter, QueueFullError, QueueTimeoutError, TtlCach
 // calculated from what the backend's generic API answers.
 //
 // - `GET /_ghcn/annual?kind=temperature&station=USW00094728&unit_targets={"temperature":"degree_celsius"}`: the annual values
-//   of a station, built from its daily ones by the WMO rules.
+//   of a station, built from its daily ones by the WMO rules. The backend's warnings come with it (`metadata.warnings`, as the generic
+//   API gives them): `source-fallback` says the days were read from the mirror of NOAA's data on AWS, which may end earlier, and
+//   that answer is kept for 5 minutes in the server and by a browser, not 12 hours and an hour (GH-4390).
 // - `GET /_ghcn/stations?kind=temperature`: the stations that have a record long enough for stripes of the kind and still report,
 //   made of the lists the backend gives for each element of the kind.
 //
@@ -31,6 +33,12 @@ const MAX_WAIT_MS = 30_000
 const BUSY_RETRY_AFTER_SECONDS = 10
 /** What a browser keeps an answer for: the listing and a station's years change, at the soonest, with the night's files of NOAA */
 const BROWSER_MAX_AGE_SECONDS = 3600
+/**
+ * What a browser keeps an answer read from the mirror of NOAA's data for (GH-4390): as long as the server does (`MIRROR_TTL_MS`). The
+ * record that ends early is therefore gone from the server's memory 5 minutes after it was read, and from a browser's cache 10 at the
+ * latest (a browser may be given it at the end of the 5), where an answer of NCEI is held for 12 hours and an hour.
+ */
+const MIRROR_MAX_AGE_SECONDS = MIRROR_TTL_MS / 1000
 
 const KINDS: readonly string[] = ['temperature', 'precipitation']
 /** An id of GHCN, which is letters, digits, `-` and `_`, as `USW00094728`, `CMU55-00161` and `GLUHALLEY-2` are */
@@ -116,8 +124,8 @@ function answerProblem(event: Parameters<Parameters<typeof defineEventHandler>[0
   return problem
 }
 
-function allowBrowserToKeep(event: Parameters<Parameters<typeof defineEventHandler>[0]>[0], requestId: string) {
-  setResponseHeader(event, 'cache-control', `public, max-age=${BROWSER_MAX_AGE_SECONDS}`)
+function allowBrowserToKeep(event: Parameters<Parameters<typeof defineEventHandler>[0]>[0], requestId: string, maxAge = BROWSER_MAX_AGE_SECONDS) {
+  setResponseHeader(event, 'cache-control', `public, max-age=${maxAge}`)
   setResponseHeader(event, 'x-request-id', requestId)
 }
 
@@ -140,7 +148,9 @@ const limit = createLimiter(CONCURRENT_READS, { maxWaiting: MAX_WAITING_READS, m
 
 /** The handler of `GET /_ghcn/annual` */
 export function ghcnAnnualHandler({ reader = backendReader }: Handlers = {}) {
-  const cache = new TtlCache<GhcnAnnualAnswer>({ ttlMs: GHCN_TTL_MS, maxEntries: ANNUAL_ENTRIES })
+  // an answer read from the mirror (the `source-fallback` warning it carries) is held for 5 minutes, not 12 hours: the record of the
+  // mirror may end months early, and the full one is wanted back when NCEI is (GH-4390)
+  const cache = new TtlCache<GhcnAnnualAnswer>({ ttlMs: GHCN_TTL_MS, maxEntries: ANNUAL_ENTRIES, ttlOf: answer => readFromMirror(answer) ? MIRROR_TTL_MS : GHCN_TTL_MS })
   return defineEventHandler(async (event) => {
     const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
     const closed = closedBy(event)
@@ -149,7 +159,7 @@ export function ghcnAnnualHandler({ reader = backendReader }: Handlers = {}) {
       const key = [kind, station, JSON.stringify(unitTargets ?? {})].join('|')
       const apiBase = useApiBase()
       const answer = await cache.get(key, signal => limit(() => readGhcnAnnual(reader(apiBase, requestId, signal), { kind, station, unitTargets }), signal), closed)
-      allowBrowserToKeep(event, requestId)
+      allowBrowserToKeep(event, requestId, readFromMirror(answer) ? MIRROR_MAX_AGE_SECONDS : BROWSER_MAX_AGE_SECONDS)
       return answer
     }
     catch (failure) {

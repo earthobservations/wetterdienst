@@ -49,6 +49,8 @@ const props = withDefaults(defineProps<{
   sourceText?: string
   /** how the day's temperature was made, for a station of GHCN daily: one short line of a saved image, under what the colours are relative to (GH-4078) */
   methodLine?: string
+  /** A line of a saved image on where the days came from where that is not NOAA's own file: the mirror on AWS, whose file may end early (GH-4390) */
+  noticeLine?: string
 }>(), { variant: 'stripes' })
 const emit = defineEmits<{ 'update:variant': [variant: StripesView] }>()
 
@@ -667,6 +669,7 @@ async function save(options: { format: ImageFormat, filename: string, width: num
     ...(props.display.showSource ? wrapped(processingNote(t)) : []),
     ...wrapped(referenceCaption()),
     ...(props.methodLine ? wrapped(props.methodLine) : []),
+    ...(props.noticeLine ? wrapped(props.noticeLine) : []),
   ]
   const imageHeight = options.height + extraLinesHeight(props.display, extraLines.length)
   // the paper is part of the image: a vector with dark text on nothing is unreadable on a dark page that shows it
