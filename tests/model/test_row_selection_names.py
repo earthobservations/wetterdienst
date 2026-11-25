@@ -724,3 +724,41 @@ def test_the_stations_of_a_filter_of_names_keep_the_order_they_came_in() -> None
     stations = answer.get_column("station_id").to_list()
     assert stations == ["00002"] * 6 + ["00001"] * 6
     assert answer.filter(pl.col("station_id") == "00002").get_column("timestamp").is_sorted()
+
+
+def test_arithmetic_is_refused_with_the_words_the_pilot_needed() -> None:
+    """A difference of two parameters can't be filtered, the error says so and its example names a parameter."""
+    for text in ("temperature_air_max_2m-temperature_air_min_2m>20", "wind_gust_max/2>5"):
+        with pytest.raises(RowSelectionError) as caught:
+            parse_filter(text, _NAMES)
+        message = str(caught.value)
+        assert "No arithmetic: a difference of two parameters cannot be filtered" in message
+        assert "temperature_air_min_2m<0" in message
+    with pytest.raises(
+        RowSelectionError, match=r"Example: filter=value<=-20,month=12\|1\|2 or temperature_air_min_2m<0"
+    ):
+        parse_filter("nothing<1", _NAMES)
+
+
+def test_the_texts_of_the_options_say_what_the_pilot_showed_a_model_needs() -> None:
+    """The schema says no arithmetic and that `first` keeps the extreme with its ties, which `max_rows` cuts."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import INSTRUCTIONS, build_mcp_server  # noqa: PLC0415
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    async def schema() -> dict[str, Any]:
+        async with Client(build_mcp_server(app)) as client:
+            tools = {tool.name: tool for tool in await client.list_tools()}
+            return tools["values"].model_dump()
+
+    properties = asyncio.run(schema())["input_schema"]["properties"]
+    assert "No arithmetic: a difference of two parameters can't be filtered" in properties["filter"]["description"]
+    first = properties["first"]["description"]
+    assert "`sort=value&first=1`: the extreme with all its ties" in first
+    assert "`max_rows` cuts them" in first
+    assert "`rank` asks for another number." in INSTRUCTIONS
+    assert len(INSTRUCTIONS) < 7800

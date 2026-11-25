@@ -1325,7 +1325,7 @@ An unknown name is refused like this (a 422 located at the option over REST, a t
 ```text
 Invalid `filter` at position 1: `temperature_air_min_2` is not a column of this option; found 'temperature_air_min_2',
 expected one of value, year, month, day, hour, or a parameter of this request (temperature_air_min_2m, wind_gust_max).
-Did you mean temperature_air_min_2m? Example: filter=value<=-20,month=12|1|2.
+Did you mean temperature_air_min_2m? Example: filter=value<=-20,month=12|1|2 or temperature_air_min_2m<0.
 ```
 
 ### What was searched

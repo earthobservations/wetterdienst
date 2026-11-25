@@ -1141,8 +1141,8 @@ Options:
   --first INTEGER                 Return only the first N rows of each group in the --sort order,
                                   the ties of the last one included (needs --sort). --sort=value
                                   --first=1 is the lowest value of each station in the --timestamp
-                                  window. The whole window is read, and metadata.search says from
-                                  when to when.
+                                  window with all its ties (--max-rows cuts ties). The whole window
+                                  is read, and metadata.search says from when to when.
   --by TEXT                       The groups --first counts in: station_id (the default), year,
                                   month, day, hour, joined by commas, or none for all stations
                                   together; a parameter is always its own group (needs --first)

@@ -114,7 +114,7 @@ class RowOptions(TypedDict, total=False):
     max_rows: int | str | None
 
 
-_FILTER_EXAMPLE = "Example: filter=value<=-20,month=12|1|2"
+_FILTER_EXAMPLE = "Example: filter=value<=-20,month=12|1|2 or temperature_air_min_2m<0"
 _SORT_EXAMPLE = "Example: sort=-value (the highest first), sort=value (the lowest), sort=month,day"
 _BY_EXAMPLE = "Example: by=station_id,year (per station and year), by=none (over all stations)"
 
@@ -714,7 +714,11 @@ def _read_operator(scanner: _Scanner) -> Operator:
     raise scanner.fail(
         "no operator after the column" if char else "the condition ends after the column",
         expected="one of = != < <= > >=",
-        hint=_OPERATOR_HINTS.get(char, "a condition is a column, an operator and a number: value<=-20"),
+        hint=_OPERATOR_HINTS.get(
+            char,
+            "a condition is a column, an operator and a number: temperature_air_min_2m<0 or value<=-20. "
+            "No arithmetic: a difference of two parameters cannot be filtered",
+        ),
     )
 
 

@@ -582,7 +582,8 @@ def _row_options_opts(func: Callable[..., Any]) -> Callable[..., Any]:
             help=(
                 "Return only the first N rows of each group in the --sort order, the ties of the last one included "
                 "(needs --sort). --sort=value --first=1 is the lowest value of each station in the --timestamp "
-                "window. The whole window is read, and metadata.search says from when to when."
+                "window with all its ties (--max-rows cuts ties). The whole window is read, and metadata.search says "
+                "from when to when."
             ),
         ),
         click.option(
