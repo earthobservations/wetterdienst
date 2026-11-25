@@ -63,8 +63,7 @@ Types of changes:
   answered as one without; a size with a value and a `format` the tool does not offer are tool
   errors that say what the tool answers: charts through the tools are gone.
   The input schemas shrink by 3,441 of 54,314 characters. REST, the command line and Python are
-  unchanged: ask the REST API for a chart, where it draws them (GH-4318, GH-4461)
-
+  unchanged: ask the REST API for a chart (GH-4318)
 - **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
   (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `webp`, `svg` or
   `pdf` on `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind

@@ -671,9 +671,9 @@ def _refuse_disabled_chart(request: StationsRequest | ValuesRequest | Interpolat
 
     Every image starts a Chrome on the server, so `WD_RESTAPI_PLOTTING` is off by default (`Settings.restapi_plotting`).
     This is the first thing a handler does: no station is looked up, nothing is downloaded, and the plotting libraries
-    are not imported. The request is validated by then, so a request that is wrong in another way is the 422 first; a
-    chart that is also too large is told that charts are off, which is the answer that does not change by lowering
-    `scale`. The data formats are never refused.
+    are not imported. The request is validated by then, and `values` has refused a row option given twice (which reads
+    nothing), so a request that is malformed is the 422 first; a chart that is also too large is told that charts are
+    off, which is the answer that does not change by lowering `scale`. The data formats are never refused.
     """
     chart = FORMATS.get(request.format)
     if chart is None or chart.kind != "chart" or Settings().restapi_plotting:
@@ -684,7 +684,7 @@ def _refuse_disabled_chart(request: StationsRequest | ValuesRequest | Interpolat
     detail = (
         f"This server draws no charts, so format={request.format} is refused. "
         f"It answers {join_names(offered, last='or')}. "
-        "The request was valid: ask for one of these, or ask whoever runs this instance to switch charts on "
+        "Ask for one of these, or ask whoever runs this instance to switch charts on "
         "(WD_RESTAPI_PLOTTING=true)."
     )
     entry = {
@@ -2490,10 +2490,11 @@ def values(
     (where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in
     either means the source does not state it.
     """
+    # a row option given twice is malformed whatever the format: refused first, and it reads nothing
+    _refuse_repeated_row_options(http_request)
     _refuse_disabled_chart(request)
     begin_response()
     _refuse_oversized_chart(request)
-    _refuse_repeated_row_options(http_request)
 
     api = _get_timeseries_api(request.provider, request.network)
 

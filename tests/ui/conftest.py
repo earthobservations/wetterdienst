@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -24,6 +25,14 @@ def _forget_auth_probes() -> Generator[None]:
 
 
 _CHARTS_SWITCHED_ON = pytest.StashKey[bool]()
+#: what the host's environment says of the setting before any test, which a test of the command line must find as it is
+AMBIENT_PLOTTING = os.environ.get("WD_RESTAPI_PLOTTING")
+_CLI_TESTS = Path(__file__).parent / "cli"
+
+
+def _is_cli_test(item: pytest.Item) -> bool:
+    """Tell whether a test is one of `tests/ui/cli`: the setting is the REST API's, and the command line ignores it."""
+    return item.path.is_relative_to(_CLI_TESTS)
 
 
 @pytest.hookimpl(wrapper=True)
@@ -38,7 +47,8 @@ def pytest_runtest_setup(item: pytest.Item) -> Generator[None]:
     has put back what it found.
     """
     result = yield
-    item.stash[_CHARTS_SWITCHED_ON] = "WD_RESTAPI_PLOTTING" not in os.environ
+    # not for the command line, which has no such setting: its tests run with the variable as it is
+    item.stash[_CHARTS_SWITCHED_ON] = "WD_RESTAPI_PLOTTING" not in os.environ and not _is_cli_test(item)
     if item.stash[_CHARTS_SWITCHED_ON]:
         os.environ["WD_RESTAPI_PLOTTING"] = "true"
     return result

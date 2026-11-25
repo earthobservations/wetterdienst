@@ -138,7 +138,7 @@ def test_a_chart_is_a_403_problem_on_every_route_in_every_format_and_nothing_is_
     assert problem["title"] == "Forbidden"
     assert problem["detail"] == (
         f"This server draws no charts, so format={fmt} is refused. It answers {DATA[endpoint]}. "
-        "The request was valid: ask for one of these, or ask whoever runs this instance to switch charts on "
+        "Ask for one of these, or ask whoever runs this instance to switch charts on "
         "(WD_RESTAPI_PLOTTING=true)."
     )
     assert problem["instance"] == f"urn:wetterdienst:request:{problem['request_id']}"
@@ -314,6 +314,34 @@ def test_a_format_that_is_none_is_the_422_it_was_whatever_the_setting(
     assert off.status_code == on.status_code == 422
     assert off.json()["errors"][0]["loc"] == ["query", "format"]
     assert [e["msg"] for e in off.json()["errors"]] == [e["msg"] for e in on.json()["errors"]]
+
+
+@pytest.mark.parametrize("fmt", ["png", "html"])
+@pytest.mark.parametrize("option", ["first", "max_rows", "sort"])
+def test_a_row_option_given_twice_is_the_422_first_for_a_chart_too(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, option: str, fmt: str
+) -> None:
+    """`values` refuses a row option given twice, which reads nothing, before the chart: malformed is the 422 first.
+
+    The query is built by hand, since a dict of params has one value for a name. Off and on, the same 422.
+    """
+    query = "provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&stations=01048"
+    value = {"first": ("1", "2"), "max_rows": ("5", "6"), "sort": ("value", "-value")}[option]
+    path = f"/api/values?{query}&{option}={value[0]}&{option}={value[1]}&format={fmt}"
+    _nothing_is_reached(monkeypatch)
+
+    off = client.get(path)
+    # given once, the option is no reason for a 422 and the chart is refused as ever
+    needs = "&sort=value" if option == "first" else ""
+    once = client.get(f"/api/values?{query}&{option}={value[0]}{needs}&format={fmt}")
+    _on(monkeypatch)
+    on = client.get(path)
+
+    assert off.status_code == on.status_code == 422
+    for response in (off, on):
+        assert response.json()["type"] == "urn:wetterdienst:problem:invalid-parameters"
+        assert response.json()["errors"][0]["loc"] == ["query", option]
+    assert once.status_code == 403
 
 
 @pytest.mark.parametrize("endpoint", ["values", "stations"])
@@ -522,6 +550,33 @@ def test_a_tool_given_an_image_size_says_so_too(monkeypatch: pytest.MonkeyPatch,
     assert off.content[0].text.endswith("and the tool answers data only. This server draws no charts.")
     assert on.content[0].text.endswith(f"Charts are drawn by the REST API: /api/v1/values takes {option}.")
     assert seen == []
+
+
+@pytest.mark.parametrize("variable", ["WD_RESTAPI_MAX_ROWS", "WD_RESTAPI_PLOTTING", "WD_CACHE_DISABLE"])
+def test_a_tool_refusal_is_the_refusal_where_a_setting_is_malformed_and_echoes_nothing(
+    monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    """A malformed `WD_*` variable, this one or any other, does not turn the refusal into an error that drops it.
+
+    The tool says what it answers and nothing of REST, since the setting cannot be read; the value is never repeated.
+    """
+    monkeypatch.setenv(variable, "secret-ish")
+    seen: list[dict[str, str]] = []
+
+    chart = _mcp_call("values", {**_VALUES_CALL, "format": "png"}, seen)
+    size = _mcp_call("values", {**_VALUES_CALL, "format": "csv", "width": 5}, seen)
+
+    assert chart.is_error
+    assert chart.content[0].text == (
+        "format=png is not offered by the tool values, which answers json, geojson, csv or ndjson."
+    )
+    assert size.is_error
+    assert size.content[0].text == (
+        "width is not an argument of values: it was the width in pixels of a chart image, "
+        "and the tool answers data only."
+    )
+    assert seen == []
+    assert "secret-ish" not in chart.content[0].text + size.content[0].text
 
 
 @pytest.mark.parametrize("tool", ["stations", "values", "interpolate", "summarize"])

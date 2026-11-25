@@ -1726,7 +1726,7 @@ restart: the variable (or `.env`) is read for every request.
   "type": "urn:wetterdienst:problem:charts-disabled",
   "title": "Forbidden",
   "status": 403,
-  "detail": "This server draws no charts, so format=png is refused. It answers json, geojson, csv or ndjson. The request was valid: ask for one of these, or ask whoever runs this instance to switch charts on (WD_RESTAPI_PLOTTING=true).",
+  "detail": "This server draws no charts, so format=png is refused. It answers json, geojson, csv or ndjson. Ask for one of these, or ask whoever runs this instance to switch charts on (WD_RESTAPI_PLOTTING=true).",
   "instance": "urn:wetterdienst:request:4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
   "request_id": "4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
   "errors": [
@@ -1736,7 +1736,8 @@ restart: the variable (or `.env`) is read for every request.
 ```
 
 Only the chart formats are refused. A request that is also malformed is the 422 first, as ever (a parameter that is
-unknown, a `width` that is not positive, a `format` that is none: `PNG` is no format); a chart that is too large, or for
+unknown, a `width` that is not positive, a `format` that is none: `PNG` is no format, a row option of
+`values` given twice); a chart that is too large, or for
 a network that is not served, is told that charts are off, not to lower the `scale` or that the network is unknown. The
 `width`, `height` and `scale` of a request in a data format are ignored, as they were. The OpenAPI document is the same
 for every server: `format` keeps its chart values, and its description says that a chart needs the setting.
@@ -1755,7 +1756,7 @@ docker run --env WD_RESTAPI_PLOTTING=true --publish=7890:7890 ghcr.io/earthobser
 
 Where the server [draws charts](#charts), a chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused
 with a 400 when a side of the image is longer than 8192 px, `scale` applied. A chart of several parameters is 300 px tall for each, and is measured as drawn.
-The limit holds for the REST API and the MCP tools; the library and the CLI have none.
+The limit holds for the REST API; the library and the CLI have none (the MCP tools draw no chart).
 
 A chart is drawn by a Chrome that Kaleido starts for the image, and the start of that browser and the
 drawing have 120 seconds, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets

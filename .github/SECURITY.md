@@ -188,7 +188,8 @@ Archives are read in memory. Apart from the cache directory (below) and what the
 write (`--target`, `to_target`, an output path; no REST or MCP parameter reaches these), the files written are the BUFR
 message, in a private temporary directory that is removed afterwards (`util/eccodes.py`, `dwd/road`), and the temporary
 directory and browser profile of the headless Chromium that renders a chart to an image (`png`, `jpg`, `webp`, `svg`,
-`pdf`; kaleido), which a REST or MCP request can start. Nothing is unpickled, evaluated or loaded from YAML that a
+`pdf`; kaleido), which a REST request can start where `WD_RESTAPI_PLOTTING=true` (it is off by default; the MCP tools
+draw no chart). Nothing is unpickled, evaluated or loaded from YAML that a
 caller or provider sent. The native parsers (eccodes, lxml, polars) are dependencies with advisories of their own. Wrong
 numbers from a provider are a data-quality problem, not a vulnerability (`tests/provider/physical_ranges.py` catches the
 sentinels it can).

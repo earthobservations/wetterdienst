@@ -595,11 +595,20 @@ def _where_charts_are_drawn(path: str, option: str) -> str:
     """Say where a chart is drawn for a tool that refuses one: the REST API route, if this server draws any (GH-4461).
 
     A server that has `WD_RESTAPI_PLOTTING` off refuses the chart formats of the routes, so pointing at the route would
-    send the model to a refusal.
+    send the model to a refusal. Where a setting cannot be read (any `WD_*` variable that is malformed, this one
+    included) nothing is said of REST, only what the tool answers, which the refusal says before this: building the
+    settings must not turn the refusal into an error that drops it, and no value is echoed.
     """
+    from pydantic import ValidationError  # noqa: PLC0415
+    from pydantic_settings import SettingsError  # noqa: PLC0415
+
     from wetterdienst import Settings  # noqa: PLC0415
 
-    if Settings().restapi_plotting:
+    try:
+        plotting = Settings().restapi_plotting
+    except (ValidationError, SettingsError):
+        return ""
+    if plotting:
         return f" Charts are drawn by the REST API: {path} takes {option}."
     return " This server draws no charts."
 
