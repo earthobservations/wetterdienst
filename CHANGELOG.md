@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.200.0] - 2026-11-25
+
 ### Added
 
 - A parameter's name is a column of `filter` and `sort` (REST, MCP, command line, Python):
@@ -62,8 +64,9 @@ Types of changes:
   `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, or a `null` size option, is
   answered as one without; a size with a value and a `format` the tool does not offer are tool
   errors that say what the tool answers: charts through the tools are gone.
-  The input schemas shrink by 3,441 of 54,314 characters. REST, the command line and Python are
-  unchanged: ask the REST API for a chart (GH-4318)
+  The input schemas of the tools of 0.199.0 are 3,173 of 54,101 characters shorter (the options'
+  share is 3,441). REST, the command line and Python are unchanged: ask the REST API for a chart
+  (GH-4318)
 
 ### Fixed
 
@@ -8653,7 +8656,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.200.0...HEAD
+[0.200.0]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...v0.200.0
 [0.199.0]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...v0.199.0
 [0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
