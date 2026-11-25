@@ -1,3 +1,4 @@
+import type { ResponseWarning } from '../../shared/types/api'
 import type { AnnualKind, DailyRow } from './ghcnAnnual'
 import { describeWrongKind, HTML_TYPE, UNEXPECTED_ANSWER_TYPE } from '../../app/utils/api-answer'
 import { MIN_RECORD_YEARS } from '../../app/utils/stripes-scale'
@@ -122,8 +123,39 @@ interface ValuesAnswer {
   metadata?: {
     provider?: unknown
     parameters?: Array<{ name?: string, unit?: string }> | null
-    warnings?: Array<{ code?: string }>
+    warnings?: Array<{ code?: string, message?: string, parameter?: string, stations?: string[] }>
   }
+}
+
+/** The code of the warning the backend gives where a station's days were read from the mirror of NOAA's data on AWS, which may end earlier (GH-4230) */
+export const SOURCE_FALLBACK = 'source-fallback'
+
+/**
+ * How long an answer read from the mirror is served, in the server's memory and by a browser: 5 minutes (GH-4390). The mirror's file
+ * may end months before NOAA's, so the full record must be back soon after NCEI is: the answer of an outage is kept until then at
+ * the most, where an answer of NCEI is kept for `GHCN_TTL_MS` (12 hours) and a browser's for an hour.
+ */
+export const MIRROR_TTL_MS = 5 * 60 * 1000
+
+/** Whether the annual values were calculated from days that the backend read from the mirror */
+export function readFromMirror(answer: Pick<GhcnAnnualAnswer, 'metadata'>): boolean {
+  return !!answer.metadata.warnings?.some(warning => warning.code === SOURCE_FALLBACK)
+}
+
+/** The warnings of the backend's answer as the generic API gives them (a code and its text, the parameter and stations where it names them), none that is not one */
+function passedOn(warnings: NonNullable<ValuesAnswer['metadata']>['warnings']): ResponseWarning[] {
+  const kept: ResponseWarning[] = []
+  for (const warning of Array.isArray(warnings) ? warnings : []) {
+    if (typeof warning?.code !== 'string' || typeof warning.message !== 'string')
+      continue
+    kept.push({
+      code: warning.code,
+      message: warning.message,
+      ...(typeof warning.parameter === 'string' ? { parameter: warning.parameter } : {}),
+      ...(Array.isArray(warning.stations) ? { stations: warning.stations.filter((id): id is string => typeof id === 'string') } : {}),
+    })
+  }
+  return kept
 }
 
 function expectValues(answer: unknown): { values: DailyRow[], metadata: NonNullable<ValuesAnswer['metadata']> } {
@@ -169,18 +201,20 @@ export async function readGhcnAnnual(
     ...(unitTargets && Object.keys(unitTargets).length ? { unit_targets: JSON.stringify(unitTargets) } : {}),
   })
   const { values, metadata } = expectValues(answer)
-  if (metadata.warnings?.some(warning => warning.code === 'unknown-station'))
+  // a list that is none, or an entry that is none, is read as no warning
+  if (Array.isArray(metadata.warnings) && metadata.warnings.some(warning => warning?.code === 'unknown-station'))
     throw new UpstreamProblem(404, problemOf(404, 'Not Found', 'not-found', `No station with a station_id similar to '${station}' found`))
 
   // a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676); and a day whose value
   // failed a quality check of the source is a missing day, the year is built from the rest
   const days = leaveOutFailed(leaveOutSuspect(values))
+  const warnings = passedOn(metadata.warnings)
   const method = kind === 'temperature' ? temperatureMethod(days) : null
   const name = parameters[0]!
   const unit = metadata.parameters?.find(parameter => parameter.name === name)?.unit
     ?? unitSymbol(unitTargets?.[GHCN_UNIT_TYPE[kind]] ?? '')
   return {
-    metadata: { provider: metadata.provider as GhcnAnnualAnswer['metadata']['provider'] },
+    metadata: { provider: metadata.provider as GhcnAnnualAnswer['metadata']['provider'], ...(warnings.length ? { warnings } : {}) },
     series: { station_id: station, parameter: name, unit, method },
     values: annualRows(annualFromDaily(days, kind)),
   }

@@ -7,13 +7,15 @@
 // limit on the entries and none removed when they expire; an entry of this cache is a station's years or the list of the
 // stations, and the number of stations that can be asked for is the 133,000 of GHCN.
 
-export interface TtlCacheOptions {
+export interface TtlCacheOptions<T = unknown> {
   /** How long an entry is served, in milliseconds */
   ttlMs: number
   /** How many entries are kept at most */
   maxEntries: number
   /** The clock, in milliseconds; the tests move it */
   now?: () => number
+  /** How long one value is served, in milliseconds, where that is not `ttlMs` (a shorter life for an answer that is a stopgap, GH-4390) */
+  ttlOf?: (value: T) => number
 }
 
 interface Entry<T> {
@@ -42,11 +44,13 @@ export class TtlCache<T> {
   private readonly ttlMs: number
   private readonly maxEntries: number
   private readonly now: () => number
+  private readonly ttlOf?: (value: T) => number
 
-  constructor({ ttlMs, maxEntries, now = Date.now }: TtlCacheOptions) {
+  constructor({ ttlMs, maxEntries, now = Date.now, ttlOf }: TtlCacheOptions<T>) {
     this.ttlMs = ttlMs
     this.maxEntries = maxEntries
     this.now = now
+    this.ttlOf = ttlOf
   }
 
   /** How many entries are held, the expired ones that have not been asked for again included */
@@ -129,7 +133,7 @@ export class TtlCache<T> {
 
   private store(key: string, value: T): void {
     this.entries.delete(key)
-    this.entries.set(key, { value, expires: this.now() + this.ttlMs })
+    this.entries.set(key, { value, expires: this.now() + (this.ttlOf?.(value) ?? this.ttlMs) })
     while (this.entries.size > this.maxEntries) {
       const oldest = this.entries.keys().next().value
       if (oldest === undefined)

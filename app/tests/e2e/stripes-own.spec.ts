@@ -1,7 +1,9 @@
 import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { checkRunningYear, stationWasReadFromMirror } from '../helpers/ghcn-source'
+import { checkRunningYear, readFromMirror } from '../helpers/ghcn-source'
+import { mockBackend } from './accessibility/mock-backend'
 
 // The climate stripes without the backend's stripes routes (GH-4258): the app makes them itself, from the generic API
 // (`/api/stations`, `/api/values`) and, for NOAA's GHCN daily, from its own server (`/_ghcn/annual`, `/_ghcn/stations`), which
@@ -151,15 +153,16 @@ test.describe('the stripes of NOAA\'s GHCN daily, calculated from the days by th
     expect(body.values.length).toBeGreaterThan(100)
     // a few kilobytes where the days are megabytes
     expect((await first.body()).length).toBeLessThan(60_000)
-    // the year that is running is no year with a value until it is complete. While NCEI is down the backend reads the AWS mirror,
-    // whose file may end in an earlier year; the app's answer does not say so (it carries the provider and the years), the generic
-    // API's does, so that is asked, and the running year is then not asked for (GH-4387). Where NCEI answered it still is.
-    const mirror = await stationWasReadFromMirror(request, 'USW00094728')
+    // the year that is running is no year with a value until it is complete. Where NCEI does not give the file (down, or a 404 for the station) the backend reads the AWS mirror,
+    // whose file may end in an earlier year; the app's answer says so in its `metadata.warnings` (GH-4390), and the running year is
+    // then not asked for (GH-4387). Where NCEI answered it still is.
+    const mirror = readFromMirror(body)
     const { checked, problem } = checkRunningYear(body.values, new Date().getUTCFullYear(), mirror)
     expect(problem).toBeNull()
     if (!checked)
-      testInfo.annotations.push({ type: 'running-year-not-checked', description: 'NCEI did not answer (source-fallback): the file is the AWS mirror\'s, which may end before the running year (GH-4387)' })
-    expect(first.headers()['cache-control']).toBe('public, max-age=3600')
+      testInfo.annotations.push({ type: 'running-year-not-checked', description: 'NCEI did not give the file (source-fallback): the file is the AWS mirror\'s, which may end before the running year (GH-4387)' })
+    // an answer read from the mirror is kept for 5 minutes, not an hour, so that the full record is back when NCEI is (GH-4390)
+    expect(first.headers()['cache-control']).toBe(mirror ? 'public, max-age=300' : 'public, max-age=3600')
 
     const started = Date.now()
     const second = await request.get('/_ghcn/annual?kind=temperature&station=USW00094728&unit_targets=%7B%22temperature%22%3A%22degree_celsius%22%7D')
@@ -200,5 +203,76 @@ test.describe('the map\'s GHCN layer and its stripes', () => {
     const stripes = page.getByTestId('map-card-stripes')
     await expect(stripes.getByRole('img')).toBeVisible({ timeout: 120_000 })
     expect(hits).toEqual([])
+  })
+})
+
+test.describe('stripes of GHCN daily read from the mirror of NOAA\'s data on AWS (a stubbed answer, GH-4390)', () => {
+  // NCEI does not give the file at the time of the test, whatever the real one does: the app's server's answer is the stub's, and says the days came from the mirror
+  const NOTICE = 'Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing.'
+
+  /** Every request to the API and the app's own server is answered by the stub; `/_ghcn/annual` carries the mirror's warning */
+  async function mirrorStub(page: Page, baseURL: string | undefined) {
+    const backend = await mockBackend(page, baseURL!)
+    const annual = backend.handlers['_ghcn/annual']!
+    backend.handlers['_ghcn/annual'] = async (url, route) => ({ ...(await annual(url, route) as object), mirror: true })
+    return backend
+  }
+
+  test('say so near the source, and where the record ends, on the page and in the saved files', async ({ page, baseURL }) => {
+    await mirrorStub(page, baseURL)
+    await page.goto('/stripes?kind=temperature&provider=noaa&network=ghcn&station=USW00094728')
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
+    await expect(chartSvg(page)).toBeVisible({ timeout: 60_000 })
+    // the stub's record ends in 2024, before the last complete year
+    await expect(page.getByTestId('stripes-mirror')).toHaveText(`${NOTICE} The record read there ends in 2024.`)
+
+    const svg = await saveFrom(page, 'Download image', 'Download as SVG')
+    // the image breaks a long line, so the lines of text are read as one text
+    const lines = [...readFileSync((await svg.path())!, 'utf8').matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!.replaceAll('&#39;', '\''))
+    expect(lines.join(' ')).toContain(`${NOTICE} The record read there ends in 2024.`)
+
+    await page.getByRole('radio', { name: 'Table', exact: true }).click()
+    await expect(page.getByTestId('stripes-mirror')).toBeVisible()
+    const table = await saveFrom(page, 'Download table', 'Download as CSV')
+    const csv = readFileSync((await table.path())!, 'utf8')
+    expect(csv).toContain(`# ${NOTICE} The record read there ends in 2024.`)
+    expect(csv).toContain('NOAA National Centers for Environmental Information')
+  })
+
+  test('say so in the map\'s panel, under the band', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await mirrorStub(page, baseURL)
+    await page.goto('/map?layer=ghcn&station=USW00094728&lat=40.7789&lon=-73.9692')
+    await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByTestId('map-stripes-mirror')).toHaveText(`${NOTICE} The record read there ends in 2024.`)
+  })
+
+  // every language of the app: the line is in the reader's own, and it fits a phone's width (WCAG 1.4.10 Reflow) on the page and in the map's panel
+  for (const language of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb']) {
+    test(`say it in ${language} within the width of a phone`, async ({ page, context, baseURL }) => {
+      const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf8')) as { common: { fetch: string }, stripes: { mirrorNoteEnds: string } }
+      const expected = catalog.stripes.mirrorNoteEnds.replace('{year}', '2024')
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await mirrorStub(page, baseURL)
+      await page.goto('/stripes?kind=temperature&provider=noaa&network=ghcn&station=USW00094728')
+      await page.getByRole('button', { name: catalog.common.fetch, exact: true }).click()
+      await expect(chartSvg(page)).toBeVisible({ timeout: 60_000 })
+      await expect(page.getByTestId('stripes-mirror')).toHaveText(expected)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+
+      await page.goto('/map?layer=ghcn&station=USW00094728&lat=40.7789&lon=-73.9692')
+      await expect(page.getByTestId('map-stripes-mirror')).toHaveText(expected, { timeout: 60_000 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+    })
+  }
+
+  test('say nothing where the answer has no such warning', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await page.goto('/stripes?kind=temperature&provider=noaa&network=ghcn&station=USW00094728')
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
+    await expect(chartSvg(page)).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByTestId('stripes-method')).toBeVisible()
+    await expect(page.getByTestId('stripes-mirror')).toHaveCount(0)
   })
 })

@@ -960,6 +960,8 @@
     "plotSourceGhcn": "Quell: NOAA NCEI, GHCN-Daily",
     "methodMidrange": "Ut de Mitt vun Dag-Hööchst- un Dag-Minnstweert maakt, nich ut een 24-Stünnen-Middel. Jümmers de sülvige Methood för de ganze Reeg, dormit dor keen Sprung kummt, wo dat Dagsmiddel vun een Station anfangt oder ophöllt, un een gliekbliewend Afwieken sik in de Anomalien utglieken deit.",
     "methodTavg": "Ut dat Dagsmiddel (TAVG) vun de Station maakt: Se hett keen Dag mit Hööchst- un Minnstweert, ut de sik de Mitt bilden leet.",
+    "mirrorNote": "Vun den Spegel vun de NOAA-Daten bi AWS leest; de jüngsten Daag köönt fehlen.",
+    "mirrorNoteEnds": "Vun den Spegel vun de NOAA-Daten bi AWS leest; de jüngsten Daag köönt fehlen. De dor lesene Reeg höllt in't Johr {year} op.",
     "plotMethodMidrange": "Temperatur: Mitt ut Dag-Hööchst- un Dag-Minnstweert (GHCN)",
     "plotMethodTavg": "Temperatur: Dagsmiddel (TAVG, GHCN)",
     "plotReference": "Klöör: Middel vun {centre}, ±{sigma} σ vun {spread}",

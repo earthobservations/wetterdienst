@@ -261,11 +261,26 @@ export interface StripesValuesResponse {
   series: StripesSeries
   values: StripesValueItem[]
   reference: StripesReference
+  /**
+   * Set where the years of GHCN daily were read from the mirror of NOAA's data on AWS (the backend's `source-fallback` warning, GH-4390),
+   * which may end earlier than NOAA's own: the last year of the whole record that has a value (null if none), whatever window is shown
+   */
+  mirror?: { last_year: number | null }
 }
+
+/** One thing an answer of the API is missing, as the backend's `metadata.warnings` list it: a `code` that stays and a `message` that may improve */
+export type ResponseWarning = Schemas['ResponseWarning']
 
 /** The annual values of NOAA's GHCN daily that the app's own server calculates from the daily ones (`GET /_ghcn/annual`, `server/utils/ghcnStripes.ts`): a row for every year from the first to the last with a value, the value null for a year that fails the WMO rules */
 export interface GhcnAnnualAnswer {
-  metadata: { provider: StripesProvider }
+  metadata: {
+    provider: StripesProvider
+    /**
+     * The warnings of the backend's answer for the station, as its generic API gives them (GH-4390): `source-fallback` says the days were
+     * read from the mirror of NOAA's data on AWS because NCEI did not answer, and that the most recent days may be missing. Left out where there are none
+     */
+    warnings?: ResponseWarning[]
+  }
   series: {
     station_id: string
     parameter: string
