@@ -70,6 +70,7 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollectionBody,
 )
 from wetterdienst.model.row_selection import (
+    MAX_REPORTED_SERIES,
     MAX_TOOL_SERIES,
     RowSelectionError,
     RowsOverLimitError,
@@ -143,6 +144,7 @@ from wetterdienst.ui.limits import (
     check_chosen_rows,
     check_point_rows,
     check_rows,
+    check_series_count,
     check_station_count,
     check_stations_in_reach,
     estimate_point_rows,
@@ -794,14 +796,14 @@ class _StatisticsSeries(TypedDict):
     unit: str
     # the unit of an aggregate where it is not `unit`: the `sum` of a temperature is in degree days (`°Cd`)
     units: NotRequired[dict[str, str]]
-    first: str | None
-    last: str | None
+    first_timestamp: str | None
+    last_timestamp: str | None
     searched: int
     expected: int | None
     gaps: int | None
     over_groups: dict[str, _StatisticsOverGroups]
-    # the columns of `by`, then each aggregate (and `<aggregate>_at` for `min`, `max`, `first`, `last`), then `searched`
-    # and `expected`
+    # `rank` (`per=none`), the columns of `by`, each aggregate (and `<aggregate>_at` for `min`, `max`, `earliest`,
+    # `latest`), then `searched`, `expected` and `complete`
     groups: list[dict[str, Any]]
 
 
@@ -1187,6 +1189,7 @@ class VersionAnswer(BaseModel):
                         "max_stations": 100,
                         "max_rows": 500000,
                         "max_stream_rows": 10000000,
+                        "max_groups": 50000,
                         "timeout": 60.0,
                         "max_concurrent": 32,
                     },
@@ -1223,8 +1226,8 @@ def version() -> VersionAnswer:
 
     `limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`
     and `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or
-    `csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind
-    `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
+    `csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a
+    400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
     """
     return VersionAnswer(
         version=__version__,
@@ -1405,7 +1408,7 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             },
             "limit": {
                 "type": "string",
-                "enum": ["stations", "rows", "stream_rows"],
+                "enum": ["stations", "rows", "stream_rows", "groups", "series"],
                 "description": "Of `limit-exceeded`: the limit the request passes.",
             },
             "maximum": {"type": "integer", "description": "Of `limit-exceeded`: the value of that limit."},
@@ -2470,6 +2473,15 @@ def values(
     return _answer(content, request.format, metadata)
 
 
+def _check_statistics_limits(stations: StationsResult, limits: Limits) -> None:
+    """Refuse a statistics request that reads too much or names more series than an answer reports, before a download.
+
+    The stations and the readings are held as for a request with `first`: up to the stream limit, whatever the format.
+    """
+    _check_values_limits(stations, limits, streamed=False, chooses=True)
+    check_series_count(selected_station_count(stations) * len(stations.parameters), MAX_REPORTED_SERIES)
+
+
 def _statistics(
     api: type[TimeseriesRequest],
     request: StatisticsRequest,
@@ -2489,8 +2501,8 @@ def _statistics(
             request=request,
             settings=settings,
             options=options,
-            check=lambda stations_: _check_values_limits(stations_, limits, streamed=False, chooses=True),
-            held_groups_limit=limits.max_rows or None,
+            check=lambda stations_: _check_statistics_limits(stations_, limits),
+            held_groups_limit=limits.max_groups or None,
         )
         check_chosen_groups(sum(series.frame.height for series in result.series), limits)
     except GroupsOverLimitError as e:
@@ -2517,13 +2529,14 @@ def statistics(
 ) -> Response:
     """Count, average, add up or find the extremes of each station's values per year, month, day or hour.
 
-    The stations and `timestamp` are those of `values`. `aggregate` is up to five of `count`, `mean`, `sum`, `min`,
-    `max`, `first`, `last`; `by` the groups (`year`, `month`, `day`, `hour`, UTC); `filter=value<0` counts the values
-    below 0. Each group says how many values it has (`searched`) and should have (`expected`): a gap, or a year that is
-    not over, leaves `mean` and `sum` null unless `max_missing` allows it. `having`, `sort` and `first` choose among
-    the groups (`mean`, `by=year`, `sort=-mean`, `first=5` is the five warmest years; `per=none` ranks across
-    stations); `over_groups` has the minimum, maximum and mean over a series' complete groups. For single readings use
-    `values` with `sort` and `first`. An extreme can be a faulty reading: filter its sign.
+    Stations and `timestamp` as in `values`; the groups are in `series[].groups`. `aggregate`: up to five of `count`,
+    `mean`, `sum`, `min`, `max`, `earliest`, `latest`; `by`: `year`, `month`, `day`, `hour` (UTC). `filter=value<0`
+    counts values below 0. A group says how many values it has (`searched`) and should have (`expected`) and is
+    `complete` or not: a gap, a year the window cuts or that is not over leaves `mean` and `sum` null unless
+    `max_missing` allows it. `having`, `sort`, `first` choose groups (`aggregate=mean&by=year&sort=-mean&first=5`: the
+    five warmest years; `per=none` ranks across stations). `over_groups` is the min, max and mean over the complete
+    groups. For single readings use `values`. A `min` or `max` can be a faulty reading: leave impossible values out
+    with `filter`.
     """
     begin_response()
     _refuse_repeated_row_options(http_request, _STATISTICS_OPTIONS)

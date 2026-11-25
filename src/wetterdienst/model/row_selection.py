@@ -160,7 +160,21 @@ _COLUMN_HINTS: Final = {
 
 
 #: the words reserved for the options of step 2 (`docs/usage/compatibility.md`): no column, no parameter's name
-STEP_TWO_WORDS: Final = frozenset({"window", "year_start", "timezone", "aggregate", "having", "per", "max_missing"})
+STEP_TWO_WORDS: Final = frozenset(
+    {
+        "window",
+        "year_start",
+        "timezone",
+        "aggregate",
+        "having",
+        "per",
+        "max_missing",
+        "earliest",
+        "latest",
+        "complete",
+        "rank",
+    }
+)
 #: the words that are never a parameter's name, so that a model that tries them is told what to do without a request
 #: (the REST model refuses them before any station is looked up): the columns of the options, and the words
 #: `_COLUMN_HINTS` answers. `tests/model/test_row_selection_names.py` holds every parameter of every provider to it

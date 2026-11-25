@@ -80,10 +80,7 @@ def period(case: Case, first: dt.date | None, last: dt.date | None) -> tuple[dt.
             return None
         low = season_start(season_year(low_at, case.year_start), case.year_start)
         high = season_end(season_year(high_at, case.year_start), case.year_start)
-        if w0 is not None:
-            low = max(low, w0)
-        if w1 is not None:
-            high = min(high, w1)
+        # a season or a year is whole: the window does not cut it, so a group it cuts is incomplete
         return (low, high) if low <= high else None
     latest = today - ONE_DAY
     has_window = w0 is not None and w0 <= latest
@@ -145,14 +142,15 @@ def expected_series(readings: Mapping[dt.date, float], case: Case) -> dict[str, 
                 row[name] = low if name == "min" else high
                 at = next((d for d in counted if readings[d] == row[name]), None) if values else None
                 row[f"{name}_at"] = at.isoformat() if at else None
-            elif name == "first":
-                row["first"] = values[0] if values else None
-                row["first_at"] = counted[0].isoformat() if counted else None
-            elif name == "last":
-                row["last"] = values[-1] if values else None
-                row["last_at"] = counted[-1].isoformat() if counted else None
+            elif name == "earliest":
+                row["earliest"] = values[0] if values else None
+                row["earliest_at"] = counted[0].isoformat() if counted else None
+            elif name == "latest":
+                row["latest"] = values[-1] if values else None
+                row["latest_at"] = counted[-1].isoformat() if counted else None
         row["searched"] = searched
         row["expected"] = expected
+        row["complete"] = not incomplete
         row["_incomplete"] = incomplete
         groups.append(row)
     return {"groups": groups, "total": total, "not_listed": not_listed, "first": first, "last": last}

@@ -493,16 +493,12 @@ def render_statistics(
     metadata = metadata or statistics_metadata(result, provider=request.provider, network=request.network)
     if request.format == "csv":
         return result.to_csv(), metadata
-    series = result.series_dicts()
     if request.format == "ndjson":
-        lines = [ndjson_line({"metadata": metadata_to_dict(metadata)})]
-        for entry in series:
-            head = {key: entry[key] for key in ("station_id", "resolution", "dataset", "parameter")}
-            lines.extend(ndjson_line({**head, **group}) for group in entry["groups"])
         end = ndjson_end(metadata.counts.stations, metadata.counts.rows, metadata.warnings)
-        end["series"] = [{key: value for key, value in entry.items() if key != "groups"} for entry in series]
-        lines.append(ndjson_line({"end": end}))
-        return b"".join(lines).decode(), metadata
+        end["series"] = result.series_dicts(groups=False)
+        head = ndjson_line({"metadata": metadata_to_dict(metadata)}).decode()
+        return head + result.groups_ndjson() + ndjson_line({"end": end}).decode(), metadata
+    series = result.series_dicts()
     answer = {"metadata": metadata_to_dict(metadata), "series": series}
     return dumps_json(answer, indent=4 if request.pretty else None, ensure_ascii=False), metadata
 

@@ -57,6 +57,9 @@ RESTAPI_MAX_STATIONS = 100
 RESTAPI_MAX_ROWS = 500_000
 #: the rows of an answer streamed (ndjson, csv), which is held one station at a time: bounded by the time it takes
 RESTAPI_MAX_STREAM_ROWS = 10_000_000
+#: the groups of the answer of `statistics`, which is built and sent as one body and held as the stations are read:
+#: a group of the JSON is about 150 bytes, so about 8 MB
+RESTAPI_MAX_GROUPS = 50_000
 #: seconds a request may take before its answer begins; a reverse proxy usually gives up after 60
 RESTAPI_TIMEOUT = 60.0
 #: the requests under `/api` a server works on at once (GH-3089). Each holds a thread of the pool (40 by default)
@@ -520,6 +523,7 @@ class Settings(BaseSettings):
     restapi_max_stations: int = Field(default=RESTAPI_MAX_STATIONS, ge=0)
     restapi_max_rows: int = Field(default=RESTAPI_MAX_ROWS, ge=0)
     restapi_max_stream_rows: int = Field(default=RESTAPI_MAX_STREAM_ROWS, ge=0)
+    restapi_max_groups: int = Field(default=RESTAPI_MAX_GROUPS, ge=0)
     # seconds a request may take until its answer begins (and a streamed answer between two of its chunks),
     # else a 504, and the work of the request stops at the next station or file (GH-4429). 0 switches the timeout off
     restapi_timeout: float = Field(default=RESTAPI_TIMEOUT, ge=0, allow_inf_nan=False)
@@ -578,6 +582,7 @@ class Settings(BaseSettings):
             restapi_max_stations: int = ...,
             restapi_max_rows: int = ...,
             restapi_max_stream_rows: int = ...,
+            restapi_max_groups: int = ...,
             restapi_timeout: float = ...,
             restapi_max_concurrent: int = ...,
             restapi_allowed_hosts: str | list[str] | tuple[str, ...] = ...,

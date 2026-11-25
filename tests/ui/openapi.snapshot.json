@@ -181,7 +181,7 @@
           "Server"
         ],
         "summary": "Version",
-        "description": "Get version information, what this instance serves, and the limits it holds requests to.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.\n\n`limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`\nand `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or\n`csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind\n`limit-exceeded`, the timeout a 504; 0 means the instance sets none.",
+        "description": "Get version information, what this instance serves, and the limits it holds requests to.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.\n\n`limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`\nand `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or\n`csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a\n400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.",
         "operationId": "version_api_version_get",
         "responses": {
           "200": {
@@ -3630,7 +3630,7 @@
           "Values"
         ],
         "summary": "Statistics",
-        "description": "Count, average, add up or find the extremes of each station's values per year, month, day or hour.\n\nThe stations and `timestamp` are those of `values`. `aggregate` is up to five of `count`, `mean`, `sum`, `min`,\n`max`, `first`, `last`; `by` the groups (`year`, `month`, `day`, `hour`, UTC); `filter=value<0` counts the values\nbelow 0. Each group says how many values it has (`searched`) and should have (`expected`): a gap, or a year that is\nnot over, leaves `mean` and `sum` null unless `max_missing` allows it. `having`, `sort` and `first` choose among\nthe groups (`mean`, `by=year`, `sort=-mean`, `first=5` is the five warmest years; `per=none` ranks across\nstations); `over_groups` has the minimum, maximum and mean over a series' complete groups. For single readings use\n`values` with `sort` and `first`. An extreme can be a faulty reading: filter its sign.",
+        "description": "Count, average, add up or find the extremes of each station's values per year, month, day or hour.\n\nStations and `timestamp` as in `values`; the groups are in `series[].groups`. `aggregate`: up to five of `count`,\n`mean`, `sum`, `min`, `max`, `earliest`, `latest`; `by`: `year`, `month`, `day`, `hour` (UTC). `filter=value<0`\ncounts values below 0. A group says how many values it has (`searched`) and should have (`expected`) and is\n`complete` or not: a gap, a year the window cuts or that is not over leaves `mean` and `sum` null unless\n`max_missing` allows it. `having`, `sort`, `first` choose groups (`aggregate=mean&by=year&sort=-mean&first=5`: the\nfive warmest years; `per=none` ranks across stations). `over_groups` is the min, max and mean over the complete\ngroups. For single readings use `values`. A `min` or `max` can be a faulty reading: leave impossible values out\nwith `filter`.",
         "operationId": "statistics_api_statistics_get",
         "parameters": [
           {
@@ -3926,10 +3926,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "What to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `first`, `last`, comma-separated. `count` is the values that meet `filter`; `min`, `max`, `first` and `last` come with their date (`min_at`). A direction or a code has no mean or extreme; `sum` is for amounts and, daily or hourly, temperatures (degree days). Example: `count`, `mean,max`.",
+              "description": "What to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `earliest`, `latest`, comma-separated. `count` is the values that meet `filter`; `min`, `max`, `earliest` and `latest` come with their date (`min_at`). A direction or a code has no mean or extreme; `sum` is for amounts and, daily or hourly, temperatures (degree days). Example: `count`, `mean,max`.",
               "title": "Aggregate"
             },
-            "description": "What to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `first`, `last`, comma-separated. `count` is the values that meet `filter`; `min`, `max`, `first` and `last` come with their date (`min_at`). A direction or a code has no mean or extreme; `sum` is for amounts and, daily or hourly, temperatures (degree days). Example: `count`, `mean,max`."
+            "description": "What to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `earliest`, `latest`, comma-separated. `count` is the values that meet `filter`; `min`, `max`, `earliest` and `latest` come with their date (`min_at`). A direction or a code has no mean or extreme; `sum` is for amounts and, daily or hourly, temperatures (degree days). Example: `count`, `mean,max`."
           },
           {
             "name": "by",
@@ -4002,10 +4002,10 @@
                   "type": "null"
                 }
               ],
-              "description": "How many values a group may lack and still get a `mean` and a `sum` (default 0: a gap, or a year that is not over, leaves them null).",
+              "description": "How many values a group may lack and still be `complete` and get a `mean` and a `sum` (default 0).",
               "title": "Max Missing"
             },
-            "description": "How many values a group may lack and still get a `mean` and a `sum` (default 0: a gap, or a year that is not over, leaves them null)."
+            "description": "How many values a group may lack and still be `complete` and get a `mean` and a `sum` (default 0)."
           },
           {
             "name": "having",
@@ -4020,10 +4020,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Keep the groups that meet conditions on the results, written as `filter`: the aggregates asked for, `searched`, `expected`. Example: `count>=100`, `searched<360`.",
+              "description": "Keep groups that meet conditions on the results, as `filter`: the aggregates, `searched`, `expected`, `complete`. Example: `count>=100`, `complete`.",
               "title": "Having"
             },
-            "description": "Keep the groups that meet conditions on the results, written as `filter`: the aggregates asked for, `searched`, `expected`. Example: `count>=100`, `searched<360`."
+            "description": "Keep groups that meet conditions on the results, as `filter`: the aggregates, `searched`, `expected`, `complete`. Example: `count>=100`, `complete`."
           },
           {
             "name": "sort",
@@ -4038,10 +4038,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Order of the groups: columns joined by commas, `-` before one for descending: the aggregates asked for, the columns of `by`, `station_id`, `searched`, `expected`. Example: `-mean`.",
+              "description": "Order of the groups: columns joined by commas, `-` before one for descending: the aggregates asked for, the columns of `by`, `station_id`, `searched`, `expected`, `complete`. Example: `-mean`.",
               "title": "Sort"
             },
-            "description": "Order of the groups: columns joined by commas, `-` before one for descending: the aggregates asked for, the columns of `by`, `station_id`, `searched`, `expected`. Example: `-mean`."
+            "description": "Order of the groups: columns joined by commas, `-` before one for descending: the aggregates asked for, the columns of `by`, `station_id`, `searched`, `expected`, `complete`. Example: `-mean`."
           },
           {
             "name": "first",
@@ -4073,11 +4073,11 @@
                 "none"
               ],
               "type": "string",
-              "description": "Over what `first` counts: `station` (each series) or `none` (the stations of one parameter together). Needs `first`.",
+              "description": "Over what `first` counts: `station` (each series) or `none` (all stations of a parameter, groups with `rank`). Needs `first`.",
               "default": "station",
               "title": "Per"
             },
-            "description": "Over what `first` counts: `station` (each series) or `none` (the stations of one parameter together). Needs `first`."
+            "description": "Over what `first` counts: `station` (each series) or `none` (all stations of a parameter, groups with `rank`). Needs `first`."
           },
           {
             "name": "max_rows",
@@ -7297,6 +7297,11 @@
             "title": "Max Stream Rows",
             "description": "The most rows (estimated) of an answer streamed as `ndjson` or `csv` by `stations` or `values`."
           },
+          "max_groups": {
+            "type": "integer",
+            "title": "Max Groups",
+            "description": "The most groups of an answer of `statistics`, held as the stations are read and sent as one body."
+          },
           "timeout": {
             "type": "number",
             "title": "Timeout",
@@ -7314,6 +7319,7 @@
           "max_stations",
           "max_rows",
           "max_stream_rows",
+          "max_groups",
           "timeout",
           "max_concurrent"
         ],
@@ -9794,6 +9800,7 @@
             "api_version": "1",
             "limits": {
               "max_concurrent": 32,
+              "max_groups": 50000,
               "max_rows": 500000,
               "max_stations": 100,
               "max_stream_rows": 10000000,
@@ -11702,7 +11709,7 @@
             "type": "object",
             "title": "Units"
           },
-          "first": {
+          "first_timestamp": {
             "anyOf": [
               {
                 "type": "string"
@@ -11711,9 +11718,9 @@
                 "type": "null"
               }
             ],
-            "title": "First"
+            "title": "First Timestamp"
           },
-          "last": {
+          "last_timestamp": {
             "anyOf": [
               {
                 "type": "string"
@@ -11722,7 +11729,7 @@
                 "type": "null"
               }
             ],
-            "title": "Last"
+            "title": "Last Timestamp"
           },
           "searched": {
             "type": "integer",
@@ -11774,8 +11781,8 @@
           "dataset",
           "parameter",
           "unit",
-          "first",
-          "last",
+          "first_timestamp",
+          "last_timestamp",
           "searched",
           "expected",
           "gaps",
@@ -12451,7 +12458,9 @@
             "enum": [
               "stations",
               "rows",
-              "stream_rows"
+              "stream_rows",
+              "groups",
+              "series"
             ],
             "description": "Of `limit-exceeded`: the limit the request passes."
           },
@@ -12497,7 +12506,7 @@
     },
     "responses": {
       "BadRequest": {
-        "description": "Bad Request. The body is a problem (`Problem`) of one of the kinds:\n\n- `request-refused`: The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range.\n- `limit-exceeded`: The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it.\n- `image-too-large`: A chart would be longer than 8192 px on a side.\n- `host-not-allowed`: The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists.\n- `origin-not-allowed`: The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
+        "description": "Bad Request. The body is a problem (`Problem`) of one of the kinds:\n\n- `request-refused`: The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range.\n- `limit-exceeded`: The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows`, `groups` or `series`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it.\n- `image-too-large`: A chart would be longer than 8192 px on a side.\n- `host-not-allowed`: The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists.\n- `origin-not-allowed`: The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
         "content": {
           "application/problem+json": {
             "schema": {

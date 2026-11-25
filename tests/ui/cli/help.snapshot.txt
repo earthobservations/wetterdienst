@@ -799,11 +799,12 @@ Options:
                                --name matches, best first.
   --distance FLOAT             The stations within this many km of --latitude/--longitude.
   --aggregate TEXT             What to compute per group: one to five of count, mean, sum, min, max,
-                               first, last, comma-separated. count is the values that meet --filter,
-                               first and last the first and last of them in time; min, max, first
-                               and last come with their date (min_at). A direction or a code has no
-                               mean or extreme; sum is for amounts and, daily or hourly,
-                               temperatures (degree days). Example: count or mean,max  [required]
+                               earliest, latest, comma-separated. count is the values that meet
+                               --filter, earliest and latest the first and last of them in time;
+                               min, max, earliest and latest come with their date (min_at). A
+                               direction or a code has no mean or extreme; sum is for amounts and,
+                               daily or hourly, temperatures (degree days). Example: count or
+                               mean,max  [required]
   --by TEXT                    The groups, besides the series (a station and a parameter, never
                                merged): year, month, day, hour (UTC), comma-separated; none is one
                                group per series. year,month is a group a month, month puts every
@@ -817,23 +818,25 @@ Options:
   --year-start INTEGER RANGE   The month a year begins, 1 to 12 (default 1). The year is named by
                                the year it ends in: 12 makes the winter 2023/24 the year 2024, in
                                --by, --filter and --sort. Needs year in --by  [1<=x<=12]
-  --max-missing INTEGER RANGE  How many values a group may lack and still get a mean and a sum
-                               (default 0: a group with a gap, and a year that is not over, has
-                               none). searched and expected say how many it has and should have
+  --max-missing INTEGER RANGE  How many values a group may lack and still be complete, with a mean
+                               and a sum (default 0: a group with a gap, a year that is not over or
+                               a year the window cuts has none). complete says which groups are
                                [0<=x<=10000]
   --having TEXT                Keep the groups that meet conditions on the results, written as
-                               --filter: the aggregates asked for, searched, expected. Example:
-                               'count>=100' or 'searched<360'
+                               --filter: the aggregates asked for, searched, expected, complete (the
+                               word alone is complete=1). Example: 'count>=100' or 'searched<360' or
+                               complete
   --sort TEXT                  Order of the groups: columns joined by commas, - before one for
                                descending: the aggregates asked for, the columns of --by,
-                               station_id, searched, expected. A null comes last. Example:
+                               station_id, searched, expected, complete. A null comes last. Example:
                                --sort=-mean
   --first INTEGER RANGE        Keep the first N groups of the --sort order, exactly N (a warning
                                says how many more tie): --sort=-mean --first=5 with --by=year is the
                                five warmest years. Needs --sort; counts in each series unless --per
                                says otherwise  [x>=1]
   --per [station|none]         Over what --first counts: station (each series) or none (the stations
-                               of one parameter together). Default: station
+                               of one parameter together, each group with its rank). Default:
+                               station
   --max-rows INTEGER RANGE     Return at most this many groups of the whole answer, the first of its
                                order, after --first  [x>=1]
   --format [json|csv|ndjson]   Output format: json (with the metadata block), csv (a row per group)

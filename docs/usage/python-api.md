@@ -1113,8 +1113,7 @@ to a result you hold, by the same function. They return a `StatisticsResult`: `d
 of its series in front, `series` the report of each series with the statistics over its groups (`over_groups`), and
 `to_dict()`, `to_json()`, `to_csv()` and `to_ndjson()` write the answer as the REST API does, without its `metadata` block.
 A text that cannot be read is a `RowSelectionError`, an option that cannot be applied to a series of the request (a sum of
-a pressure, `by="hour"` of daily values, the wide shape) a `RowSelectionRefusedError`; both are raised before the second
-station is read.
+a pressure, `by="hour"` of daily values, the wide shape) a `RowSelectionRefusedError`; both are raised before a station is read.
 
 ```python
 from wetterdienst.provider.dwd.observation import DwdObservationRequest

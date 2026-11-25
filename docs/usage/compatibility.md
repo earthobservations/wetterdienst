@@ -220,7 +220,8 @@ Frozen:
   their names, the grammar of their text, the columns each takes, what a group, a tie and a missing value are, the
   order of the answer, and `metadata.search` with its members. A column or an operator may be added in a minor release
   (a name that is none of them is refused with the list, so that none is taken by accident); one is not removed
-  or given another meaning. `rows-capped` is its warning code. `window`, `year_start`, `timezone`, `aggregate`, `having`, `per` and `max_missing` are
+  or given another meaning. `rows-capped` is its warning code. `window`, `year_start`, `timezone`, `aggregate`, `having`, `per`, `max_missing`, `earliest`, `latest`,
+  `complete` and `rank` are
   reserved for later options: no option, column or parameter is given them for another meaning. A parameter's name is a
   column of `filter` and `sort` ([Parameters as columns](restapi.md#parameters-as-columns)), so no parameter of any
   provider is given the name of a column or of a reserved word, and `tests/model/test_row_selection_names.py` holds
@@ -229,8 +230,9 @@ Frozen:
 - the **statistics route** (`/api/v1/statistics`, the tool `statistics`, `wetterdienst statistics`,
   `values().statistics()`; [Statistics](restapi.md#statistics)): the names of its options and the grammar of their text
   (`aggregate`, `by`, `filter`, `year_start`, `max_missing`, `having`, `sort`, `first`, `per`, `max_rows`), the set of
-  `aggregate` names (one may be added in a minor release, none is removed or renamed), the meaning of null and of
-  `searched`, `expected` and `usable` (the twelve rules of the completeness), the keys of the answer (`series`,
+  `aggregate` names (`count`, `mean`, `sum`, `min`, `max`, `earliest`, `latest`: one may be added in a minor release,
+  none is removed or renamed), the meaning of null and of `searched`, `expected`, `complete`, `rank` and `usable` (the
+  twelve rules of the completeness), the keys of the answer (`series`, `first_timestamp`, `last_timestamp`,
   `over_groups`, `groups`, each aggregate and its `<aggregate>_at`, `metadata.search.totals.groups*`), the codes of its
   warnings (`incomplete-groups`, `no-values-in-groups`, `completeness-unknown`, `ties-not-shown`, and `rows-capped` and
   `answer-truncated` as for `values`) and the status of each refusal (422 for a text, 400 for a request that does not fit

@@ -948,7 +948,7 @@ def test_the_instructions_window_their_values_examples_and_say_of_the_budget() -
     assert "cut to 40,000 characters" in flat
     assert "`answer-truncated`" in flat
     assert 'format="csv" with shape="wide"' in flat
-    assert len(INSTRUCTIONS) < 8000
+    assert len(INSTRUCTIONS) < 7800
 
 
 def test_the_values_tool_recommends_a_window_and_the_rest_document_does_not() -> None:

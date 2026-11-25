@@ -3636,9 +3636,10 @@ def kostra(
     type=click.STRING,
     required=True,
     help=(
-        "What to compute per group: one to five of count, mean, sum, min, max, first, last, comma-separated. count is "
-        "the values that meet --filter, first and last the first and last of them in time; min, max, first and last "
-        "come with their date (min_at). A direction or a code has no mean or extreme; sum is for amounts and, daily "
+        "What to compute per group: one to five of count, mean, sum, min, max, earliest, latest, comma-separated. "
+        "count is the values that meet --filter, earliest and latest the first and last of them in time; min, max, "
+        "earliest and latest come with their date (min_at). A direction or a code has no mean or extreme; sum is for "
+        "amounts and, daily "
         "or hourly, temperatures (degree days). Example: count or mean,max"
     ),
 )
@@ -3676,8 +3677,8 @@ def kostra(
     "max_missing",
     type=click.IntRange(0, 10000),
     help=(
-        "How many values a group may lack and still get a mean and a sum (default 0: a group with a gap, and a year "
-        "that is not over, has none). searched and expected say how many it has and should have"
+        "How many values a group may lack and still be complete, with a mean and a sum (default 0: a group with a "
+        "gap, a year that is not over or a year the window cuts has none). complete says which groups are"
     ),
 )
 @click.option(
@@ -3685,7 +3686,8 @@ def kostra(
     type=click.STRING,
     help=(
         "Keep the groups that meet conditions on the results, written as --filter: the aggregates asked for, "
-        "searched, expected. Example: 'count>=100' or 'searched<360'"
+        "searched, expected, complete (the word alone is complete=1). Example: 'count>=100' or 'searched<360' or "
+        "complete"
     ),
 )
 @click.option(
@@ -3693,7 +3695,7 @@ def kostra(
     type=click.STRING,
     help=(
         "Order of the groups: columns joined by commas, - before one for descending: the aggregates asked for, the "
-        "columns of --by, station_id, searched, expected. A null comes last. Example: --sort=-mean"
+        "columns of --by, station_id, searched, expected, complete. A null comes last. Example: --sort=-mean"
     ),
 )
 @click.option(
@@ -3710,8 +3712,8 @@ def kostra(
     type=click.Choice(["station", "none"]),
     default="station",
     help=(
-        "Over what --first counts: station (each series) or none (the stations of one parameter together). "
-        "Default: station"
+        "Over what --first counts: station (each series) or none (the stations of one parameter together, each "
+        "group with its rank). Default: station"
     ),
 )
 @click.option(

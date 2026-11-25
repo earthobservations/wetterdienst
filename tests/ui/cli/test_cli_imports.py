@@ -371,7 +371,10 @@ _KL = ["--parameters", "daily/kl"]
         pytest.param(["values", *_DWD, *_KL], 2, "Missing option: one of", id="values"),
         pytest.param(["statistics", *_DWD, *_KL, "--aggregate", "count"], 2, "Missing option: one of", id="statistics"),
         pytest.param(
-            ["statistics", *_DWD, *_KL, "--aggregate", "median", "--all"], 2, "`median` is not a column", id="aggregate"
+            ["statistics", *_DWD, *_KL, "--aggregate", "median", "--all"],
+            2,
+            "`median` is not an aggregate",
+            id="aggregate",
         ),
         pytest.param(["values", "--provider", "nowhere", "--network", "x", *_KL, "--all"], 2, "nowhere", id="api"),
         pytest.param(["values", *_DWD, *_KL, "--all", "--limits", "no-bounds"], 2, "--limits", id="limits"),

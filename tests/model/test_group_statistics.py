@@ -52,7 +52,7 @@ _NOWS = {
     "past": dt.datetime(2100, 1, 1, tzinfo=dt.UTC),
     "running": dt.datetime(2020, 7, 1, 12, tzinfo=dt.UTC),
 }
-_AGGREGATES = ("count,mean,sum,min,max", "first,last,count,mean")
+_AGGREGATES = ("count,mean,sum,min,max", "earliest,latest,count,mean")
 _BY = ((), ("year",), ("month",), ("year", "month"), ("day",), ("month", "day"), ("year", "month", "day"))
 
 
@@ -70,7 +70,7 @@ def _matrix() -> list[Case]:
                     by=by,
                     filter=text,
                     year_start=year_start,
-                    max_missing=missing if {"mean", "sum"} & set(aggregate.split(",")) else 0,
+                    max_missing=missing,
                     window=_WINDOWS[window],
                     time=time,
                     value=value,
@@ -131,14 +131,14 @@ def _compare(result: StatisticsResult, case: Case) -> None:
                 assert _same(got[name], value), (station, name, got, expected, case)
             assert list(got) == [k for k in expected if not k.startswith("_")]
         for name in case.aggregate.split(","):
-            if name in ("first", "last"):
+            if name in ("earliest", "latest"):
                 assert name not in series["over_groups"]
                 continue
             stats = over_groups(want["groups"], name, want["total"])
             for member, value in stats.items():
                 assert _same(series["over_groups"][name][member], value), (station, name, member, case)
-        assert series["first"] == (want["first"].isoformat() if want["first"] else None)
-        assert series["last"] == (want["last"].isoformat() if want["last"] else None)
+        assert series["first_timestamp"] == (want["first"].isoformat() if want["first"] else None)
+        assert series["last_timestamp"] == (want["last"].isoformat() if want["last"] else None)
     seen = result.totals()
     assert seen["groups"] == sum(expected_series(readings[s], case)["total"] for s in STATIONS)
     assert seen["groups_not_listed"] == sum(expected_series(readings[s], case)["not_listed"] for s in STATIONS)

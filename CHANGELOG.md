@@ -29,8 +29,10 @@ Types of changes:
   per year, month, day or hour on the server: `aggregate=count&by=year&filter=value<0` is the frost
   days of each year, `aggregate=mean&by=year&sort=-mean&first=5` the five warmest. Every group says
   how many values it has and should have; a group with a gap, or a year that is not over, has no
-  `mean` or `sum` unless `max_missing` allows it. `year_start`, `having`, `per` and `max_rows` too;
-  `first` keeps exactly N and warns how many more tie (GH-4412)
+  `mean` or `sum` unless `max_missing` allows it, and says `complete`. `earliest` and `latest`,
+  `year_start`, `having`, `per=none` (each group with its `rank`) and `max_rows` too; `first` keeps
+  exactly N and warns how many more tie. The groups of an answer are held to `WD_RESTAPI_MAX_GROUPS`
+  (50,000) and its series to 100 (GH-4412)
 
 ### Changed
 

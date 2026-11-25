@@ -108,7 +108,7 @@ _REQUESTS = [
         {"aggregate": "sum,count", "by": "year", "filter": "month=12|1|2", "year_start": 12, "max_missing": 30},
         id="winters",
     ),
-    pytest.param({"aggregate": "first,last", "by": "month", "having": "searched>0", "max_rows": 20}, id="capped"),
+    pytest.param({"aggregate": "earliest,latest", "by": "month", "having": "searched>0", "max_rows": 20}, id="capped"),
 ]
 
 
@@ -150,8 +150,8 @@ def test_rest_agrees_with_the_oracle_and_reports_what_was_searched() -> None:
         assert series["searched"] == len(readings)
         assert series["expected"] == 1096
         assert series["gaps"] == 1096 - len(readings)
-        assert series["first"] == min(readings).isoformat()
-        assert series["last"] == max(readings).isoformat()
+        assert series["first_timestamp"] == min(readings).isoformat()
+        assert series["last_timestamp"] == max(readings).isoformat()
     search = answer["metadata"]["search"]
     assert search["totals"]["series"] == 3
     assert search["totals"]["groups"] == 9
@@ -168,15 +168,15 @@ def test_rest_agrees_with_the_oracle_and_reports_what_was_searched() -> None:
         "dataset",
         "parameter",
         "unit",
-        "first",
-        "last",
+        "first_timestamp",
+        "last_timestamp",
         "searched",
         "expected",
         "gaps",
         "over_groups",
         "groups",
     ]
-    assert list(answer["series"][0]["groups"][0]) == ["year", "count", "mean", "searched", "expected"]
+    assert list(answer["series"][0]["groups"][0]) == ["year", "count", "mean", "searched", "expected", "complete"]
 
 
 def test_the_block_says_what_was_calculated() -> None:
@@ -209,7 +209,7 @@ def test_csv_is_a_row_per_group_with_the_block_in_the_headers() -> None:
     response = _rest(aggregate="min,count", by="year", format="csv")
     assert response.status_code == 200
     lines = response.text.splitlines()
-    assert lines[0] == "station_id,resolution,dataset,parameter,year,min,min_at,count,searched,expected"
+    assert lines[0] == "station_id,resolution,dataset,parameter,year,min,min_at,count,searched,expected,complete"
     assert len(lines) == 1 + 9
     assert lines[1].startswith("00001,daily,climate_summary,temperature_air_min_2m,2018,")
     assert response.headers["X-Wetterdienst-Groups-Matched"] == "9"
@@ -232,6 +232,7 @@ def test_ndjson_is_the_block_a_line_per_group_and_an_end_with_the_series_without
         "count": 337,
         "searched": 337,
         "expected": 365,
+        "complete": False,
     }
     end = lines[-1]["end"]
     assert end["counts"] == {"stations": 3, "rows": 9}
@@ -248,20 +249,19 @@ def test_ndjson_is_the_block_a_line_per_group_and_an_end_with_the_series_without
 @pytest.mark.parametrize(
     ("options", "fragment"),
     [
-        ({"aggregate": "median"}, "`median` is not a column of this option"),
+        ({"aggregate": "median"}, "`median` is not an aggregate of this option"),
         ({"aggregate": "count,count"}, "`count` is named twice"),
-        ({"aggregate": "count,mean,sum,min,max,first"}, "6 aggregates, more than the 5 allowed"),
+        ({"aggregate": "count,mean,sum,min,max,earliest"}, "6 aggregates, more than the 5 allowed"),
         ({"aggregate": "count", "by": "station_id"}, "never merged"),
         ({"aggregate": "count", "by": "decade"}, "`decade` is a group that is not available in this version"),
         ({"aggregate": "count", "filter": "value<0C"}, "something after the number"),
-        ({"aggregate": "count", "filter": "temperature_air_min_2m<0"}, "not a column of this option"),
+        ({"aggregate": "count", "filter": "wind_gust_max<1"}, "`wind_gust_max` is no column of this option"),
         ({"aggregate": "count", "having": "mean>3"}, "`mean` is not among the `aggregate` of this request"),
         ({"aggregate": "count", "sort": "-mean"}, "add it there first"),
         ({"aggregate": "count", "sort": "year"}, "`year` is not a group of this request"),
         ({"aggregate": "count", "first": 3}, "no `sort` is given"),
         ({"aggregate": "count", "per": "none"}, "no `first` is given"),
         ({"aggregate": "count", "year_start": 7}, "`by` has no `year`"),
-        ({"aggregate": "count", "by": "year", "max_missing": 3}, "neither is asked for"),
     ],
 )
 def test_a_text_that_cannot_be_read_is_a_422_located_at_the_option(options: dict[str, Any], fragment: str) -> None:
@@ -297,7 +297,7 @@ def test_a_sum_of_a_pressure_is_refused_with_the_allowed_aggregates(monkeypatch:
     serve_custom(monkeypatch, {"00001": readings}, parameter="pressure_air_site_mean")
     response = _rest(parameters="daily/climate_summary/pressure_air_site_mean", aggregate="sum")
     assert response.status_code == 400, response.text
-    assert "Allowed here: count, mean, min, max, first, last." in response.json()["detail"]
+    assert "Allowed here: count, mean, min, max, earliest, latest." in response.json()["detail"]
     assert "is no quantity" in response.json()["detail"]
 
 
@@ -351,7 +351,7 @@ def test_the_tool_says_what_to_write_in_a_tool_error() -> None:
     bad = _tool({"aggregate": "mode"})
     assert bad.is_error
     message = json.dumps(bad.structured_content) + str(bad.content)
-    assert "count, mean, sum, min, max, first, last" in message
+    assert "count, mean, sum, min, max, earliest, latest" in message
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -484,8 +484,8 @@ def test_the_tool_definition_is_short() -> None:
 def test_more_groups_than_may_be_held_are_refused_as_soon_as_a_station_makes_them(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The limit of an answer (`rows`) holds the groups: refused at the station that exceeds it, not after the last."""
-    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "40")
+    """The limit of the groups (`groups`) holds them: refused at the station that exceeds it, not after the last."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_GROUPS", "40")
     read: list[str] = []
     original = StatisticsRun.add_station
 
@@ -498,7 +498,7 @@ def test_more_groups_than_may_be_held_are_refused_as_soon_as_a_station_makes_the
     assert response.status_code == 400, response.text
     body = response.json()
     assert body["type"].endswith("limit-exceeded")
-    assert (body["limit"], body["maximum"]) == ("rows", 40)
+    assert (body["limit"], body["maximum"]) == ("groups", 40)
     assert "groups so far" in body["detail"]
     assert "Drop a column of `by`" in body["detail"]
     # 36 groups a station: the second station makes 72
@@ -550,7 +550,7 @@ def test_each_station_is_reduced_before_the_next_is_read_and_its_rows_are_let_go
     # what the run holds are the groups: a few columns of a few rows, not the readings of a station
     for series in result.series:
         assert series.frame.height == 3
-        assert set(series.frame.columns) == {"year", "count", "searched", "expected", "_incomplete"}
+        assert set(series.frame.columns) == {"year", "count", "searched", "expected", "complete", "_incomplete"}
 
 
 def test_the_walk_stops_between_stations_when_the_answer_is_given_up(monkeypatch: pytest.MonkeyPatch) -> None:

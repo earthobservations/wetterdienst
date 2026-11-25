@@ -9,12 +9,12 @@ expected, so that an answer says where it rests on a gap.
 
 Options (the grammar is that of `values`, `model/option_grammar.py`):
 
-- `aggregate`: one to five of `count mean sum min max first last`, joined by `,`
+- `aggregate`: one to five of `count mean sum min max earliest latest`, joined by `,`
 - `by`: the groups besides the series, any of `year month day hour`, each once; none is one group per series
 - `filter`: `year month day hour` say which values are looked at, `value` which of them count
 - `year_start`: the month a `year` begins (1 to 12); the year is named by the year it ends in (winter 2023/24 is 2024)
-- `max_missing`: how many missing values a group may have and still get a `mean` and a `sum`
-- `having`: conditions on the results (the aggregates asked for, `searched`, `expected`)
+- `max_missing`: how many missing values a group may have and still be complete (and get a `mean` and a `sum`)
+- `having`: conditions on the results (the aggregates asked for, `searched`, `expected`, `complete`)
 - `sort`: the order of the groups (the aggregates, the columns of `by`, `station_id`, `searched`, `expected`)
 - `first`: the first N groups of the `sort` order, exactly N: how many more tie is a warning
 - `per`: over what `first` counts: `station` (each series) or `none` (all stations of one parameter)
@@ -22,9 +22,10 @@ Options (the grammar is that of `values`, `model/option_grammar.py`):
 
 The order is fixed: `filter` (the time conditions, then the value conditions), the groups, the aggregates,
 completeness, `having`, `sort`, `first`, `max_rows`. A group that is not over yet is incomplete: its `mean` and `sum`
-are null unless `max_missing` allows the gap, and its `count`, `min`, `max`, `first` and `last` are of the values there
-are. Time conditions say which values are looked at, value conditions which of them count: a group with values and no
-match has a `count` of 0 and a `sum` of 0, a group with no value at all has nothing (null). Series are never merged.
+are null unless `max_missing` allows the gap, and its `count`, `min`, `max`, `earliest` and `latest` are of the values
+there are, with `complete` false and a warning. Time conditions say which values are looked at, value conditions
+which of them count: a group with values and no match has a `count` of 0 and a `sum` of 0, a group with no value at all
+has nothing (null). Series are never merged.
 
 `parse_statistics` reads and checks the options before a station is read; `StatisticsRun` is what the walk of
 `TimeseriesValues` feeds one station at a time (the frames of a station are let go as its groups are made), and
@@ -41,7 +42,7 @@ import datetime as dt
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Final
 
 from wetterdienst.exceptions import RequestError
@@ -60,6 +61,7 @@ from wetterdienst.model.option_grammar import (
 from wetterdienst.model.option_grammar import (
     _read_count as read_count,
 )
+from wetterdienst.model.row_selection import RESERVED_WORDS, ParameterNames, _name_like
 from wetterdienst.model.series_report import latest_complete
 from wetterdienst.util.response_warnings import (
     ANSWER_TRUNCATED,  # noqa: F401
@@ -79,9 +81,9 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 #: what a group can be asked for, in the order an answer writes it
-AGGREGATES: Final = ("count", "mean", "sum", "min", "max", "first", "last")
+AGGREGATES: Final = ("count", "mean", "sum", "min", "max", "earliest", "latest")
 #: the aggregates that name the date of the value they hold, `min_at` and so on
-DATED: Final = ("min", "max", "first", "last")
+DATED: Final = ("min", "max", "earliest", "latest")
 #: the calendar columns a group is made of, from the coarsest to the finest
 CALENDAR: Final = ("year", "month", "day", "hour")
 #: how fine a calendar column is
@@ -93,8 +95,8 @@ MAX_AGGREGATES: Final = 5
 #: the largest `max_missing`: more than a year of 10-minute readings is no gap to allow
 MAX_MISSING: Final = 10_000
 #: the most steps of a resolution one series is counted over to say how many values a group should have: a window of
-#: more than 500 years of hours is no window of values
-MAX_CELLS: Final = 5_000_000
+#: more than 170 years of hours is no window of values (an answer of 50,000 groups needs none of them)
+MAX_CELLS: Final = 1_500_000
 #: the groups a `per=none` choice lets pile up before it drops the candidates that cannot be among the first N
 COMPACT_GROUPS: Final = 50_000
 #: the words of the options that are kept for a later version, so that no column or aggregate takes their names
@@ -122,6 +124,19 @@ _INTERVAL: Final = {"hourly": "1h", "6_hours": "6h", "daily": "1d", "monthly": "
 _WINDOW_NAME = re.compile(r"(_last_(\d+)h|_multiday|_since_last)")
 #: unit types that have no magnitude to take the mean or an extreme of: a direction, a weather code
 _NO_STATISTIC_TYPES: Final = frozenset({"angle", "significant_weather"})
+#: the hours one reading of a resolution stands for, to tell a window of its own that overlaps its neighbours
+_RESOLUTION_HOURS: Final = {
+    "1_minute": 1 / 60,
+    "5_minutes": 5 / 60,
+    "6_minutes": 6 / 60,
+    "10_minutes": 10 / 60,
+    "15_minutes": 15 / 60,
+    "hourly": 1,
+    "6_hours": 6,
+    "daily": 24,
+    "monthly": 24 * 28,
+    "annual": 24 * 365,
+}
 #: what a sum is for: amounts, durations, energies and counts
 _SUMMABLE: Final = frozenset({"sum", "count", "occurrence"})
 
@@ -129,8 +144,8 @@ _SUMMABLE: Final = frozenset({"sum", "count", "occurrence"})
 INCOMPLETE_GROUPS = "incomplete-groups"
 INCOMPLETE_GROUPS_MESSAGE = (
     "{count} groups have fewer values than expected{where}: their `mean` and `sum` are null (`max_missing` is "
-    "{maximum}); their `count`, `min`, `max`, `first` and `last` are of the values there are, and `searched` and "
-    "`expected` beside them say how many."
+    "{maximum}); their `count`, `min`, `max`, `earliest` and `latest` are of the values there are, `complete` is "
+    "false, and `searched` and `expected` beside them say how many."
 )
 NO_VALUES_IN_GROUPS = "no-values-in-groups"
 NO_VALUES_IN_GROUPS_MESSAGE = (
@@ -140,8 +155,7 @@ NO_VALUES_IN_GROUPS_MESSAGE = (
 COMPLETENESS_UNKNOWN = "completeness-unknown"
 COMPLETENESS_UNKNOWN_MESSAGE = (
     "How many values a group should have is not known for {count} series{where} (a forecast, a resolution without a "
-    "fixed step, or a series whose step is coarser than its resolution): their `mean` and `sum` are of the values "
-    "there are."
+    "fixed step, or a series whose step is coarser than its resolution): their groups count as complete."
 )
 TIES_NOT_SHOWN = "ties-not-shown"
 
@@ -162,6 +176,10 @@ class GroupsOverLimitError(RequestError):
             f"{groups:,} groups so far, more than the {maximum:,} that may be held. "
             "Drop a column of `by`, or add `having` or `first`."
         )
+
+    def __reduce__(self) -> tuple[type[GroupsOverLimitError], tuple[int, int]]:
+        """Rebuild the error from its two numbers, as it is built (an error is pickled across processes)."""
+        return type(self), (self.groups, self.maximum)
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -200,6 +218,37 @@ class StatisticsPlan:
         """Whether `first` counts in each series: it does unless `per=none`."""
         return self.per == "station"
 
+    def bound(self, names: ParameterNames) -> StatisticsPlan:
+        """Settle the names of parameters a `filter` was written with, now that the request's parameters are known.
+
+        The name of the one parameter of the request is `value`; any other name is refused with what to write.
+        """
+        named = [c for c in self.conditions if c.column not in ("value", *CALENDAR)]
+        if not named:
+            return self
+        columns = {column for hits in names.lookup.values() for _, column in hits}
+        conditions = []
+        for condition in self.conditions:
+            if condition.column in ("value", *CALENDAR):
+                conditions.append(condition)
+                continue
+            if len(columns) == 1 and condition.column in names.lookup:
+                conditions.append(replace(condition, column="value"))
+                continue
+            close = names.close_to(condition.column)
+            hint = (f"did you mean {' or '.join(close)}? " if close and len(columns) != 1 else "") + (
+                "A parameter's name is no column of `statistics` unless the request has that one parameter: "
+                "write `value`, with one parameter in `parameters`."
+            )
+            raise _refusal(
+                "filter",
+                f"`{condition.column}` is no column of this option",
+                found=repr(condition.column),
+                expected="one of value, year, month, day, hour",
+                hint=hint,
+            )
+        return replace(self, conditions=tuple(conditions))
+
     def echo(self) -> dict[str, Any]:
         """Give the options as the parser read them, the way a report names them."""
         return {
@@ -228,7 +277,9 @@ def _unknown(
     hint = (hints or {}).get(word.lower())
     text = f"{hint}. {example}" if hint else example
     return scanner.fail(
-        f"`{word}` is not a column of this option" if word else "no column",
+        (f"`{word}` is not {'an aggregate' if scanner.option == 'aggregate' else 'a column'} of this option")
+        if word
+        else "no column",
         expected=f"one of {', '.join(allowed)}",
         hint=text,
         at=start,
@@ -243,6 +294,30 @@ def _resolver(
 
     def resolve(scanner: _Scanner, word: str, start: int) -> str:
         raise _unknown(scanner, word, allowed, start, example, hints)
+
+    return resolve
+
+
+def _bare_complete(text: str) -> str:
+    """Read the word `complete` alone, as a condition of `having`, as `complete=1`: `having=complete`."""
+    parts = text.split(",")
+    return ",".join("complete=1" if part.strip().lower() == "complete" else part for part in parts)
+
+
+def _filter_resolver() -> Callable[[_Scanner, str, int], str]:
+    """Give what reads a word of `filter` that is no column: the name of a parameter, held until the request is known.
+
+    A name is accepted as written (in lower case) where it can be one, as `values` accepts it, and
+    `StatisticsPlan.bound` turns it into `value` where the request has that one parameter only, and refuses it where
+    it has not.
+    """
+    columns = ("value", *CALENDAR)
+
+    def resolve(scanner: _Scanner, word: str, start: int) -> str:
+        lower = word.lower()
+        if lower in RESERVED_WORDS or not _name_like(word):
+            raise _unknown(scanner, word, columns, start, _FILTER_EXAMPLE, _filter_hints())
+        return lower
 
     return resolve
 
@@ -268,7 +343,7 @@ def parse_statistics(  # noqa: C901
     """Read the options of a request for statistics into a `StatisticsPlan`, or raise `RowSelectionError`.
 
     The texts are checked in full, and the options against each other (`first` needs `sort`, `year_start` needs a
-    `year` in `by`, `max_missing` needs `mean` or `sum`, `per` needs `first`), before any station is read: the series
+    `year` in `by`, `per` needs `first`), before any station is read: the series
     of the request are checked against the aggregates asked as the first one is read (`refuse_for`).
 
     Raises:
@@ -323,20 +398,20 @@ def parse_statistics(  # noqa: C901
             str(filter),
             ("value", *CALENDAR),
             _FILTER_EXAMPLE,
-            _resolver(("value", *CALENDAR), _FILTER_EXAMPLE, _filter_hints()),
+            _filter_resolver(),
         )
 
-    having_columns = (*aggregates, "searched", "expected")
+    having_columns = (*aggregates, "searched", "expected", "complete")
     having_conditions: tuple[Condition, ...] = ()
     if having not in (None, ""):
         having_conditions = parse_conditions(
             "having",
-            str(having),
+            _bare_complete(str(having)),
             having_columns,
             _HAVING_EXAMPLE,
             _resolver(having_columns, _HAVING_EXAMPLE, _having_hints(aggregates)),
         )
-    sort_columns = (*aggregates, *CALENDAR, "station_id", "searched", "expected")
+    sort_columns = (*aggregates, *CALENDAR, "station_id", "searched", "expected", "complete")
     keys: tuple[SortKey, ...] = ()
     if sort not in (None, ""):
         keys = parse_columns(
@@ -385,12 +460,6 @@ def parse_statistics(  # noqa: C901
             hint="add by=year",
         )
     missing = _read_whole("max_missing", max_missing, 0, MAX_MISSING, default=0)
-    if missing and not ({"mean", "sum"} & set(aggregates)):
-        raise _refusal(
-            "max_missing",
-            "`max_missing` changes `mean` and `sum` only, and neither is asked for",
-            hint="drop it, or add aggregate=mean",
-        )
     return StatisticsPlan(
         aggregate=aggregates,
         by=columns,
@@ -465,8 +534,8 @@ def _aggregate_hints() -> dict[str, str]:
         "avg": "the average is `mean`",
         "total": "the total is `sum`",
         "number": "the number of values is `count`",
-        "earliest": "the first value in time is `first`",
-        "latest": "the last value in time is `last`",
+        "first": "the first value in time is `earliest`",
+        "last": "the last value in time is `latest`",
         "minimum": "the lowest value is `min`",
         "maximum": "the highest value is `max`",
     }
@@ -511,6 +580,7 @@ def _having_hints(aggregates: Sequence[str]) -> dict[str, str]:
         }
     )
     hints["value"] = "`value` is a condition on the values looked at: put it in `filter`"
+    hints["rank"] = "`rank` is the place of a group under `per=none`, and is no column to choose by"
     return hints
 
 
@@ -555,11 +625,13 @@ class SeriesMeta:
 
 def _refusal_of(aggregate: str, meta: SeriesMeta, resolution: str) -> tuple[str | None, str | None]:
     """Judge an aggregate of a parameter: the reason it is refused (None where allowed) and the unit of the result."""
-    if aggregate in ("count", "first", "last"):
+    if aggregate in ("count", "earliest", "latest"):
         return None, None if aggregate == "count" else meta.unit
-    if meta.unit_type in _NO_STATISTIC_TYPES or meta.aggregation == "code":
-        kind = "a direction" if meta.unit_type == "angle" else "a code"
-        return f"`{meta.name}` is {kind}: it has no {aggregate}; use count, first or last", None
+    # a direction has no mean, and a zenith angle has: the angles of a direction are named so
+    direction = meta.unit_type == "angle" and "direction" in meta.name
+    if direction or meta.unit_type == "significant_weather" or meta.aggregation == "code":
+        kind = "a direction" if direction else "a code"
+        return f"`{meta.name}` is {kind}: it has no {aggregate}; use count, earliest or latest", None
     if aggregate in ("min", "max"):
         return None, meta.unit
     if aggregate == "mean":
@@ -568,7 +640,7 @@ def _refusal_of(aggregate: str, meta: SeriesMeta, resolution: str) -> tuple[str 
         return None, meta.unit
     # a sum
     if meta.aggregation in _SUMMABLE:
-        if _WINDOW_NAME.search(meta.name):
+        if _overlaps(meta.name, resolution):
             reason = (
                 f"`{meta.name}` is a total over a window of its own: summing its rows counts the same rain "
                 "several times"
@@ -584,6 +656,21 @@ def _refusal_of(aggregate: str, meta: SeriesMeta, resolution: str) -> tuple[str 
         "sunshine, counts) and, daily or hourly, for temperatures (degree days)"
     )
     return reason, None
+
+
+def _overlaps(name: str, resolution: str) -> bool:
+    """Tell whether the rows of a parameter that is a total over a window of its own overlap at this resolution.
+
+    `_multiday` and `_since_last` windows always do; a `_last_Nh` window does where it is longer than the step of the
+    resolution (`precipitation_amount_last_1h` of hourly values is each hour once, of 10-minute values six times).
+    """
+    found = _WINDOW_NAME.search(name)
+    if found is None:
+        return False
+    if found.group(2) is None:
+        return True
+    step = _RESOLUTION_HOURS.get(resolution)
+    return step is None or int(found.group(2)) > step
 
 
 def _degree_unit(unit: str, resolution: str) -> str:
@@ -638,13 +725,12 @@ def _season_year(year: int, month: int, year_start: int) -> int:
 
 
 def _season_bounds(year: int, year_start: int) -> tuple[dt.datetime, dt.datetime]:
-    """Give the first and the last instant of the year a season is named by."""
+    """Give the first and the last instant of the year a season is named by, within the years 1 to 9999."""
+    year = min(max(year, 1), 9999)
     if year_start == 1:
         return dt.datetime(year, 1, 1, tzinfo=dt.UTC), dt.datetime(year, 12, 31, 23, 59, 59, 999999, tzinfo=dt.UTC)
-    return (
-        dt.datetime(year - 1, year_start, 1, tzinfo=dt.UTC),
-        dt.datetime(year, year_start, 1, tzinfo=dt.UTC) - dt.timedelta(microseconds=1),
-    )
+    end = dt.datetime(year, year_start, 1, tzinfo=dt.UTC) - dt.timedelta(microseconds=1)
+    return dt.datetime(max(year - 1, 1), year_start, 1, tzinfo=dt.UTC), end
 
 
 def _floor(resolution: str, stamp: dt.datetime) -> dt.datetime:
@@ -660,6 +746,20 @@ def _floor(resolution: str, stamp: dt.datetime) -> dt.datetime:
     return stamp.replace(minute=0, second=0, microsecond=0)
 
 
+def _anchor(resolution: str, stamp: dt.datetime) -> dt.datetime:
+    """Give where the cells of a period that begins at `stamp` begin.
+
+    A month or a year the period begins in is counted when the stamp is on its first day, at whatever time of it (a
+    monthly value dated 06:00 of the 1st is that month's), and not when it begins later in it, as `count_readings`
+    counts; the steps of the finer resolutions begin at the step they lie in.
+    """
+    if resolution == "monthly":
+        return _floor(resolution, stamp) if stamp.day == 1 else _ceil(resolution, stamp)
+    if resolution == "annual":
+        return _floor(resolution, stamp) if (stamp.month, stamp.day) == (1, 1) else _ceil(resolution, stamp)
+    return _floor(resolution, stamp)
+
+
 def _ceil(resolution: str, stamp: dt.datetime) -> dt.datetime:
     """Give the first anchor of a calendar resolution at or after a stamp: a month it began in is not counted."""
     floor = _floor(resolution, stamp)
@@ -670,37 +770,78 @@ def _ceil(resolution: str, stamp: dt.datetime) -> dt.datetime:
     return floor.replace(year=floor.year + floor.month // 12, month=floor.month % 12 + 1)
 
 
-def _cells(resolution: str, low: dt.datetime, high: dt.datetime) -> tuple[pl.DataFrame, int]:
-    """Make the cells a period holds, the steps of a resolution, and how many readings each stands for.
+#: how many hours one cell of a resolution spans, at the least: the steps of a calendar resolution are longer
+_CELL_HOURS: Final = {"hourly": 1, "6_hours": 6, "daily": 24, "monthly": 24 * 28, "annual": 24 * 365}
 
-    A step finer than an hour is counted by the hour (`60 // minutes` readings a cell), so that a station of one-minute
-    readings costs no more than one of hourly ones. The cells of a calendar resolution are its anchors.
+
+def _cells(resolution: str, low: dt.datetime, high: dt.datetime) -> pl.DataFrame:
+    """Make the cells a period holds, the steps of a resolution, with how many readings each stands for (`_w`).
+
+    A step finer than an hour is counted by the hour, so that a station of one-minute readings costs no more than one of
+    hourly ones: a cell is an hour and stands for the steps of it that lie in the period, which is all of `60 //
+    minutes` of them but in the first hour and the last, where the period begins and ends. The steps are counted from
+    `low`, as `count_readings` counts them, and the first and the last cell are stamped at the first and the last step,
+    so that what lies before the first step and after the last is neither expected nor an edge. The cells of a calendar
+    resolution are its anchors.
     """
     import polars as pl  # noqa: PLC0415
 
-    weight = 1
     if resolution in _STEP:
-        weight = 60 // _STEP[resolution]
-        interval = "1h"
-    elif resolution in _INTERVAL:
-        interval = _INTERVAL[resolution]
-    else:
+        return _sub_hourly_cells(_STEP[resolution], low, high)
+    if resolution not in _INTERVAL:
         message = f"`{resolution}` has no fixed step to count the values of a group by"
         raise RowSelectionRefusedError(message)
-    start = _ceil(resolution, low) if resolution in ("monthly", "annual") else _floor(resolution, low)
+    start = _anchor(resolution, low)
+    empty = pl.DataFrame(schema={"timestamp": pl.Datetime("us", "UTC"), "_w": pl.Int64})
     if high < start:
-        return pl.DataFrame(schema={"timestamp": pl.Datetime("us", "UTC")}), weight
-    hours = (high - start) / dt.timedelta(hours=1)
-    # the steps in the period, by the largest step there can be per hour
-    if hours > MAX_CELLS * (24 if resolution in ("daily", "monthly", "annual") else 1):
+        return empty
+    _refuse_wide_window(resolution, (high - start) / dt.timedelta(hours=1) / _CELL_HOURS[resolution])
+    cells = pl.datetime_range(start, high, _INTERVAL[resolution], time_zone="UTC", eager=True)
+    return pl.DataFrame({"timestamp": cells}).with_columns(pl.lit(1, pl.Int64).alias("_w"))
+
+
+def _refuse_wide_window(resolution: str, cells: float) -> None:
+    """Refuse a window with more cells than a group is counted over: it would cost more than the answer can say."""
+    if cells > MAX_CELLS:
         message = (
-            f"The window spans {hours:,.0f} hours of {resolution} values, more than the statistics count the values "
-            "of a group over. Give a narrower `timestamp`."
+            f"The window spans {cells:,.0f} steps of {resolution} values, more than the {MAX_CELLS:,} the statistics "
+            "count the values of a group over. Give a narrower `timestamp`."
         )
         raise RowSelectionRefusedError(message)
-    return (
-        pl.DataFrame({"timestamp": pl.datetime_range(start, high, interval, time_zone="UTC", eager=True)}),
-        weight,
+
+
+def _sub_hourly_cells(minutes: int, low: dt.datetime, high: dt.datetime) -> pl.DataFrame:
+    """Make the hourly cells of a period of steps finer than an hour, each with the steps of it in the period."""
+    import polars as pl  # noqa: PLC0415
+
+    step = dt.timedelta(minutes=minutes)
+    last = low + ((high - low) // step) * step
+    hour = dt.timedelta(hours=1)
+    first_hour = low.replace(minute=0, second=0, microsecond=0)
+    last_hour = last.replace(minute=0, second=0, microsecond=0)
+    if high < low:
+        return pl.DataFrame(schema={"timestamp": pl.Datetime("us", "UTC"), "_w": pl.Int64})
+    _refuse_wide_window("hourly", (last_hour - first_hour) / hour + 1)
+    full = 60 // minutes
+    stamp = pl.Datetime("us", "UTC")
+    cells = pl.datetime_range(first_hour, last_hour, "1h", time_zone="UTC", eager=True)
+    frame = pl.DataFrame({"timestamp": cells}).with_columns(pl.lit(full, pl.Int64).alias("_w"))
+    if first_hour == last_hour:
+        return frame.with_columns(
+            pl.lit(low, stamp).alias("timestamp"), pl.lit(1 + (last - low) // step, pl.Int64).alias("_w")
+        )
+    # the steps of the first hour that begin at or after `low`, and those of the last that begin at or before `last`
+    in_first = -((low - (first_hour + hour)) // step)
+    in_last = 1 + (last - last_hour) // step
+    row, end = pl.int_range(pl.len()), pl.len() - 1
+    return frame.with_columns(
+        pl.when(row == 0)
+        .then(pl.lit(low, stamp))
+        .when(row == end)
+        .then(pl.lit(last, stamp))
+        .otherwise(pl.col("timestamp"))
+        .alias("timestamp"),
+        pl.when(row == 0).then(in_first).when(row == end).then(in_last).otherwise(full).cast(pl.Int64).alias("_w"),
     )
 
 
@@ -856,14 +997,14 @@ def reduce_series(  # noqa: C901
     if known and (first_ts is not None or w0 is not None):
         period = _period(plan, series.resolution, (w0, w1), first_ts, last_ts, now)
         if period is not None:
-            cells, weight = _cells(series.resolution, *period)
+            cells = _cells(series.resolution, *period)
             cells = keep(_keyed(cells, plan.year_start, calendar), plan.time_conditions)
             if not plan.by:
                 cells = cells.with_columns(pl.lit(0).alias("_all"))
             expected = (
                 cells.group_by(keys)
                 .agg(
-                    (pl.len() * weight).alias("expected"),
+                    pl.col("_w").sum().alias("expected"),
                     pl.col("timestamp").min().alias("_cmin"),
                     pl.col("timestamp").max().alias("_cmax"),
                 )
@@ -899,8 +1040,9 @@ def reduce_series(  # noqa: C901
             exprs.append(pl.when(no_value).then(None).otherwise(pl.col("_matched")).cast(pl.Int64).alias("count"))
         elif name in ("mean", "sum"):
             none_matched = pl.when(pl.col("_matched") == 0).then(0.0 if name == "sum" else None).otherwise(pl.col(name))
-            exprs.append(pl.when(no_value | incomplete).then(None).otherwise(none_matched).alias(name))
-    base = base.with_columns([*exprs, incomplete.alias("_incomplete")])
+            # rounded where it is made, so that two sums that differ in the last bit of a float tie
+            exprs.append(pl.when(no_value | incomplete).then(None).otherwise(none_matched).round(6).alias(name))
+    base = base.with_columns([*exprs, incomplete.alias("_incomplete"), (~incomplete).cast(pl.Int8).alias("complete")])
 
     # ---- which groups are rows: not the periods before the first value or after the last -----------------------------
     total = base.height
@@ -916,7 +1058,7 @@ def reduce_series(  # noqa: C901
     # ---- the statistics over the groups, before having, sort and first ----------------------------------------------
     over: dict[str, dict[str, Any]] = {}
     for name in plan.aggregate:
-        if name in ("first", "last"):
+        if name in ("earliest", "latest"):
             continue
         # only complete groups with a value: a running year's count is a lower bound, no year's count
         usable = base.filter(~pl.col("_incomplete")).get_column(name).drop_nulls()
@@ -928,7 +1070,7 @@ def reduce_series(  # noqa: C901
             "mean": _number(usable.mean()),
         }
     base = base.drop("_matched", "_all", "_cmin", "_cmax", strict=False)
-    selected = [*plan.by, *_aggregate_columns(plan), "searched", "expected", "_incomplete"]
+    selected = [*plan.by, *_aggregate_columns(plan), "searched", "expected", "complete", "_incomplete"]
     base = base.select(selected)
     return SeriesStatistics(
         station_id=series.station_id,
@@ -949,10 +1091,7 @@ def reduce_series(  # noqa: C901
         not_listed=not_listed,
         incomplete=int(base.get_column("_incomplete").sum()),
         matched=base.height,
-        unknown_completeness=bool(
-            {"mean", "sum"} & set(plan.aggregate)
-            and base.filter(pl.col("expected").is_null() & (pl.col("searched") > 0)).height
-        ),
+        unknown_completeness=bool(base.filter(pl.col("expected").is_null() & (pl.col("searched") > 0)).height),
     )
 
 
@@ -982,15 +1121,15 @@ def _aggregates(plan: StatisticsPlan) -> list[pl.Expr]:
             out.append(extreme.alias(name))
             # a tie gives the earliest date
             out.append(stamp.filter(value == extreme).first().alias(f"{name}_at"))
-        elif name in ("first", "last"):
-            out.append((value.first() if name == "first" else value.last()).alias(name))
-            out.append((stamp.first() if name == "first" else stamp.last()).alias(f"{name}_at"))
+        elif name in ("earliest", "latest"):
+            out.append((value.first() if name == "earliest" else value.last()).alias(name))
+            out.append((stamp.first() if name == "earliest" else stamp.last()).alias(f"{name}_at"))
     return out
 
 
 def _number(value: Any) -> float | None:  # noqa: ANN401
-    """Round a statistic over the groups to the four decimals an answer writes; None stays none."""
-    return None if value is None else round(float(value), 4)
+    """Round a statistic over the groups to the six decimals an answer keeps; None stays none."""
+    return None if value is None else round(float(value), 6)
 
 
 def _period(
@@ -1003,9 +1142,10 @@ def _period(
 ) -> tuple[dt.datetime, dt.datetime] | None:
     """Give the period the cells of a series are counted over, None where it has none (rule 3 of the completeness).
 
-    With a `year` in `by`: the years (or seasons) of the window, whole, cut by the window only, and not by the record
-    nor by today, so that a year that is not over is incomplete until it is. Without a `year`: from the start of the
-    window (without one: the first value) to its end (without one: the last value) and not past the last complete step
+    With a `year` in `by`: the years (or seasons) of the window, whole, and cut neither by the window nor by the record
+    nor by today, so that a year that the window cuts, or that is not over, is incomplete. Without a `year`: from the
+    start of the window (without one: the first value) to its end (without one: the last value) and not past the last
+    complete step
     of the resolution, but never narrower than the values found: as `searched_of` counts, so that one group over the
     whole series has the `expected` of the series.
     """
@@ -1016,10 +1156,6 @@ def _period(
             return None
         low = _season_bounds(_season_year(start_at.year, start_at.month, plan.year_start), plan.year_start)[0]
         high = _season_bounds(_season_year(end_at.year, end_at.month, plan.year_start), plan.year_start)[1]
-        if w0 is not None:
-            low = max(low, w0)
-        if w1 is not None:
-            high = min(high, w1)
         return (low, high) if low <= high else None
     from wetterdienst.metadata.resolution import Resolution  # noqa: PLC0415
 
@@ -1149,11 +1285,24 @@ class StatisticsRun:
                 "`statistics` needs the long shape, where a row is one value of one parameter; the request is wide. "
                 "Ask with shape=long."
             )
+        plan = plan.bound(ParameterNames.of(stations.parameters, humanize=options.humanize))
         parameters: dict[tuple[str, str, str], SeriesMeta] = {}
+        units: dict[str, str] = {}
         for parameter in stations.parameters:
             name = parameter.name if options.humanize else parameter.name_original
             key = (parameter.dataset.resolution.name, parameter.dataset.name.lower(), name)
-            parameters.setdefault(key, SeriesMeta.of(parameter, unit_symbol(parameter)))
+            meta = SeriesMeta.of(parameter, unit_symbol(parameter))
+            parameters.setdefault(key, meta)
+            units.setdefault(meta.unit, parameter.name)
+            # what a parameter cannot do with the options is told before any download, not at a station with rows
+            refuse_for(plan, meta, parameter.dataset.resolution.name)
+        if plan.value_conditions and len(units) > 1:
+            listed = "; ".join(f"{name} in {unit}" for unit, name in units.items())
+            raise RowSelectionRefusedError(
+                "A `filter` on `value` has one number for every parameter of the request, which are not in one unit "
+                f"({listed}). Name one parameter in `parameters`, e.g. daily/climate_summary/temperature_air_min_2m, "
+                "or filter on `year`, `month`, `day` and `hour` only."
+            )
         return cls(
             plan,
             parameters,
@@ -1252,6 +1401,9 @@ class StatisticsRun:
                 how="diagonal_relaxed",
             )
             chosen, tied = _first_of(self.plan, pool, exact=exact)
+            if exact:
+                # the place of each group over the stations of the parameter
+                chosen = chosen.with_row_index("rank", offset=1).with_columns(pl.col("rank").cast(pl.Int64))
             tied_total += tied
             for index, member in enumerate(members):
                 member.frame = chosen.filter(pl.col("_s") == index).drop("_s", "station_id")
@@ -1273,51 +1425,67 @@ class StatisticsRun:
     ) -> StatisticsResult:
         """Settle what is left (`first` over the stations of `per=none`, `max_rows`) and make the result."""
         tied = 0
+        series, left_out = self.series, []
         if not self.plan.per_station and self.plan.first:
             tied = self._across(exact=True)
-        tied += sum(s.tied for s in self.series)
-        cap_cut = self._cap()
+            series, left_out = self._in_rank_order()
+        tied += sum(s.tied for s in series)
         result = StatisticsResult(
             stations=stations,
             plan=self.plan,
-            series=self.series,
+            series=series,
+            left_out=left_out,
             window=self.window,
             stations_read=stations_read,
             tied=tied,
-            capped=cap_cut,
             data_updated_at=data_updated_at,
         )
+        cap = self.plan.max_rows
+        total = sum(s.frame.height for s in series)
+        if cap is not None and total > cap:
+            result = result.head(cap, drop_empty=not self.plan.per_station)
+            result.capped = (cap, total)
         result.warn()
         return result
 
-    def _cap(self) -> tuple[int, int] | None:
-        """Cut the groups of the answer to `max_rows`, the first in the answer's order: (returned, matched) or None."""
-        cap = self.plan.max_rows
-        if cap is None:
-            return None
-        total = sum(s.frame.height for s in self.series)
-        if total <= cap:
-            return None
-        left = cap
-        for series in self.series:
-            series.frame = series.frame.head(left)
-            left -= series.frame.height
-        return cap, total
+    def _in_rank_order(self) -> tuple[list[SeriesStatistics], list[SeriesStatistics]]:
+        """Put the series of `per=none` in the order of their best group, and leave out those that kept none.
+
+        One parameter at a time, in the order the parameters were read: the series whose best group ranks first comes
+        first. A series that kept no group is not listed (the totals still count it).
+        """
+        listed: list[SeriesStatistics] = []
+        left_out: list[SeriesStatistics] = []
+        for members in self._by_parameter().values():
+            kept = [m for m in members if not m.frame.is_empty()]
+            left_out.extend(m for m in members if m.frame.is_empty())
+            kept.sort(key=_best_rank)
+            listed.extend(kept)
+        return listed, left_out
+
+
+def _best_rank(series: SeriesStatistics) -> int:
+    """Give the rank of the best group a series kept, which a series of `per=none` that is listed has."""
+    best = series.frame.get_column("rank").min()
+    return int(best) if isinstance(best, int) else 0
 
 
 @dataclass
 class StatisticsResult:
     """What `statistics` answers: the series with their groups, the options, the window and the totals.
 
-    `series` is in the order the stations were read; the groups of each are in the order of `sort`, or by the columns
-    of `by`. `df` is one row per group with the identity of its series in front of it. `to_dict`, `to_json`, `to_csv`
-    and `to_ndjson` write the answer, `search` the report of what was searched that the `metadata` block of a REST
-    answer carries.
+    `series` is in the order the stations were read, and with `per=none` in the order of the rank of their best group
+    (`rank` is the place of each group over the stations of a parameter), those that kept no group left out
+    (`left_out`, which the totals count). The groups of a series are in the order of `sort`, or by the columns of `by`.
+    `df` is one row per group with the identity of its series in front of it. `to_dict`, `to_json`, `to_csv` and
+    `to_ndjson` write the answer, `search` the report of what was searched that the `metadata` block of a REST answer
+    carries.
     """
 
     stations: StationsResult
     plan: StatisticsPlan
     series: list[SeriesStatistics]
+    left_out: list[SeriesStatistics] = field(default_factory=list)
     window: tuple[dt.datetime | None, dt.datetime | None] = (None, None)
     stations_read: int | None = None
     tied: int = 0
@@ -1325,25 +1493,83 @@ class StatisticsResult:
     data_updated_at: dt.datetime | None = None
     warnings_made: bool = field(default=False, repr=False)
 
-    @property
-    def df(self) -> pl.DataFrame:
-        """Give one row per group: the series, the columns of `by`, the aggregates, `searched` and `expected`."""
+    def head(self, groups: int, *, drop_empty: bool = False) -> StatisticsResult:
+        """Keep the first `groups` groups of the answer: by rank under `per=none`, else in the order of the answer.
+
+        A series left with no group is dropped with `drop_empty` (and counted in the totals as every series is).
+        """
         import polars as pl  # noqa: PLC0415
 
-        identity = ["station_id", "resolution", "dataset", "parameter"]
-        frames = [
-            s.frame.drop("_incomplete").with_columns(
-                pl.lit(s.station_id).alias("station_id"),
-                pl.lit(s.resolution).alias("resolution"),
-                pl.lit(s.dataset).alias("dataset"),
-                pl.lit(s.parameter).alias("parameter"),
+        if self.plan.per_station:
+            left = groups
+            frames = []
+            for s in self.series:
+                frame = s.frame.head(left)
+                left -= frame.height
+                frames.append(frame)
+        else:
+            order = {
+                key: n
+                for n, key in enumerate(dict.fromkeys((s.resolution, s.dataset, s.parameter) for s in self.series))
+            }
+            ranks = [
+                s.frame.select("rank").with_columns(
+                    pl.lit(n).alias("_s"), pl.lit(order[(s.resolution, s.dataset, s.parameter)]).alias("_p")
+                )
+                for n, s in enumerate(self.series)
+            ]
+            kept = pl.concat(ranks).sort("rank", "_p", "_s").head(groups) if ranks else None
+            frames = (
+                [
+                    s.frame.filter(pl.col("rank").is_in(kept.filter(pl.col("_s") == n).get_column("rank")))
+                    for n, s in enumerate(self.series)
+                ]
+                if kept is not None
+                else []
             )
-            for s in self.series
-        ]
+        listed, dropped = [], []
+        for s, frame in zip(self.series, frames, strict=True):
+            (dropped if drop_empty and frame.is_empty() else listed).append(replace(s, frame=frame))
+        return replace(self, series=listed, left_out=[*self.left_out, *dropped])
+
+    @property
+    def df(self) -> pl.DataFrame:
+        """Give one row per group: the series, `rank` (`per=none`), the columns of `by`, the aggregates, the counts."""
+        import polars as pl  # noqa: PLC0415
+
+        frames = [self._identified(s, s.frame.drop("_incomplete")) for s in self.series]
         if not frames:
-            return pl.DataFrame(schema=dict.fromkeys(identity, pl.String))
-        frame = pl.concat(frames, how="diagonal_relaxed")
-        return frame.select([*identity, *(c for c in frame.columns if c not in identity)])
+            return pl.DataFrame(schema=_schema(self.plan))
+        return pl.concat(frames, how="diagonal_relaxed").with_columns(pl.col("complete").cast(pl.Boolean))
+
+    @staticmethod
+    def _identified(s: SeriesStatistics, frame: pl.DataFrame) -> pl.DataFrame:
+        """Put the identity of a series in front of its groups."""
+        import polars as pl  # noqa: PLC0415
+
+        identity = {
+            "station_id": s.station_id,
+            "resolution": s.resolution,
+            "dataset": s.dataset,
+            "parameter": s.parameter,
+        }
+        return frame.select(*(pl.lit(value).alias(key) for key, value in identity.items()), pl.all())
+
+    def _written(self, s: SeriesStatistics) -> pl.DataFrame:
+        """Give the groups of a series as the answer writes them: dates as text, `complete` as a boolean."""
+        import polars as pl  # noqa: PLC0415
+
+        pattern = "%Y-%m-%d" if s.resolution in ("daily", "monthly", "annual") else "%Y-%m-%dT%H:%MZ"
+        dated = {f"{name}_at" for name in DATED}
+        columns = [
+            pl.col(c).dt.strftime(pattern).alias(c)
+            if c in dated
+            else pl.col(c).cast(pl.Boolean).alias(c)
+            if c == "complete"
+            else pl.col(c)
+            for c in _group_fields(self.plan)
+        ]
+        return s.frame.select(columns)
 
     def warn(self) -> None:
         """Tell what the answer leaves open as the warnings of the request being served (once per answer)."""
@@ -1351,10 +1577,9 @@ class StatisticsResult:
             return
         self.warnings_made = True
         plan = self.plan
-        asked = bool({"mean", "sum"} & set(plan.aggregate))
-        for s in self.series:
+        for s in [*self.series, *self.left_out]:
             name = s.name
-            if asked and s.incomplete:
+            if s.incomplete:
                 count_response_warning(
                     INCOMPLETE_GROUPS,
                     s.incomplete,
@@ -1390,15 +1615,16 @@ class StatisticsResult:
                 log,
                 ROWS_CAPPED,
                 f"{returned:,} of {matched:,} groups are returned: `max_rows` is {plan.max_rows}. The groups are the "
-                "first of the answer's order, and `metadata.search.totals` counts all that matched.",
+                f"{'best by rank' if not plan.per_station else 'first in the order of the answer'}, and "
+                "`metadata.search.totals` counts all that matched.",
                 level=logging.INFO,
             )
 
     # -- the answer ------------------------------------------------------------------------------------------------
 
     def totals(self) -> dict[str, Any]:
-        """Count what the answer searched and holds, summed over its series."""
-        series = self.series
+        """Count what the answer searched and holds, summed over all its series, those left out of the list too."""
+        series = [*self.series, *self.left_out]
         unknown = any(s.expected is None for s in series)
         unknown_gaps = any(s.gaps is None for s in series)
         return {
@@ -1412,7 +1638,7 @@ class StatisticsResult:
             "groups_not_listed": sum(s.not_listed for s in series),
             "groups_incomplete": sum(s.incomplete for s in series),
             "groups_matched": sum(s.matched for s in series),
-            "groups_returned": sum(s.frame.height for s in series),
+            "groups_returned": sum(s.frame.height for s in self.series),
         }
 
     def search(self) -> dict[str, Any]:
@@ -1429,22 +1655,8 @@ class StatisticsResult:
         }
 
     def rows_of(self, series: SeriesStatistics) -> list[dict[str, Any]]:
-        """Write the groups of a series as the answer has them: `by`, the aggregates, `searched`, `expected`."""
-        plan = self.plan
-        fields = [*plan.by, *_aggregate_columns(plan), "searched", "expected"]
-        dated = {f"{name}_at" for name in DATED}
-        rows = []
-        for record in series.frame.select(fields).iter_rows(named=True):
-            row: dict[str, Any] = {}
-            for name in fields:
-                value = record[name]
-                if name in dated and value is not None:
-                    value = _short_stamp(value, series.resolution)
-                elif isinstance(value, float):
-                    value = round(value, 4)
-                row[name] = value
-            rows.append(row)
-        return rows
+        """Write the groups of a series as the answer has them: `by`, the aggregates, the counts, `complete`."""
+        return self._written(series).to_dicts()
 
     def series_dicts(self, *, groups: bool = True) -> list[dict[str, Any]]:
         """Write the series: who each is, how much of it was searched, the statistics over its groups, its groups."""
@@ -1462,8 +1674,8 @@ class StatisticsResult:
                 entry["units"] = s.units
             entry.update(
                 {
-                    "first": _short_stamp(s.first, s.resolution) if s.first else None,
-                    "last": _short_stamp(s.last, s.resolution) if s.last else None,
+                    "first_timestamp": _short_stamp(s.first, s.resolution) if s.first else None,
+                    "last_timestamp": _short_stamp(s.last, s.resolution) if s.last else None,
                     "searched": s.searched,
                     "expected": s.expected,
                     "gaps": s.gaps,
@@ -1476,11 +1688,11 @@ class StatisticsResult:
         return out
 
     def to_dict(self) -> dict[str, Any]:
-        """Write the answer without the `metadata` block: `{"series": [...]}`, each with its groups."""
+        """Write the series of the answer, each with its groups: `{"series": [...]}`, without the `metadata` block."""
         return {"series": self.series_dicts()}
 
     def to_json(self, *, pretty: bool = False) -> str:
-        """Write the answer as JSON: the series with their groups, and what was searched under `search`."""
+        """Write the answer as JSON: `to_dict` and what was searched (`search`: in `metadata` of a REST answer)."""
         answer = {"search": self.search(), **self.to_dict()}
         return json.dumps(
             answer, indent=2 if pretty else None, separators=None if pretty else (",", ":"), ensure_ascii=False
@@ -1488,11 +1700,54 @@ class StatisticsResult:
 
     def to_csv(self, *, include_header: bool = True) -> str:
         """Write the groups as CSV, one row per group, the identity of its series first; no names, no statistics."""
-        return _csv(self.plan, self.series_dicts(), include_header=include_header)
+        import polars as pl  # noqa: PLC0415
+
+        frames = [self._identified(s, self._written(s)) for s in self.series]
+        frame = pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame(schema=_schema(self.plan))
+        return frame.write_csv(include_header=include_header)
+
+    def groups_ndjson(self) -> str:
+        """Write the groups as NDJSON lines, each with the identity of its series in front."""
+        return "".join(self._identified(s, self._written(s)).write_ndjson() for s in self.series)
 
     def to_ndjson(self) -> str:
         """Write the groups as NDJSON, a line each with its series' identity, then an `end` line with the rest."""
-        return _ndjson(self.series_dicts(), {"search": self.search()})
+        end = {
+            "search": self.search(),
+            "series": [{k: v for k, v in e.items() if k != "groups"} for e in self.series_dicts()],
+        }
+        return self.groups_ndjson() + json.dumps({"end": end}, ensure_ascii=False, separators=(",", ":")) + "\n"
+
+
+def _group_fields(plan: StatisticsPlan) -> list[str]:
+    """Name the columns of a group as the answer writes them: `rank` (`per=none`), `by`, the aggregates, the counts."""
+    return [
+        *(["rank"] if not plan.per_station else []),
+        *plan.by,
+        *_aggregate_columns(plan),
+        "searched",
+        "expected",
+        "complete",
+    ]
+
+
+def _schema(plan: StatisticsPlan) -> dict[str, Any]:
+    """Give the columns of the groups of a plan with their types, for a result that has none."""
+    import polars as pl  # noqa: PLC0415
+
+    schema: dict[str, Any] = dict.fromkeys(("station_id", "resolution", "dataset", "parameter"), pl.String)
+    for name in _group_fields(plan):
+        if name.endswith("_at"):
+            schema[name] = pl.Datetime("us", "UTC")
+        elif name in ("rank", "count", "searched", "expected"):
+            schema[name] = pl.Int64
+        elif name == "complete":
+            schema[name] = pl.Boolean
+        elif name in CALENDAR:
+            schema[name] = pl.Int32 if name == "year" else pl.Int8
+        else:
+            schema[name] = pl.Float64
+    return schema
 
 
 def _short_stamp(value: dt.datetime, resolution: str) -> str:
@@ -1500,40 +1755,6 @@ def _short_stamp(value: dt.datetime, resolution: str) -> str:
     if resolution in ("daily", "monthly", "annual"):
         return value.strftime("%Y-%m-%d")
     return value.strftime("%Y-%m-%dT%H:%MZ")
-
-
-def _csv(plan: StatisticsPlan, series: Sequence[Mapping[str, Any]], *, include_header: bool = True) -> str:
-    """Write series, each with its groups, as CSV."""
-    columns = [
-        "station_id",
-        "resolution",
-        "dataset",
-        "parameter",
-        *plan.by,
-        *_aggregate_columns(plan),
-        "searched",
-        "expected",
-    ]
-    lines = [",".join(columns)] if include_header else []
-    for entry in series:
-        for group in entry.get("groups", ()):
-            full = {**entry, **group}
-            lines.append(",".join("" if full.get(c) is None else str(full[c]) for c in columns))
-    return "\n".join(lines) + ("\n" if lines else "")
-
-
-def _ndjson(series: Sequence[Mapping[str, Any]], end: Mapping[str, Any]) -> str:
-    """Write series as NDJSON: a line for each group with its series' identity, then the `end` line."""
-    lines = []
-    for entry in series:
-        head = {k: entry[k] for k in ("station_id", "resolution", "dataset", "parameter")}
-        lines.extend(
-            json.dumps({**head, **group}, ensure_ascii=False, separators=(",", ":"))
-            for group in entry.get("groups", ())
-        )
-    body = {"end": {**end, "series": [{k: v for k, v in e.items() if k != "groups"} for e in series]}}
-    lines.append(json.dumps(body, ensure_ascii=False, separators=(",", ":")))
-    return "\n".join(lines) + "\n"
 
 
 def statistics_of_frame(

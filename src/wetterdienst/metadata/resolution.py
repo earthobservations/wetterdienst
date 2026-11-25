@@ -116,7 +116,8 @@ def count_readings(resolution: Resolution, start_date: dt.datetime, end_date: dt
         return 0
     if resolution == Resolution.MONTHLY:
         anchor = start_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        if anchor < start_date:
+        # a start on the 1st counts the month at whatever time of the day it is (a value dated 06:00 is that month's)
+        if anchor.date() < start_date.date():
             anchor = anchor.replace(
                 year=anchor.year + anchor.month // 12,
                 month=anchor.month % 12 + 1,
@@ -126,7 +127,7 @@ def count_readings(resolution: Resolution, start_date: dt.datetime, end_date: dt
         return (end_date.year - anchor.year) * 12 + end_date.month - anchor.month + 1
     if resolution == Resolution.ANNUAL:
         anchor = start_date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        if anchor < start_date:
+        if anchor.date() < start_date.date():
             anchor = anchor.replace(year=anchor.year + 1)
         if anchor > end_date:
             return 0

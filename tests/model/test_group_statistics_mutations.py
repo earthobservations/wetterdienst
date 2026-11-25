@@ -13,9 +13,13 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING, Any
 
+import polars as pl
 import pytest
 
 from tests.model import test_group_statistics as matrix
+from tests.model.test_group_statistics_review import (
+    test_the_first_and_the_last_hour_of_a_record_count_the_steps_they_hold as edges_test,
+)
 from tests.model.test_group_statistics_rules import test_a_station_of_minutes_costs_hours_of_cells as minutes_test
 from wetterdienst.model import group_statistics
 
@@ -58,8 +62,7 @@ def _one_cell_too_few(patch: pytest.MonkeyPatch) -> None:
     original = group_statistics._cells  # noqa: SLF001
 
     def fewer(resolution: str, low: Any, high: Any) -> Any:  # noqa: ANN401
-        cells, weight = original(resolution, low, high)
-        return cells.slice(1), weight
+        return original(resolution, low, high).slice(1)
 
     patch.setattr(group_statistics, "_cells", fewer)
 
@@ -112,6 +115,21 @@ def _time_conditions_do_not_narrow_the_cells(patch: pytest.MonkeyPatch) -> None:
     patch.setattr(group_statistics, "keep", keep)
 
 
+def _the_window_cuts_the_year(patch: pytest.MonkeyPatch) -> None:
+    """Cut a year or a season by the window, as it was: a group the window cuts is then complete."""
+    original = group_statistics._period  # noqa: SLF001
+
+    def cut(plan: Any, resolution: Any, window: Any, first: Any, last: Any, now: Any) -> Any:  # noqa: ANN401
+        period = original(plan, resolution, window, first, last, now)
+        if period is None or "year" not in plan.by:
+            return period
+        low, high = period
+        w0, w1 = window
+        return (max(low, w0) if w0 is not None else low), (min(high, w1) if w1 is not None else high)
+
+    patch.setattr(group_statistics, "_period", cut)
+
+
 MUTANTS = {
     "a season is the calendar year": _calendar_year,
     "the year of a value is its calendar year": _year_of_the_stamp,
@@ -120,6 +138,7 @@ MUTANTS = {
     "less than is at most": _less_than_is_at_most,
     "a year ends today": _the_running_year_ends_today,
     "time conditions do not narrow the cells": _time_conditions_do_not_narrow_the_cells,
+    "the window cuts the year": _the_window_cuts_the_year,
 }
 
 
@@ -140,9 +159,24 @@ def test_the_hours_of_a_station_of_minutes_are_counted_by_their_weight(monkeypat
     original = group_statistics._cells  # noqa: SLF001
 
     def unweighted(resolution: str, low: Any, high: Any) -> Any:  # noqa: ANN401
-        cells, _ = original(resolution, low, high)
-        return cells, 1
+        return original(resolution, low, high).with_columns(pl.lit(1, pl.Int64).alias("_w"))
 
     monkeypatch.setattr(group_statistics, "_cells", unweighted)
     with pytest.raises(AssertionError):
         minutes_test(monkeypatch)
+
+
+def test_the_first_and_the_last_hour_of_a_period_are_counted_by_the_steps_in_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Weighing the first and the last hour whole (the cells of a minute station as they were) is caught."""
+    original = group_statistics._sub_hourly_cells  # noqa: SLF001
+
+    def whole(minutes: int, low: Any, high: Any) -> Any:  # noqa: ANN401
+        cells = original(minutes, low, high)
+        full = 60 // minutes
+        return cells.with_columns(pl.lit(full, pl.Int64).alias("_w"))
+
+    monkeypatch.setattr(group_statistics, "_sub_hourly_cells", whole)
+    with pytest.raises(AssertionError):
+        edges_test(monkeypatch)

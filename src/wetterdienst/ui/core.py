@@ -1522,10 +1522,10 @@ STATISTICS_SELECTION = Selection(
 _AggregateField = Annotated[
     str,
     Field(
-        description="What to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `first`, `last`, "
-        "comma-separated. `count` is the values that meet `filter`; `min`, `max`, `first` and `last` come with their "
-        "date (`min_at`). A direction or a code has no mean or extreme; `sum` is for amounts and, daily or hourly, "
-        "temperatures (degree days). Example: `count`, `mean,max`.",
+        description="What to compute per group: one to five of `count`, `mean`, `sum`, `min`, `max`, `earliest`, "
+        "`latest`, comma-separated. `count` is the values that meet `filter`; `min`, `max`, `earliest` and `latest` "
+        "come with their date (`min_at`). A direction or a code has no mean or extreme; `sum` is for amounts and, "
+        "daily or hourly, temperatures (degree days). Example: `count`, `mean,max`.",
     ),
 ]
 _StatisticsByField = Annotated[
@@ -1559,22 +1559,22 @@ _MaxMissingField = Annotated[
     Field(
         ge=0,
         le=MAX_MISSING,
-        description="How many values a group may lack and still get a `mean` and a `sum` (default 0: a gap, or a year "
-        "that is not over, leaves them null).",
+        description="How many values a group may lack and still be `complete` and get a `mean` and a `sum` (default "
+        "0).",
     ),
 ]
 _HavingField = Annotated[
     str | None,
     Field(
-        description="Keep the groups that meet conditions on the results, written as `filter`: the aggregates asked "
-        "for, `searched`, `expected`. Example: `count>=100`, `searched<360`.",
+        description="Keep groups that meet conditions on the results, as `filter`: the aggregates, `searched`, "
+        "`expected`, `complete`. Example: `count>=100`, `complete`.",
     ),
 ]
 _StatisticsSortField = Annotated[
     str | None,
     Field(
         description="Order of the groups: columns joined by commas, `-` before one for descending: the aggregates "
-        "asked for, the columns of `by`, `station_id`, `searched`, `expected`. Example: `-mean`.",
+        "asked for, the columns of `by`, `station_id`, `searched`, `expected`, `complete`. Example: `-mean`.",
     ),
 ]
 _StatisticsFirstField = Annotated[
@@ -1589,8 +1589,8 @@ _StatisticsFirstField = Annotated[
 _PerField = Annotated[
     Literal["station", "none"],
     Field(
-        description="Over what `first` counts: `station` (each series) or `none` (the stations of one parameter "
-        "together). Needs `first`.",
+        description="Over what `first` counts: `station` (each series) or `none` (all stations of a parameter, groups "
+        "with `rank`). Needs `first`.",
     ),
 ]
 _StatisticsMaxRowsField = Annotated[
@@ -1699,11 +1699,11 @@ class StatisticsRequest(_RefusesRenamedParameters):
     format: _StatisticsFormatField = "json"
     pretty: _PrettyField = False
 
-    @field_validator("by", "filter", "having", "sort", mode="before")
+    @field_validator("by", "filter", "having", "sort", "year_start", "max_missing", "first", "max_rows", mode="before")
     @classmethod
     def validate_option_is_given(cls, v: object) -> object:
         """Read an option left empty as none given, as an empty query parameter is."""
-        return None if isinstance(v, str) and not v else v
+        return None if isinstance(v, str) and not v.strip() else v
 
     @model_validator(mode="after")
     def check_statistics_options(self) -> StatisticsRequest:

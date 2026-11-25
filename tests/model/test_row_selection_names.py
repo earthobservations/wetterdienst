@@ -761,4 +761,4 @@ def test_the_texts_of_the_options_say_what_the_pilot_showed_a_model_needs() -> N
     assert "`sort=value&first=1`: the extreme with all its ties" in first
     assert "`max_rows` cuts them" in first
     assert "`rank` asks for another number." in INSTRUCTIONS
-    assert len(INSTRUCTIONS) < 8000
+    assert len(INSTRUCTIONS) < 7800

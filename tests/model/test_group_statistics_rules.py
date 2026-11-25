@@ -82,8 +82,8 @@ def test_rule_10_max_missing_lets_a_gap_have_its_mean(monkeypatch: pytest.Monkey
 
 
 def test_rule_6_an_incomplete_group_keeps_what_the_values_there_are_say(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Count, min, max, first and last are of the values there are; the mean and the sum are null."""
-    result = _stats(monkeypatch, _january_with_gaps(), "count,min,max,first,last", window=_jan_2020(), by="month")
+    """Count, min, max, earliest and latest are of the values there are; the mean and the sum are null."""
+    result = _stats(monkeypatch, _january_with_gaps(), "count,min,max,earliest,latest", window=_jan_2020(), by="month")
     (row,) = _rows(result)
     assert (row["count"], row["min"], row["min_at"], row["max"], row["max_at"]) == (
         28,
@@ -92,7 +92,12 @@ def test_rule_6_an_incomplete_group_keeps_what_the_values_there_are_say(monkeypa
         31.0,
         "2020-01-31",
     )
-    assert (row["first"], row["first_at"], row["last"], row["last_at"]) == (1.0, "2020-01-01", 31.0, "2020-01-31")
+    assert (row["earliest"], row["earliest_at"], row["latest"], row["latest_at"]) == (
+        1.0,
+        "2020-01-01",
+        31.0,
+        "2020-01-31",
+    )
     assert result.totals()["groups_incomplete"] == 1
     sums = _stats(monkeypatch, _january_with_gaps(), "mean,sum", window=_jan_2020(), by="month")
     assert (_rows(sums)[0]["mean"], _rows(sums)[0]["sum"]) == (None, None)
@@ -190,13 +195,13 @@ def test_rule_7_values_and_no_match_is_zero_and_no_value_is_nothing(monkeypatch:
     result = _stats(
         monkeypatch,
         readings,
-        "count,sum,mean,min,first",
+        "count,sum,mean,min,earliest",
         window=(at(2020, 1, 1), at(2020, 3, 31, 23)),
         by="month",
         filter="value<0",
     )
     january, february, march = _rows(result)
-    assert (january["count"], january["sum"], january["mean"], january["min"], january["first"]) == (
+    assert (january["count"], january["sum"], january["mean"], january["min"], january["earliest"]) == (
         0,
         0.0,
         None,
@@ -385,7 +390,7 @@ def _plan(aggregate: str, **options: Any) -> StatisticsPlan:  # noqa: ANN401
         ("humidity_relative", "%", "sum", "hourly", False, None),
         ("wind_direction", "°", "mean", "hourly", False, None),
         ("wind_direction", "°", "count", "hourly", True, None),
-        ("wind_direction", "°", "first", "hourly", True, None),
+        ("wind_direction", "°", "earliest", "hourly", True, None),
         ("precipitation_amount_last_3h", "mm", "sum", "hourly", False, None),
         ("count_days_frost", "-", "sum", "annual", True, None),
         ("count_days_frost", "-", "mean", "annual", True, None),
@@ -409,16 +414,16 @@ def test_what_a_parameter_allows_comes_from_its_own_metadata(
 
 
 def test_every_canonical_parameter_is_judged_and_the_judgement_follows_its_own_metadata() -> None:
-    """All of them are judged (none raises other than a refusal); count, first and last are allowed for each."""
+    """All of them are judged (none raises other than a refusal); count, earliest and latest are allowed for each."""
     refused = {"mean": 0, "sum": 0, "min": 0}
     for name, parameter in PARAMETERS.items():
         meta = SeriesMeta(name, "u", parameter.unit_type, parameter.aggregation)
         for resolution in ("daily", "monthly"):
-            for aggregate in ("count", "first", "last", "min", "max", "mean", "sum"):
+            for aggregate in ("count", "earliest", "latest", "min", "max", "mean", "sum"):
                 try:
                     refuse_for(_plan(aggregate), meta, resolution)
                 except RowSelectionRefusedError:
-                    assert aggregate not in ("count", "first", "last")
+                    assert aggregate not in ("count", "earliest", "latest")
                     refused[aggregate if aggregate in refused else "min"] += 1
     assert refused["sum"] > refused["mean"] > 0
 

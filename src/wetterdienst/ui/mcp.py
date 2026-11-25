@@ -264,7 +264,7 @@ cannot serve a place; look at its `kind`, its `extent` and at what `stations` re
 
 ## Choosing a tool
 For "what was/is the weather at <place>" ALWAYS use `stations` then `values` -- that is the only \
-path to measured weather, and the correct default. This holds even when the request names a \
+path to measured weather. This holds even when the request names a \
 specific past date (e.g. "how was the weather in Kiel on 26.12.2025"): find Kiel's nearest station \
 with `stations`, then read its `values` for that date. Do NOT reach for `interpolate` or \
 `summarize` here.
@@ -278,8 +278,8 @@ plain-language "summary". `history` is different again: it returns a station's *
 (a point is the reliable way). For design rainfall at a point in Germany (rain depth by duration \
 and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`.
 
-For counts, sums or means per year, month or day (frost days a year, the coldest winter) use `statistics`; \
-for a record or the hottest days, `values` with `sort` and `first`.
+For counts, sums or means per year, month or day (frost days, the coldest winter) use `statistics`; \
+for a record, `values` with `sort` and `first`.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -307,16 +307,14 @@ return; `unit_source` only if it differs. Each parameter has `aggregation` \
 (its `instant` is a single reading) and `timestamp_position`; `null` means not stated, not a reading.
 - elevation: for `interpolate` and `summarize` only, the elevation of the point in metres above sea \
 level. Air temperature falls about 0.65 K per 100 m, so a point in a valley and one on the ridge \
-above it get different answers from the same stations; without it the readings are used as they \
-come.
+above it differ; without it the readings are used as they come.
 - periods: leave it out unless the provider splits its record into releases. dwd/observation does \
 -- "recent" is roughly the last 1.5 years, "historical" reaches further back -- as do dwd/derived and \
-dwd/phenology. Most other providers publish everything under a single period, and asking for one \
-their datasets do not have is an error, not a narrower answer.
+dwd/phenology. Most other providers have a single period; asking for one their datasets lack is an \
+error.
 - lists: an argument that takes several (`parameters`, `stations`, `periods`) is plural and takes them \
 comma-separated, e.g. stations="01975,04411". `interpolate` and `summarize` take one reference `station`.
-- Handy DWD datasets: daily/kl (= climate_summary: temperature, precipitation, wind, sunshine), \
-hourly/air_temperature, hourly/precipitation.
+- Handy DWD datasets: daily/kl (= climate_summary), hourly/air_temperature, hourly/precipitation.
 
 ## Reading results
 - By default (shape="long" unless the server is configured otherwise, format="json") `values` \
@@ -425,10 +423,7 @@ _ALERTS_ADVICE = (
 
 # The sentence that ends the description of the `statistics` tool, which only the tool has: its answer is cut to the
 # same budget, keeping the first groups (GH-4412).
-_STATISTICS_ADVICE = (
-    "An answer over 40,000 characters keeps the first groups in its order (`answer-truncated`); `over_groups` and "
-    "`metadata.search.totals` cover all of them."
-)
+_STATISTICS_ADVICE = "An answer over 40,000 characters keeps the first groups (`answer-truncated`)."
 
 
 def _annotate_tool(

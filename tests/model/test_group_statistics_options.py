@@ -126,10 +126,15 @@ def _statistics(text: str) -> Any:  # noqa: ANN401
 def test_the_filter_is_read_as_the_filter_of_values_reads_it_or_refused_at_the_same_place() -> None:
     """20,000 random texts: the same conditions, or an error of the same option at the same position."""
     rng = random.Random(4412)  # noqa: S311
-    errors = conditions = 0
+    errors = conditions = names = 0
     for _ in range(20_000):
         text = _random_text(rng)
         a, b = _values(text), _statistics(text)
+        if isinstance(a, RowSelectionError) and "is not a column of this option" in str(a):
+            # a word that can be a name is held by `statistics` until the request's parameters are known
+            assert not isinstance(b, RowSelectionError) or b.position is None or b.position >= (a.position or 0), text
+            names += 1
+            continue
         if isinstance(a, RowSelectionError):
             assert isinstance(b, RowSelectionError), text
             assert (a.option, a.position, a.found) == (b.option, b.position, b.found), text
@@ -140,6 +145,7 @@ def test_the_filter_is_read_as_the_filter_of_values_reads_it_or_refused_at_the_s
     # the fuzz reaches both outcomes often
     assert errors > 2_000
     assert conditions > 5_000
+    assert names > 100
 
 
 def test_the_bounds_of_every_text_are_those_of_values_and_hold_without_delay() -> None:
@@ -362,6 +368,7 @@ def test_a_held_result_gives_the_statistics_the_reader_gives(monkeypatch: pytest
         "mean",
         "searched",
         "expected",
+        "complete",
     ]
     assert held.df.height == 9
     assert sorted(held.df.get_column("station_id").unique().to_list()) == list(STATIONS)
