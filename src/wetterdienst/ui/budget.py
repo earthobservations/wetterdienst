@@ -376,6 +376,73 @@ def _fit_values(
     return partial[kept if kept is not None else 1]
 
 
+def _rows_note(*, result: _SeriesResult, kept: int, total: int, lead: str, honest: bool) -> str:
+    """Write the note of an answer of chosen rows (`filter`, `sort`, `first`) cut to its first `kept` of `total` rows.
+
+    The rows are cut in the order of the answer, so what is kept is what `sort` puts first, and the note says how many
+    rows matched in all and how many values were searched, so that the cut is not mistaken for the whole.
+    """
+    search = getattr(result, "search", None)
+    options = search.selection.echo() if search is not None else {}
+    order = f", in the order of the answer (sort={options['sort']})" if options.get("sort") else ", in their order"
+    head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
+    searched = (
+        f" {int(search.series.get_column('searched').sum()):,} values were searched."
+        if search is not None and search.series.height
+        else ""
+    )
+    matched = search.matched_total if search is not None else total
+    if kept == 1 and total == 1:
+        returned = "the only row is"
+    elif matched > total:
+        # `max_rows` cut the answer already (`rows-capped`): `total` is what it returned, `matched` what matched
+        returned = (
+            f"the first {kept:,} of the {total:,} rows returned ({matched:,} matched; `max_rows` is "
+            f"{options['max_rows']}) are"
+        )
+    else:
+        returned = f"the first {kept:,} of {total:,} matched rows are"
+    # what would make fewer rows, without advice that cannot work (a `first` of 1 or a `max_rows` of 1 keeps no less)
+    ways = []
+    if options.get("first") is not None and int(options["first"]) > 1:
+        ways.append("a smaller `first`")
+    if options.get("max_rows") is None or int(options["max_rows"]) > 1:
+        ways.append("a `max_rows`" if options.get("max_rows") is None else "a smaller `max_rows`")
+    ways += ["a narrower `filter`" if options.get("filter") else "a `filter`", "fewer parameters and stations"]
+    advice = ", ".join(ways[:-1]) + f", or {ways[-1]}"
+    return f"{head}{returned} returned{order}; the rest are left out.{searched} For fewer rows ask for {advice}."
+
+
+def _fit_rows(
+    result: _SeriesResult,
+    request: _SeriesRequest,
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
+    size: int,
+    *,
+    lead: str,
+    honest: bool,
+) -> _Attempt:
+    """Find the most rows, from the first, of an answer of chosen rows that fit the budget, or the first one."""
+    df = result.df
+    total = df.height
+
+    def attempt(count: int) -> _Attempt:
+        note = _rows_note(result=result, kept=count, total=total, lead=lead, honest=honest)
+        return _made(result, request, df.head(count), note, render)
+
+    tried: dict[int, _Attempt] = {}
+
+    def fits(count: int) -> bool:
+        tried[count] = attempt(count)
+        return tried[count].size <= ANSWER_BUDGET
+
+    best = _largest(1, total - 1, fits, max(1, total * ANSWER_BUDGET // size)) if total > 1 else None
+    if best is not None:
+        return tried[best]
+    # not even one row fits: the first is kept, which the report of what was searched may be most of
+    return tried.get(1) or attempt(1)
+
+
 def fit_values(
     result: _SeriesResult,
     request: _SeriesRequest,
@@ -403,18 +470,28 @@ def fit_values(
     if size <= ANSWER_BUDGET:
         return content, metadata
     asked = request
-    chosen = _fit_values(result, asked, render, size, lead="", honest=False)
+    # an answer of rows chosen by the request is cut in its own order, the first rows kept, and says how many matched;
+    # any other is a series of timestamps and is cut at one
+    fit = _fit_rows if getattr(result, "search", None) is not None else _fit_values
+    chosen = fit(result, asked, render, size, lead="", honest=False)
+    search = getattr(result, "search", None)
+    if chosen.size > ANSWER_BUDGET and search is not None and search.listed > 0:
+        # the series of the report go before the rows do: the totals stay, and `series_omitted` counts them
+        lean_result = replace(result, search=replace(search, listed=0))
+        chosen_lean = fit(lean_result, asked, render, size, lead="", honest=False)
+        if chosen_lean.size < chosen.size:
+            result, chosen = lean_result, chosen_lean
     if chosen.size > ANSWER_BUDGET and (
         dropped := _without_block(
             result,
             request,
             render,
-            lambda lean, whole, lead: _fit_values(result, lean, render, whole, lead=lead, honest=False),
+            lambda lean, whole, lead: fit(result, lean, render, whole, lead=lead, honest=False),
         )
     ):
         chosen, asked = dropped
     if chosen.size > ANSWER_BUDGET:
-        chosen = _fit_values(result, asked, render, chosen.size, lead="", honest=True)
+        chosen = fit(result, asked, render, chosen.size, lead="", honest=True)
     record_response_warning(ANSWER_TRUNCATED, chosen.note)
     log.info(
         f"Cut a {request.route} answer of {result.df.height} rows to {chosen.metadata.counts.rows} to stay within the "

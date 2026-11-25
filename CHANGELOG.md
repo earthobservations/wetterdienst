@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- `values` takes `filter`, `sort`, `first`, `by` and `max_rows`, which have the server choose the
+  rows of the answer from the whole series: `sort=value&first=1` is the lowest value of each
+  station in the window, `filter=value<=-20` the days at or below -20, `max_rows=20` keeps the
+  first 20 rows. The same words on REST, in the MCP tool, on the command line and in Python; a
+  text that cannot be read is refused with its position. `metadata.search` says per station and
+  parameter from when to when the series was searched, how many values, of how many the request
+  covers, and how many rows matched and were returned. A request with `first` may read up to the
+  stream limit (GH-4411)
 - `region` selects the stations their provider lists under a region (`stations` and `values`; the
   command line's `--region`, the REST API's and MCP's `region`; Python's `filter_by_region`): one
   region or several, comma-separated, compared as names are (case, accents, `ue` for `ü`, a hyphen

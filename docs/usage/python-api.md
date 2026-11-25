@@ -1046,6 +1046,47 @@ values = stations.values().all()
 print(values.to_csv())
 ```
 
+### Choose the rows
+
+`filter`, `sort`, `first`, `by` and `max_rows` choose the rows of a values answer by the same words as the REST API, the MCP tool and
+the command line: see [Choose the rows](restapi.md#choose-the-rows) for the grammar, the columns, what a group is and what
+an empty answer means. They are keywords of the reader, `values().all(...)` and `values().query(...)`, and of one method of
+the result, `selected_rows`, which does the same to a result you hold: both call one function (`RowSelection`), so they give
+the same rows. They are not options of the request (`Options`): nothing in the environment can make a host filter what it
+answers.
+
+The reader applies them to each station as its values arrive, after the stations are counted for a `rank` and for
+`skip_empty`, so what is held is the rows chosen and not the series read, and finishes the whole once: a group that
+spans stations (`by="year"`) and the order of `sort`. `query` yields the stations one by one and so takes the options
+whose groups stay in a station (a `max_rows` cuts each station's rows there, the cap of the whole is `all`'s); `by` without `station_id` is refused there with the words to use `all`. A text that cannot
+be read is a `RowSelectionError` (a `RequestError`) naming the position, and a selection that cannot be applied to the
+request, `value` over parameters of two units or in the wide shape, a `RowSelectionRefusedError`; both are raised before a
+station is read.
+
+`ValuesResult.search` says what was looked at, per station and parameter (`search.series`, a frame; `search.to_dict()` is
+the `metadata.search` of the REST answer). It is `None` for values read without the options.
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters="daily/climate_summary/temperature_air_min_2m", start="1900", end="2026"
+)
+reader = request.filter_by_station_id("01975").values()
+
+lowest = reader.all(sort="value", first=1)  # the lowest value of the station in the window, and its days
+print(lowest.df)
+print(lowest.search.to_dict()["totals"])  # {'series': 1, 'searched': ..., 'expected': ..., 'gaps': ..., 'matched': ...}
+
+coldest_days = reader.all(sort="value", first=1, by="station_id,year")  # the coldest day of every year
+frost = request.filter_by_station_id("01975").values().all(filter="value<=-20", sort="-timestamp")
+few = reader.all(sort="value", first=1, max_rows=20)  # ties can be many rows: keep the first 20 of the answer
+
+# the same of a result you hold already
+everything = request.filter_by_station_id("01975").values().all()
+lowest_again = everything.selected_rows(sort="value", first=1)
+```
+
 ### SQL
 
 Querying data using SQL is provided by an in-memory [DuckDB](https://duckdb.org/) database.
