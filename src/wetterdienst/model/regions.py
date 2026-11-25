@@ -22,7 +22,6 @@ from a region without stations in the window.
 
 from __future__ import annotations
 
-import unicodedata
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
@@ -31,6 +30,7 @@ from rapidfuzz import utils as fuzz_utils
 
 from wetterdienst.exceptions import NoRegionsError, UnknownRegionError
 from wetterdienst.util.names import fold_name
+from wetterdienst.util.ui import shown_text
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -41,11 +41,6 @@ if TYPE_CHECKING:
 MAX_REGIONS_NAMED = 20
 #: for how many of the unknown regions asked for the closest regions are looked up and offered
 MAX_HINTED = 5
-#: how long a region is written in a refusal; the source's own names are short, a name beyond this is cut
-_MAX_NAME_LENGTH = 60
-#: the Unicode categories of a character replaced in a message: control, format, surrogate, private-use and unassigned
-#: characters, and the line and paragraph separators
-_BREAKING = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
 #: the least `WRatio` of a region to be offered as the one meant
 _HINT_CUTOFF = 70.0
 #: how many close regions are offered
@@ -104,8 +99,7 @@ def _shown(name: str) -> str:
     A region asked for is the caller's text, and one the list has is the source's: neither may break the line of a log
     or a terminal, or fill the message.
     """
-    clean = "".join("\ufffd" if unicodedata.category(char) in _BREAKING else char for char in name)
-    return clean if len(clean) <= _MAX_NAME_LENGTH else f"{clean[: _MAX_NAME_LENGTH - 1]}…"
+    return shown_text(name)
 
 
 def _list_of(names: Sequence[str], quote: str = "") -> str:

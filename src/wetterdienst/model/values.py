@@ -643,7 +643,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # the ranked walk stopped short of the stations that do cover the window and the
             # request came back with nothing
             if df.is_empty():
-                self._leave_out_emptied(station_id, rows)
+                self._leave_out_emptied(station_id, rows, df_station_meta)
                 self._pass_over(rows, station_id)
                 continue
             if self.sr.options.skip_empty:
@@ -654,7 +654,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                     self._warn_station_skipped(station_id, percentage, rows)
                     self._pass_over(rows, station_id)
                     continue
-            self._tell_missing_value_markers()
+            self._tell_missing_value_markers(station_id, df_station_meta)
             if hpm is not None:
                 df = self._humanize(df=df, humanized_parameters_mapping=hpm)
             # what the selection searches, as the answer names it, counted before it chooses
@@ -731,12 +731,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             level=logging.INFO,
         )
 
-    def _leave_out_emptied(self, station_id: str, rows: ParameterRows) -> None:
+    def _leave_out_emptied(self, station_id: str, rows: ParameterRows, df_station_meta: pl.DataFrame) -> None:
         """Tell of a station with nothing left in the window: `station-skipped` if it held readings, all nulls."""
         if self._note_nulls_dropped(rows):
             # `skip_empty` leaves it out, as it does with the nulls kept
             self._warn_station_skipped(station_id, 0.0, rows)
-        self._tell_missing_value_markers(emptied=True)
+        self._tell_missing_value_markers(station_id, df_station_meta, emptied=True)
 
     def _station_spans(self) -> pl.DataFrame | None:
         """Give the span of the station's readings in the window per dataset, before `drop_nulls`, or None for none."""
@@ -791,13 +791,16 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         for check, number in checks.iter_rows():
             self._rejected_by_check[check] = self._rejected_by_check.get(check, 0) + number
 
-    def _tell_missing_value_markers(self, *, emptied: bool = False) -> None:
+    def _tell_missing_value_markers(
+        self, station_id: str, df_station_meta: pl.DataFrame, *, emptied: bool = False
+    ) -> None:
         """Add the markers of the station in hand to the warning of the request, unless the station is left out.
 
         Counted by `_process_dataset` for the station and told here, once the walk has not skipped it (`skip_empty`):
         the count is of the readings of the answer, and a station that is not in it, or one that an estimate reads
         (`_count_missing_value_markers`), has none to tell (GH-3554). One sum for the request, which
-        `count_response_warning` keeps.
+        `count_response_warning` keeps, with the count at each station (and its name), which the message tells for the
+        first few (GH-4424).
 
         A station `emptied` of its frame because the nulls were dropped is told when the request names it: the markers
         are what the nulls were. Not where it would be left out all the same -- `skip_empty` skips a frame without a
@@ -807,14 +810,37 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if emptied and (self.sr.options.skip_empty or self.sr._stations_filter == StationsFilter.BY_RANK):  # noqa: SLF001
             return
         if self._count_missing_value_markers:
-            count_response_warning(MISSING_VALUE_MARKER, self._markers_in_window, MISSING_VALUE_MARKER_MESSAGE)
-            count_response_warning(CALM_WIND_DIRECTION, self._calm_in_window, CALM_WIND_DIRECTION_MESSAGE)
+            name = self._name_of(df_station_meta)
+            count_response_warning(
+                MISSING_VALUE_MARKER,
+                self._markers_in_window,
+                MISSING_VALUE_MARKER_MESSAGE,
+                station=station_id,
+                station_name=name,
+            )
+            count_response_warning(
+                CALM_WIND_DIRECTION,
+                self._calm_in_window,
+                CALM_WIND_DIRECTION_MESSAGE,
+                station=station_id,
+                station_name=name,
+            )
             count_response_warning(
                 REJECTED_BY_PLAUSIBILITY,
                 self._rejected_in_window,
                 REJECTED_BY_PLAUSIBILITY_MESSAGE,
                 details=self._rejected_by_check,
+                station=station_id,
+                station_name=name,
             )
+
+    @staticmethod
+    def _name_of(df_station_meta: pl.DataFrame) -> str | None:
+        """Give the name the station list has for the station, or None where it has none (its rows are at hand)."""
+        if "name" not in df_station_meta.columns or df_station_meta.is_empty():
+            return None
+        name = df_station_meta.get_column("name")[0]
+        return name.strip() if isinstance(name, str) and name.strip() else None
 
     @staticmethod
     def _rows_of(*parameters: ParameterModel) -> pl.Expr:

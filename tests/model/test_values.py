@@ -1557,7 +1557,9 @@ def test_a_value_a_hard_check_rejected_is_no_missing_value_marker_and_is_counted
 
     markers = _warning_messages("missing-value-marker")
     assert len(markers) == 1
-    assert markers[0].startswith("1 readings of the source were a marker for a missing value and are null;")
+    assert markers[0].startswith(
+        "1 readings of the source were a marker for a missing value and are null, at 00001 (1);"
+    )
     assert "no sensor" not in markers[0]
     rejected = _warning_messages("rejected-by-plausibility")
     assert len(rejected) == 1
@@ -1688,9 +1690,13 @@ def test_a_calm_wind_direction_is_counted_apart_from_a_missing_value_marker(
     calm = _warning_messages("calm-wind-direction")
     assert len(calm) == 1
     assert calm[0].startswith("2 wind directions were a calm, which the source writes as 0")
+    # the station is told, as the markers' is (GH-4424)
+    assert ", at 00001 (2), and no reading is missing;" in calm[0]
+    assert [w["stations"] for w in recorded_warnings() if w["code"] == "calm-wind-direction"] == [["00001"]]
     markers = _warning_messages("missing-value-marker")
     assert len(markers) == 1
     assert markers[0].startswith("3 readings of the source were a marker for a missing value")
+    assert ", at 00001 (3);" in markers[0]
 
 
 @pytest.mark.parametrize(
