@@ -787,6 +787,10 @@ _REPORTING_HEADERS = (
 _CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
 
 
+# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
+_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
+
+
 def _is_json(media_type: str) -> bool:
     return media_type == "application/json" or media_type.endswith("+json")
 

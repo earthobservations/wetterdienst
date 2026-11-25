@@ -8,6 +8,9 @@ but did not return structured content"). And the refusal of a row limit told an 
 `format=csv`, which it could not. No tool answers a chart (GH-4318, GH-4453), so none answers an image either
 (GH-4450).
 
+
+`format=csv`, which it could not. No tool answers a chart (GH-4318), so none answers an image either (GH-4453).
+
 Offline: the selection of the stations and the reader are stood in for, as in `test_operations.py`.
 
 Building a server and opening a session is most of what a call costs, so a test makes all of its calls in one session.
