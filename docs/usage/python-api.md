@@ -355,6 +355,85 @@ The command line (`--wmo-id`, `--wigos-id`, `--icao-id`), the REST API and MCP (
 take them for `stations` and `values`, comma-separated, as one of the ways to select stations: not with `stations`,
 `name` or another of the selections.
 
+(filter-by-region)=
+
+#### filter by region
+
+`filter_by_region` selects every station that its provider lists under a region: the `region` column of the stations
+frame, which is what *the source* names (a state, province, county, canton or département), null where it names
+none. It answers a question that a name cannot, such as "the lowest temperature in Hamburg", which needs all of the
+stations the source lists under Hamburg, and a name matches the stations whose names hold the word, a few at a time
+(the best five of a `stations` listing).
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(parameters=("daily", "kl"), periods=("historical", "recent"))
+stations = request.filter_by_region("Hamburg")
+stations.df.select("station_id", "name", "latitude", "longitude", "start_timestamp", "end_timestamp")
+```
+
+The region is the source's, and so is the spelling. DWD's `Hamburg` is twelve stations of `daily/kl`: nine on land
+(`Hamburg-Fuhlsbüttel`, `Hamburg-Bergedorf`, `Hamburg-Neuwiedenthal`, `Hamburg (Deutsche Seewarte)`, ...) and three at
+sea in the North Sea that DWD files under Hamburg as well: `UFS Deutsche Bucht` (54.18 °N, 7.46 °E), `UFS TW Ems`
+(54.17 °N, 6.35 °E) and `Nordseeboje 2` (a buoy at 55.0 °N, 6.33 °E). The answer names every station with its position,
+so a caller that wants the city alone leaves the stations at sea out by their position or their name.
+
+What a region is called differs by provider, and so does how many stations have one (checked against the live lists):
+
+| What `region` holds | Networks |
+| --- | --- |
+| the German state written out (`Hamburg`, `Baden-Württemberg`) | `dwd/observation`, `dwd/derived` (all its datasets but `monthly/climate_correction_factor`, whose stations have none), `dwd/phenology` (16 states; the 1 minute precipitation of `dwd/observation` has two stations without one and four in `Tirol`) |
+| the two letters of the state | `dwd/road` (`HH`, `NW`) |
+| the state or states as DWD writes them | `dwd/pollen` (`Niedersachsen und Bremen`) |
+| the Austrian state, the Swiss canton, the Canadian province | `geosphere/observation` (`Niederösterreich`), `meteoswiss/observation` (`ZH`), `eccc/observation` (`BC`) |
+| the US state or Canadian province code | `noaa/ghcn`: 88,918 of the 132,894 stations of `daily` and 6,250 of the 38,870 of `hourly` have one (75 and 67 codes: `AK`, `TX`, `BC`); the others have none |
+| the département | `eaufrance/hubeau` in capitals without accents (`FINISTERE`, 2 of 1,713 stations without), `meteofrance/observation` as its number (`09`, `972`) |
+| the municipality | `fmi/observation` (`Helsinki`; 4 of 437 stations without) |
+| the county or province | `metno/frost` (`TRØNDELAG`), `metoffice/observation` (`cumbria`), `aemet/observation` (`ILLES BALEARS`): read from stubs of the lists, which need a key |
+| none, the column is null | `dwd/derived` `monthly/climate_correction_factor`, `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `dwd/swsmos`, `dwd/uvi`, `dmi/observation`, `rmi/observation`, `smhi/observation`, `wsv/pegel`, `nws/observation`, `meteofrance/synop`, `chmi/observation`, `ipma/observation`, `lhmt/observation`, `ea/hydrology`, both `imgw` networks, `knmi/observation` (a stub; it needs a key) |
+
+A station without a region is in none: no region selects it, and the refusal of a region that is not there says how
+many stations of the network are in that case.
+
+A region is compared the way a station name is, whole and not fuzzily: without regard to case, accents or
+transliteration, and with a hyphen, an apostrophe or a space as the one break between words, so that `hamburg`,
+`Baden Wuerttemberg` and `Cotes d'Armor` find `Hamburg`, `Baden-Württemberg` and `COTES-D'ARMOR`. Nothing else is
+read into it: `Hesse` is no `Hessen`, since no table of the names in other languages stands behind it, and a station is
+in the region its provider says, which is not always where it stands.
+
+```python
+request.filter_by_region(["Hamburg", "Bremen"])  # several regions, all their stations in catalogue order
+# raises UnknownRegionError, see below
+request.filter_by_region("Hesse")
+```
+
+Several regions are a list (a text is one region, a comma in it is no separator; the command line, the REST API and MCP
+read a comma-separated list). Like `filter_by_station_id` the filter selects among the whole list, whatever the window
+of the request. A region the list does not have is refused with an `UnknownRegionError` (a `RequestError`, so a
+`ValueError`, and a 400 over REST), which names it, the closest regions of the list and the regions there are, at most
+twenty of each and the number of the others, with control characters replaced and long names cut:
+`DwdObservationRequest has no station in the region 'Hesse'. Closest: 'Hesse': 'Hessen'. The regions there are:
+Baden-Württemberg, Bayern, ...`. Where some stations of the network have no region, it ends with how many (`2 of the
+1,713 stations have no region, and no region selects them.`). The error keeps what it names as `unknown`, `known` and
+`hints`. Where the stations of the requested parameters have no region, the request is refused with a `NoRegionsError`
+(an `UnknownRegionError`) that says so and advises `name`, a point or a bounding box. Neither is an empty result, which a caller could not tell from a
+region that has no station in the window. A list of stations that is empty is the exception: it has no region to
+refuse, and the result is empty, as for every other selection.
+
+Where the lookup of the stations went without a listing of the provider (`dwd/observation` and `dwd/derived` skip a
+directory that came back empty or missing, with a `file-skipped` warning), a region that is found is answered, and a
+region that is not found, or a list that came back empty or without any region, may be one the skipped directory
+holds: it is a `RegionListingIncompleteError`, an `UpstreamError` (a 502 over REST, as for a station asked for by id)
+that names the directories, and not a refusal of the caller's. A directory whose files name their stations (it lists no
+description) holds a region only if one of those stations is not in the list; an empty or missing one may hold any.
+The sentence names at most twenty of the regions asked for, as the refusal of an unknown region does, and `regions`
+of the error has them all.
+
+The command line (`--region`), the REST API and MCP (`region`) take it for `stations` and `values`, as one of the ways
+to select stations: not with `stations`, `name` or another of the selections. `interpolate` and `summarize` take a
+point or one station, and `history` ids: they take no `region`.
+
 #### filter by name
 
 Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
@@ -406,7 +485,7 @@ station is left out when it started after the window, or ended before it by more
 station whose start or end is not published is kept. A request without a window matches among all of
 them. The window is applied to a `df_all` you pass as well, so that the result does not depend on how
 you got the stations. The other filters (`filter_by_station_id`, `filter_by_rank`, `filter_by_distance`,
-`filter_by_bbox`, `filter_by_sql`) select among the whole list, whatever the window.
+`filter_by_region`, `filter_by_bbox`, `filter_by_sql`) select among the whole list, whatever the window.
 
 The buffer is there because the end a source publishes lags a station that is still reporting (DWD's
 daily index ends yesterday, its annual one the year before last). By default a station is kept until its
@@ -559,7 +638,7 @@ df
 
 The columns of `STATIONS_SCHEMA` are the same on every provider, but not always filled: `region` is the
 sub-national unit the source names (a state, province, county, canton or département), whatever it is called
-there, and null where the source names none. The last three are the identifiers a station may have besides its
+there, and null where the source names none; `filter_by_region` selects by it (see [filter by region](#filter-by-region)). The last three are the identifiers a station may have besides its
 `station_id`, each in one notation whichever provider lists it, and null where the provider publishes none:
 
 | Column | Notation | Filled by |
@@ -967,6 +1046,47 @@ values = stations.values().all()
 print(values.to_csv())
 ```
 
+### Choose the rows
+
+`filter`, `sort`, `first`, `by` and `max_rows` choose the rows of a values answer by the same words as the REST API, the MCP tool and
+the command line: see [Choose the rows](restapi.md#choose-the-rows) for the grammar, the columns, what a group is and what
+an empty answer means. They are keywords of the reader, `values().all(...)` and `values().query(...)`, and of one method of
+the result, `selected_rows`, which does the same to a result you hold: both call one function (`RowSelection`), so they give
+the same rows. They are not options of the request (`Options`): nothing in the environment can make a host filter what it
+answers.
+
+The reader applies them to each station as its values arrive, after the stations are counted for a `rank` and for
+`skip_empty`, so what is held is the rows chosen and not the series read, and finishes the whole once: a group that
+spans stations (`by="year"`) and the order of `sort`. `query` yields the stations one by one and so takes the options
+whose groups stay in a station (a `max_rows` cuts each station's rows there, the cap of the whole is `all`'s); `by` without `station_id` is refused there with the words to use `all`. A text that cannot
+be read is a `RowSelectionError` (a `RequestError`) naming the position, and a selection that cannot be applied to the
+request, `value` over parameters of two units or in the wide shape, a `RowSelectionRefusedError`; both are raised before a
+station is read.
+
+`ValuesResult.search` says what was looked at, per station and parameter (`search.series`, a frame; `search.to_dict()` is
+the `metadata.search` of the REST answer). It is `None` for values read without the options.
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters="daily/climate_summary/temperature_air_min_2m", start="1900", end="2026"
+)
+reader = request.filter_by_station_id("01975").values()
+
+lowest = reader.all(sort="value", first=1)  # the lowest value of the station in the window, and its days
+print(lowest.df)
+print(lowest.search.to_dict()["totals"])  # {'series': 1, 'searched': ..., 'expected': ..., 'gaps': ..., 'matched': ...}
+
+coldest_days = reader.all(sort="value", first=1, by="station_id,year")  # the coldest day of every year
+frost = request.filter_by_station_id("01975").values().all(filter="value<=-20", sort="-timestamp")
+few = reader.all(sort="value", first=1, max_rows=20)  # ties can be many rows: keep the first 20 of the answer
+
+# the same of a result you hold already
+everything = request.filter_by_station_id("01975").values().all()
+lowest_again = everything.selected_rows(sort="value", first=1)
+```
+
 ### SQL
 
 Querying data using SQL is provided by an in-memory [DuckDB](https://duckdb.org/) database.
@@ -1029,10 +1149,10 @@ below it say what kind of failure it is:
 
 | Class | Raised when | Also a |
 | --- | --- | --- |
-| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, an output format nothing renders (`UnknownFormatError`, also a `KeyError`), or a station asked for by id that exists and has none of the requested parameters (`StationLacksParametersError`, `noaa/ghcn` daily) | `ValueError` |
+| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, a region the station list does not have (`UnknownRegionError`; `NoRegionsError` for a network that has none), an output format nothing renders (`UnknownFormatError`, also a `KeyError`), or a station asked for by id that exists and has none of the requested parameters (`StationLacksParametersError`, `noaa/ghcn` daily) | `ValueError` |
 | `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
-| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError` (`ProviderRateLimitError`: the provider answered 429 or the quota of the key is used up, retry later after `retry_after` seconds), `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |
+| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError` (`ProviderRateLimitError`: the provider answered 429 or the quota of the key is used up, retry later after `retry_after` seconds), `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in; `RegionListingIncompleteError` for a region, or a list without regions, that a skipped directory may hold) | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
 | `ImageTimeoutError` | the browser that draws an image did not finish in `wetterdienst.io.export.IMAGE_TIMEOUT` (120) seconds, start included, and was closed with its processes | `TimeoutError` |
 

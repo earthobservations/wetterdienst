@@ -521,7 +521,7 @@ class Settings(BaseSettings):
     restapi_max_rows: int = Field(default=RESTAPI_MAX_ROWS, ge=0)
     restapi_max_stream_rows: int = Field(default=RESTAPI_MAX_STREAM_ROWS, ge=0)
     # seconds a request may take until its answer begins (and a streamed answer between two of its chunks),
-    # else a 504; the work already begun is not cancelled. 0 switches the timeout off
+    # else a 504, and the work of the request stops at the next station or file (GH-4429). 0 switches the timeout off
     restapi_timeout: float = Field(default=RESTAPI_TIMEOUT, ge=0, allow_inf_nan=False)
     # the requests under `/api` served at once (GH-3089), counted until the handler is done, else a 503 with
     # `Retry-After`. 0 switches the cap off

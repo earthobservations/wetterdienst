@@ -51,6 +51,23 @@ wetterdienst values --provider=dwd --network=observation --parameters=daily/kl -
     --limits='{"daily/climate_summary/temperature_air_mean_2m": [-22, 113]}'
 ```
 
+`--filter`, `--sort`, `--first`, `--by` and `--max-rows` choose the rows of `values` on the server's words, see
+[Choose the rows](restapi.md#choose-the-rows) for the grammar and what a group is: the whole record is read, and the
+answer holds the rows chosen and `metadata.search`, which says how many values were searched. Quote a text that has `<`,
+`>` or `|` in it, which a shell reads. A text that cannot be read is a usage error (exit 2) that names the position.
+
+```bash
+# the lowest value of a station in the window, and the coldest day of every year
+wetterdienst values --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
+    --stations=01975 --timestamp=1900/2024 --sort=value --first=1
+wetterdienst values --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
+    --stations=01975 --timestamp=1900/2024 --sort=value --first=1 --by=station_id,year
+
+# the days at or below -20 degrees, latest first
+wetterdienst values --provider=dwd --network=observation --parameters=daily/climate_summary/temperature_air_min_2m \
+    --stations=01975 --timestamp=1900/2024 --filter='value<=-20' --sort=-timestamp
+```
+
 The command line has none of the limits of the REST API on the rows or stations of a request. A long record or a
 whole network is written with `--target` to a file or a database, see
 [Getting more than the limit](large-requests.md#leave-the-server).

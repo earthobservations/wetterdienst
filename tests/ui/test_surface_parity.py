@@ -1120,7 +1120,7 @@ def test_a_bad_station_selection_is_the_same_refusal_on_every_surface(
     rest = _rest("/api/values", **selection)
     assert rest.status_code == 422, rest.text
     assert {error["type"] for error in rest.json()["errors"]} == {error_type}
-    named = "rank or distance" if "rank" in selection else "all, stations, wmo_id, wigos_id, icao_id, name"
+    named = "rank or distance" if "rank" in selection else "all, stations, wmo_id, wigos_id, icao_id, name, region"
     assert f"xactly one of {named}" in rest.json()["detail"]
 
     cli_result = _cli("values", *(f"--{key}={value}" for key, value in selection.items()))
@@ -1128,7 +1128,7 @@ def test_a_bad_station_selection_is_the_same_refusal_on_every_surface(
     option_names = (
         "'--rank' or '--distance'"
         if "rank" in selection
-        else "'--all', '--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name'"
+        else "'--all', '--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name', '--region'"
     )
     assert f"one of {option_names}" in cli_result.output
 
@@ -1294,6 +1294,12 @@ def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(
 
     for alternative in _alternatives(path):
         answered = client.get(path, params={**base, **alternative})
+        if "region" in alternative:
+            # the stand-in's stations are all in one region, which is not an example's: refused with the ones there are
+            assert answered.status_code == 400, (alternative, answered.text[:300])
+            assert "The regions there are: Sachsen." in answered.json()["detail"]
+            assert client.get(path, params={**base, "region": "sachsen"}).status_code == 200
+            continue
         # the stand-in network has no station by the name or at the place of an example: an empty answer, still a 200
         assert answered.status_code == 200, (alternative, answered.text[:300])
 
@@ -1307,6 +1313,7 @@ _STATION_GROUPS = [
     ["wigos_id"],
     ["icao_id"],
     ["name"],
+    ["region"],
     ["latitude", "longitude"],
     ["left", "bottom", "right", "top"],
 ]
@@ -1325,6 +1332,7 @@ _ATOMS = {
     "wigos_id": {"wigos_id": "0-20000-0-10381"},
     "icao_id": {"icao_id": "EDDH"},
     "name": {"name": "Dresden"},
+    "region": {"region": "Sachsen"},
     "point": {"latitude": "51.05", "longitude": "13.74"},
     "latitude": {"latitude": "51.05"},
     "box": {"left": "13", "bottom": "50", "right": "14", "top": "52"},

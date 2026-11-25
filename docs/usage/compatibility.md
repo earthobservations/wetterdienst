@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.198.0 until the next release.
+The baselines are those of 0.199.0 until the next release.
 
 ## What counts as breaking
 
@@ -215,7 +215,14 @@ Frozen:
 - the **shape of the answers**: the members of the JSON, GeoJSON and NDJSON, their types and which of them are always
   there, in particular the [`metadata` block](restapi.md#response-metadata) of every answer and the members of its
   `provider.license`, `request`, `counts`, `crs` and `warnings`, and the headers the OpenAPI document declares;
-- the **timestamp**: ISO 8601 in UTC, to the microsecond, with its offset.
+- the **timestamp**: ISO 8601 in UTC, to the microsecond, with its offset;
+- the **row options** of `values` (`filter`, `sort`, `first`, `by`, `max_rows`; [Choose the rows](restapi.md#choose-the-rows)):
+  their names, the grammar of their text, the columns each takes, what a group, a tie and a missing value are, the
+  order of the answer, and `metadata.search` with its members. A column or an operator may be added in a minor release
+  (a name that is none of them is refused with the list, so that none is taken by accident); one is not removed
+  or given another meaning. `rows-capped` is its warning code. `window`, `year_start`, `timezone`, `aggregate`, `having`, `per` and `max_missing` are
+  reserved for later options: no option, column or parameter is given them for another meaning. The grammar is
+  held by `tests/model/test_row_selection.py`, what it chooses by `tests/model/test_row_selection_semantics.py`.
 
 `tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed, without its `info.version`
 (`uv run poe openapi:snapshot` writes it anew), so that every change shows in a diff, and a release leaves it as it is.

@@ -27,6 +27,59 @@ Types of changes:
   The input schemas shrink by 3,441 of 51,696 characters. REST, the command line and Python are
   unchanged: ask the REST API for a chart (GH-4318)
 
+## [0.199.0] - 2026-11-25
+
+### Added
+
+- `values` takes `filter`, `sort`, `first`, `by` and `max_rows`, which have the server choose the
+  rows of the answer from the whole series: `sort=value&first=1` is the lowest value of each
+  station in the window, `filter=value<=-20` the days at or below -20, `max_rows=20` keeps the
+  first 20 rows. The same words on REST, in the MCP tool, on the command line and in Python; a
+  text that cannot be read is refused with its position. `metadata.search` says per station and
+  parameter from when to when the series was searched, how many values, of how many the request
+  covers, and how many rows matched and were returned. A request with `first` may read up to the
+  stream limit (GH-4411)
+- `region` selects the stations their provider lists under a region (`stations` and `values`; the
+  command line's `--region`, the REST API's and MCP's `region`; Python's `filter_by_region`): one
+  region or several, comma-separated, compared as names are (case, accents, `ue` for `ü`, a hyphen
+  or a space), whole and not fuzzily. The region is the source's, so DWD's `Hamburg` also holds
+  three stations at sea, not only the nine on land. An unknown region is refused with the closest
+  ones and the regions there are (`UnknownRegionError`, a 400; a 502 where a skipped DWD directory
+  may hold it), a network whose stations have none with that reason (`NoRegionsError`). It is one
+  of the exclusive selections, and the `metadata` block reports `by_region` (GH-4418)
+
+### Changed
+
+- The work of a REST or MCP request now stops when its answer has timed out: the 504 is the same,
+  but the walk over the stations ends at the next station (or file) instead of reading on in its
+  thread to the last one, so the request's place of the 32 is free within the time of the station
+  in hand and nothing more is downloaded for it. A stream whose client has gone stops too. A request
+  that ends in time is unchanged; Python and the command line have no timeout and are not affected
+  (GH-4429)
+- The warnings `missing-value-marker`, `calm-wind-direction` and `rejected-by-plausibility` say
+  at which stations their count is: the total, then the first five stations with their name and
+  count (`at 01975 Hamburg-Fuhlsbüttel (18)`) and `and N more stations`, and `stations` lists the
+  ones named. Before, a count of one station read as the answer's. The text is the same in every
+  answer with a `warnings` block and on the command line's stderr; what is counted is unchanged, so
+  a named station may have no row left in the answer (GH-4424)
+
+### Fixed
+
+- A streamed wide CSV (`shape=wide`) no longer drops, without a word, the columns that only a later
+  station has: its header came from the first station, so a parameter it lacked lost its values for
+  every other. The header is now the columns of the request, in its order, a station that lacks a
+  parameter having it empty. Other answers are unchanged; name the parameters for a dataset with
+  many (GH-4432)
+
+### Security
+
+- The lock holds filelock 4.3.0, which fixes the 30 advisories (5 medium, 25 low) that its own
+  repository lists for 4.2.12 (a lock can remove empty directories of another account, and others
+  of low severity). wetterdienst uses its native `FileLock` only, and one low advisory names it:
+  on Windows another local account can delay a short acquisition (GHSA-57mc-wxv7-332q). The range
+  `filelock>=3.30,<5` is unchanged. `anyio`'s advisory GHSA-g36m-r6gw-cj73 has no fixed release
+  yet: nothing here passes it a path to run (GH-4378)
+
 ## [0.198.0] - 2026-11-24
 
 ### Changed
@@ -8551,7 +8604,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...HEAD
+[0.199.0]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...v0.199.0
 [0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0
 [0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0

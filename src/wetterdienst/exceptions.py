@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from typing import Self
 
 
@@ -201,6 +201,54 @@ class StationLacksParametersError(RequestError):
         return type(self), (self.station_id, self.parameters), self.__dict__
 
 
+class UnknownRegionError(RequestError):
+    """Raised when a region a request selects stations by is none of the regions the station list has (GH-4418).
+
+    A `RequestError` (400, `request-refused`): the caller rephrases it with a region of the list. It is not an empty
+    answer, which a caller could not tell from a region that has no station in the window of the request.
+
+    `unknown` are the regions asked for that the list does not have, `known` the regions it has, as it writes them,
+    and `hints` the closest of those to each region asked for, where any is close.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        unknown: Sequence[str] = (),
+        known: Sequence[str] = (),
+        hints: Mapping[str, Sequence[str]] | None = None,
+    ) -> None:
+        """Keep the regions asked for, the ones there are and the closest to each, and say it in the message."""
+        self.unknown = list(unknown)
+        self.known = list(known)
+        self.hints = {region: list(names) for region, names in (hints or {}).items()}
+        super().__init__(message)
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the message and what it keeps, not from the message alone in `args`, so the error pickles."""
+        return _rebuild_unknown_region, (type(self), self.args[0], self.unknown, self.known, self.hints), self.__dict__
+
+
+class NoRegionsError(UnknownRegionError):
+    """Raised when stations are selected by region from a network whose stations have none (GH-4418).
+
+    A provider that names no sub-national unit for its stations has no region to select by: `known` is empty.
+    Told apart from `UnknownRegionError` for the reason it gives, which is not a misspelled region.
+    """
+
+
+def _rebuild_unknown_region(
+    cls: type[UnknownRegionError],
+    message: str,
+    unknown: Sequence[str],
+    known: Sequence[str],
+    hints: Mapping[str, Sequence[str]],
+) -> UnknownRegionError:
+    """Rebuild a pickled `UnknownRegionError` (keyword-only arguments cannot go through `args`)."""
+    return cls(message, unknown=unknown, known=known, hints=hints)
+
+
 class ApiNotFoundError(NotFoundError):
     """Raised when an API is not found in the API list."""
 
@@ -305,6 +353,44 @@ class StationListingIncompleteError(UpstreamError):
     def __reduce__(self) -> tuple:
         """Rebuild from the id and the directories, not from the message in `args`, so the error pickles."""
         return type(self), (self.station_id, self.gaps), self.__dict__
+
+
+class RegionListingIncompleteError(StationListingIncompleteError):
+    """Raised when stations are selected by region, none is found, and the lookup went without a listing (GH-4418).
+
+    The region of a station that only a skipped directory lists is not in the list the request selects among, so a
+    region that is not found, or a list that came back empty, may be one the provider has: the request is valid and
+    the cause is upstream, as for a station asked for by its id (`StationListingIncompleteError`, a 502). A region
+    that is found is answered, with the `file-skipped` warning the lookup has recorded. Not an `UnknownRegionError`,
+    which says the region is none of the provider's.
+
+    `regions` are the regions asked for that were not found (none where the list came back empty), `gaps` the
+    directories the lookup went without, each with the reason; `station_id` is the text of the regions.
+    """
+
+    def __init__(self, regions: Sequence[str], gaps: dict[str, str]) -> None:
+        """Keep the regions and the directories, and name them in the message."""
+        self.regions = list(regions)
+        self.gaps = dict(gaps)
+        self.station_id = ", ".join(self.regions)
+        from wetterdienst.model.regions import shown_in_log  # noqa: PLC0415
+
+        went_without = " and ".join(f"the directory {directory} ({reason})" for directory, reason in self.gaps.items())
+        # as the refusal of an unknown region writes them: at most twenty, cleaned and cut; `regions` has them all
+        what = (
+            f"the region{'s' if len(self.regions) > 1 else ''} {shown_in_log(self.regions)}"
+            if self.regions
+            else "any region"
+        )
+        UpstreamError.__init__(
+            self,
+            f"No station found for {what}. The lookup of the stations went without {went_without}, so a station that "
+            "only it lists is not found, and this may be one. Try again later.",
+        )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the regions and the directories, not from the message in `args`, so the error pickles."""
+        return type(self), (self.regions, self.gaps), self.__dict__
 
 
 class MissingDependencyError(ConfigurationError, ImportError):

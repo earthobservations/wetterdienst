@@ -31,6 +31,11 @@ exceeded. The rows of `values` are an estimate and an upper bound (see [Limits](
 the readings each station can hold in the window, times the parameters. Without a `timestamp` they are counted over the
 record of each station, so the first thing to add to a refused request is a window.
 
+Where the answer wanted is one row, or a few, of a long series (the lowest value in a window, the days at or below a
+limit, the coldest day of every year), do not read the series: have the server
+[choose the rows](restapi.md#choose-the-rows) (`sort=value&first=1`). A request with `first` may read up to the
+`stream_rows` limit, whatever its format, and holds the rows it chooses to the `rows` limit.
+
 The defaults, read from the settings, show what one parameter of one station comes to:
 
 ```{code-cell}
@@ -168,6 +173,7 @@ pl.scan_ndjson("rows.ndjson").group_by("station_id").agg(pl.col("value").mean())
 `httpx.stream("GET", url)`). `ndjson` refuses `with_stations` (a 400). A stream may run longer than the timeout, which holds between two chunks. The first station is
 read before the response begins, so a station that takes longer than the timeout to download is a 504 (ask again: what
 was downloaded is cached); a later one is the last line of an NDJSON stream, `error`, and a cut connection of a CSV.
+When a stream ends so, or its client leaves, the server stops reading stations for it.
 
 ## Ask in slices
 
@@ -386,7 +392,8 @@ WD_RESTAPI_MAX_ROWS=2000000 WD_RESTAPI_MAX_STATIONS=500 WD_RESTAPI_TIMEOUT=300 w
 
 The limits are what keeps a request from taking the server with it: an answer sent as one body is built in memory
 (a row of the long JSON is about 200 bytes, so half a million rows is about 100 MB, per request, with 32 at once by
-default), a request holds a thread until its work is done, and a reverse proxy in front has a timeout of its own, 60
+default), a request holds a thread until its work is done (one that timed out, until the station in hand is read: the
+work stops at the timeout, see [Timeout](restapi.md#timeout)), and a reverse proxy in front has a timeout of its own, 60
 seconds usually, that a longer `WD_RESTAPI_TIMEOUT` does not move. A server that others reach should raise one limit
 at a time and put a gateway in front that limits each client; [Running it for others](restapi.md#running-it-for-others)
 says what else to set. In a container, pass them as environment variables of the image (`docker run --env ...`), see
@@ -415,6 +422,9 @@ ask for less and to ask in slices:
 - Ask for a window: a day, a month or a year, "the daily maximum of 2024". The assistant can follow the refusal, which
   says what to shorten, and ask again for the next window.
 - Ask for fewer stations (the nearest three) or one parameter, not a dataset.
+- For a record, a rare value or the days over a limit, ask the server to choose the rows
+  ([`sort=value&first=1`, `filter=value<=-20`](restapi.md#choose-the-rows)) instead of reading the series in windows: the
+  answer is the rows, and `metadata.search` says how many values were searched.
 - For a long series, a whole network or a file to keep, ask the assistant to write a script that uses the
   [library](#leave-the-server) or the loops of this page against the REST API: every row an assistant reads goes through
   its context, which holds a small part of 500,000 rows.

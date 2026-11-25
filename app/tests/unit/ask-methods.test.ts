@@ -93,8 +93,10 @@ describe('the explanation of every chip', () => {
     })
 
     it('has a scale of verdicts only with a band that says it', () => {
-      if (Object.keys(chip.scale).length > 0)
-        expect(explanation.rules.some(rule => rule.kind === 'band'), `${id} has verdicts and no band`).toBe(true)
+      // a chip with no scale needs no band: the implication is the assertion, so that such a chip is held to it too
+      const hasScale = Object.keys(chip.scale).length > 0
+      const hasBand = explanation.rules.some(rule => rule.kind === 'band')
+      expect(!hasScale || hasBand, `${id} has verdicts and no band`).toBe(true)
     })
 
     for (const language of ['en', 'de'] as const) {

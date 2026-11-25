@@ -300,9 +300,17 @@ def ndjson_head(metadata: ResponseMetadata, settings: _AppliedSettings | None = 
     return head
 
 
-def ndjson_end(stations: int, rows: int, warnings: Sequence[ResponseWarning]) -> dict[str, Any]:
-    """Give the content of the last line of an NDJSON answer: what was sent, and every warning raised on the way."""
-    return {"counts": {"stations": stations, "rows": rows}, "warnings": list(warnings)}
+def ndjson_end(
+    stations: int, rows: int, warnings: Sequence[ResponseWarning], search: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Give the content of the last line of an NDJSON answer: what was sent, and every warning raised on the way.
+
+    `search` is what the row options searched, where a stream has them and could not say before its end.
+    """
+    end: dict[str, Any] = {"counts": {"stations": stations, "rows": rows}, "warnings": list(warnings)}
+    if search is not None:
+        end["search"] = dict(search)
+    return end
 
 
 def ndjson_refusal(request: StationsRequest | ValuesRequest) -> str | None:

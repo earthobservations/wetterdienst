@@ -104,14 +104,24 @@ def selected_station_count(stations: StationsResult) -> int:
     return count
 
 
-def check_station_count(count: int, limits: Limits) -> None:
-    """Refuse a request that reads more stations than the limit, naming how to read fewer."""
+def check_station_count(count: int, limits: Limits, *, by_region: bool = False) -> None:
+    """Refuse a request that reads more stations than the limit, naming how to read fewer.
+
+    A selection by `region` reads every station its provider lists under it, which none of `rank`, `distance` or a box
+    narrows: it is told fewer regions or the ids of the stations (GH-4418).
+    """
     if limits.max_stations and count > limits.max_stations:
-        message = (
-            f"This request reads {count} stations, more than the {limits.max_stations} this server allows for one "
-            "request. Name fewer stations, or narrow the selection: a smaller `rank`, a smaller `distance` or "
-            "bounding box. Request the rest in further calls."
-        )
+        head = f"This request reads {count} stations, more than the {limits.max_stations} this server allows for one"
+        if by_region:
+            message = (
+                f"{head} request. A `region` selects every station its provider lists under it: name fewer regions, "
+                "or the stations by their ids (`stations`). Request the rest in further calls."
+            )
+        else:
+            message = (
+                f"{head} request. Name fewer stations, or narrow the selection: a smaller `rank`, a smaller "
+                "`distance` or bounding box. Request the rest in further calls."
+            )
         error = _refuse("stations", limits.max_stations, count, message)
         raise error
 
@@ -132,7 +142,7 @@ def check_stations_in_reach(count: int, limits: Limits, *, distance: str) -> Non
         raise error
 
 
-def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
+def check_rows(rows: int, limits: Limits, *, streamed: bool, holds: bool = False) -> None:
     """Refuse an answer of more rows than the limit of its kind, saying what to change.
 
     An answer sent as one body that would fit a stream is told to stream. An MCP tool is told the three ways that
@@ -153,8 +163,35 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
             if streamable
             else f"{narrow}."
         )
+        if holds:
+            # a `sort` holds every row it reads, in a stream too: the way out is to choose fewer rows from the record
+            advice = f"{narrow}, add `first` to choose rows from the whole record, or drop `sort`."
     head = f"This request would return about {rows:,} rows, more than the {maximum:,} {what}."
-    error = _refuse(name, maximum, rows, f"{head} {advice}", tool_message=f"{head} {narrow}.")
+    tool_advice = (
+        f"{narrow}, add `first` to choose rows from the whole record, or drop `sort`." if holds else f"{narrow}."
+    )
+    error = _refuse(name, maximum, rows, f"{head} {advice}", tool_message=f"{head} {tool_advice}")
+    raise error
+
+
+def check_chosen_rows(rows: int, limits: Limits, *, so_far: bool = False) -> None:
+    """Refuse an answer whose rows chosen by `first` are more than the limit of one body, saying what to change.
+
+    A request with `first` reads under the stream limit whatever its format, so that a record can be searched, and the
+    rows it chooses are held before they are sent, so they are held to `rows`, the limit of an answer sent as one
+    body, in every format. They are known only as the values are read, so this is told then, and names what makes them
+    fewer. `so_far` is for a walk stopped at the limit: the rows are those held when it was stopped.
+    """
+    maximum = limits.max_rows
+    if not maximum or rows <= maximum:
+        return
+    count = f"{rows:,} rows so far" if so_far else f"{rows:,} rows"
+    head = f"The options chose {count}, more than the {maximum:,} this server holds and sends as one answer."
+    message = (
+        f"{head} Ask for a smaller `first`, add a `filter`, name fewer parameters and stations, or, where rows tie "
+        "over many stations, add `timestamp` to `sort` to tell them apart."
+    )
+    error = _refuse("rows", maximum, rows, message)
     raise error
 
 

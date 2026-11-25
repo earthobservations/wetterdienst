@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     from wetterdienst.model.history import History, TimeseriesHistory
     from wetterdienst.model.metadata import LicenseModel, ParameterModel, ProviderTerms
     from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.row_selection import Searched
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
 
@@ -73,6 +74,7 @@ class StationsFilter(Enum):
     ALL = "all"
     BY_STATION_ID = "by_station_id"
     BY_NAME = "by_name"
+    BY_REGION = "by_region"
     BY_WMO_ID = "by_wmo_id"
     BY_WIGOS_ID = "by_wigos_id"
     BY_ICAO_ID = "by_icao_id"
@@ -1052,10 +1054,93 @@ class _ValuesOgcFeatureCollection(_ValuesOgcFeatureCollectionBody):
 
 @dataclass(frozen=True, kw_only=True, eq=False)
 class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDict], _ValuesDict]):
-    """Result class for values."""
+    """Result class for values.
+
+    `search` is what the options `filter`, `sort`, `first` and `by` looked at, per station and series, where the
+    values were read with them or `selected_rows` chose the rows; None where no row option was given.
+    """
 
     stations: StationsResult
     df: pl.DataFrame
+    search: Searched | None = None
+
+    def selected_rows(
+        self,
+        *,
+        filter: str | None = None,  # noqa: A002
+        sort: str | None = None,
+        first: int | str | None = None,
+        by: str | None = None,
+        max_rows: int | str | None = None,
+    ) -> Self:
+        """Choose the rows of this result as `filter`, `sort`, `first` and `by` say, and return a new result of them.
+
+        The same choice as `stations.values().all(filter=..., ...)` makes, over the rows this result holds, by the same
+        function (`RowSelection`), so the two give the same rows; asked of the reader it is done station by station
+        as the values arrive and holds only the rows chosen, asked of the result the rows are held already. This
+        result is left as it is. `search` of the new result counts what this one holds: the values it was read with,
+        if it was read with options, are counted as that read did.
+
+        Raises:
+            RowSelectionError: an option whose text cannot be read.
+            RowSelectionRefusedError: `value` in the wide shape, or in a condition over parameters of different units.
+
+        """
+        from wetterdienst.model.row_selection import (  # noqa: PLC0415
+            RowSelectionRefusedError,
+            Searched,
+            parse_row_selection,
+            searched_of,
+            station_names,
+        )
+
+        selection = parse_row_selection(filter=filter, sort=sort, first=first, by=by, max_rows=max_rows)
+        if selection is None:
+            return self
+        if "parameter" not in self.df.columns:
+            selection.refuse_wide()
+        if self.df.is_empty() and "station_id" not in self.df.columns:
+            msg = "This result holds no values to choose rows from."
+            raise RowSelectionRefusedError(msg)
+        options = self.stations.options
+        converter = UnitConverter()
+        converter.update_targets(options.unit_targets)
+
+        def symbol(parameter: ParameterModel) -> str:
+            if options.convert_units:
+                return converter.targets[parameter.unit_type].symbol
+            return converter.get_unit(parameter.unit, parameter.unit_type).symbol
+
+        selection.refuse_for(self.stations.parameters, symbol)
+        matching = selection.matching(self.df)
+        df = selection.cap(matching)
+        window = (self.stations.start, self.stations.end)
+        # what is searched is what this result holds, long or wide, whatever read it: a result that was cut already
+        # has no more values than the ones it holds
+        searched = searched_of(
+            self.df,
+            window,
+            names=station_names(self.stations.df),
+            forecast=self.stations.request.metadata.kind == "forecast",
+        )
+        report = Searched(series=searched, selection=selection, window=window)
+        report = report.with_matched(matching).with_returned(df)
+        report.warn_if_capped()
+        return replace(self, df=df, search=report)
+
+    def filtered_by_date(self, date: str) -> Self:
+        """Filter values by date or date interval as `_ValuesResult.filtered_by_date` does, without the report.
+
+        The rows left are not those `search` counted, so the new result has none.
+        """
+        return replace(super().filtered_by_date(date), search=None)
+
+    def filtered_by_sql(self, sql: str) -> Self:
+        """Filter the frame with a WHERE clause as `_ValuesResult.filtered_by_sql` does, without the report.
+
+        The rows left are not those `search` counted, so the new result has none.
+        """
+        return replace(super().filtered_by_sql(sql), search=None)
 
     def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
         """Format values as OGC feature collection."""

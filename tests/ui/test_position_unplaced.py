@@ -51,6 +51,8 @@ SELECTIONS: dict[str, dict[str, str]] = {
     # closer name first, GH-4207) would let the Blavet in
     "name of Paris": {"name": "La Seine à Paris", "name_threshold": "0.9"},
     "name of the Blavet": {"name": "Le Blavet à Neulliac"},
+    "region of the Blavet": {"region": "Morbihan"},
+    "region of Paris": {"region": "Paris"},
     "all": {"all": "true"},
     "rank near the Blavet": {**{k: str(v) for k, v in NEAR_THE_BLAVET.items()}, "rank": "2"},
     "rank near Paris": {**{k: str(v) for k, v in NEAR_PARIS.items()}, "rank": "2"},
@@ -69,6 +71,7 @@ COMMAND_LINE_ONLY: dict[str, dict[str, str]] = {
 TOLD = {
     "id of the Blavet",
     "name of the Blavet",
+    "region of the Blavet",
     "sql of the Blavet",
     "all",
     "rank near the Blavet",
@@ -102,6 +105,8 @@ def _library(request: HubeauRequest, selection: dict[str, str]) -> None:
         request.filter_by_station_id(selection["stations"])
     elif "name" in selection:
         request.filter_by_name(selection["name"])
+    elif "region" in selection:
+        request.filter_by_region(selection["region"])
     elif "sql" in selection:
         request.filter_by_sql(selection["sql"])
     elif "all" in selection:

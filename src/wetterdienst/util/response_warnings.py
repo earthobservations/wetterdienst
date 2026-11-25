@@ -18,10 +18,13 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, NotRequired
+from typing import TYPE_CHECKING, NotRequired
 
 from typing_extensions import TypedDict
+
+from wetterdienst.util.ui import shown_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -39,7 +42,8 @@ class ResponseWarning(TypedDict):
     parameter: NotRequired[str]
     #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
     #: `other-window-left-out`, `window-not-closed`, `station-without-rows`, `source-data-left-out`,
-    #: `step-without-resolution`)
+    #: `step-without-resolution`, and the counted `missing-value-marker`, `calm-wind-direction` and
+    #: `rejected-by-plausibility`, whose `message` gives the count at each, GH-4424)
     stations: NotRequired[list[str]]
 
 
@@ -52,16 +56,16 @@ RESPONSE_WARNING_RECORD = "response_warning"
 #: the code of the warning that counts the readings the source wrote a marker for, and its message
 MISSING_VALUE_MARKER = "missing-value-marker"
 MISSING_VALUE_MARKER_MESSAGE = (
-    "{count} readings of the source were a marker for a missing value and are null; with drop_nulls they are not in "
-    "the answer, without it the text the source wrote is the `raw:` token of their quality_flags."
+    "{count} readings of the source were a marker for a missing value and are null{where}; with drop_nulls they are "
+    "not in the answer, without it the text the source wrote is the `raw:` token of their quality_flags."
 )
 
 #: the code of the warning that counts the wind directions the source wrote as a calm (GH-3696): a calm is a state of
 #: the wind with no direction, not a reading that is missing, so `missing-value-marker` does not count them
 CALM_WIND_DIRECTION = "calm-wind-direction"
 CALM_WIND_DIRECTION_MESSAGE = (
-    "{count} wind directions were a calm, which the source writes as 0 and which has no direction: they are null, "
-    "and no reading is missing; with drop_nulls they are not in the answer, without it `raw:0` in their "
+    "{count} wind directions were a calm, which the source writes as 0 and which has no direction: they are null"
+    "{where}, and no reading is missing; with drop_nulls they are not in the answer, without it `raw:0` in their "
     "quality_flags keeps them."
 )
 
@@ -70,7 +74,7 @@ CALM_WIND_DIRECTION_MESSAGE = (
 REJECTED_BY_PLAUSIBILITY = "rejected-by-plausibility"
 REJECTED_BY_PLAUSIBILITY_MESSAGE = (
     "{count} values were numbers a plausibility check rejected ({details}; a value several checks rejected is "
-    "counted under each) and are null; with drop_nulls they are not in the answer, without it the number the "
+    "counted under each) and are null{where}; with drop_nulls they are not in the answer, without it the number the "
     "source wrote is the `raw:` token of their quality_flags, after `rejected:<check>`. Set the check to `soft` to "
     "keep them."
 )
@@ -114,6 +118,11 @@ SOURCE_DATA_LEFT_OUT = "source-data-left-out"
 #: REST API, the command line and the library answer all of it. The `message` is the note, which for a CSV is the
 #: `X-Wetterdienst-Truncated` header too
 ANSWER_TRUNCATED = "answer-truncated"
+
+#: the code of the warning an answer carries that `max_rows` cut: more rows matched what `filter`, `sort` and `first`
+#: chose than the answer returns (GH-4411). It says how many of how many, and is no `answer-truncated`, which a tool's
+#: size budget raises; where both are told, the `answer-truncated` note counts the rows that `max_rows` left
+ROWS_CAPPED = "rows-capped"
 
 #: the code of the warning an MCP tool's `values` answer for a forecast network carries when it starts at now
 #: (`ui.forecast_start`, GH-4025): the rows of the model run stamped before the current hour are left out, and the
@@ -212,9 +221,50 @@ def advise_on_skip_causes(causes: Iterable[SkipCause]) -> str:
 #: the request cannot tell where nothing is recorded (the library as a library)
 _NAMED: ContextVar[set[str] | None] = ContextVar("wetterdienst_named_parameters", default=None)
 _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_response_warnings", default=None)
-#: the warnings that count something across the whole request, by code: the count, the message, where `{count}` is
-#: the number, and the count by detail (`{details}` in the message, as `range 3, stuck 2`)
-_COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
+#: how many stations a counted warning names, with the count at each; the others are told as `and N more stations`
+#: (a request for a hundred stations must not make the warning a hundred names long)
+COUNTED_STATIONS_LISTED = 5
+
+
+@dataclass
+class _Counted:
+    """What a warning that counts something across the request has added up: the total, the details, the stations."""
+
+    message: str
+    count: int = 0
+    #: the count by detail (`{details}` in the message, as `range 3, stuck 2`)
+    details: dict[str, int] = field(default_factory=dict)
+    #: the count at each station that has one, in the order the walk read them: the station's name (or None) and count
+    stations: dict[str, tuple[str | None, int]] = field(default_factory=dict)
+
+    def text(self) -> str:
+        """Give the message with the total, the details and where (`{count}`, `{details}`, `{where}`)."""
+        return self.message.format(count=self.count, details=tell_details(self.details), where=self._where())
+
+    def listed(self) -> list[str]:
+        """Give the ids of the stations the message names."""
+        return list(self.stations)[:COUNTED_STATIONS_LISTED]
+
+    def _where(self) -> str:
+        """Give `, at 01975 Hamburg-Fuhlsbüttel (18), 01048 (3) and 95 more stations`, or nothing without a station.
+
+        The first stations of the walk with their count, as many as `COUNTED_STATIONS_LISTED`, and then how many more
+        there are: the total is in front of it, and the stations that are not named add up to the rest.
+        """
+        if not self.stations:
+            return ""
+        named = [
+            f"{station} {name} ({number})" if name and name != station else f"{station} ({number})"
+            for station, (name, number) in list(self.stations.items())[:COUNTED_STATIONS_LISTED]
+        ]
+        rest = len(self.stations) - len(named)
+        if rest:
+            named.append(f"{rest} more station{'' if rest == 1 else 's'}")
+        return f", at {_joined(named)}"
+
+
+#: the warnings that count something across the whole request, by code
+_COUNTED: ContextVar[dict[str, _Counted] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
 
 
 #: what a provider tells when it reads the file of the station being collected from its secondary source because the
@@ -381,20 +431,34 @@ def begin_response() -> None:
     _COUNTED.set({})
 
 
-def count_response_warning(code: str, count: int, message: str, *, details: dict[str, int] | None = None) -> None:
+def count_response_warning(
+    code: str,
+    count: int,
+    message: str,
+    *,
+    details: dict[str, int] | None = None,
+    station: str | None = None,
+    station_name: str | None = None,
+) -> None:
     """Add `count` to the warning `code` of the request being served, whose `message` has `{count}` for the total.
 
     For what happens many times in a request, once for each station: the answer tells it once, with the sum.
     `details` splits the count by a reason (the check that rejected a value), summed the same way, and a `message`
-    with `{details}` tells it, largest first. Nothing is recorded outside a request.
+    with `{details}` tells it, largest first. `station` is the station the count is of, and `station_name` its name
+    where it is at hand, which is the source's text and is cleaned of control characters and cut here (`shown_text`):
+    a `message` with `{where}` tells the first stations with their counts (`, at 01975 Hamburg (18), 01048 (3) and 95
+    more stations`, GH-4424), which the answer's `stations` lists too. Nothing is recorded outside a request.
     """
     counted = _COUNTED.get()
     if counted is None or count <= 0:
         return
-    entry = counted.setdefault(code, [0, message, {}])
-    entry[0] += count
+    entry = counted.setdefault(code, _Counted(message))
+    entry.count += count
     for detail, number in (details or {}).items():
-        entry[2][detail] = entry[2].get(detail, 0) + number
+        entry.details[detail] = entry.details.get(detail, 0) + number
+    if station is not None:
+        known_name, known = entry.stations.get(station, (None, 0))
+        entry.stations[station] = (shown_text(station_name) if station_name else known_name, known + count)
 
 
 def warn_response(
@@ -452,17 +516,22 @@ def log_counted_warnings(log: logging.Logger) -> None:
     count, in one line each, marked as `warn_response` marks its lines (`RESPONSE_WARNING_RECORD`, which `--quiet`
     lets through). A library call and a REST answer carry the same counts in `warnings` and log nothing here.
     """
-    for code, (count, message, details) in (_COUNTED.get() or {}).items():
-        log.warning(message.format(count=count, details=tell_details(details)), extra={RESPONSE_WARNING_RECORD: code})
+    for code, entry in (_COUNTED.get() or {}).items():
+        log.warning(entry.text(), extra={RESPONSE_WARNING_RECORD: code})
 
 
 def recorded_warnings() -> list[ResponseWarning]:
     """Give the warnings recorded since `begin_response`, in the order they were raised, the counted ones last."""
-    counted = [
-        ResponseWarning(code=code, message=message.format(count=count, details=tell_details(details)))
-        for code, (count, message, details) in (_COUNTED.get() or {}).items()
-    ]
+    counted = [_counted_warning(code, entry) for code, entry in (_COUNTED.get() or {}).items()]
     return [*(_RECORDED.get() or []), *counted]
+
+
+def _counted_warning(code: str, entry: _Counted) -> ResponseWarning:
+    """Make the warning of a count: its text, and the stations the text names, as the other warnings carry them."""
+    warning = ResponseWarning(code=code, message=entry.text())
+    if entry.stations:
+        warning["stations"] = entry.listed()
+    return warning
 
 
 def tell_details(details: dict[str, int]) -> str:

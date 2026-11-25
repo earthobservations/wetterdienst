@@ -699,7 +699,7 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
             ["stations", *_DWD_KL],
             (
                 "Error: Missing option: one of '--all', '--stations', '--wmo-id', '--wigos-id', '--icao-id', "
-                "'--name', ('--latitude' and '--longitude'), ('--left', '--bottom', '--right' and '--top') "
+                "'--name', '--region', ('--latitude' and '--longitude'), ('--left', '--bottom', '--right' and '--top') "
                 "or '--sql'.\n"
             ),
         ),
@@ -707,7 +707,8 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
             ["stations", *_DWD_KL, "--stations=01048", "--name=Hamburg"],
             (
                 "Error: Options '--stations' and '--name' cannot be used together, give exactly one of '--all', "
-                "'--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name', ('--latitude' and '--longitude'), "
+                "'--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name', '--region', "
+                "('--latitude' and '--longitude'), "
                 "('--left', '--bottom', '--right' and '--top') or '--sql'.\n"
             ),
         ),
@@ -1699,7 +1700,10 @@ def test_cli_usage_error_never_suggests_an_option_it_refuses(name: str) -> None:
         assert result.exit_code == 2, f"{name} {option}: {result.output}"
         error = result.output.split("Error:", 1)[1]
         if option in refused:
-            match = re.search(rf"{re.escape(option)} was renamed to (--[a-z-]+)\.", error)
+            # renamed, or a name that was never an option and has what to use instead (`--limit`, GH-4411)
+            match = re.search(rf"{re.escape(option)} was renamed to (--[a-z-]+)\.", error) or re.search(
+                rf"{re.escape(option)} is not an option of {name}: .*?(--[a-z-]+)", error
+            )
             assert match, f"{name} {option}: {error}"
             assert match.group(1) in offered, f"{name} {option} names {match.group(1)}, which is not offered"
         else:
