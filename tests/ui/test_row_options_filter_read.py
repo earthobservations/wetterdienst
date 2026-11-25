@@ -19,6 +19,8 @@ from fastapi.testclient import TestClient
 
 from tests.ui.row_options_stub import DAYS, STATIONS, TMIN, oracle, serve
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.ui.limits import Limits, check_chosen_rows
+from wetterdienst.ui.problems import ProblemError
 from wetterdienst.ui.restapi import app
 
 _BASE = {"provider": "dwd", "network": "observation", "parameters": TMIN, "timestamp": "2018/2020", "all": "true"}
@@ -146,9 +148,10 @@ def test_a_limit_that_is_off_is_off_for_a_filter_too(monkeypatch: pytest.MonkeyP
     assert _rest(filter="value<=-9").status_code == 200
     _limits(monkeypatch, 0, 10_000)
     assert _rest(filter="value<=20").status_code == 200
-    # the read is held to the stream limit alone where `rows` is off
+    # a read is held to the larger of the two, so `rows` off is no limit on it, as for a body without a filter
     _limits(monkeypatch, 0, _READ - 1)
-    assert _rest(filter="value<=20").json()["limit"] == "stream_rows"
+    assert _rest(filter="value<=20").status_code == 200
+    assert _rest().status_code == 200
 
 
 def test_a_sort_alone_is_held_to_rows_for_what_it_reads_and_a_filter_with_it_reads_the_record(
@@ -339,3 +342,83 @@ def test_the_command_line_has_no_limit_and_a_filter_alone_is_as_it_was() -> None
     )
     assert result.exit_code == 0, result.output
     assert re.search(r"00001", result.output)
+
+
+def test_a_stream_limit_below_rows_does_not_refuse_what_the_plain_request_is_answered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A read is held to the larger of `rows` and `stream_rows`: `first` shares this line, `statistics` does not."""
+    _limits(monkeypatch, 5000, 1000)
+    assert _rest().status_code == 200  # 3,288 rows of a body under `rows`
+    assert _rest(filter="value<=-9").status_code == 200
+    assert _rest(sort="value", first=1).status_code == 200
+    _limits(monkeypatch, 3000, 1000)
+    refused = _rest(filter="value<=-9")
+    assert refused.status_code == 400
+    body = refused.json()
+    assert (body["limit"], body["maximum"], body["requested"]) == ("rows", 3000, _READ)
+    # and where the stream limit is the larger it is the one named, to the row
+    _limits(monkeypatch, 1000, _READ - 1)
+    assert _rest(filter="value<=-9").json()["limit"] == "stream_rows"
+
+
+def test_the_texts_of_the_read_refusal_are_the_same_for_rest_and_a_tool_and_name_no_sort_it_has_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A read is told a narrower request, whatever it has: a `filter` (or a `first`) is not told to drop a `sort`."""
+    _limits(monkeypatch, 1000, 1000)
+    head = f"This request would read about {_READ:,} rows, more than the 1,000 this server reads for one request."
+    narrow = "Ask for a shorter `timestamp` window, fewer `parameters` or fewer stations."
+    assert _rest(filter="value<=-9").json()["detail"] == f"{head} {narrow}"
+    assert _rest(filter="value<=-9", sort="value").json()["detail"] == f"{head} {narrow}"
+    assert _rest(sort="value", first=1).json()["detail"] == f"{head} {narrow}"
+    for arguments in ({"filter": "value<=-9"}, {"filter": "value<=-9", "sort": "value"}, {"sort": "value", "first": 1}):
+        result = _tool(arguments)
+        assert result.is_error
+        message = str(result.content)
+        assert f"{head} {narrow}" in message
+        assert "drop `sort`" not in message
+    # a `sort` alone is the one that is told to drop it
+    assert "drop `sort`" in _rest(sort="value").json()["detail"]
+
+
+def test_a_max_rows_above_rows_is_asked_to_be_smaller_and_is_not_a_walk_stopped_so_far(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`max_rows` of 2,000 over a `rows` of 1,000 holds 2,000 rows, which is told at the end, not so far."""
+    _limits(monkeypatch, 1000, 10_000)
+    refused = _rest(filter="value<=20", max_rows=2000)
+    assert refused.status_code == 400, refused.text
+    detail = refused.json()["detail"]
+    assert "so far" not in detail
+    assert f"chose {2000:,} rows," in detail
+    assert "Tighten the `filter`" in detail
+    assert "smaller `max_rows`" in detail
+    assert "cut the answer with `max_rows`" not in detail
+    # one that is cut to `rows` is answered
+    assert _rest(filter="value<=20", max_rows=1000).status_code == 200
+
+
+def test_the_refusal_of_the_rows_chosen_names_a_stream_over_rest_only_and_what_the_request_has_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A `filter` alone is told it can stream (REST), a tool never; a `sort` that is given is not asked for again."""
+    _limits(monkeypatch, 1000, 10_000)
+    stream = "Or stream it: `format=ndjson` and `format=csv` send the rows as they are read and hold none."
+    alone = _rest(filter="value<=20").json()["detail"]
+    assert alone.endswith(stream)
+    assert "add `sort` and `first` to keep the first rows of each station" in alone
+    tool = str(_tool({"filter": "value<=20"}).content)
+    assert "Tighten the `filter`" in tool
+    assert "stream" not in tool
+    assert "ndjson" not in tool
+    # with a `sort` a stream holds the rows too: nothing to say about one, and `first` only is asked for
+    sorted_ = _rest(filter="value<=20", sort="value").json()["detail"]
+    assert "stream" not in sorted_
+    assert "add `first` to keep the first rows of each station" in sorted_
+    assert "add `sort`" not in sorted_
+    # the stream is not offered where the limit of a stream is no more than `rows`
+    limits = Limits(max_stations=0, max_rows=1000, max_stream_rows=1000, max_groups=0, timeout=0, max_concurrent=0)
+    with pytest.raises(ProblemError) as error:
+        check_chosen_rows(2000, limits, first=False)
+    assert "stream" not in str(error.value)

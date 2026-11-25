@@ -1937,7 +1937,13 @@ _STREAM_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 def _check_values_limits(
-    stations: StationsResult, limits: Limits, *, streamed: bool, chooses: bool = False, holds: bool = False
+    stations: StationsResult,
+    limits: Limits,
+    *,
+    streamed: bool,
+    chooses: bool = False,
+    holds: bool = False,
+    one_body: bool = False,
 ) -> None:
     """Refuse a values request that reads too many stations or would return too many rows, before any download.
 
@@ -1945,13 +1951,20 @@ def _check_values_limits(
     bound (`ui.limits`). A request that `chooses` rows with `first` or a `filter` is held to what it reads, not to what
     it sends: it may read up to the stream limit, whatever its format, and what is sent is held to the limit of its
     format after (`check_chosen_rows`). A request that `holds` every row it reads (a `sort` with neither) is told that a
-    stream does not help it.
+    stream does not help it. `one_body` is a request whose answer is one body (`values`): what it reads is held to the
+    larger of `rows` and `stream_rows`, so a server that sets the stream limit below `rows` does not refuse what the
+    request without a `filter` is answered (0 for either is no limit); `statistics` reads under `stream_rows` alone.
     """
     check_station_count(
         selected_station_count(stations),
         limits,
         by_region=stations._stations_filter is StationsFilter.BY_REGION,  # noqa: SLF001
     )
+    if one_body and chooses and not streamed:
+        if limits.max_rows and limits.max_stream_rows:
+            widest = max(limits.max_rows, limits.max_stream_rows)
+            check_rows(estimate_rows(stations), limits, streamed=True, reads=True, read_maximum=widest)
+        return
     reads_streamed = streamed or chooses
     if limits.max_stream_rows if reads_streamed else limits.max_rows:
         check_rows(estimate_rows(stations), limits, streamed=reads_streamed, holds=holds, reads=chooses)
@@ -2910,7 +2923,10 @@ def _values(
     # a `first` or a `filter` chooses rows from the whole record: read up to the stream limit, held to `rows`. A `sort`
     # alone holds all it reads, so it is held to `rows` for what it reads too (GH-4436)
     chooses = request.first is not None or request.filter is not None
-    holds = chooses or request.sort is not None
+    # told to drop a `sort` only where the `sort` is what holds everything it reads
+    holds = not chooses and request.sort is not None
+    # what the refusal of the rows chosen says to change: what the request has already is not asked for again
+    has = (request.first is not None, request.sort is not None, request.max_rows)
     try:
         values_ = get_values(
             api=api,
@@ -2918,15 +2934,15 @@ def _values(
             settings=settings,
             options=options,
             check=lambda stations_: _check_values_limits(
-                stations_, limits, streamed=False, chooses=chooses, holds=holds
+                stations_, limits, streamed=False, chooses=chooses, holds=holds, one_body=True
             ),
             held_rows_limit=limits.max_rows if chooses else None,
         )
         if chooses:
             # read under the stream limit, so that a record can be searched; sent under the limit of one body
-            check_chosen_rows(values_.df.height, limits, first=request.first is not None)
+            check_chosen_rows(values_.df.height, limits, first=has[0], sort=has[1], max_rows=has[2])
     except RowsOverLimitError as e:
-        check_chosen_rows(e.rows, limits, so_far=True, first=request.first is not None)
+        check_chosen_rows(e.rows, limits, so_far=True, first=has[0], sort=has[1], max_rows=has[2])
         raise
     except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers

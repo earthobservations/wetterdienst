@@ -408,7 +408,8 @@ would return about 614,866 rows, more than the 500,000 this server sends as one 
 does not stream. The refusal a tool gets therefore names only what works through one, a shorter `timestamp` window, fewer
 `parameters` or fewer stations, and not `format=ndjson` or `format=csv`, which the REST API advises (GH-3464). Those
 formats work through a tool, as text content of the result, but a tool is held to the `rows` limit in every format,
-not to the higher `stream_rows`: the assistant reads the whole answer through its context. `interpolate` and
+not to the higher `stream_rows`: the assistant reads the whole answer through its context (what it reads for a `filter`
+or `first` is the larger of the two, as over REST). `interpolate` and
 `summarize` name no stations (the radius chooses them) and have no `ndjson`, and their `csv` is not streamed, so their
 refusal, over REST as through a tool, names a shorter `timestamp` window or fewer `parameters` only (GH-3576).
 

@@ -1265,8 +1265,8 @@ before the options choose the rows.
   returned and nothing that is counted: `metadata.search` still holds what was searched, expected and matched over
   everything, and `returned` beside `matched`, and a `rows-capped` warning says "20 of 25,311 matched rows are returned".
   With sort it keeps the first of the whole order (the lowest, the highest), without it the first rows as they are read
-  (by station, by series, by time). It does not raise what may be read (only `first` and `filter` do, below), and what the server
-  holds for it is bounded by it: a station is cut to it as it is read. In the wide shape the rows are those of the wide
+  (by station, by series, by time). It does not raise what may be read (only `first` and `filter` do, below), and
+  what the server holds for it is bounded by it: a station is cut to it as it is read. In the wide shape the rows are those of the wide
   frame, a timestamp of a station and resolution, since that is what `counts.rows` counts there. A tool's answer may be
   cut once more to fit its budget: the note of `answer-truncated` then says how many of the rows `max_rows` returned
   are kept, and how many matched.
@@ -1394,8 +1394,9 @@ the rows chosen before `max_rows`; a tool's answer that is cut to its budget kee
 
 ### Limits and streaming
 
-A request with `first` or a `filter` may read up to the limit of a stream (`stream_rows`, 10,000,000 rows estimated),
-whatever its format, so that a long record can be searched; the estimate counts rows of the frame, a wide row once. The
+A request with `first` or a `filter` may read up to the limit of a stream (`stream_rows`, 10,000,000 rows estimated;
+the larger of `stream_rows` and `rows` where an answer is one body, 0 for either being no limit), whatever its format, so
+that a long record can be searched; the estimate counts rows of the frame, a wide row once. The
 series is read station by station and only the rows chosen are kept: the readings that do not match a `filter` are let
 go as each station is read. The rows it chooses are held until they are sent, so they are held to the limit of one body
 (`rows`, 500,000) in every format (a `filter` alone that is streamed, below, is the exception), and the refusal of a
@@ -1414,20 +1415,20 @@ walk that holds more says "N rows so far", where it stopped and not at the start
 
 A `filter` alone, or with a `sort`, is a choice that stays in a station, so the first case holds:
 `filter=value>=35&sort=-value` over the 682,507 hourly readings of Hamburg-Fuhlsbüttel reads them all and holds the 30
-that match. The refusal of a
-filter that matches more than `rows` says to tighten it, to add `sort` and `first` (the first rows of each station), to
-cut the answer with `max_rows`, which keeps what is held to the rows of the answer (a filter that matches everything is
-then answered with its first rows, and `metadata.search` still counts all that matched), or to ask for a shorter window.
-A filter that matches everything holds no more than the plain request does, and is refused at the station that makes
-the rows more than `rows`, the walk stopped there.
+that match. The refusal of a filter that matches more than `rows` says to tighten it, to add `sort` and `first` (the
+first rows of each station), to cut the answer with `max_rows` (a smaller one where it is above `rows`), which keeps
+what is held to the rows of the answer (a filter that matches everything is then answered with its first rows, and
+`metadata.search` still counts all that matched), to ask for a shorter window, and, over REST for a `filter` alone, to
+stream it. A filter that matches everything is refused at the station that makes the rows more than `rows`, the walk
+stopped there: it holds `rows` rows and the station in hand, where the plain request holds what it reads (at most
+`rows`, by its estimate). A forecast has no estimate, so a `filter` over one is held to `rows` where it was not.
 
 A request with `sort` and neither `first` nor `filter` holds every row it reads, and nothing it holds can be let go, so
 it is held to `rows` for what it reads, as it was, and a stream does not help it (the refusal says: add `first` or a
 `filter`, or drop `sort`). A request with a `filter` alone that is streamed (`format=ndjson`, `format=csv`) is the other
 exception: it sends the rows as they are read and holds none, so it may match as many rows as `stream_rows` allows; add a
 `sort` and it is held to `rows` like the body of `json`. `max_rows` alone does not raise what may be read: the request
-is read as it was. The number of stations and the timeout hold
-as they do for every request: a request the timeout ends is a 504 and its walk stops at the station in hand, the rows
+is read as it was. The number of stations and the timeout hold as they do for every request: a request the timeout ends is a 504 and its walk stops at the station in hand, the rows
 it held are freed and its place of the cap is free again (the rows chosen are not made for nobody). The estimate of
 rows, and the stations, are those of the request without options.
 
@@ -1628,8 +1629,8 @@ in the order the stations were read, or with `per=none` those with the best grou
 all, with `groups_returned` the groups shown, and the warning `incomplete-groups` says how many of its groups are in the
 answer. REST, the command line and Python are never cut.
 
-**Limits.** The stations and the readings read are held to the limits of `values` as a request with `first` is: up to
-the stream limit whatever the format. A request of more than 100 series (stations times parameters) is refused before a
+**Limits.** The stations and the readings read are held to the limits of `values` as a request with `first` is, but under
+`stream_rows` alone (`values` takes the larger of it and `rows`), whatever the format. A request of more than 100 series (stations times parameters) is refused before a
 station is read (`series`): "This request has 240 series, more than the 100 an answer reports: name fewer stations or
 parameters, or ask in several requests." The groups held, as the stations are read, and the groups of an answer are held
 to `max_groups` of the [limits](#limits), 50,000 by default (`WD_RESTAPI_MAX_GROUPS`; a group is about 150 bytes of
@@ -1725,7 +1726,7 @@ timeout of 60 seconds the client is answered `request-timeout` first, and the wo
 
 ## Limits
 
-A request that would return more than the server allows is refused with a 400 before anything is
+A request that would return, or for a `filter` or `first` read, more than the server allows is refused with a 400 before anything is
 downloaded, as a problem of the kind `limit-exceeded`. It names the limit, its value and what the request comes
 to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
 
@@ -1746,8 +1747,8 @@ to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
 | `limit` | Setting | Default | What it bounds |
 | --- | --- | --- | --- |
 | `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many. For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
-| `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations` |
-| `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values` |
+| `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations`; also the rows a `filter` or `first` of `values` holds |
+| `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values`; what a `filter` or `first` of `values` reads, where it is the larger of this and `rows` |
 | `groups` | `WD_RESTAPI_MAX_GROUPS` | 50,000 | the groups of an answer of [`statistics`](#statistics) |
 | `series` | none (100) | 100 | the series (stations times parameters) of a `statistics` request, which an answer lists |
 
@@ -1777,7 +1778,8 @@ with less data than its record makes the answer smaller. For `interpolate` and
 `summarize` it is the readings of the window for each parameter. So the time span of a request is bounded through
 the rows: a year of 1-minute readings of one parameter is 525,600 of them, a century of daily ones 36,500.
 
-An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`. What to do about a
+An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`; a request that chooses its
+rows (`filter`, `first`) reads more than it sends and is told a narrower request. What to do about a
 refusal, in the order to try it (a narrower request, a stream, slices, the library, a server of your own), is on
 [Getting more than the limit](large-requests.md).
 

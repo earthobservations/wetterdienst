@@ -287,7 +287,8 @@ are answered with a 405, as the specification lets a server do: `DELETE` (ending
 of messages from the server, of which a server of tools has none; the `mcp` client, which opens one once it has an
 id, tries it twice and gives up without an error). A tool's answer is one body and is not streamed
 (`format=ndjson` and `csv` are text content of the result, held to the same `rows` limit as every other format of
-a tool, not the higher `stream_rows` of the REST API). A tool makes its request to the
+a tool, not the higher `stream_rows` of the REST API; what a tool with a `filter` or `first` reads is held to the larger
+of the two, as over REST, and what it holds to `rows`). A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
 [concurrency](restapi.md#concurrency) of the server like any request. A request that a tool is refused for its size is
 asked again for a window or fewer stations (for `interpolate` and `summarize`, which name no stations: a shorter

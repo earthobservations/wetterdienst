@@ -674,8 +674,11 @@ def test_a_wide_request_that_chooses_rows_is_answered_where_the_plain_one_is(mon
     # 3 stations x 1,096 days: 3,288 wide rows, 6,576 cells. The plain request is answered, and so is one with `first`
     assert _rest(parameters=both, shape="wide").status_code == 200
     assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 200
-    # the stream limit holds the read of one with `first`, in rows as for the plain request
+    # the read of one with `first` is held to the larger of the two limits, in rows as for the plain request: a stream
+    # limit below `rows` does not refuse what the plain request is answered (GH-4436)
     monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "3000")
+    assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 200
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "3000")
     assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 400
 
 
