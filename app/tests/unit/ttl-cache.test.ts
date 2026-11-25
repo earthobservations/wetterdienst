@@ -9,6 +9,22 @@ describe('the cache', () => {
     return { state, now: () => state.now }
   }
 
+  it('gives a value the life `ttlOf` names for it where that is not the cache\'s own (GH-4390)', async () => {
+    const { state, now } = clock()
+    const cache = new TtlCache<{ short: boolean }>({ ttlMs: 1000, maxEntries: 10, now, ttlOf: value => value.short ? 10 : 1000 })
+    const load = vi.fn(async (short: boolean) => ({ short }))
+
+    await cache.get('short', () => load(true))
+    await cache.get('long', () => load(false))
+    state.now += 11
+    await cache.get('short', () => load(true))
+    await cache.get('long', () => load(false))
+    expect(load.mock.calls).toEqual([[true], [false], [true]])
+    state.now += 989
+    await cache.get('long', () => load(false))
+    expect(load).toHaveBeenCalledTimes(4)
+  })
+
   it('serves what it worked out until the entry expires, then works it out again', async () => {
     const { state, now } = clock()
     const cache = new TtlCache<number>({ ttlMs: 100, maxEntries: 10, now })

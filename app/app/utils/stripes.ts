@@ -1,4 +1,4 @@
-import type { StripesKind } from '#shared/types/api'
+import type { StripesKind, StripesValuesResponse } from '#shared/types/api'
 
 /**
  * The words a stripe's class is told in, for the table and the readout: the 16 classes of the colour scale in five bands,
@@ -77,6 +77,27 @@ export function stripesMethodNote(
   if (method === 'tavg')
     return t('stripes.methodTavg')
   return ''
+}
+
+/**
+ * The line that says a station of GHCN daily was read from the mirror of NOAA's data on AWS (GH-4390): NCEI did not answer, so the
+ * backend took the days from the mirror, whose file may end earlier, and the most recent days may be missing. Where the record ends
+ * before the last complete year the line says in which year it ends. An empty text for stripes made of NOAA's own file, and for DWD's.
+ *
+ * @param mirror - The answer's `mirror`, as `stripes-source.ts` sets it
+ * @param t - Translates a key
+ * @param thisYear - The year it is; a record that ends in the year before it is complete as far as the years go
+ */
+export function stripesMirrorNote(
+  mirror: StripesValuesResponse['mirror'],
+  t: (key: string, params?: Record<string, unknown>) => string,
+  thisYear = new Date().getUTCFullYear(),
+): string {
+  if (!mirror)
+    return ''
+  return mirror.last_year !== null && mirror.last_year < thisYear - 1
+    ? t('stripes.mirrorNoteEnds', { year: mirror.last_year })
+    : t('stripes.mirrorNote')
 }
 
 /** What the answer's `reference` says of one number of it: the years it was calculated from, and whether the whole record stood in for the period of the method */

@@ -48,6 +48,7 @@ const DWD_ROAD_NOTICE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluess
 
 /** The radar of the DWD: its page on the radar products and the sheets of its composites, RADVOR and RADOLAN */
 const DWD_RADAR_PRODUCTS = 'https://www.dwd.de/EN/ourservices/radar_products/radar_products.html'
+const DWD_OPENDATA_NEWS = 'https://www.dwd.de/DE/leistungen/opendata/neuigkeiten/opendata_november2026_1.html'
 const DWD_RADVOR = 'https://www.dwd.de/DE/leistungen/radvor/radvor.html'
 const DWD_RADOLAN = 'https://www.dwd.de/DE/leistungen/radolan/radolan.html'
 /** The hydrology services whose own pages the entry on water level and discharge rests on, and WMO's Guide to Hydrological Practices */
@@ -889,7 +890,7 @@ export const measurement: MeasurementTexts = {
         paragraphs: [
           'A weather radar sends short pulses of radio waves from a rotating antenna and listens for the echo that comes back. WMO says that the radars best suited to observe the atmosphere use frequencies of 3 to 10 GHz, which are wavelengths of 10 to 3 cm. The time between the pulse and its echo gives the distance of the target. How strong the echo is depends on the size and the number of the particles in the volume illuminated by the radar beam, and WMO says that this strength is used to determine the reflectivity factor (Z), from which the intensity of precipitation is estimated through empirical relations. The beam widens with distance: a beam of a nominal 1° is 0.9 km wide at 50 km, 1.7 km at 100 km and 3.5 km at 200 km.',
           'The echo is not always from rain. WMO lists insects, birds, planes, sand and dust, ground clutter and even variations of the refractive index of the air as other things that a weather radar can detect. The current generation of radars has dual polarization: the pulses are sent with horizontal and vertical polarization at the same time. WMO says that the main benefits are better data quality, because the radar can tell what the target is (birds, insects, precipitation and its type, clutter), and the classification of hydrometeors and the estimation of precipitation; for forecast applications, dual polarization can identify hail and the boundary between rain and snow.',
-          'DWD operates a network of 17 operational weather radars with dual-polarization Doppler technology. A further radar at the Hohenpeißenberg observatory serves for quality assurance and for testing new hardware and software. The horizontal range of the radars is up to 180 km, and in the vertical their coverage reaches from near the ground to above 10 km. DWD\'s scan strategy is a cycle of 5 minutes. It starts with a precipitation scan close to the ground, in which the antenna follows the terrain (range 150 km). It continues with a volume scan of ten rotations at fixed elevation angles: six from 5.5° down to 0.5° (range 180 km), then four at 8°, 12°, 17° and 25°, with a range that decreases from 160 km to 120 km as the angle increases. The cycle ends with a vertical scan into the sky, for calibration.',
+          'DWD operates a network of 17 operational weather radars with dual-polarization Doppler technology. A further radar at the Hohenpeißenberg observatory serves for quality assurance and for testing new hardware and software. The horizontal range of the radars is up to 180 km, and in the vertical their coverage reaches from near the ground to above 10 km. DWD\'s scan strategy is a cycle of 5 minutes. It starts with a precipitation scan close to the ground, in which the antenna follows the terrain (range 180 km, extended from 150 km on 24 November 2026). It continues with a volume scan of ten rotations at fixed elevation angles: six from 5.5° down to 0.5° (range 180 km), then four at 8°, 12°, 17° and 25°, with a range that decreases from 160 km to 120 km as the angle increases. The cycle ends with a vertical scan into the sky, for calibration.',
         ],
       },
       {
@@ -928,9 +929,14 @@ export const measurement: MeasurementTexts = {
         WMO_III,
       ),
       dwdFiles(
-        'Its page on radar products describes its radar network and its scan strategy, and each composite has a sheet that says what it holds, in German.',
-        'DWD. Radar products, dwd.de/EN/ourservices/radar_products/radar_products.html; the product sheets "Radarkomposit" RV, WN, HX, DMAX, RS, VII and HymecNG, linked from dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, read on 22 November 2026.',
+        'Its page on radar products describes its radar network and its scan strategy, and each composite has a sheet that says what it holds, in German. Its English page still gave the range of the precipitation scan as 150 km on 25 November 2026, which is the range until 24 November 2026.',
+        'DWD. Radar products, dwd.de/EN/ourservices/radar_products/radar_products.html; the product sheets "Radarkomposit" RV, WN, HX, DMAX, RS, VII and HymecNG, linked from dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, read on 22 November 2026, and the English page read again on 25 November 2026.',
         DWD_RADAR_PRODUCTS,
+      ),
+      dwdFiles(
+        'Its Open Data news of 3 November 2026 announced that the range of the radar precipitation scan is extended from 150 km to 180 km on 24 November 2026. Its German page on radar products and the sheet on the precipitation scan of a radar site give 180 km.',
+        'DWD. Open Data news of 3 November 2026 (Änderungen und Neuerungen auf Open Data), dwd.de/DE/leistungen/opendata/neuigkeiten/opendata_november2026_1.html; the product sheet "Standortprodukt Sweep Niederschlagsscan", dwd.de/DE/leistungen/radarprodukte/standortprodukt_sweep_niederschlagsscan.pdf; dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, read on 25 November 2026.',
+        DWD_OPENDATA_NEWS,
       ),
       dwdFiles(
         'Its page on RADVOR, the system for radar nowcasting that it operated until the end of February 2026, describes the principle of nowcasting by displacement.',

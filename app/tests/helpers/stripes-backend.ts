@@ -58,10 +58,20 @@ export function valuesAnswer(record: Record_, options: ValuesOptions = {}) {
   }
 }
 
-/** The answer of `/_ghcn/annual`: a row for every year, the value null where the year fails the rules */
-export function ghcnAnnualAnswer(record: Record_, options: { unit?: string, parameter?: string, method?: 'midrange' | 'tavg' | null, stationId?: string } = {}) {
+/**
+ * The warning the backend gives where NCEI did not answer and the days of a station were read from the mirror of NOAA's data on AWS
+ * (GH-4230), as the answer of its generic API carries it
+ */
+export const SOURCE_FALLBACK_WARNING = {
+  code: 'source-fallback',
+  message: 'The file of station GM000010147 was not read from NOAA NCEI (it answered 503) and comes from the AWS mirror instead, whose files may be older: the most recent days of this station may be missing. Try again later.',
+  stations: ['GM000010147'],
+}
+
+/** The answer of `/_ghcn/annual`: a row for every year, the value null where the year fails the rules; `mirror` for days read from the mirror on AWS */
+export function ghcnAnnualAnswer(record: Record_, options: { unit?: string, parameter?: string, method?: 'midrange' | 'tavg' | null, stationId?: string, mirror?: boolean } = {}) {
   return {
-    metadata: { provider: PROVIDER_NOAA },
+    metadata: { provider: PROVIDER_NOAA, ...(options.mirror ? { warnings: [SOURCE_FALLBACK_WARNING] } : {}) },
     series: { station_id: options.stationId ?? 'GM000010147', parameter: options.parameter ?? 'temperature_air_mean_2m', unit: options.unit ?? '°C', method: options.method ?? null },
     values: yearsOf(record).map(item => ({ timestamp: yearTimestamp(item.year), value: item.value })),
   }
@@ -78,6 +88,8 @@ export interface StripesFixture {
   values: Array<{ timestamp: string | null, value: number | null }>
   series?: { unit?: string, station?: { station_id?: string }, method?: 'midrange' | 'tavg' | null }
   metadata?: { provider?: Partial<typeof PROVIDER_DWD> }
+  /** The days were read from the mirror of NOAA's data on AWS: `/_ghcn/annual` carries the `source-fallback` warning (GH-4390) */
+  mirror?: boolean
 }
 
 export const isFixture = (answer: unknown): answer is StripesFixture => !!answer && Array.isArray((answer as StripesFixture).values)
@@ -97,7 +109,7 @@ export function valuesOfFixture(answer: unknown) {
 /** The answer of `/_ghcn/annual` for a fixture, where the series names how the days were made, and any other answer as it is */
 export function ghcnAnnualOfFixture(answer: unknown) {
   return isFixture(answer)
-    ? ghcnAnnualAnswer(answer.values, { unit: answer.series?.unit, stationId: answer.series?.station?.station_id, method: answer.series?.method })
+    ? ghcnAnnualAnswer(answer.values, { unit: answer.series?.unit, stationId: answer.series?.station?.station_id, method: answer.series?.method, mirror: answer.mirror })
     : answer
 }
 

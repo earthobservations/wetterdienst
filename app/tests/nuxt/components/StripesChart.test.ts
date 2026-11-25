@@ -309,6 +309,22 @@ describe('the variants (GH-4156)', () => {
     expect(textsOf(svgOf())).toContain('Relative to the mean of 1971–2000 [°C]')
   })
 
+  it('writes a line on where the days came from into the saved image, and nothing where there is none (GH-4390)', async () => {
+    const notice = 'Read from the mirror of NOAA\'s data on AWS; the most recent days may be missing. The record shown ends in 2011.'
+    const heightOf = (svg: string) => Number(/height="(\d+)"/.exec(svg)![1])
+    const plain = await showChart()
+    await (plain.vm as any).save({ format: 'svg', filename: 'plain', width: 1400, height: 600, scale: 1 })
+    expect(textsOf(svgOf()).join(' ')).not.toContain('mirror')
+    const plainHeight = heightOf(svgOf())
+    plain.unmount()
+    const shown = await showChart({ noticeLine: notice })
+    await (shown.vm as any).save({ format: 'svg', filename: 'mirror', width: 1400, height: 600, scale: 1 })
+    // the svg escapes the apostrophe
+    expect(textsOf(svgOf()).join(' ').replaceAll('&#39;', '\'')).toContain(notice)
+    // the image is higher by the line
+    expect(heightOf(svgOf())).toBeGreaterThan(plainHeight)
+  })
+
   it('breaks a long subtitle into lines for a narrow image, which make it higher', async () => {
     const shown = await showChart({ variant: 'barsScale' })
     await (shown.vm as any).save({ format: 'svg', filename: 'wide', width: 800, height: 600, scale: 1 })

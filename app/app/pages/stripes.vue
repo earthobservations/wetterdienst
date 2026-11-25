@@ -8,7 +8,7 @@ import { formatNumber, formatSigned } from '~/utils/format'
 import { ghcnCountryName } from '~/utils/ghcn-country'
 import { GHCN_NETWORK } from '~/utils/map-tool'
 import { processingNote } from '~/utils/processing-note'
-import { stripesMethodNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { stripesMethodNote, stripesMirrorNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery, stripesYearFromQuery } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
 import { MIN_RECORD_YEARS, StripesRefusedError } from '~/utils/stripes-scale'
@@ -160,6 +160,9 @@ const referenceFull = computed(() => lastFetchedData.value
 // how a day's temperature was made where the years were built from the days (GHCN daily): the midrange of the daily maximum and minimum,
 // no 24-hour mean (GH-4222, GH-4078). DWD's own annual values and the precipitation have none
 const methodNote = computed(() => stripesMethodNote(lastFetchedData.value?.series.method, t))
+// the days were read from the mirror of NOAA's data on AWS, because NCEI did not answer, and its file may end early (GH-4390): said wherever the
+// stripes are, and in the saved files with the credit
+const mirrorNote = computed(() => stripesMirrorNote(lastFetchedData.value?.mirror, t))
 /** The line of a saved image on how the day's temperature was made: GHCN daily's temperature only (the answer's `method`) */
 const methodLine = computed(() => {
   const method = lastFetchedData.value?.series.method
@@ -317,6 +320,7 @@ function csvComments(data: StripesValuesResponse): string[] {
     plotTitle(data),
     referenceFull.value,
     methodNote.value,
+    mirrorNote.value,
     creditLine(provider?.attribution) || t('stripes.plotSource'),
     licence ? t('credit.licence', { name: licence.name, url: licence.url }) : '',
     processingNote(t),
@@ -632,6 +636,7 @@ watch([
                 :camera-file="cameraFile"
                 :source-text="source === 'ghcn' ? t('stripes.plotSourceGhcn') : undefined"
                 :method-line="methodLine"
+                :notice-line="mirrorNote || undefined"
               />
               <!-- under the source line the chart draws, and with it: where the source is not shown, no more is this (GH-3799) -->
               <ProcessingNote v-if="hasPlot && !plotFailed && showSource && !showsTable" class="mt-1 text-center" data-testid="stripes-processing-note" />
@@ -644,6 +649,10 @@ watch([
               <!-- how the temperature of a day was made, for the years of GHCN daily: said wherever its stripes are shown -->
               <p v-if="hasPlot && !plotFailed && methodNote" data-testid="stripes-method" class="mt-2 text-sm text-muted">
                 {{ methodNote }}
+              </p>
+              <!-- the days came from the mirror of NOAA's data on AWS (NCEI did not answer): the most recent may be missing, and the record may end early (GH-4390) -->
+              <p v-if="hasPlot && !plotFailed && mirrorNote" data-testid="stripes-mirror" class="mt-2 text-sm text-muted">
+                {{ mirrorNote }}
               </p>
               <!-- the table is a view of its own (GH-4233), as the forecast's is: the same switch, the whole width -->
               <ValuesTable

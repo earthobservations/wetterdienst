@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { STRIPE_CLASS_COUNT, STRIPE_CLASSES, STRIPE_PALETTES, stripeBand, stripeColour, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears, wrapChartTitle } from '../../app/utils/stripes'
+import { STRIPE_CLASS_COUNT, STRIPE_CLASSES, STRIPE_PALETTES, stripeBand, stripeColour, stripesMirrorNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears, wrapChartTitle } from '../../app/utils/stripes'
 import { unitSymbol } from '../../app/utils/unit-targets'
 
 const answer = (...items: [string | null, number | null, number | null, number | null][]) => items.map(([timestamp, value, anomaly, stripe_class]) => ({ timestamp, value, anomaly, stripe_class }))
@@ -241,6 +241,35 @@ describe('the sentence that says what stripes show', () => {
       ['2020-01-01T00:00:00+00:00', 9, 0, 8],
     ))
     expect(stripesSummaryParams(years, value => `${value} °C`)).toEqual({ from: 2018, to: 2020, min: '8 °C', minYear: 2018, max: '12 °C', maxYear: 2019 })
+  })
+})
+
+describe('the line that says the days were read from the mirror on AWS (GH-4390)', () => {
+  const t = (key: string, params?: Record<string, unknown>) => `${key}${params ? JSON.stringify(params) : ''}`
+
+  it('says nothing for stripes made of NOAA\'s own file, and for DWD\'s', () => {
+    expect(stripesMirrorNote(undefined, t, 2026)).toBe('')
+  })
+
+  it('names the year the record ends in where that is before the last complete year', () => {
+    expect(stripesMirrorNote({ last_year: 2024 }, t, 2026)).toBe('stripes.mirrorNoteEnds{"year":2024}')
+    expect(stripesMirrorNote({ last_year: 1999 }, t, 2026)).toBe('stripes.mirrorNoteEnds{"year":1999}')
+  })
+
+  it('says only that the most recent days may be missing where the record reaches the last complete year', () => {
+    expect(stripesMirrorNote({ last_year: 2025 }, t, 2026)).toBe('stripes.mirrorNote')
+    // the running year has no value until it is complete, so a record that has one is not behind either
+    expect(stripesMirrorNote({ last_year: 2026 }, t, 2026)).toBe('stripes.mirrorNote')
+  })
+
+  it('does not name a year for a record with no value', () => {
+    expect(stripesMirrorNote({ last_year: null }, t, 2026)).toBe('stripes.mirrorNote')
+  })
+
+  it('reads the year it is from the clock where none is given', () => {
+    const year = new Date().getUTCFullYear()
+    expect(stripesMirrorNote({ last_year: year - 1 }, t)).toBe('stripes.mirrorNote')
+    expect(stripesMirrorNote({ last_year: year - 2 }, t)).toBe(`stripes.mirrorNoteEnds{"year":${year - 2}}`)
   })
 })
 

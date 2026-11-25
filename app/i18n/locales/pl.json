@@ -960,6 +960,8 @@
     "plotSourceGhcn": "Źródło: NOAA NCEI, GHCN-Daily",
     "methodMidrange": "Obliczone ze środka między dobowym maksimum i minimum, a nie ze średniej z 24 godzin. Jedna metoda dla całego zapisu, więc nie ma skoku tam, gdzie średnia dobowa stacji się zaczyna lub kończy, a stały błąd systematyczny znosi się w anomaliach.",
     "methodTavg": "Obliczone ze średniej dobowej stacji (TAVG): nie ma ona żadnej doby z maksimum i minimum, z których dałoby się wziąć środek.",
+    "mirrorNote": "Odczytano z kopii lustrzanej danych NOAA w AWS; najnowsze dni mogą być niedostępne.",
+    "mirrorNoteEnds": "Odczytano z kopii lustrzanej danych NOAA w AWS; najnowsze dni mogą być niedostępne. Pokazany zapis kończy się w roku {year}.",
     "plotMethodMidrange": "Temperatura: środek między dobowym maksimum i minimum (GHCN)",
     "plotMethodTavg": "Temperatura: średnia dobowa (TAVG, GHCN)",
     "plotReference": "Kolory: średnia z {centre}, ±{sigma} σ z {spread}",

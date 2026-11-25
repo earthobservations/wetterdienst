@@ -99,6 +99,10 @@ def test_radar_request_radolan_cdc_historic_hourly_data(default_settings: Settin
     requested_header = wrl.io.read_radolan_header(first.data)
     requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
 
+    # An archived composite of 2019: its header is final, and DWD's extension of the radar precipitation scan from 150
+    # km to 180 km (24 November 2026) does not reach files already written. `maxrange` is not read from the file:
+    # wradlib derives it from the format version `VS` of the header (`formatversion` 3 is "150 km"), so these two
+    # entries are one fact. Not to be loosened (GH-4404).
     attrs = IsDict(
         {
             "datasize": 1620000,
@@ -149,6 +153,10 @@ def test_radar_request_radolan_cdc_historic_daily_data(default_settings: Setting
     days_sub = r"\s\d{2}"
     radardays_pattern = f"({radar_locations_pattern}){days_sub}"
 
+    # An archived composite of 2019: its header is final, and DWD's extension of the radar precipitation scan from 150
+    # km to 180 km (24 November 2026) does not reach files already written. `maxrange` is not read from the file:
+    # wradlib derives it from the format version `VS` of the header (`formatversion` 3 is "150 km"), so these two
+    # entries are one fact. Not to be loosened (GH-4404).
     attrs = IsDict(
         {
             "datasize": 1620000,

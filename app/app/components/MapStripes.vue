@@ -2,7 +2,7 @@
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
 import { STRIPES_KIND } from '~/utils/map-tool'
-import { stripeColour, stripesMethodNote, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { stripeColour, stripesMethodNote, stripesMirrorNote, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { fetchStripes, stripesFetch } from '~/utils/stripes-source'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
@@ -54,6 +54,8 @@ const summary = computed(() => years.value.length && data.value
   ? `${t('stripes.summary', stripesSummaryParams(years.value, value => `${formatNumber(value, locale.value, 1)} ${unit.value}`.trim()))} ${stripesReferenceText(data.value.reference, t, value => formatNumber(value, locale.value, 1))}`
   : '')
 const methodNote = computed(() => stripesMethodNote(data.value?.series.method, t))
+// the days were read from the mirror of NOAA's data on AWS, whose file may end early (GH-4390)
+const mirrorNote = computed(() => stripesMirrorNote(data.value?.mirror, t))
 const descriptionId = useId()
 </script>
 
@@ -79,6 +81,10 @@ const descriptionId = useId()
       <!-- how a day's temperature was made, for a station of GHCN daily (no 24-hour mean) -->
       <p v-if="methodNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-method">
         {{ methodNote }}
+      </p>
+      <!-- the days came from the mirror of NOAA's data on AWS (NCEI did not answer): the most recent may be missing, and the record may end early -->
+      <p v-if="mirrorNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-mirror">
+        {{ mirrorNote }}
       </p>
       <!-- whose data the band is made of, and what was done to it, from the terms the answer it was made of carries (GH-4255) -->
       <ProviderCredit
