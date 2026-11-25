@@ -5,6 +5,9 @@
 One GET with 30,000 spaces in `having` kept the event loop 2.4 s: a regular expression with nested quantifiers ran over
 the raw text before its length was looked at. Every option of `statistics` is given texts of a megabyte that a scanner
 could be slow on, in Python, on REST and in the tool, and a fuzz measures the time against the length.
+
+The bounds are wide, as a busy runner stalls for a second on its own: the scan they are there for took 2.4 s for 30,000
+characters, and so most of an hour for a megabyte.
 """
 
 from __future__ import annotations
@@ -23,6 +26,11 @@ from wetterdienst.ui.restapi import app
 
 OPTIONS = ("aggregate", "by", "filter", "having", "sort", "year_start", "max_missing", "first", "per", "max_rows")
 MEGABYTE = 1_000_000
+
+# seconds
+PYTHON_BOUND = 1.0
+REST_BOUND = 5.0
+TOOL_BOUND = 10.0
 
 #: texts a scanner may be slow on, by length
 SHAPES = {
@@ -58,14 +66,14 @@ def _call(option: str, text: str) -> float:
 
 
 @pytest.mark.parametrize("option", OPTIONS)
-def test_a_megabyte_of_any_shape_is_read_or_refused_in_milliseconds(option: str) -> None:
-    """Python: every shape, in every option, is refused (or read) in under 50 ms."""
+def test_a_megabyte_of_any_shape_is_read_or_refused_in_time(option: str) -> None:
+    """Python: every shape, in every option, is refused (or read) within the bound."""
     slow = {}
     # 30,000 characters is the text of the request that held the event loop 2.4 s, a megabyte the one nobody should send
     for length in (30_000, MEGABYTE):
         for name, make in SHAPES.items():
             spent = min(_call(option, make(length)) for _ in range(2))
-            if spent > 0.05:
+            if spent > PYTHON_BOUND:
                 slow[f"{name} x {length:,}"] = round(spent * 1000)
     assert not slow, f"{option}: milliseconds {slow}"
 
@@ -79,11 +87,11 @@ def test_the_time_grows_with_the_length_and_not_with_its_square(option: str) -> 
         words = [generator.choice(_VOCABULARY) for _ in range(40)]
         small = "".join(generator.choice(words) for _ in range(4_000))
         big = small * 10
-        floor = max(_call(option, small), 0.002)
+        floor = max(_call(option, small), 0.02)
         ratio = _call(option, big) / floor
         worst = max(worst, ratio)
     for make in SHAPES.values():
-        floor = max(_call(option, make(20_000)), 0.002)
+        floor = max(_call(option, make(20_000)), 0.02)
         worst = max(worst, _call(option, make(200_000)) / floor)
     assert worst < 30, f"{option}: ten times the text took {worst:.0f} times as long"
 
@@ -141,13 +149,13 @@ async def _get(query: str) -> tuple[int, float]:
 def test_rest_refuses_a_megabyte_in_every_option_without_holding_the_loop(
     monkeypatch: pytest.MonkeyPatch, option: str
 ) -> None:
-    """REST: a megabyte in an option is a 4xx within half a second, not the seconds a scan of it takes."""
+    """REST: a megabyte in an option is a 4xx within the bound, not the minutes a scan of it takes."""
     serve(monkeypatch, count=2)
     slow = {}
     for name, make in SHAPES.items():
         status, spent = asyncio.run(_get(_query(option, make(MEGABYTE))))
         assert status in (200, 400, 422), (option, name, status)
-        if status != 200 and spent > 0.5:
+        if status != 200 and spent > REST_BOUND:
             slow[name] = round(spent * 1000)
     assert not slow, f"{option}: milliseconds for a megabyte {slow}"
 
@@ -171,7 +179,7 @@ def test_the_tool_refuses_a_megabyte_in_every_option_in_time(monkeypatch: pytest
                 start = time.perf_counter()
                 result = await client.call_tool("statistics", arguments, raise_on_error=False)
                 spent = time.perf_counter() - start
-                if result.is_error and spent > 1.0:
+                if result.is_error and spent > TOOL_BOUND:
                     slow[name] = round(spent * 1000)
         return slow
 

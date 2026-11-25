@@ -205,7 +205,7 @@ def test_the_command_line_prints_the_note(monkeypatch: pytest.MonkeyPatch, endpo
 
 
 def test_the_report_of_the_mcp_reads_the_note_off_the_headers() -> None:
-    """An answer that is no JSON (a CSV, an image) has it in a header, and the tool's sentence tells it.
+    """An answer that is no JSON (a CSV) has it in a header, and the tool's sentence tells it.
 
     That the header reaches the tool through the envelope is held by `test_mcp_formats.py`, which calls the tools.
     """
@@ -214,7 +214,7 @@ def test_the_report_of_the_mcp_reads_the_note_off_the_headers() -> None:
     report = _report_of(headers)
 
     assert report == {"processing_note": processing_note(derived=True)}
-    assert _sentence_of("text/csv", 1, "text content", report).endswith(processing_note(derived=True))
+    assert _sentence_of("text/csv", 1, report).endswith(processing_note(derived=True))
 
 
 # --- the licence of ECCC -------------------------------------------------------------------------------------------
@@ -238,7 +238,7 @@ def test_the_mcp_sentence_reads_a_credit_line_of_two_sentences_with_one_closing_
     """ECCC's credit line ends in a period, which the sentence's own is not added to, and keeps its inner one."""
     report = _report_of({"x-wetterdienst-attribution": _header_text(ECCC_ATTRIBUTION)})
 
-    sentence = _sentence_of("text/csv", 1, "text content", report)
+    sentence = _sentence_of("text/csv", 1, report)
 
     assert f"Attribution: {ECCC_ATTRIBUTION}" in sentence
     assert ".." not in sentence
