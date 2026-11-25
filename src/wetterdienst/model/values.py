@@ -396,8 +396,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: spans stations (`by=year`) and the order of `sort` are the whole answer's, and `query` alone cannot give them
     _finishing_rows: bool = field(default=False, init=False, repr=False, compare=False)
     #: the most rows `all` holds of the rows chosen, which a caller that answers within a limit (the REST API)
-    #: sets; None for no limit. A walk whose choice stays in a station is stopped with `RowsOverLimitError` when it
-    #: has chosen more
+    #: sets; None for no limit. A walk whose choice stays in a station (a `filter`, a `sort`, a `first` by station) is
+    #: stopped with `RowsOverLimitError` when it has held more
     _held_rows_limit: int | None = field(default=None, init=False, repr=False, compare=False)
     #: the stations the walk in hand read, those without a value included (`Searched.stations_read`)
     _stations_read: int = field(default=0, init=False, repr=False, compare=False)
@@ -1628,8 +1628,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         is one, a wide row one for each parameter it holds) are what the memory is, and set when the rows chosen are
         chosen again. Three cases, by where the rows that will be in the answer can come from:
 
-        - a choice that stays in a station (`by` has `station_id`) is the answer as it is read: more rows than the
-          limit are an answer that is refused, now and not after the last station (`RowsOverLimitError`);
+        - a choice that stays in a station (a `filter` alone, a `sort`, or `first` with `station_id` in `by`) is the
+          answer as it is read: a station's rows that match are held as they arrive and the rest let go, and more rows
+          than the limit are an answer that is refused, now and not after the last station (`RowsOverLimitError`);
         - the same with `max_rows` and a `sort`: every station holds up to `max_rows` rows and a hundred stations
           hold a hundred times that, of which only the first `max_rows` in the answer's order can matter, so what is
           held is cut to them once it is twice as many rows;
@@ -1648,7 +1649,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                     compact = selection.cap_held(selection.finish(data))
                     return compact.height, _cells(compact), [compact]
                 return rows, cells, data
-            if selection.first is not None and limit and rows > limit:
+            if limit and rows > limit:
                 raise RowsOverLimitError(rows, limit)
             return rows, cells, data
         base = min(self._COMPACT_CELLS, limit) if limit else self._COMPACT_CELLS

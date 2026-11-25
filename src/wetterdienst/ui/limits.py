@@ -146,21 +146,42 @@ def check_stations_in_reach(count: int, limits: Limits, *, distance: str) -> Non
         raise error
 
 
-def check_rows(rows: int, limits: Limits, *, streamed: bool, holds: bool = False) -> None:
+def check_rows(
+    rows: int,
+    limits: Limits,
+    *,
+    streamed: bool,
+    holds: bool = False,
+    reads: bool = False,
+    read_maximum: int | None = None,
+) -> None:
     """Refuse an answer of more rows than the limit of its kind, saying what to change.
 
     An answer sent as one body that would fit a stream is told to stream. An MCP tool is told the three ways that
     work through a tool (a shorter window, fewer parameters, fewer stations) and not to stream: a tool's answer is
     one body that an assistant reads whole, so a longer one is no help to it (GH-3464).
+
+    `reads` is a request that chooses its rows (`filter`, `first`, `statistics`): the rows are what it reads and not
+    what it returns, so it is told so, and the way to fewer is a narrower request (GH-4436). `read_maximum` is the
+    limit of such a read where it is not the stream limit alone: a request whose answer is one body reads as many as the
+    larger of the two (`rows` where that is the larger). A request that `holds` every row it reads (a `sort` with
+    nothing to cut) is told to add a `first` or a `filter`, which read the whole record and keep the rows chosen, or to
+    drop `sort`.
     """
     maximum = limits.max_stream_rows if streamed else limits.max_rows
+    name = "stream_rows" if streamed else "rows"
+    if read_maximum is not None:
+        maximum, name = read_maximum, "stream_rows" if read_maximum == limits.max_stream_rows else "rows"
     if not maximum or rows <= maximum:
         return
     narrow = "Ask for a shorter `timestamp` window, fewer `parameters` or fewer stations"
-    if streamed:
-        name, what, advice = "stream_rows", "this server streams", f"{narrow}."
+    keeps = f"{narrow}, add `first` or a `filter` to choose rows from the whole record, or drop `sort`."
+    if reads:
+        what, advice = "this server reads for one request", f"{narrow}."
+    elif streamed:
+        what, advice = "this server streams", f"{narrow}."
     else:
-        name, what = "rows", "this server sends as one answer"
+        what = "this server sends as one answer"
         streamable = not limits.max_stream_rows or rows <= limits.max_stream_rows
         advice = (
             f"{narrow}, or use `format=ndjson` or `format=csv`, which are streamed and allow more."
@@ -169,33 +190,63 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool, holds: bool = False
         )
         if holds:
             # a `sort` holds every row it reads, in a stream too: the way out is to choose fewer rows from the record
-            advice = f"{narrow}, add `first` to choose rows from the whole record, or drop `sort`."
-    head = f"This request would return about {rows:,} rows, more than the {maximum:,} {what}."
-    tool_advice = (
-        f"{narrow}, add `first` to choose rows from the whole record, or drop `sort`." if holds else f"{narrow}."
-    )
+            advice = keeps
+    verb = "read" if reads else "return"
+    head = f"This request would {verb} about {rows:,} rows, more than the {maximum:,} {what}."
+    tool_advice = keeps if holds and not reads else f"{narrow}."
     error = _refuse(name, maximum, rows, f"{head} {advice}", tool_message=f"{head} {tool_advice}")
     raise error
 
 
-def check_chosen_rows(rows: int, limits: Limits, *, so_far: bool = False) -> None:
-    """Refuse an answer whose rows chosen by `first` are more than the limit of one body, saying what to change.
+def check_chosen_rows(
+    rows: int,
+    limits: Limits,
+    *,
+    so_far: bool = False,
+    first: bool = True,
+    sort: bool = False,
+    max_rows: int | None = None,
+) -> None:
+    """Refuse an answer whose rows chosen by `first` or `filter` are more than the limit of one body.
 
-    A request with `first` reads under the stream limit whatever its format, so that a record can be searched, and the
-    rows it chooses are held before they are sent, so they are held to `rows`, the limit of an answer sent as one
-    body, in every format. They are known only as the values are read, so this is told then, and names what makes them
-    fewer. `so_far` is for a walk stopped at the limit: the rows are those held when it was stopped.
+    A request with `first` or a `filter` reads more than `rows` whatever its format, so that a record can be searched,
+    and the rows it chooses are held before they are sent, so they are held to `rows`, the limit of an answer sent as
+    one body, in every format. They are known only as the values are read, so this is told then, and names what makes
+    them fewer. `so_far` is for a walk stopped at the limit: the rows are those held when it was stopped.
+
+    `first` is whether the request has one. Without it (a `filter` alone, or with a `sort`) the way out is a tighter
+    `filter`, a `first` (after a `sort`, which it needs; one the request has is not asked for again), a `max_rows` (a
+    smaller one where the request has one above `rows`), and, over REST for a `filter` alone, a stream, which sends the
+    rows as they are read and holds none. An MCP tool has no stream, so its text leaves that out (GH-4436).
     """
     maximum = limits.max_rows
     if not maximum or rows <= maximum:
         return
     count = f"{rows:,} rows so far" if so_far else f"{rows:,} rows"
     head = f"The options chose {count}, more than the {maximum:,} this server holds and sends as one answer."
-    message = (
-        f"{head} Ask for a smaller `first`, add a `filter`, name fewer parameters and stations, or, where rows tie "
-        "over many stations, add `timestamp` to `sort` to tell them apart."
-    )
-    error = _refuse("rows", maximum, rows, message)
+    tool_message = None
+    if first:
+        message = (
+            f"{head} Ask for a smaller `first`, add a `filter`, name fewer parameters and stations, or, where rows "
+            "tie over many stations, add `timestamp` to `sort` to tell them apart."
+        )
+    else:
+        ways = ["Tighten the `filter`"]
+        ways.append(
+            "add `first` to keep the first rows of each station"
+            if sort
+            else "add `sort` and `first` to keep the first rows of each station"
+        )
+        if max_rows is None:
+            ways.append("cut the answer with `max_rows`")
+        elif max_rows > maximum:
+            ways.append("ask for a smaller `max_rows`")
+        ways += ["ask for a shorter `timestamp` window", "or name fewer parameters and stations"]
+        message = f"{head} {', '.join(ways)}."
+        if not sort and (not limits.max_stream_rows or limits.max_stream_rows > maximum):
+            tool_message = message
+            message += " Or stream it: `format=ndjson` and `format=csv` send the rows as they are read and hold none."
+    error = _refuse("rows", maximum, rows, message, tool_message=tool_message)
     raise error
 
 

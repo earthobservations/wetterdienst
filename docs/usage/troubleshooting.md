@@ -171,8 +171,8 @@ request cannot take the server down; the answer names the limit and its value:
 | `limit` | Default | What to do |
 | --- | --- | --- |
 | `stations` | 100 stations of a `values` or `history` request | name fewer stations, a smaller `rank`, `distance` or bounding box, and ask again for the rest |
-| `rows` | 500,000 rows of an answer sent as one body | narrow the `timestamp` or the parameters. Over REST, `values` and `stations` can also use `format=ndjson` or `format=csv`, which stream; `interpolate`, `summarize` and the MCP tools cannot, and take a shorter window or fewer parameters |
-| `stream_rows` | 10,000,000 rows of a streamed answer | narrow it, or run the library or the CLI, which have no limit |
+| `rows` | 500,000 rows of an answer sent as one body, and the rows a `filter` or `first` holds | narrow the `timestamp` or the parameters. Over REST, `values` and `stations` can also use `format=ndjson` or `format=csv`, which stream; `interpolate`, `summarize` and the MCP tools cannot, and take a shorter window or fewer parameters |
+| `stream_rows` | 10,000,000 rows of a streamed answer, and what a `filter` or `first` reads where it is the larger of this and `rows` | narrow it, or run the library or the CLI, which have no limit |
 
 `GET /api/version` reports the limits of an instance (`limits`), and a client can size its request before it is
 refused. A request has to be answered within `WD_RESTAPI_TIMEOUT` (60 seconds): a 504 `request-timeout` has

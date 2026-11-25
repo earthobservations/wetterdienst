@@ -4,7 +4,8 @@
 
 One stub of a DWD network (`row_options_stub`) answers every surface, with readings that a plain Python function gives
 (`oracle`), so each surface is held to the same rows, to the report of what was searched, to the same refusals, and to
-the limits: a request with `first` reads up to the stream limit, and sends up to the limit of its format.
+the limits: a request with `first` or a `filter` reads up to the stream limit, and holds what it chooses to the limit
+of one body.
 """
 
 from __future__ import annotations
@@ -235,8 +236,8 @@ def test_a_request_with_first_reads_up_to_the_stream_limit_and_sends_up_to_its_o
     refused = _rest()
     assert refused.status_code == 400
     assert refused.json()["limit"] == "rows"
-    # a filter alone reads what the others read
-    assert _rest(filter="value<=-9").status_code == 400
+    # a filter alone reads up to the stream limit too, and holds what matched to the limit (GH-4436)
+    assert _rest(filter="value<=-9").status_code == 200
     chosen = _rest(sort="value", first=1)
     assert chosen.status_code == 200, chosen.text
     # what is sent is held to the limit of its kind: 1,100 rows chosen of a limit of 1,000
@@ -673,8 +674,11 @@ def test_a_wide_request_that_chooses_rows_is_answered_where_the_plain_one_is(mon
     # 3 stations x 1,096 days: 3,288 wide rows, 6,576 cells. The plain request is answered, and so is one with `first`
     assert _rest(parameters=both, shape="wide").status_code == 200
     assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 200
-    # the stream limit holds the read of one with `first`, in rows as for the plain request
+    # the read of one with `first` is held to the larger of the two limits, in rows as for the plain request: a stream
+    # limit below `rows` does not refuse what the plain request is answered (GH-4436)
     monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "3000")
+    assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 200
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "3000")
     assert _rest(parameters=both, shape="wide", sort="-day", first=1).status_code == 400
 
 
