@@ -246,7 +246,9 @@ def test_the_choice_again_of_a_walk_that_timed_out_is_not_made_for_the_stations_
 ) -> None:
     """Spanning groups are chosen again at each station: at most the station in hand makes one after the timeout."""
     monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "1")
-    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
+    # long enough for three stations to be read and chosen over on a machine that runs the whole suite on every core:
+    # at 0.3 s two were, and the test failed there (GH-4440); the walk is held at the fourth station
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "4")
     walk.hold("00003")
     choice = {"sort": "-value", "first": "2", "by": "year"}
 
