@@ -45,10 +45,11 @@ overrides:
   # GHSA-rhr8-3pm8-cq29, GHSA-6qrw-m8cv-hcxf, GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g and
   # more, all fixed in 1.4.3; listhen asks for ^1.3.1, which admits the vulnerable 1.4.0.
   node-forge@<1.4.3: ^1.4.3
-  # qs (GHSA-6pq8-jhm2-2vcw, fixed in 6.16.1): @duckdb/duckdb-wasm pins qs 6.16.0 exactly and
-  # ships no code that loads it (its dist never requires qs), so this only keeps the vulnerable
+  # qs (GHSA-6pq8-jhm2-2vcw, fixed in 6.16.1; GHSA-w4cr-vjpx-p82q, fixed in 6.16.2):
+  # @duckdb/duckdb-wasm asks for ^6.14.1, which admits the vulnerable 6.14.x to 6.16.1, and
+  # ships no code that loads it (its dist never requires qs), so this only keeps a vulnerable
   # copy out of the lock file. Drop this once duckdb-wasm asks for a fixed qs.
-  qs@<6.16.1: ^6.16.1
+  qs@<6.16.2: ^6.16.2
   # Without this, pnpm's trustPolicy: no-downgrade rejects semver@6.3.1 (a
   # long-standing transitive dep of @babel/core@7.x, pulled in via
   # nuxt-security -> unplugin-remove) because that specific release lacks
@@ -64,6 +65,11 @@ overrides:
   # @duckdb/duckdb-wasm -> apache-arrow -> @types/node@20.19.42 (an older,
   # separately-resolved @types/node than the workspace's own ^25.x).
   undici-types: ^6.21.0
+  # unrouting (build time, nuxt > @nuxtjs/i18n; the SPA's route patterns are generated with it),
+  # GHSA-m344-v5fq-3m39: fixed in 0.3.2. @nuxtjs/i18n 10.6.0 asks for ^0.2.2, which admits
+  # only the vulnerable 0.2.x line, and has no newer release; nuxt itself already asks for
+  # 0.3.2. Drop this once @nuxtjs/i18n admits the 0.3 line.
+  unrouting@<0.3.2: ^0.3.2
 
 # Lifecycle scripts of dependencies: none runs. pnpm 11 blocks them unless a package is named
 # here, and fails the install (strictDepBuilds) for one that is named nowhere, so a new
