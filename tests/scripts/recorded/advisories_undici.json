@@ -1,0 +1,20 @@
+[
+  {
+    "ghsa_id": "GHSA-2mjp-6q6p-2qxm",
+    "html_url": "https://github.com/nodejs/undici/security/advisories/GHSA-2mjp-6q6p-2qxm",
+    "summary": "Inconsistent Interpretation of HTTP Requests ('HTTP Request/Response Smuggling') in undici",
+    "severity": "medium",
+    "published_at": "2026-03-12T18:12:01Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "undici"
+        },
+        "vulnerable_version_range": "< 6.24.0; 7.0.0 < 7.24.0",
+        "patched_versions": "6.24.0: 7.24.0"
+      }
+    ]
+  }
+]

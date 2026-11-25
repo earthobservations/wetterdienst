@@ -8,6 +8,7 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'scripts/**'
       - 'benchmarks/**'
       - 'examples/**'
       - 'pyproject.toml'
@@ -18,6 +19,7 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'scripts/**'
       - 'benchmarks/**'
       - 'examples/**'
       - 'pyproject.toml'

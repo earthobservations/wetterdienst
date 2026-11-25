@@ -11,7 +11,7 @@ start the Python test matrix. Each workflow also lists its own file, so a change
 always exercised by that workflow.
 
 The filters are drawn from what the commands behind them read, not from what looks related: `ruff`
-is restricted to the four trees named in `include` in `pyproject.toml`, `ty` and `deptry` only ever
+is restricted to the trees named in `include` in `pyproject.toml` (`scripts/` too), `ty` and `deptry` only ever
 look at `src/wetterdienst`, and `uv audit` only at the resolved dependency set. The test matrix is
 the widest of them, because the suite reaches outside `src/` and `tests/`: `tests/test_docs.py`
 checks the provider pages under `docs/data/provider` against the metadata model,
@@ -79,6 +79,24 @@ digest are kept in step with `@playwright/test` by hand.
 `vulnerable.yml` is path-filtered for pull requests (only the manifest and the lock change what
 `uv audit` finds) and also runs weekly on `main`, because an advisory is published against a lock
 that does not change.
+
+## Advisories
+
+`advisories.yml` (Mondays 04:53 UTC and on request, never on a pull request) reads the advisories that the
+packages publish in their *own* repositories against the locked versions of `uv.lock` and
+`app/pnpm-lock.yaml`, because `uv audit`, `pnpm audit` and GitHub's alerts list them days or weeks later
+(GH-4378). The job has `contents: read` and `issues: write` and the job token as its only credential; the
+script (`scripts/repo_advisories.py`, tests under `tests/scripts`) is the only thing it runs, and no text of an
+advisory goes into a shell or into the issue. The result is one issue, found by its fixed title and a marker in
+its body: it is updated while it is open (a clean run rewrites it to "None now" and leaves closing to a
+person), a closed one with the same findings is not opened again, and different findings open a new one.
+An advisory that does not affect us goes in `scripts/repo_advisories_ignore.toml` with a reason and a date.
+The same reading runs locally as `uv run poe advisories`, a table, which is the check before a release
+(`.github/RELEASE_STRATEGY.md`).
+
+| Event | What it does |
+|---|---|
+| `schedule`, `workflow_dispatch` | reads the locks, creates or updates the one issue; exits 2 (a red run, the issue untouched) on a rate limit or an outage of PyPI, npm or GitHub |
 
 ## Docs CI
 

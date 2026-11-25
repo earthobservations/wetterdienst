@@ -1,0 +1,18 @@
+{
+  "info": {
+    "name": "numcodecs",
+    "version": "0.17.0",
+    "home_page": null,
+    "project_urls": {
+      "Bug Tracker": "https://github.com/zarr-developers/numcodecs/issues",
+      "Changelog": "https://numcodecs.readthedocs.io/en/stable/release.html",
+      "Documentation": "https://numcodecs.readthedocs.io/",
+      "Homepage": "https://github.com/zarr-developers/numcodecs"
+    }
+  },
+  "urls": [
+    {
+      "upload_time_iso_8601": "2026-09-17T18:12:12.765144Z"
+    }
+  ]
+}

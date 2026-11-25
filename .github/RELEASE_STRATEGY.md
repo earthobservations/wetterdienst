@@ -82,6 +82,12 @@ Do **not** pass `--notes-file CHANGELOG.md`. That publishes the whole file — 3
 than the section for the version being released.
 
 ### Backend Release
+
+Before the release commit, run `uv run poe advisories` (add `--only python` for the backend alone): it reads the
+advisories the locked packages publish in their own repositories, which GitHub's alerts and `uv audit` list late
+(GH-4378). Anything affected with a fix past the cooldown is locked first; what does not affect us goes, with a
+reason and a date, in `scripts/repo_advisories_ignore.toml`. The weekly `advisories.yml` keeps one issue with the same reading.
+
 ```bash
 # 1. Update version in pyproject.toml
 # 2. Add the release's CHANGELOG.md section: a "## [x.y.z] - YYYY-MM-DD" heading under the

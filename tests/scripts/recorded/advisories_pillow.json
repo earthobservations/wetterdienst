@@ -1,0 +1,20 @@
+[
+  {
+    "ghsa_id": "GHSA-45hq-cxwh-f6vc",
+    "html_url": "https://github.com/python-pillow/Pillow/security/advisories/GHSA-45hq-cxwh-f6vc",
+    "summary": "BdfFontFile`: `Image.new()` called without `_decompression_bomb_check()` — bomb protection bypass via font loading",
+    "severity": "high",
+    "published_at": "2026-07-03T08:33:16Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "pip",
+          "name": "Pillow"
+        },
+        "vulnerable_version_range": "≤ 12.2.0",
+        "patched_versions": ">= 12.3.0"
+      }
+    ]
+  }
+]

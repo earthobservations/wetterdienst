@@ -1,0 +1,20 @@
+[
+  {
+    "ghsa_id": "GHSA-5jqp-qgf6-3pvh",
+    "html_url": "https://github.com/pydantic/pydantic/security/advisories/GHSA-5jqp-qgf6-3pvh",
+    "summary": "Use of \"infinity\" as an input to datetime and date fields causes infinite loop",
+    "severity": "medium",
+    "published_at": "2021-05-11T17:11:44Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "pip",
+          "name": "pydantic"
+        },
+        "vulnerable_version_range": "all",
+        "patched_versions": "v1.8.2,v1.7.4,v1.6.2"
+      }
+    ]
+  }
+]

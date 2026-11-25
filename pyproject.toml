@@ -320,6 +320,9 @@ format = ["format:fmt", "format:lint"]
 lint = ["lint:fmt", "lint:lint"]
 unused = "uv run deptry src/wetterdienst"
 vulnerable = "uv audit"
+# the advisories the locked packages publish in their own repositories, which `uv audit` and GitHub's alerts list late
+# (GH-4378): a table, exit 1 if one affects us. The weekly job of `.github/workflows/advisories.yml` files it as an issue
+advisories = "uv run python scripts/repo_advisories.py"
 zizmor = "uv run zizmor ."
 # docs -- the same build Read the Docs runs, which is sphinx against docs/conf.py. There is no
 # Makefile in docs/, so `make html` had nothing to make
@@ -422,6 +425,7 @@ target-version = "py311"
 include = [
     "benchmarks/**/*.py",
     "examples/**/*.py",
+    "scripts/**/*.py",
     "tests/**/*.py",
     "src/wetterdienst/**/*.py",
 ]
@@ -463,6 +467,8 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 # a command-line script that prints its answers, with figures written in the Unicode the models write them in
 "benchmarks/mcp/**/*.py" = ["T20", "EXE001", "RUF001"]
 "examples/*" = ["T20", "INP001"]
+# the script of the weekly advisory check prints its table, and runs by its path
+"scripts/*" = ["T20", "INP001"]
 # the command line imports what a command uses inside the command, so that `--help`, `--version` and a shell completion
 # load almost nothing (GH-3809); tests/ui/cli/test_cli_imports.py holds what the module imports
 "src/wetterdienst/ui/cli.py" = ["PLC0415"]

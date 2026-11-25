@@ -1,0 +1,13 @@
+{
+  "name": "nuxt",
+  "version": "4.6.4",
+  "repository": {
+    "url": "git+https://github.com/nuxt/nuxt.git",
+    "type": "git",
+    "directory": "packages/nuxt"
+  },
+  "homepage": "https://nuxt.com",
+  "bugs": {
+    "url": "https://github.com/nuxt/nuxt/issues"
+  }
+}

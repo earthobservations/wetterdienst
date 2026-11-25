@@ -1,0 +1,52 @@
+name: Advisories
+
+# `uv audit`, `pnpm audit` and GitHub's alerts read the global advisory database, which lists an
+# advisory days or weeks after the repository of the package published it (GH-4378). This reads the
+# published advisories of those repositories against the locked versions (`uv.lock` and
+# `app/pnpm-lock.yaml`) and keeps ONE issue up to date with what it finds; it never opens a second
+# one, assigns nobody and is closed by a person. `scripts/repo_advisories.py` says how, and
+# `uv run poe advisories` is the same reading as a table for the check before a release.
+#
+# It runs on a schedule only, never on a pull request: the answer depends on what the packages
+# publish, not on a change. The job token is the only credential, and the only write is the issue.
+on:
+  schedule:
+    - cron: '53 4 * * 1' # every Monday
+
+  # Allow job to be triggered manually.
+  workflow_dispatch:
+
+# Two runs at once would both update the issue; the second waits for the first.
+concurrency:
+  cancel-in-progress: false
+  group: ${{ github.workflow }}
+
+env:
+  PYTHON: "3.14"
+
+permissions: {}
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Install project
+        run: uv sync
+
+      - name: Read the advisories of the locked packages and update the issue
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: uv run python scripts/repo_advisories.py --issue

@@ -1,0 +1,36 @@
+[
+  {
+    "ghsa_id": "GHSA-jqc8-qjfv-5m6r",
+    "html_url": "https://github.com/zarr-developers/numcodecs/security/advisories/GHSA-jqc8-qjfv-5m6r",
+    "summary": "Arbitrary code execution when decoding data with the Pickle codec",
+    "severity": "high",
+    "published_at": "2026-10-20T19:01:32Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "pip",
+          "name": "numcodecs"
+        },
+        "vulnerable_version_range": ">= 0.17.0, < 0.17.1",
+        "patched_versions": "0.17.1"
+      },
+      {
+        "package": {
+          "ecosystem": "pip",
+          "name": "numcodecs"
+        },
+        "vulnerable_version_range": ">= 0.16.0, < 0.16.6",
+        "patched_versions": "0.16.6"
+      },
+      {
+        "package": {
+          "ecosystem": "pip",
+          "name": "numcodecs"
+        },
+        "vulnerable_version_range": ">= 0.1.0, < 0.15.2",
+        "patched_versions": "0.15.2"
+      }
+    ]
+  }
+]

@@ -23,6 +23,8 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      # tests/scripts holds scripts/repo_advisories.py (the weekly advisory check) to its recorded answers
+      - 'scripts/**'
       # tests/examples runs these, so a change to one is a change this suite covers
       - 'examples/**'
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
@@ -46,6 +48,8 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      # tests/scripts holds scripts/repo_advisories.py (the weekly advisory check) to its recorded answers
+      - 'scripts/**'
       # tests/examples runs these, so a change to one is a change this suite covers
       - 'examples/**'
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
@@ -66,7 +70,7 @@ on:
       - '.github/workflows/tests.yml'
 
   # The whole remote matrix, on main, at an hour when no other workflow runs (codeql Fri 04:26,
-  # docs Mon 05:17, vulnerable Mon 03:41, docker-cleanup 00:00)
+  # docs Mon 05:17, vulnerable Mon 03:41, advisories Mon 04:53, docker-cleanup 00:00)
   schedule:
     - cron: '23 2 * * *'
 

@@ -10,6 +10,8 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      # tests/scripts holds scripts/repo_advisories.py (the weekly advisory check) to its recorded answers
+      - 'scripts/**'
       # tests/examples runs these, so a change to one is a change this suite covers
       - 'examples/**'
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
@@ -30,6 +32,8 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      # tests/scripts holds scripts/repo_advisories.py (the weekly advisory check) to its recorded answers
+      - 'scripts/**'
       # tests/examples runs these, so a change to one is a change this suite covers
       - 'examples/**'
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others

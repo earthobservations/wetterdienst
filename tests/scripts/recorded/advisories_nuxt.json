@@ -1,0 +1,138 @@
+[
+  {
+    "ghsa_id": "GHSA-vrh2-cfcx-c3fg",
+    "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-vrh2-cfcx-c3fg",
+    "summary": "Incomplete fix for GHSA-f3x9-2chm-73c8: a repeated or leading encoded slash in the request path bypasses route rules on catch-all page routes",
+    "severity": "medium",
+    "published_at": "2026-11-24T15:14:03Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "nuxt"
+        },
+        "vulnerable_version_range": ">= 4.0.0, < 4.7.0",
+        "patched_versions": "4.7.0"
+      },
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "nuxt"
+        },
+        "vulnerable_version_range": ">= 3.0.0, < 4.0.0",
+        "patched_versions": null
+      },
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "@nuxt/nitro-server"
+        },
+        "vulnerable_version_range": ">= 4.2.0, < 4.7.0",
+        "patched_versions": "4.7.0"
+      },
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "@nuxt/nitro-server"
+        },
+        "vulnerable_version_range": ">= 3.20.0, < 4.0.0",
+        "patched_versions": null
+      },
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "@nuxt/vite-server"
+        },
+        "vulnerable_version_range": ">= 4.6.0, < 4.7.0",
+        "patched_versions": "4.7.0"
+      }
+    ]
+  },
+  {
+    "ghsa_id": "GHSA-h5xj-x893-p5f7",
+    "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-h5xj-x893-p5f7",
+    "summary": "Nuxt dev server exposes private runtime config through earlier Nitro build output",
+    "severity": "low",
+    "published_at": "2026-11-24T15:14:17Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "@nuxt/vite-builder"
+        },
+        "vulnerable_version_range": ">= 4.0.0, < 4.7.0",
+        "patched_versions": "4.7.0"
+      },
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "@nuxt/vite-builder"
+        },
+        "vulnerable_version_range": ">= 3.0.0, < 4.0.0",
+        "patched_versions": null
+      }
+    ]
+  },
+  {
+    "ghsa_id": "GHSA-jxc9-w3j6-pwp2",
+    "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-jxc9-w3j6-pwp2",
+    "summary": "Nuxt route rules for a page are not applied to its `_payload.json`, so redirects, proxies, headers and cache exclusions can be bypassed",
+    "severity": "medium",
+    "published_at": "2026-11-24T15:16:06Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "@nuxt/nitro-server"
+        },
+        "vulnerable_version_range": ">= 4.2.0, < 4.7.0",
+        "patched_versions": "4.7.0"
+      },
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "@nuxt/nitro-server"
+        },
+        "vulnerable_version_range": ">= 3.20.0, < 4.0.0",
+        "patched_versions": null
+      },
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "nuxt"
+        },
+        "vulnerable_version_range": ">= 4.0.0, < 4.2.0",
+        "patched_versions": "4.7.0"
+      },
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "nuxt"
+        },
+        "vulnerable_version_range": ">= 3.0.0, < 3.20.0",
+        "patched_versions": null
+      }
+    ]
+  },
+  {
+    "ghsa_id": "GHSA-2452-6xj8-jh47",
+    "html_url": "https://github.com/nuxt/nuxt/security/advisories/GHSA-2452-6xj8-jh47",
+    "summary": "Opening a malicious website while running a Nuxt dev server could allow read-only access to code",
+    "severity": "medium",
+    "published_at": "2025-01-24T23:51:14Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "@nuxt/vite-builder"
+        },
+        "vulnerable_version_range": ">=3.8.1<3.15.3",
+        "patched_versions": ">=3.15.3"
+      }
+    ]
+  }
+]
