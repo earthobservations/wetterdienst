@@ -319,7 +319,8 @@ hourly/air_temperature, hourly/precipitation.
 - By default (shape="long" unless the server is configured otherwise, format="json") `values` \
 returns JSON with a `values` array of \
 {station_id, resolution, dataset, parameter, timestamp, value, quality_flags}, grouped by station, then by \
-resolution, dataset and parameter, in timestamp order within each group. `quality_flags` is null or the \
+resolution, dataset and parameter, in time order within each group (not when `filter`, `sort` or `first` \
+choose the rows). `quality_flags` is null or the \
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
@@ -328,13 +329,13 @@ single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters
 warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
 hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \
 (timestamp="2026-07-25T12") for one reading. A station's latest day is its `end_timestamp` from `stations` \
-where it has one; null means the provider gives no end, not that data reaches today. For a long series, \
+where it has one; null means no end given, not data up to today. For a long series, \
 format="csv" with shape="wide" is 5-6x smaller.
 - An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
-matches, or ids in the `stations` argument the network has no station for (they are left out of the list and the \
-rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or look for another \
+matches, or ids in the `stations` argument the network has no station for (left out of the list; the \
+rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or try another \
 station. `stations` takes the same `timestamp` as `values` and lists only the stations that have a record \
-in it, so the nearest ones are not stations that closed long ago. A `name` gives `stations` its best five \
+in it, so the nearest are not long-closed stations. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
 - The default JSON is machine-readable: do NOT re-request the same data in another format.
 

@@ -221,7 +221,10 @@ Frozen:
   order of the answer, and `metadata.search` with its members. A column or an operator may be added in a minor release
   (a name that is none of them is refused with the list, so that none is taken by accident); one is not removed
   or given another meaning. `rows-capped` is its warning code. `window`, `year_start`, `timezone`, `aggregate`, `having`, `per` and `max_missing` are
-  reserved for later options: no option, column or parameter is given them for another meaning. The grammar is
+  reserved for later options: no option, column or parameter is given them for another meaning. A parameter's name is a
+  column of `filter` and `sort` ([Parameters as columns](restapi.md#parameters-as-columns)), so no parameter of any
+  provider is given the name of a column or of a reserved word, and `tests/model/test_row_selection_names.py` holds
+  every parameter of every provider to it. The grammar is
   held by `tests/model/test_row_selection.py`, what it chooses by `tests/model/test_row_selection_semantics.py`.
 
 `tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed, without its `info.version`

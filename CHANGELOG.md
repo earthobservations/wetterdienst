@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A parameter's name is a column of `filter` and `sort` (REST, MCP, command line, Python):
+  `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the timestamps of a station where all
+  conditions hold, a missing value meeting none, with the rows of every requested parameter there;
+  `filter=wind_gust_max>=0&sort=temperature_air_min_2m&first=10` ranks timestamps, so the wind of
+  the ten coldest days with a gust comes back. One resolution, names of the request, no `value`
+  beside a name; an unknown name is refused with the request's names (GH-4419)
+
 ### Changed
 
 - **Breaking**: the `sql` and `duckdb` extras allow DuckDB 2 (`duckdb>=1.5.3,<3`, 2.0.1 in the lock),

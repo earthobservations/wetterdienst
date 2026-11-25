@@ -2394,7 +2394,7 @@
           "Values"
         ],
         "summary": "Values",
-        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nTo find a record or a rare value, have the server choose the rows instead of reading the series:\n`sort=value&first=1` is the lowest value of each station in the window (`sort=-value` the highest),\n`filter=value<=-20,month=12` the readings at or below -20 in a December. An extreme can be a faulty reading:\nread its `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows\n(every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when\nand how many values were searched, so that a record the data lacks is told from one not looked for.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
+        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group (unless `filter`, `sort` or `first`\nchoose the rows): a parameter's latest timestamp is the last item of its group, not of the array. With\nshape=\"wide\" an item is one timestamp of a station and resolution, with a key per parameter (prefixed with the\nfull dataset name, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nTo find a record or a rare value, have the server choose the rows instead of reading the series:\n`sort=value&first=1` is the lowest value of each station in the window (`sort=-value` the highest),\n`filter=value<=-20,month=12` the readings at or below -20 in a December. An extreme can be a faulty reading:\nread its `quality_flags`, ask `first=3`, or filter the sign (`value>=0` for a flow). A tie can be many rows\n(every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when\nand how many values were searched, so that a record the data lacks is told from one not looked for. To meet two\nparameters at one time (one resolution), name them: `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the\ndays of frost and strong gusts, with all parameters' rows.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
         "operationId": "values_api_values_get",
         "parameters": [
           {
@@ -3407,10 +3407,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Keep only the rows that meet every condition, joined by commas: column, operator, number. Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date). Operators `=` `!=` `<` `<=` `>` `>=`; a list `a|b` with `=` and `!=`. A missing value never matches. `value` needs parameters of one unit and shape=long. Example: `value<=-20,month=12|1|2`.",
+              "description": "Keep the rows that meet every condition, joined by commas: column, operator, number. Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date), or a requested parameter's name (its unit; a row is then a timestamp where all hold, with every parameter's rows). Operators = != < <= > >=; a list `a|b` with = and !=. A missing value never matches. No arithmetic: a difference of two parameters can't be filtered. `value` needs one unit, shape=long and no name. Example: `value<=-20,month=12|1|2`, `temperature_air_min_2m<0,wind_gust_max>=17.2`.",
               "title": "Filter"
             },
-            "description": "Keep only the rows that meet every condition, joined by commas: column, operator, number. Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date). Operators `=` `!=` `<` `<=` `>` `>=`; a list `a|b` with `=` and `!=`. A missing value never matches. `value` needs parameters of one unit and shape=long. Example: `value<=-20,month=12|1|2`."
+            "description": "Keep the rows that meet every condition, joined by commas: column, operator, number. Columns `value`, `year`, `month`, `day`, `hour` (UTC; a daily value's own date), or a requested parameter's name (its unit; a row is then a timestamp where all hold, with every parameter's rows). Operators = != < <= > >=; a list `a|b` with = and !=. A missing value never matches. No arithmetic: a difference of two parameters can't be filtered. `value` needs one unit, shape=long and no name. Example: `value<=-20,month=12|1|2`, `temperature_air_min_2m<0,wind_gust_max>=17.2`."
           },
           {
             "name": "sort",
@@ -3425,10 +3425,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, `timestamp`, `year`, `month`, `day`, `hour`, `station_id`. Example: `-value` (highest first), `month,day`.",
+              "description": "Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, `timestamp`, `year`, `month`, `day`, `hour`, `station_id`, or a requested parameter's name (ranks timestamps). Example: `-value` (highest first), `month,day`, `temperature_air_min_2m`.",
               "title": "Sort"
             },
-            "description": "Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, `timestamp`, `year`, `month`, `day`, `hour`, `station_id`. Example: `-value` (highest first), `month,day`."
+            "description": "Order of the answer: columns joined by commas, `-` before one for descending. Columns `value`, `timestamp`, `year`, `month`, `day`, `hour`, `station_id`, or a requested parameter's name (ranks timestamps). Example: `-value` (highest first), `month,day`, `temperature_air_min_2m`."
           },
           {
             "name": "first",
@@ -3445,10 +3445,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Return only the first N rows of each group in the `sort` order, with the ties of the last one; needs `sort`. The `timestamp` window is what is searched: give one that spans the record (`1883/2026`); `metadata.search` says from when to when.",
+              "description": "The first N rows of each group in the `sort` order, with every tie of the last (`sort=value&first=1`: the extreme with all its ties; `max_rows` cuts them); needs `sort`. Give a `timestamp` window that spans the record (`1883/2026`); `metadata.search` says what was searched.",
               "title": "First"
             },
-            "description": "Return only the first N rows of each group in the `sort` order, with the ties of the last one; needs `sort`. The `timestamp` window is what is searched: give one that spans the record (`1883/2026`); `metadata.search` says from when to when."
+            "description": "The first N rows of each group in the `sort` order, with every tie of the last (`sort=value&first=1`: the extreme with all its ties; `max_rows` cuts them); needs `sort`. Give a `timestamp` window that spans the record (`1883/2026`); `metadata.search` says what was searched."
           },
           {
             "name": "by",
@@ -3463,10 +3463,10 @@
                   "type": "null"
                 }
               ],
-              "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, joined by commas, or `none` for all stations together; a parameter is always its own group. Needs `first`. Example: `station_id,year`.",
+              "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, joined by commas, or `none` for all stations. Needs `first`. Example: `station_id,year`.",
               "title": "By"
             },
-            "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, joined by commas, or `none` for all stations together; a parameter is always its own group. Needs `first`. Example: `station_id,year`."
+            "description": "The groups `first` counts in: `station_id` (the default), `year`, `month`, `day`, `hour`, joined by commas, or `none` for all stations. Needs `first`. Example: `station_id,year`."
           },
           {
             "name": "max_rows",
