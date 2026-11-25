@@ -2155,8 +2155,41 @@ def test_export_duckdb_while_the_caller_holds_the_file_open(tmp_path: Path, held
         holder.close()
 
 
-def test_export_duckdb_from_several_threads_into_a_new_file(tmp_path: Path) -> None:
-    """Exports to one new file, started together from several threads, all arrive."""
+def test_export_duckdb_lets_a_caller_connect_to_a_file_that_exists_while_it_is_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A plain `duckdb.connect` of the caller is not refused while the sink holds a connection to an existing file."""
+    duckdb = pytest.importorskip("duckdb")
+    from wetterdienst.io import sinks  # noqa: PLC0415
+
+    filename = tmp_path.joinpath("test.duckdb")
+    target = f"duckdb:///{filename}?table=testdrive"
+    _one_row("01048").to_target(target)
+    real_connect = sinks._connect_duckdb  # noqa: SLF001
+    seen: list[object] = []
+
+    def connect_and_look(module: object, database: str) -> object:
+        connection = real_connect(module, database)
+        try:
+            caller = duckdb.connect(database)
+        except duckdb.Error as e:
+            seen.append(e)
+        else:
+            seen.append(caller.execute("SELECT count(*) FROM testdrive").fetchall())
+            caller.close()
+        return connection
+
+    monkeypatch.setattr(sinks, "_connect_duckdb", connect_and_look)
+    _one_row("01050").to_target(target, if_exists="append")
+
+    assert seen == [[(1,)]]
+    connection = duckdb.connect(str(filename), read_only=True)
+    assert connection.execute("SELECT count(*) FROM testdrive").fetchone() == (2,)
+    connection.close()
+
+
+def test_export_duckdb_from_several_threads_into_one_file(tmp_path: Path) -> None:
+    """Exports to one file, started together from several threads, all arrive."""
     duckdb = pytest.importorskip("duckdb")
     import threading  # noqa: PLC0415
 

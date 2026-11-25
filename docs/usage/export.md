@@ -127,6 +127,8 @@ created with its own defaults (not through this target) cannot be opened by Duck
 (`IOException`: the file has a newer version number). Read an exported file with `con.sql(...).pl()`: DuckDB 2.0
 has no `con.execute(...).pl()` or `.arrow()`. It also runs the next query on a connection only after the result of
 `con.execute(...)` is finished: read it with `fetchall()`, as `fetchone()` leaves it open.
+While DuckDB 2 creates a new file for an export, another connection of the same process to it is refused
+(`ConnectionException`): connect again when the export is done.
 
 ## Licence, credit and date in a file
 

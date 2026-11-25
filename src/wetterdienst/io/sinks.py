@@ -412,23 +412,24 @@ def _find_writer(target: str, filepath: str, writers: Mapping[str, FileWriter]) 
 def _connect_duckdb(duckdb: ModuleType, database: str) -> DuckDBPyConnection:
     """Open the database for writing, a new file in the storage format of DuckDB 1.0 where DuckDB is 2 or newer.
 
-    DuckDB 2 writes a format by default that DuckDB 1.x cannot open, so a file is created as `v1.0.0`, which DuckDB 1.5
-    wrote as well and which 1.5 and 2 read: a reader on 1.5 keeps working. DuckDB 1.5 writes it anyway, and is opened
-    as it was. A file that exists keeps its own format whatever is asked. DuckDB refuses a connection to a file in this
-    process that has another configuration than one already open (a caller that holds the file in a notebook, a
-    thread of another export), so the file is then opened as that connection has it.
+    DuckDB 2 writes a format by default that DuckDB 1.x cannot open, so a new file is created as `v1.0.0`, which DuckDB
+    1.5 wrote as well and which 1.5 and 2 read: a reader on 1.5 keeps working. DuckDB 1.5 writes it anyway, and is
+    opened as it was. A file that exists keeps its own format whatever is asked, and is opened as before, so that a
+    caller who connects to it meanwhile is not refused: DuckDB refuses a connection to a file in this process that has
+    another configuration than one already open. Each way is tried in turn, a new file with the setting first, a file
+    that exists without it first, so that a connection of a caller or of another export that holds the file open does
+    not fail the write.
     """
+    plain = {}
+    pinned = {"storage_compatibility_version": "v1.0.0"}
     major = re.match(r"\s*v?(\d+)", str(duckdb.__version__))
-    if major is not None and int(major.group(1)) >= 2:
-        try:
-            return duckdb.connect(
-                database=database,
-                read_only=False,
-                config={"storage_compatibility_version": "v1.0.0"},
-            )
-        except duckdb.ConnectionException:
-            pass
-    return duckdb.connect(database=database, read_only=False)
+    if major is None or int(major.group(1)) < 2:
+        return duckdb.connect(database=database, read_only=False)
+    configs = [plain, pinned] if Path(database).exists() else [pinned, plain]
+    try:
+        return duckdb.connect(database=database, read_only=False, config=configs[0])
+    except duckdb.ConnectionException:
+        return duckdb.connect(database=database, read_only=False, config=configs[1])
 
 
 def _write_duckdb(result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists) -> None:  # noqa: ARG001
