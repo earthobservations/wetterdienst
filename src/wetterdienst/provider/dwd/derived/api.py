@@ -54,8 +54,11 @@ from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 
+    from typing_extensions import Unpack
+
     from wetterdienst import Period
     from wetterdienst.model.result import ValuesResult
+    from wetterdienst.model.row_selection import RowOptions
     from wetterdienst.settings import Settings
 
 
@@ -99,9 +102,9 @@ class DwdDerivedValues(TimeseriesValues):
     """Values class for dwd derived data."""
 
     @remembering_empty_directories
-    def query(self) -> Iterator[ValuesResult]:
+    def query(self, **rows: Unpack[RowOptions]) -> Iterator[ValuesResult]:
         """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
-        yield from super().query()
+        yield from super().query(**rows)
 
     _default_start_dates: ClassVar = {
         Resolution.MONTHLY: dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),

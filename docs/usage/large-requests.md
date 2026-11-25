@@ -31,6 +31,11 @@ exceeded. The rows of `values` are an estimate and an upper bound (see [Limits](
 the readings each station can hold in the window, times the parameters. Without a `timestamp` they are counted over the
 record of each station, so the first thing to add to a refused request is a window.
 
+Where the answer wanted is one row, or a few, of a long series (the lowest value in a window, the days at or below a
+limit, the coldest day of every year), do not read the series: have the server
+[choose the rows](restapi.md#choose-the-rows) (`sort=value&first=1`). A request with `first` may read up to the
+`stream_rows` limit, whatever its format, and holds the rows it chooses to the `rows` limit.
+
 The defaults, read from the settings, show what one parameter of one station comes to:
 
 ```{code-cell}
@@ -417,6 +422,9 @@ ask for less and to ask in slices:
 - Ask for a window: a day, a month or a year, "the daily maximum of 2024". The assistant can follow the refusal, which
   says what to shorten, and ask again for the next window.
 - Ask for fewer stations (the nearest three) or one parameter, not a dataset.
+- For a record, a rare value or the days over a limit, ask the server to choose the rows
+  ([`sort=value&first=1`, `filter=value<=-20`](restapi.md#choose-the-rows)) instead of reading the series in windows: the
+  answer is the rows, and `metadata.search` says how many values were searched.
 - For a long series, a whole network or a file to keep, ask the assistant to write a script that uses the
   [library](#leave-the-server) or the loops of this page against the REST API: every row an assistant reads goes through
   its context, which holds a small part of 500,000 rows.

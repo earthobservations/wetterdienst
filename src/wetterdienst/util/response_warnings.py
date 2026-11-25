@@ -117,6 +117,11 @@ SOURCE_DATA_LEFT_OUT = "source-data-left-out"
 #: `X-Wetterdienst-Truncated` header too
 ANSWER_TRUNCATED = "answer-truncated"
 
+#: the code of the warning an answer carries that `max_rows` cut: more rows matched what `filter`, `sort` and `first`
+#: chose than the answer returns (GH-4411). It says how many of how many, and is no `answer-truncated`, which a tool's
+#: size budget raises; where both are told, the `answer-truncated` note counts the rows that `max_rows` left
+ROWS_CAPPED = "rows-capped"
+
 #: the code of the warning an MCP tool's `values` answer for a forecast network carries when it starts at now
 #: (`ui.forecast_start`, GH-4025): the rows of the model run stamped before the current hour are left out, and the
 #: `message` says which `timestamp` window asks for them. Only a tool's answer is cut so; the REST API, the command
