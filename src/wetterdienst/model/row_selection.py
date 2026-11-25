@@ -158,10 +158,14 @@ _OPERATOR_HINTS: Final = {
 }
 
 
+#: the words reserved for the options of step 2 (`docs/usage/compatibility.md`): no column, no parameter's name
+STEP_TWO_WORDS: Final = frozenset({"window", "year_start", "timezone", "aggregate", "having", "per", "max_missing"})
 #: the words that are never a parameter's name, so that a model that tries them is told what to do without a request
 #: (the REST model refuses them before any station is looked up): the columns of the options, and the words
 #: `_COLUMN_HINTS` answers. `tests/model/test_row_selection_names.py` holds every parameter of every provider to it
-RESERVED_WORDS: Final = frozenset({*FILTER_COLUMNS, *SORT_COLUMNS, "none", *(w for w in _COLUMN_HINTS if ":" not in w)})
+RESERVED_WORDS: Final = frozenset(
+    {*FILTER_COLUMNS, *SORT_COLUMNS, "none", *STEP_TWO_WORDS, *(w for w in _COLUMN_HINTS if ":" not in w)}
+)
 #: the most closest names an unknown one is told, and the most names listed when none is close
 _CLOSEST: Final = 3
 _LISTED_NAMES: Final = 12
@@ -178,14 +182,13 @@ class ParameterColumn:
 
     `resolution`, `dataset` and `parameter` identify its rows in the long shape, as the frame has them (the dataset
     in lower case, the parameter humanised if the request is); `wide` is the column that holds it in the wide shape;
-    `unit` is the symbol of the unit its numbers are in, which is the answer's: after the conversion of units.
+    the numbers of a condition are in the unit the answer has for it, after the conversion of units.
     """
 
     resolution: str
     dataset: str
     parameter: str
     wide: str
-    unit: str
 
 
 @dataclass(frozen=True)
@@ -197,7 +200,10 @@ class ParameterNames:
 
     `lookup` maps a name in lower case to the parameters it can mean, each with the name as it is written in the
     answer: one for a name that is unambiguous, several where the same name is in two datasets (then only the name
-    with its dataset says which). `resolutions` are those of all the parameters of the request, since a timestamp is
+    with its dataset says which). In a request of one dataset a parameter's own name is the one the answer writes, so
+    it wins over the name after the dataset of another parameter that spells the same
+    (`water_equivalent_snow_depth` is a parameter of `water_equivalent`, and `snow_depth` after its dataset).
+    `resolutions` are those of all the parameters of the request, since a timestamp is
     only the same instant within one of them. Names with a sign other than a letter, digit or underscore (some of a
     provider's own, with `humanize=false`) cannot be written in the text and are `unwritable`.
     """
@@ -214,7 +220,6 @@ class ParameterNames:
         parameters: Iterable[ParameterModel],
         *,
         humanize: bool,
-        symbols: Callable[[ParameterModel], str],
     ) -> ParameterNames:
         """Build the names of a request from its parameters, named as the answer names them (`humanize`)."""
         parameters = list(parameters)
@@ -227,17 +232,22 @@ class ParameterNames:
             wide = f"{dataset}_{name}" if spans_datasets else name
             columns.setdefault(
                 (resolution, dataset, name),
-                (name, ParameterColumn(resolution, dataset, name, wide, symbols(parameter))),
+                (name, ParameterColumn(resolution, dataset, name, wide)),
             )
-        found: dict[str, dict[ParameterColumn, str]] = {}
+        found: dict[str, dict[ParameterColumn, tuple[str, bool]]] = {}
         unwritable: list[str] = []
         for (_, dataset, _), (name, column) in columns.items():
             if not _name_like(name):
                 unwritable.append(name)
                 continue
-            for written in (name, f"{dataset}_{name}"):
-                found.setdefault(written.lower(), {}).setdefault(column, written)
-        lookup = {key: tuple((written, column) for column, written in each.items()) for key, each in found.items()}
+            for written, bare in ((name, True), (f"{dataset}_{name}", False)):
+                found.setdefault(written.lower(), {}).setdefault(column, (written, bare))
+        lookup: dict[str, tuple[tuple[str, ParameterColumn], ...]] = {}
+        for key, each in found.items():
+            entries = list(each.items())
+            if not spans_datasets and any(bare for _, (_, bare) in entries):
+                entries = [(column, spelled) for column, spelled in entries if spelled[1]]
+            lookup[key] = tuple((spelled[0], column) for column, spelled in entries)
         resolutions = tuple(dict.fromkeys(resolution for resolution, _, _ in columns))
         listed = tuple(dict.fromkeys(name for name, _ in columns.values() if _name_like(name)))
         return cls(lookup, resolutions, tuple(dict.fromkeys(unwritable)), listed)
@@ -255,6 +265,16 @@ class ParameterNames:
                 seen.setdefault(column, written)
         return list(seen.values())[:_CLOSEST]
 
+    def distinct_spellings(self, hits: Sequence[tuple[str, ParameterColumn]]) -> list[str]:
+        """Give for each parameter a name may mean a spelling that means that one only: with its dataset, else bare."""
+        spellings = []
+        for _, column in hits:
+            for spelling in (f"{column.dataset}_{column.parameter}", column.parameter):
+                if len(self.lookup.get(spelling.lower(), ())) == 1:
+                    spellings.append(spelling)
+                    break
+        return spellings
+
     def describe(self) -> str:
         """Write some of the request's names for a refusal: all of them where they are few."""
         shown = self.listed[:_LISTED_NAMES]
@@ -268,7 +288,9 @@ class RowSelectionError(RequestError):
     A `RequestError` (a `ValueError`), so a Python caller catches it as the other refusals of a request, the REST API
     and the MCP tools answer it as a 422 located at the option and the command line as a usage error. `option` names
     the option, `position` is the 1-based character of its text where the text goes wrong (None for a refusal that is
-    not about one character), `found` what is there and `expected` what is allowed there.
+    not about one character), `found` what is there and `expected` what is allowed there. It is raised for the text
+    alone, and for a name that is none of the request's parameters or is the name of several of them, once the request
+    is known: the REST API answers that one as a 422 too, located at the option.
     """
 
     def __init__(
@@ -510,11 +532,21 @@ def _name_column(
         return hits[0][0]
     if not hits:
         raise _unknown_column(scanner, word, allowed, start, example, names)
-    where = "; ".join(f"{column.dataset} ({column.resolution})" for _, column in hits)
+    if len(names.resolutions) > 1:
+        # the same name at two resolutions is the lesser fault: a request of two resolutions has no names at all
+        raise _resolutions_refusal(names)
+    spellings = names.distinct_spellings(hits)
+    shown = ", ".join(spellings[:_LISTED_NAMES]) + (
+        f" and {len(spellings) - _LISTED_NAMES} more" if len(spellings) > _LISTED_NAMES else ""
+    )
+    datasets = dict.fromkeys(column.dataset for _, column in hits)
+    where = ", ".join(list(datasets)[:_LISTED_NAMES]) + (
+        f" and {len(datasets) - _LISTED_NAMES} more" if len(datasets) > _LISTED_NAMES else ""
+    )
     raise scanner.fail(
-        f"`{word}` is the name of a parameter in several datasets of this request",
-        expected="the name with its dataset, as the wide shape writes it: "
-        + ", ".join(f"{column.dataset}_{written}" for written, column in hits),
+        f"`{word}` is the name of {len(hits)} parameters of this request",
+        expected="a name that says which, as the wide shape writes it after the dataset: "
+        + (shown or "none is unique"),
         hint=f"the datasets are {where}",
         at=start,
         found=repr(word),
@@ -982,7 +1014,25 @@ class RowSelection:
         work, derived = self._derived(keyed, [c.column for c in self.conditions])
         lookup = {**derived, **labels}
         kept = work.filter(pl.all_horizontal(self._condition(c, lookup) for c in self.conditions))
-        return self._rows_of(frame, kept, [*derived.values(), *added])
+        return self._by_timestamp(self._rows_of(frame, kept, [*derived.values(), *added]))
+
+    def _by_timestamp(self, frame: pl.DataFrame) -> pl.DataFrame:
+        """Order the rows of a long frame chosen by names, where no `sort` orders them: station, then time.
+
+        The plain answer is in series order (a parameter, then its time), so a cut of it (`max_rows`, the budget of a
+        tool) keeps the first parameter's rows and none of the others', which with names would leave the answer
+        without the values the conditions were about. Within a station the rows are ordered by resolution, timestamp,
+        dataset and parameter, the stations stay in the order they came in. A wide frame is in the order of its
+        timestamps already, and a `sort` orders it as it says (`ordered`).
+        """
+        import polars as pl  # noqa: PLC0415
+
+        if self.orders or "parameter" not in frame.columns or frame.is_empty():
+            return frame
+        # the rows of a station are together, as every frame the reader or a result holds has them
+        block = pl.col("station_id").rle_id().alias("_row_station")
+        by = ["_row_station", "resolution", "timestamp", "dataset", "parameter"]
+        return frame.with_columns(block).sort(by, maintain_order=True).drop("_row_station")
 
     def _series(self, frame: pl.DataFrame) -> list[str]:
         """Give the columns that name the series of a frame: a wide one has no parameter."""
@@ -1102,16 +1152,19 @@ class RowSelection:
         drop = [*derived.values(), *added]
         return ordered.drop(drop) if drop else ordered
 
-    def cap_station(self, frame: pl.DataFrame) -> pl.DataFrame:
+    def cap_station(self, frame: pl.DataFrame, *, held: bool = False) -> pl.DataFrame:
         """Cut the rows of one station to the `max_rows` that could be in the answer: its first, in the answer's order.
 
         Only for a selection whose groups stay in a station (`per_station`): then no row a later step could take back
         precedes the `max_rows` kept, and a station can hold no more than the answer. The count of what matched is the
-        caller's, taken before. With a parameter named the cut leaves a timestamp whole (see `cap_held`).
+        caller's, taken before. `held` is for rows that a later step goes on with (`TimeseriesValues.all`): with a
+        parameter named the cut then leaves a timestamp whole (see `cap_held`); the rows of a station that `query`
+        yields are cut exactly.
         """
         if self.max_rows is None:
             return frame
-        return self.cap_held(self.ordered(frame) if self.orders else frame)
+        frame = self.ordered(frame) if self.orders else frame
+        return self.cap_held(frame) if held else self.cap(frame)
 
     def cap_held(self, frame: pl.DataFrame) -> pl.DataFrame:
         """Cut rows that are held for later steps to `max_rows`, as `cap` does, but never in the middle of a timestamp.
@@ -1226,12 +1279,18 @@ def _check_names(conditions: Sequence[Condition], keys: Sequence[SortKey], param
         )
         raise RowSelectionRefusedError(msg)
     if parameters is not None and len(parameters.resolutions) > 1:
-        msg = (
-            "A parameter's name is a column of the timestamps of one resolution, and this request has "
-            f"{len(parameters.resolutions)} ({', '.join(parameters.resolutions)}), whose timestamps are not the same "
-            "instants. Request the parameters of one resolution."
-        )
-        raise RowSelectionRefusedError(msg)
+        raise _resolutions_refusal(parameters)
+
+
+def _resolutions_refusal(names: ParameterNames) -> RowSelectionRefusedError:
+    """Build the refusal of a name in a request of several resolutions, whose timestamps are not the same instants."""
+    shown = ", ".join(names.resolutions[:_LISTED_NAMES])
+    msg = (
+        "A parameter's name is a column of the timestamps of one resolution, and this request has "
+        f"{len(names.resolutions)} ({shown}), whose timestamps are not the same instants. "
+        "Request the parameters of one resolution."
+    )
+    return RowSelectionRefusedError(msg)
 
 
 @dataclass(frozen=True)

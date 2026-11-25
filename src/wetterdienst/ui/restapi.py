@@ -70,6 +70,7 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.model.row_selection import (
     MAX_TOOL_SERIES,
+    RowSelectionError,
     RowsOverLimitError,
     Searched,
 )
@@ -2364,8 +2365,7 @@ def values(
     (every dry day is 0.0 mm): `max_rows` cuts the answer to its first rows. `metadata.search` says from when to when
     and how many values were searched, so that a record the data lacks is told from one not looked for. To meet two
     parameters at one time (one resolution), name them: `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the
-    days of frost and strong gusts, with all parameters' rows; `sort=temperature_air_min_2m&first=10` the ten coldest
-    days and their wind.
+    days of frost and strong gusts, with all parameters' rows.
 
     With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
     relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
@@ -2692,6 +2692,8 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
         log.info(f"Failed to {what}: {detail}")
         if isinstance(e, NoStationPositionsError):
             return _unplaceable_format(detail, getattr(request, "format", None))
+        if isinstance(e, RowSelectionError):
+            return _unreadable_option(e, request)
         return HTTPException(status_code=status, detail=detail)
     return _server_side_failure(e, request, what)
 
@@ -2707,6 +2709,23 @@ def _unplaceable_format(detail: str, fmt: str | None) -> ProblemError:
     if fmt is not None:
         entry["input"] = fmt
     return ProblemError(422, detail, ProblemKind.INVALID_PARAMETERS, extra={"errors": [entry]})
+
+
+def _unreadable_option(e: RowSelectionError, request: BaseModel) -> ProblemError:
+    """Answer a `filter` or `sort` that the request's parameters refuse as the 422 of a text that cannot be read.
+
+    A word that is no parameter's name, or that names several, is known to be wrong only once the request's
+    parameters are (GH-4419); it is the same fault as a text that cannot be read, so it is answered the same way: a 422
+    `invalid-parameters` whose `errors` locate it at the option, with what was written in `input`.
+    """
+    entry: dict[str, Any] = {
+        "type": "row_selection",
+        "loc": ["query", e.option],
+        "msg": str(e),
+        "input": getattr(request, e.option, None),
+        "ctx": {},
+    }
+    return ProblemError(422, f"{e.option}: {e}", ProblemKind.INVALID_PARAMETERS, extra={"errors": [entry]})
 
 
 def _values(

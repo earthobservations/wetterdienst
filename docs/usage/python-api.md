@@ -1085,7 +1085,7 @@ frost = request.filter_by_station_id("01975").values().all(filter="value<=-20", 
 few = reader.all(sort="value", first=1, max_rows=20)  # ties can be many rows: keep the first 20 of the answer
 
 # two parameters at one time: the days of frost with strong gusts (all parameters' rows of those days), and the
-# wind on the ten coldest days; the names are those of the request's parameters, their numbers in the answer's units
+# ten coldest days that have a gust, with it; the names are those of the request's parameters, their numbers in the answer's units
 request = DwdObservationRequest(
     parameters=[
         "daily/climate_summary/temperature_air_min_2m",
@@ -1096,7 +1096,7 @@ request = DwdObservationRequest(
 )
 wind = request.filter_by_station_id("03987").values()
 frost_with_gusts = wind.all(filter="temperature_air_min_2m<0,wind_gust_max>=17.2")
-coldest_days = wind.all(sort="temperature_air_min_2m", first=10)
+coldest_days = wind.all(filter="wind_gust_max>=0", sort="temperature_air_min_2m", first=10)  # with a gust
 
 # the same of a result you hold already
 everything = request.filter_by_station_id("01975").values().all()

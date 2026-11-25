@@ -312,9 +312,7 @@ def expected_names(  # noqa: C901
                 for short in shorts
                 if row["values"][short] is not None
             )
-        if not sort:
-            # as read: by station, then parameter, then time
-            out.sort(key=lambda r: (r[0], r[1], r[2]))
+        # without a sort, by station, then time, then parameter: a cut keeps every parameter (GH-4419)
     if max_rows is not None:
         out = out[:max_rows]
     return out

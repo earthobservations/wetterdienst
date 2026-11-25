@@ -29,9 +29,9 @@ Types of changes:
 - A parameter's name is a column of `filter` and `sort` (REST, MCP, command line, Python):
   `filter=temperature_air_min_2m<0,wind_gust_max>=17.2` is the timestamps of a station where all
   conditions hold, a missing value meeting none, with the rows of every requested parameter there;
-  `sort=temperature_air_min_2m&first=10` ranks timestamps, so the wind of the ten coldest days comes
-  back. One resolution, names of the request, no `value` beside a name; an unknown name is a 400
-  that lists the request's names (GH-4419)
+  `filter=wind_gust_max>=0&sort=temperature_air_min_2m&first=10` ranks timestamps, so the wind of
+  the ten coldest days with a gust comes back. One resolution, names of the request, no `value`
+  beside a name; an unknown name is refused with the request's names (GH-4419)
 - `region` selects the stations their provider lists under a region (`stations` and `values`; the
   command line's `--region`, the REST API's and MCP's `region`; Python's `filter_by_region`): one
   region or several, comma-separated, compared as names are (case, accents, `ue` for `ü`, a hyphen

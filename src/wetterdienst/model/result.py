@@ -1105,7 +1105,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
                 return converter.targets[parameter.unit_type].symbol
             return converter.get_unit(parameter.unit, parameter.unit_type).symbol
 
-        names = ParameterNames.of(self.stations.parameters, humanize=options.humanize, symbols=symbol)
+        names = ParameterNames.of(self.stations.parameters, humanize=options.humanize)
         selection = parse_row_selection(
             filter=filter, sort=sort, first=first, by=by, max_rows=max_rows, parameters=names
         )

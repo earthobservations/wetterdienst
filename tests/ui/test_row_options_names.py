@@ -231,14 +231,15 @@ def test_python_rest_the_command_line_and_the_tool_give_the_same_rows(monkeypatc
 def test_a_name_that_is_none_is_refused_on_every_surface_with_the_names_the_request_has(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The same refusal: a 400 on REST, a usage error on the command line, a tool error, a `ValueError` in Python."""
+    """The same refusal: a 422 at the option on REST, a usage error on the CLI, a tool error, a `ValueError`."""
     serve(monkeypatch, 3)
     text = "temperature_air_min_2<0"
     with pytest.raises(ValueError, match="Did you mean temperature_air_min_2m"):
         _reader(_THREE, wide=False).all().values().all(filter=text)
     response = TestClient(app).get("/api/values", params={**_BASE, "parameters": ",".join(_THREE), "filter": text})
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert "Did you mean temperature_air_min_2m" in response.json()["detail"]
+    assert response.json()["errors"][0]["loc"] == ["query", "filter"]
     cli = _cli(f"--filter={text}")
     assert cli.exit_code == 2, cli.output
     assert "Did you mean temperature_air_min_2m" in cli.output.replace("\n", " ")
@@ -344,3 +345,83 @@ def test_a_request_of_several_stations_with_a_rank_reads_the_stations_it_would_w
     totals = named.search.to_dict()["totals"]
     assert (totals["stations_read"], totals["stations_with_values"]) == (3, 2)
     assert sorted(plain.df.get_column("station_id").unique()) == ["00001", "00003"]
+
+
+def test_a_cut_answer_keeps_every_parameter_of_the_timestamps_it_keeps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without `sort` a filter of names orders a station's rows by time, so a cut has all parameters (GH-4419)."""
+    serve(monkeypatch, 3)
+    rows = {"filter": "temperature_air_min_2m<0,wind_gust_max>=10"}
+    # `max_rows` over REST, Python and the stream
+    for fmt in ("json", "ndjson"):
+        answer = _rest(_THREE, {**rows, "max_rows": 7}, fmt, wide=False)
+        items = answer.json()["values"] if fmt == "json" else [json.loads(x) for x in answer.text.splitlines()][1:-1]
+        assert len(items) == 7
+        assert {i["parameter"] for i in items} == set(_THREE_NAMES)
+        assert [i["timestamp"] for i in items] == sorted(i["timestamp"] for i in items)
+    # a tool answer that is cut to its budget
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 9000)
+    tool = _tool(rows)
+    assert not tool.is_error
+    answer = tool.structured_content
+    answer = answer.get("result", answer)
+    assert any(w["code"] == "answer-truncated" for w in answer["metadata"]["warnings"])
+    kept = answer["values"]
+    assert 0 < len(kept) < answer["metadata"]["search"]["totals"]["matched"]
+    assert {v["parameter"] for v in kept} == set(_THREE_NAMES)
+    first = kept[0]["timestamp"]
+    assert {v["parameter"] for v in kept if v["timestamp"] == first} >= {"temperature_air_min_2m", "wind_gust_max"}
+
+
+_THREE_NAMES = ("temperature_air_min_2m", "temperature_air_max_2m", "wind_gust_max")
+
+
+def test_query_yields_exactly_the_max_rows_a_station_may_hold_and_all_keeps_whole_timestamps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`query(max_rows=N)` yields at most N rows a station; only `all` holds whole timestamps for what follows."""
+    serve(monkeypatch, 3)
+    request = _reader(_THREE, wide=False)
+    for rows in (
+        {"sort": "temperature_air_min_2m", "first": 10, "max_rows": 4},
+        {"filter": "temperature_air_min_2m<0", "max_rows": 4},
+    ):
+        assert all(r.df.height <= 4 for r in request.all().values().query(**rows)), rows
+        same(got(request.all().values().all(**rows).df), _want(_THREE, rows, 3, wide=False))
+
+
+def test_a_result_read_with_the_sources_names_is_chosen_by_them_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`selected_rows` reads the names the result has (`humanize=false`: `tnk`), as the reader does."""
+    serve(monkeypatch, 3)
+    own = DwdObservationRequest(
+        parameters=[TMIN, GUST], start="2018-01-01", end="2020-12-31", options={"humanize": False}
+    )
+    whole = own.all().values().all()
+    rows = {"filter": "tnk<0,fx>=10", "sort": "-fx", "first": 3}
+    chosen = whole.selected_rows(**rows).df
+    same(got(chosen), got(own.all().values().all(**rows).df))
+    assert chosen.height > 0
+    assert set(chosen.get_column("parameter")) == {"tnk", "fx"}
+
+
+def test_the_report_of_a_stream_echoes_the_options_with_the_names_of_the_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The `end` line of a stream names the parameters as the answer writes them: `TNK`, with capitals."""
+    serve(monkeypatch, 3)
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest as Request  # noqa: PLC0415
+
+    dataset = next(d for r in Request.metadata for d in r if d.name == "climate_summary" and r.name == "daily")
+    for parameter in dataset:
+        if parameter.name == "temperature_air_min_2m":
+            monkeypatch.setattr(parameter, "name_original", "TNK")
+    params = {
+        **_BASE,
+        "parameters": f"{TMIN},{GUST}",
+        "humanize": "false",
+        "format": "ndjson",
+        "filter": "tnk<0,fx>=10",
+    }
+    response = TestClient(app).get("/api/values", params=params)
+    assert response.status_code == 200, response.text
+    lines = [json.loads(x) for x in response.text.splitlines()]
+    assert lines[-1]["end"]["search"]["options"]["filter"] == "TNK<0,fx>=10"

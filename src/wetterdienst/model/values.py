@@ -524,7 +524,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
     def _row_names(self) -> ParameterNames:
         """Give the names of the parameters of the request that a `filter` or a `sort` may write, as answered."""
-        return ParameterNames.of(self.sr.parameters, humanize=self.sr.options.humanize, symbols=self._unit_symbol)
+        return ParameterNames.of(self.sr.parameters, humanize=self.sr.options.humanize)
 
     def _row_selection(self, rows: RowOptions, *, whole: bool) -> RowSelection | None:
         """Read the options that choose the rows and check them against this request, None where none is given.
@@ -711,7 +711,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         search = Searched(series=searched, selection=selection, window=(self.sr.start, self.sr.end)).with_matched(df)
         if selection.per_station:
             # a station holds no more than the answer can: the count of what matched is taken before
-            df = selection.cap_station(df)
+            df = selection.cap_station(df, held=self._finishing_rows)
             search = search.with_returned(df)
         return df, search
 

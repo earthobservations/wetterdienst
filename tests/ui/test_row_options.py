@@ -196,15 +196,21 @@ def test_a_text_that_cannot_be_read_is_a_422_located_at_the_option(
     assert fragment in errors[0]["msg"], errors
 
 
-def test_a_word_that_is_no_parameter_of_the_request_is_a_400_with_its_closest_names() -> None:
-    """A name that the request does not have is refused once the request is known (GH-4419), with the names it has."""
+def test_a_word_that_is_no_parameter_of_the_request_is_a_422_at_the_option_with_its_closest_names() -> None:
+    """A name that the request does not have is refused once the request is known (GH-4419), as a text is: a 422."""
     response = _rest(filter="temperature<5")
-    assert response.status_code == 400, response.text
-    detail = response.json()["detail"]
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["type"] == "urn:wetterdienst:problem:invalid-parameters"
+    detail = body["detail"]
     assert "`temperature` is not a column of this option" in detail
     assert "or a parameter of this request (temperature_air_min_2m)" in detail
     assert "Did you mean temperature_air_min_2m?" in detail
-    assert response.json()["status"] == 400
+    assert body["errors"][0]["loc"] == ["query", "filter"]
+    assert body["errors"][0]["input"] == "temperature<5"
+    assert body["errors"][0]["type"] == "row_selection"
+    unsorted = _rest(sort="temperatur").json()
+    assert unsorted["errors"][0]["loc"] == ["query", "sort"]
 
 
 def test_value_over_two_units_and_value_in_the_wide_shape_are_refused_as_a_400() -> None:

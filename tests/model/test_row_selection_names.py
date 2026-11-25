@@ -22,6 +22,8 @@ from wetterdienst.model.row_selection import (
     FILTER_COLUMNS,
     RESERVED_WORDS,
     SORT_COLUMNS,
+    STEP_TWO_WORDS,
+    ParameterColumn,
     ParameterNames,
     RowSelectionError,
     RowSelectionRefusedError,
@@ -39,12 +41,10 @@ def _parameters(*texts: str) -> list[Any]:
 
 
 def _names(*texts: str, humanize: bool = True) -> ParameterNames:
-    return ParameterNames.of(_parameters(*texts), humanize=humanize, symbols=lambda p: f"[{p.name}]")
+    return ParameterNames.of(_parameters(*texts), humanize=humanize)
 
 
 DAILY = ("daily/climate_summary/temperature_air_min_2m", "daily/climate_summary/wind_gust_max")
-#: the names reserved for the options of step 2 (`docs/usage/compatibility.md`)
-STEP_TWO_NAMES = frozenset({"window", "year_start", "timezone", "aggregate", "having", "per", "max_missing"})
 STAMP = dt.datetime(2020, 1, 1, tzinfo=dt.UTC)
 
 
@@ -56,11 +56,7 @@ def test_a_name_is_the_parameters_own_name_or_its_name_after_its_dataset() -> No
         assert selection is not None
         ((name, column),) = selection.names
         assert column.parameter == "temperature_air_min_2m"
-        assert (column.resolution, column.dataset, column.unit) == (
-            "daily",
-            "climate_summary",
-            "[temperature_air_min_2m]",
-        )
+        assert (column.resolution, column.dataset) == ("daily", "climate_summary")
         assert name == written.lower() or name == "temperature_air_min_2m"
         assert selection.conditions[0].column == name
     assert names.resolutions == ("daily",)
@@ -151,7 +147,7 @@ def test_no_parameter_of_any_provider_is_named_like_a_column_or_a_word_that_is_t
                 for dataset in resolution:
                     for parameter in dataset:
                         for name in (parameter.name, parameter.name_original):
-                            if name and name.lower() in RESERVED_WORDS | STEP_TWO_NAMES:
+                            if name and name.lower() in RESERVED_WORDS:
                                 clashes.append((provider, network, dataset.name, name))
                         unwritable += not parameter.name.isidentifier()
                         checked += 1
@@ -167,8 +163,9 @@ def test_a_name_in_two_datasets_is_refused_with_the_name_after_its_dataset() -> 
     with pytest.raises(RowSelectionError) as caught:
         parse_row_selection(filter="temperature_air_2m<0", parameters=names)
     message = str(caught.value)
-    assert "several datasets" in message
+    assert "is the name of 2 parameters of this request" in message
     assert "temperature_air_temperature_air_2m, dew_point_temperature_air_2m" in message
+    assert "The datasets are temperature_air, dew_point" in message
     selection = parse_row_selection(
         filter="temperature_air_temperature_air_2m<0,dew_point_temperature_air_2m>-5", parameters=names
     )
@@ -190,7 +187,7 @@ def test_the_column_of_the_wide_shape_is_what_the_answer_calls_it() -> None:
     ):
         for humanize in (True, False):
             parameters = _parameters(*texts)
-            names = ParameterNames.of(parameters, humanize=humanize, symbols=lambda _p: "x")
+            names = ParameterNames.of(parameters, humanize=humanize)
             wide = {column.wide for entries in names.lookup.values() for _, column in entries}
             asked = set(_requested_wide_columns(parameters, humanize=humanize))
             assert wide == asked, (texts, humanize)
@@ -241,14 +238,17 @@ def test_a_selection_read_without_the_request_accepts_what_can_be_a_name() -> No
         parse_row_selection(sort="wind_gust_max", first=1, by="wind_gust_max")
 
 
-def test_the_reserved_names_of_step_2_are_no_columns_and_no_names_of_a_request_that_lacks_them() -> None:
-    """`window`, `aggregate` and the others are no columns, and no names of a request that lacks them."""
-    names = _names(*DAILY)
-    for word in ("window", "year_start", "timezone", "aggregate", "having", "per", "max_missing"):
-        with pytest.raises(RowSelectionError):
-            parse_filter(f"{word}<1", names)
-        with pytest.raises(RowSelectionError):
-            parse_sort(word, names)
+def test_the_reserved_words_are_no_columns_and_no_names_with_or_without_the_request() -> None:
+    """`window`, `aggregate`, `count`, `min` and the others are refused as names, a 422 each as in #4428."""
+    assert STEP_TWO_WORDS <= RESERVED_WORDS
+    assert {"count", "min", "max", "mean", "sum"} <= RESERVED_WORDS
+    for names in (None, _names(*DAILY)):
+        for word in (*sorted(STEP_TWO_WORDS), "count", "min", "max", "mean", "sum"):
+            with pytest.raises(RowSelectionError):
+                parse_filter(f"{word}<1", names)
+            with pytest.raises(RowSelectionError):
+                parse_sort(word, names)
+    for word in STEP_TWO_WORDS:
         with pytest.raises(RowSelectionError):
             parse_row_selection(sort="value", first=1, by=word)
 
@@ -310,12 +310,18 @@ def test_both_conditions_must_hold_at_one_timestamp_and_a_missing_value_meets_no
     # the rows are those of every requested parameter at those days: three of each
     assert answer.height == 12
     assert set(answer.get_column("parameter")) == {"temperature_air_min_2m", "wind_gust_max", "temperature_air_max_2m"}
-    # a station's rows by parameter, then time, as the reader has them
+    # a station's rows by time, then parameter (not by parameter: a cut of the answer must keep every parameter)
     assert answer.get_column("station_id").to_list() == ["00001"] * 6 + ["00002"] * 6
     one = answer.filter(pl.col("station_id") == "00001")
-    assert one.get_column("parameter").to_list() == (
-        ["temperature_air_max_2m"] * 2 + ["temperature_air_min_2m"] * 2 + ["wind_gust_max"] * 2
+    assert (
+        one.get_column("parameter").to_list()
+        == ["temperature_air_max_2m", "temperature_air_min_2m", "wind_gust_max"] * 2
     )
+    assert one.get_column("timestamp").to_list() == [STAMP] * 3 + [STAMP + dt.timedelta(days=2)] * 3
+    # a cut of it keeps the first timestamps with all their parameters
+    assert _choose(_frame(), filter="temperature_air_min_2m<0,wind_gust_max>=17.2", max_rows=4).get_column(
+        "parameter"
+    ).to_list() == ["temperature_air_max_2m", "temperature_air_min_2m", "wind_gust_max", "temperature_air_max_2m"]
     # a day that meets one condition and lacks the other is not there: day 4 of station 1 has a gust of 9
     assert ("00001", 4) not in _stamps(answer)
 
@@ -381,10 +387,13 @@ def test_a_cut_of_a_station_to_max_rows_leaves_a_timestamp_whole() -> None:
     """The rows held for a later step keep the timestamps they cut into: their sort value is in the row that was cut."""
     selection = parse_row_selection(sort="-wind_gust_max", max_rows=4, parameters=_NAMES)
     assert selection is not None
-    station = selection.cap_station(selection.reduce_station(_frame().filter(pl.col("station_id") == "00002")))
+    reduced = selection.reduce_station(_frame().filter(pl.col("station_id") == "00002"))
+    station = selection.cap_station(reduced, held=True)
     # 4 rows are cut in the second day's rows: the timestamp is kept whole, 6 rows
     assert station.height == 6
     assert len(_stamps(station)) == 2
+    # the rows `query` yields are cut exactly
+    assert selection.cap_station(reduced).height == 4
     # and the whole is cut exactly, as the last step
     assert selection.cap(selection.finish([station])).height == 4
 
@@ -569,7 +578,7 @@ def test_hostile_text_is_never_read_as_an_expression() -> None:
 def test_the_text_of_a_refusal_is_bounded_by_the_names_it_lists() -> None:
     """A request of 400 parameters lists twelve and counts the rest: the text does not grow with the request."""
     parameters = _parameters("daily/climate_summary")
-    names = ParameterNames.of(parameters, humanize=True, symbols=lambda _p: "x")
+    names = ParameterNames.of(parameters, humanize=True)
     with pytest.raises(RowSelectionError) as caught:
         parse_row_selection(filter="zzz<1", parameters=names)
     assert "and 2 more" in str(caught.value) or len(parameters) <= 12
@@ -578,3 +587,108 @@ def test_the_text_of_a_refusal_is_bounded_by_the_names_it_lists() -> None:
     with pytest.raises(RowSelectionError) as caught:
         parse_row_selection(filter=f"{long_word}<1", parameters=names)
     assert len(str(caught.value)) < 1000
+
+
+def test_a_name_in_a_request_of_one_dataset_is_the_one_the_answer_writes() -> None:
+    """`water_equivalent_snow_depth` is a parameter of `water_equivalent` and also `snow_depth` after its dataset."""
+    names = _names("daily/water_equivalent")
+    own = parse_row_selection(filter="water_equivalent_snow_depth<1,snow_depth>0", parameters=names)
+    assert own is not None
+    assert [c.parameter for _, c in own.names] == ["water_equivalent_snow_depth", "snow_depth"]
+    # in a request of several datasets the spelling means two parameters, told with the spellings that are unique
+    several = _names("daily/water_equivalent", "daily/climate_summary/wind_gust_max")
+    with pytest.raises(RowSelectionError) as caught:
+        parse_row_selection(filter="water_equivalent_snow_depth<1", parameters=several)
+    message = str(caught.value)
+    assert "is the name of 2 parameters of this request" in message
+    assert "water_equivalent_water_equivalent_snow_depth" in message
+    assert message.count("water_equivalent_water_equivalent_snow_depth") == 1
+
+
+def test_in_every_dataset_a_bare_name_means_its_own_parameter_and_a_dataset_spelling_means_one() -> None:
+    """Held for every dataset of every provider: the names of a dataset alone are unambiguous (GH-4419)."""
+    # the dataset spellings that are the bare name of another parameter of the dataset: the bare name wins there
+    known = {
+        ("dwd", "observation", "daily", "water_equivalent", "water_equivalent_snow_depth"),
+        ("dwd", "observation", "daily", "water_equivalent", "water_equivalent_snow_depth_sampled"),
+    }
+    seen = set()
+    checked = 0
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            if Wetterdienst.is_standalone(provider, network):
+                continue
+            for resolution in Wetterdienst.resolve(provider, network).metadata:
+                for dataset in resolution:
+                    parameters = list(dataset)
+                    names = ParameterNames.of(parameters, humanize=True)
+                    for parameter in parameters:
+                        checked += 1
+                        bare = names.lookup[parameter.name.lower()]
+                        assert [c.parameter for _, c in bare] == [parameter.name], (provider, network, dataset.name)
+                        prefixed = names.lookup[f"{dataset.name.lower()}_{parameter.name}".lower()]
+                        if len(prefixed) != 1 or prefixed[0][1].parameter != parameter.name:
+                            seen.add(
+                                (provider, network, resolution.name, dataset.name, f"{dataset.name}_{parameter.name}")
+                            )
+    assert checked > 2000
+    assert seen == known
+
+
+def test_the_same_name_at_two_resolutions_is_the_refusal_of_the_resolutions() -> None:
+    """A request of two resolutions has no names: a name both have says that, not that it is ambiguous."""
+    metadata = Wetterdienst.resolve("aemet", "observation").metadata
+    parameters = [
+        dataset["temperature_air_max_2m"]
+        for resolution in metadata
+        for dataset in resolution
+        if resolution.name in ("daily", "hourly")
+    ]
+    assert len(parameters) == 2
+    names = ParameterNames.of(parameters, humanize=True)
+    assert len(names.lookup["temperature_air_max_2m"]) == 2
+    with pytest.raises(RowSelectionRefusedError, match=r"has 2 \("):
+        parse_row_selection(filter="temperature_air_max_2m<0", parameters=names)
+
+
+def test_the_refusal_of_a_name_of_many_parameters_lists_a_few_and_counts_the_rest() -> None:
+    """Phenology has 81 datasets with one name: the text is bounded, not 7,000 characters."""
+    columns = [ParameterColumn("yearly", f"plant_{i}", "phase", f"plant_{i}_phase") for i in range(81)]
+    lookup: dict[str, Any] = {"phase": tuple(("phase", c) for c in columns)}
+    lookup |= {f"{c.dataset}_phase": ((f"{c.dataset}_phase", c),) for c in columns}
+    names = ParameterNames(lookup=lookup, resolutions=("yearly",), listed=("phase",))
+    with pytest.raises(RowSelectionError) as caught:
+        parse_row_selection(filter="phase<3", parameters=names)
+    message = str(caught.value)
+    assert "is the name of 81 parameters of this request" in message
+    assert "plant_0_phase" in message
+    assert "plant_11_phase and 69 more" in message
+    assert "plant_12_phase" not in message
+    assert len(message) < 900
+
+
+def test_a_name_of_two_datasets_is_judged_on_the_rows_of_its_own_dataset() -> None:
+    """Two datasets with one parameter name at the same stamps: each spelling reads its own dataset's value."""
+    names = _names("hourly/temperature_air/temperature_air_2m", "hourly/dew_point/temperature_air_2m")
+    rows = [
+        ("00001", "temperature_air_2m", 0, -1.0, "temperature_air"),
+        ("00001", "temperature_air_2m", 0, 5.0, "dew_point"),
+        ("00001", "temperature_air_2m", 1, 5.0, "temperature_air"),
+        ("00001", "temperature_air_2m", 1, -1.0, "dew_point"),
+    ]
+    frame = pl.DataFrame(
+        {
+            "station_id": [r[0] for r in rows],
+            "resolution": ["hourly"] * 4,
+            "dataset": [r[4] for r in rows],
+            "parameter": [r[1] for r in rows],
+            "timestamp": [STAMP + dt.timedelta(hours=r[2]) for r in rows],
+            "value": [r[3] for r in rows],
+            "quality_flags": ["1"] * 4,
+        },
+        schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
+    )
+    for text, hour in (("temperature_air_temperature_air_2m<0", 0), ("dew_point_temperature_air_2m<0", 1)):
+        selection = parse_row_selection(filter=text, parameters=names)
+        assert selection is not None
+        assert set(selection.apply(frame).get_column("timestamp")) == {STAMP + dt.timedelta(hours=hour)}, text
