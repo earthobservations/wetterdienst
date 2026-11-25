@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- `[Dependencies]` Packages with advisories are updated to fixed releases: `vue` and `@vue/shared`
+  3.5.46 (a denial of service of Vue's server-side rendering, which the app does not use:
+  `ssr: false`), `lib0` 0.2.120 (an out-of-bounds read in a Yjs decoder, from the editor of
+  `@nuxt/ui`, which the app does not use and does not ship), `qs` 6.17.1 (never loaded by the app)
+  and `unrouting` 0.3.2 (a slow route pattern for a catch-all in a page's file name, of which the
+  app has none). No page changes (GH-4382).
+
 ## [0.60.0] - 2026-11-24
 
 Paired with backend 0.198.0, which is live; it needs no route newer than 0.195.0.
