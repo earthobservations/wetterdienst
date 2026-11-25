@@ -3,9 +3,9 @@
 """Every format an MCP tool advertises comes back as a valid answer, and the row limit names what helps (GH-3464).
 
 The tools are the routes of the REST API run in process. FastMCP reads a route's answer as JSON: a text body (csv,
-ndjson, html, svg) it passed on without structured content, which the output schema of the tool refuses ("has an
-output schema but did not return structured content"), and a binary one (png, jpg, webp, pdf) it failed to decode. And
-the refusal of a row limit told an assistant to use `format=ndjson` or `format=csv`, which it could not.
+ndjson) it passed on without structured content, which the output schema of the tool refuses ("has an output schema
+but did not return structured content"). And the refusal of a row limit told an assistant to use `format=ndjson` or
+`format=csv`, which it could not. No tool answers a chart (GH-4318), so none answers an image either (GH-4450).
 
 Offline: the selection of the stations and the reader are stood in for, as in `test_operations.py`.
 
@@ -15,7 +15,6 @@ Building a server and opening a session is most of what a call costs, so a test 
 from __future__ import annotations
 
 import asyncio
-import base64
 import datetime as dt
 import json
 from typing import TYPE_CHECKING, Any
@@ -28,7 +27,7 @@ pytest.importorskip("jsonschema")
 import jsonschema
 from fastapi import FastAPI, Response
 from fastmcp import Client
-from mcp_types import EmbeddedResource, ImageContent, TextContent
+from mcp_types import TextContent
 
 from tests.ui.test_operations import _VALUES, _no_ambient_settings, _selection_of  # noqa: F401
 from tests.ui.test_restapi import _stub_stream, _values_result_of_shape
@@ -222,44 +221,10 @@ def test_the_body_of_data_reaches_a_client_that_reads_the_structured_content_alo
         assert "sent as" not in told, tool
 
 
-@pytest.mark.parametrize(
-    ("media_type", "body"),
-    [
-        ("text/html", "<html><body>a chart</body></html>"),
-        ("image/svg+xml", "<svg xmlns='http://www.w3.org/2000/svg'/>"),
-    ],
-)
-def test_a_text_that_is_markup_is_not_repeated_in_the_structured_content(media_type: str, body: str) -> None:
-    """A chart that is text (html, svg) has its sentence alone in the structured content, not its 100 KB of markup.
-
-    No tool answers one since GH-4318, so the REST app is stood in for by one that does, through `values`, whose output
-    schema is what the structured content has to fit: data (csv, ndjson) is repeated there, markup is not.
-    """
-    stand_in = FastAPI()
-    stand_in.openapi = restapi.app.openapi  # ty: ignore[invalid-assignment]
-
-    @stand_in.api_route("/{path:path}", methods=["GET"])
-    def answer(path: str) -> Response:  # noqa: ARG001
-        return Response(body, media_type=media_type)
-
-    ((result, schema),) = _calls(stand_in, [("values", {**_VALUES, "format": "csv"})])
-
-    assert not result.is_error, result.content
-    assert result.content[0].text == body
-    assert schema is not None
-    jsonschema.validate(result.structured_content, schema)
-    told = result.structured_content["result"]
-    assert body not in told
-    assert "sent as text content of this result" in told
-    assert "follows below" not in told
-
-
 def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.MonkeyPatch) -> None:
     """Text is the content of the result as the REST API sends it, and csv and ndjson follow the sentence structured.
 
-    A json answer stays structured. Data (csv, ndjson) is repeated in the structured content. The image and the pdf
-    of a chart are no answer of a tool any more (GH-4318); the transport of them is held by
-    `test_the_transport_carries_what_is_not_json_and_leaves_the_rest_alone`.
+    A json answer stays structured. Data (csv, ndjson) is repeated in the structured content.
     """
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
 
@@ -280,6 +245,34 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
     assert '"metadata"' in lines[0]
     assert lines[-1].startswith('{"end"')
     assert json_.structured_content["result"]["values"][0]["station_id"] == "01048"
+
+
+def test_no_tool_offers_a_format_that_is_answered_as_anything_but_data() -> None:
+    """The answers the transport has to carry are text: csv and ndjson, as the only formats of a tool that are no JSON.
+
+    A chart format (html, png, jpg, webp, svg, pdf) is no format of a tool, and a call that gives one is refused
+    before its route is called (GH-4318), so no tool answers an image, a pdf or markup, and the transport has no
+    image content and no embedded resource to build (GH-4450). A format added to a tool is held here to answer as
+    JSON or as text, which is all the transport carries.
+    """
+
+    async def tools() -> list[Any]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return await client.list_tools()
+
+    offered = {
+        fmt
+        for tool in asyncio.run(tools())
+        for fmt in tool.input_schema.get("properties", {}).get("format", {}).get("enum", ())
+    }
+
+    assert offered == {"json", "geojson", "csv", "ndjson"}
+    # the media type the REST API answers each of them in: JSON where none is named
+    assert {restapi._MEDIA_TYPES.get(fmt, "application/json") for fmt in offered} == {  # noqa: SLF001
+        "application/json",
+        "text/csv",
+        "application/x-ndjson",
+    }
 
 
 def test_every_tool_with_a_format_that_is_no_json_admits_a_string_for_it() -> None:
@@ -311,13 +304,11 @@ def _app_with_answers() -> FastAPI:
     """
     app = FastAPI()
     answers = {
-        "svg": lambda: Response(b"<svg xmlns='http://www.w3.org/2000/svg'/>", media_type="image/svg+xml"),
-        "png": lambda: Response(b"\x89PNG\r\n\x1a\n\x00\xff", media_type="image/png"),
-        "pdf": lambda: Response(b"%PDF-1.4\n\xff", media_type="application/pdf"),
-        "html": lambda: Response(b"<html></html>", media_type="text/html"),
-        "licensed_png": lambda: Response(
-            b"\x89PNG\r\n\x1a\n\x00\xff",
-            media_type="image/png",
+        "csv": lambda: Response(b"a,b\n1,2\n", media_type="text/csv"),
+        "ndjson": lambda: Response(b'{"a": 1}\n', media_type="application/x-ndjson"),
+        "licensed_csv": lambda: Response(
+            b"a,b\n1,2\n",
+            media_type="text/csv",
             headers={
                 "X-Wetterdienst-License": "CC-BY-4.0",
                 "Link": "<https://creativecommons.org/licenses/by/4.0/>; rel=license",
@@ -345,11 +336,9 @@ def test_the_transport_carries_what_is_not_json_and_leaves_the_rest_alone() -> N
     A text body is decoded with the charset of its media type, and none that is invalid or unknown is an error.
     """
     names = [
-        "svg",
-        "png",
-        "pdf",
-        "html",
-        "licensed_png",
+        "csv",
+        "ndjson",
+        "licensed_csv",
         "plain_4xx",
         "no_content_type",
         "geo_json",
@@ -359,22 +348,16 @@ def test_the_transport_carries_what_is_not_json_and_leaves_the_rest_alone() -> N
     ]
 
     answers = _calls(_app_with_answers(), [("glossary", {"format": name}) for name in names])
-    (svg, schema), (png, _), (pdf, _), (html, _), (licensed, _) = answers[:5]
-    (refused, _), (typeless, _), (geo, _), (latin1, _), (broken, _), (unknown, _) = answers[5:]
+    (csv, schema), (ndjson, _), (licensed, _) = answers[:3]
+    (refused, _), (typeless, _), (geo, _), (latin1, _), (broken, _), (unknown, _) = answers[3:]
 
     assert schema is None
-    assert not svg.is_error
-    assert svg.content[0].text.startswith("<svg")
-    assert svg.structured_content is None
-    # the transport still carries a chart, though no tool of the real server offers one (GH-4318)
-    assert isinstance(png.content[0], ImageContent)
-    assert png.content[0].mime_type == "image/png"
-    assert base64.b64decode(png.content[0].data).startswith(b"\x89PNG")
-    assert isinstance(pdf.content[0], EmbeddedResource)
-    assert pdf.content[0].resource.mime_type == "application/pdf"
-    assert base64.b64decode(pdf.content[0].resource.blob).startswith(b"%PDF")
-    assert html.content[0].text == "<html></html>"
-    # an image has no `metadata` block, so its report is what the headers of the route say (GH-3581)
+    assert not csv.is_error
+    assert csv.content[0].text == "a,b\n1,2\n"
+    assert csv.structured_content is None
+    assert not ndjson.is_error
+    assert ndjson.content[0].text == '{"a": 1}\n'
+    # a csv has no `metadata` block, so its report is what the headers of the route say (GH-3581)
     report = licensed.meta["wetterdienst"]
     assert report["license"] == "CC-BY-4.0"
     assert report["license_url"] == "https://creativecommons.org/licenses/by/4.0/"
@@ -422,8 +405,8 @@ def test_the_report_and_the_sentence_read_what_the_headers_write() -> None:
         "attribution": "© Météo-France",
         "warnings": ["station-skipped", "parameter-without-rows"],
     }
-    assert _sentence_of("text/csv", 1234, "text content", report) == (
-        "The answer is text/csv (1,234 bytes), sent as text content of this result. "
+    assert _sentence_of("text/csv", 1234, report) == (
+        "The answer is text/csv (1,234 bytes) and follows below (it is also the text content of this result). "
         "Licence: Licence Ouverte v2.0 (Etalab) é (https://www.etalab.gouv.fr/licence). "
         "Attribution: © Météo-France. Warnings: station-skipped, parameter-without-rows."
     )
@@ -433,20 +416,20 @@ def test_an_attribution_that_ends_in_a_period_does_not_get_a_second() -> None:
     """IMGW's attribution ends in a period, which the sentence's own is not added to."""
     report = _report_of(_headers("Source: IMGW-PIB.", '<https://example.org/licence>; rel="license"'))
 
-    assert "Attribution: Source: IMGW-PIB. Warnings" in _sentence_of("text/csv", 1, "text content", report)
+    assert "Attribution: Source: IMGW-PIB. Warnings" in _sentence_of("text/csv", 1, report)
 
 
 def test_an_answer_without_a_licence_or_warnings_has_a_plain_sentence() -> None:
     """A report that is empty adds nothing to the sentence."""
     assert _report_of({}) == {}
-    assert _sentence_of("image/png", 3, "image content", {}) == (
-        "The answer is image/png (3 bytes), sent as image content of this result."
+    assert _sentence_of("text/csv", 3, {}) == (
+        "The answer is text/csv (3 bytes) and follows below (it is also the text content of this result)."
     )
 
 
 def test_the_sentence_of_a_repeated_body_says_it_follows_and_does_not_send_a_reader_to_a_block() -> None:
     """A reader of the structured content alone is told the answer follows, not that it was sent as content."""
-    sentence = _sentence_of("text/csv", 1234, "text content", {"license": "CC-BY-4.0"}, repeated=True)
+    sentence = _sentence_of("text/csv", 1234, {"license": "CC-BY-4.0"})
 
     assert sentence == (
         "The answer is text/csv (1,234 bytes) and follows below (it is also the text content of this result). "
