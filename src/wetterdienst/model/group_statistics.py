@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from wetterdienst.exceptions import RequestError
 from wetterdienst.model.option_grammar import (
+    MAX_FILTER_LENGTH,
     MAX_FIRST,
     MAX_MAX_ROWS,
     Condition,
@@ -166,23 +167,38 @@ def incomplete_groups_message(total: int, shown: int, maximum: int) -> str:
     )
 
 
-def gaps_allowed_message(groups: int, most: int, lacking: int, maximum: int, *, ranked: bool) -> str:
+def _values_text(count: int) -> str:
+    """Write a number of values, with the noun in its number: `1 value`, `37 values`."""
+    return f"{count:,} value{'' if count == 1 else 's'}"
+
+
+def gaps_allowed_message(groups: int, most: int, lacking: int, plan: StatisticsPlan) -> str:
     """Write the warning about groups that lack values and are in the answer because `max_missing` allows it.
 
-    `groups` of them, `most` the values the worst lacks, `lacking` what all lack. Never called for none.
+    `groups` of them, `most` the values the worst lacks, `lacking` what all lack. Never called for none. What the
+    caller can do depends on what was asked: a `mean` or a `sum` is of the values there are and is kept by raising
+    `max_missing` no further than a gap accepted, while `count`, `min`, `max`, `earliest` and `latest` do not depend on
+    `max_missing` at all: only `complete` does, and `having=complete` with `max_missing` 0 ranks the full groups alone.
     """
-    verb = "ranked" if ranked else "in the answer"
-    if groups == 1:
-        return (
-            f"1 group lacks {most:,} values and is {verb} because `max_missing` is {maximum}: its `mean` and `sum` are "
-            "of the values there are, and `complete` is true, which says no more than `max_missing` lack (`searched` "
-            "and `expected` beside it say how many). Keep `max_missing` at 0 to rank only groups that have every value."
-        )
+    verb = "ranked" if plan.sort else "in the answer"
+    one = groups == 1
+    means = any(name in ("mean", "sum") for name in plan.aggregate)
+    if one:
+        head = f"1 group lacks {_values_text(most)}"
+        owner, says = "its", "beside it"
+    else:
+        head = f"{groups:,} groups lack up to {_values_text(most)} ({lacking:,} in all)"
+        owner, says = "their", "beside them"
+    leading = f"{owner} `mean` and `sum` are of the values there are, and " if means else ""
+    advice = (
+        "Keep `max_missing` at 0 to rank only groups that have every value."
+        if means
+        else "To rank only groups that have every value, use `having=complete` with `max_missing` 0."
+    )
     return (
-        f"{groups:,} groups lack up to {most:,} values ({lacking:,} in all) and are {verb} because `max_missing` is "
-        f"{maximum}: their `mean` and `sum` are of the values there are, and `complete` is true, which says no more "
-        "than `max_missing` lack (`searched` and `expected` beside them say how many). Keep `max_missing` at 0 to rank "
-        "only groups that have every value."
+        f"{head} and {'is' if one else 'are'} {verb} because `max_missing` is {plan.max_missing}: {leading}"
+        f"`complete` is true, which says no more than `max_missing` lack (`searched` and `expected` {says} say how "
+        f"many). {advice}"
     )
 
 
@@ -372,42 +388,56 @@ def _bare_complete(text: str) -> str:
     """Read `complete` as a condition of `having`: alone it is `complete=1`; `true`, `yes`, `false`, `no` are 1, 0.
 
     A word that is neither a number nor one of them is refused here, saying what the flag takes: it is no quantity, so
-    the grammar's "write the number alone, in the unit of the values" would send the caller the wrong way.
+    the grammar's "write the number alone, in the unit of the values" would send the caller the wrong way. A text over
+    the length the grammar allows is left to it to refuse, and nothing here scans it: plain string operations only.
     """
+    if len(text) > MAX_FILTER_LENGTH:
+        return text
     parts = []
     offset = 0
     for part in text.split(","):
-        word = part.strip().lower()
-        found = re.fullmatch(r"(\s*complete\s*!?=\s*)(.+?)\s*", part, flags=re.IGNORECASE)
-        if word == "complete":
-            parts.append("complete=1")
-        elif found:
-            values = []
-            inside = 0
-            for value in found.group(2).split("|"):
-                token = value.strip().lower()
-                if token not in _TRUTH and not _is_number(token):
-                    raise RowSelectionError(
-                        "having",
-                        "`complete` is a flag, not a quantity",
-                        position=offset + len(found.group(1)) + inside + len(value) - len(value.lstrip()) + 1,
-                        found=repr(value.strip()),
-                        expected="1, 0, true, yes, false or no",
-                        hint="`complete` alone keeps the complete groups: having=complete, or having=complete=false",
-                    )
-                values.append(_TRUTH.get(token, value))
-                inside += len(value) + 1
-            operator = "!=" if "!=" in found.group(1) else "="
-            parts.append(f"complete{operator}{'|'.join(values)}")
-        else:
-            parts.append(part)
+        parts.append(_complete_condition(part, offset))
         offset += len(part) + 1
     return ",".join(parts)
 
 
+def _complete_condition(part: str, offset: int) -> str:
+    """Read one comma-separated part of `having` as the condition on `complete` it may be, else leave it as it is."""
+    stripped = part.strip()
+    if stripped.lower() == "complete":
+        return "complete=1"
+    name, equals, rest = part.partition("=")
+    operator = "!=" if name.rstrip().endswith("!") else "="
+    if not equals or name.strip().lower().removesuffix("!").strip() != "complete" or not rest.strip():
+        return part
+    values = []
+    inside = 0
+    start = len(name) + 1 + (len(rest) - len(rest.lstrip()))
+    for value in rest.strip().split("|"):
+        token = value.strip().lower()
+        if token not in _TRUTH and not _is_number(token):
+            raise RowSelectionError(
+                "having",
+                "`complete` is a flag, not a quantity",
+                position=offset + start + inside + len(value) - len(value.lstrip()) + 1,
+                found=repr(value.strip()),
+                expected="1, 0, true, yes, false or no",
+                hint="`complete` alone keeps the complete groups: having=complete, or having=complete=false",
+            )
+        values.append(_TRUTH.get(token, value))
+        inside += len(value) + 1
+    return f"complete{operator}{'|'.join(values)}"
+
+
 def _is_number(token: str) -> bool:
-    """Say whether a token is a number the grammar reads: digits, a point, a sign, an exponent."""
-    return re.fullmatch(r"-?\d+(\.\d+)?([eE][-+]?\d+)?", token) is not None
+    """Say whether a token is a number the grammar reads: digits, a point, a sign, an exponent (a long one is none)."""
+    if not token or len(token) > 40 or not set(token) <= set("0123456789.-+eE"):
+        return False
+    try:
+        float(token)
+    except ValueError:
+        return False
+    return not token.startswith(("+", "."))
 
 
 def _filter_resolver() -> Callable[[_Scanner, str, int], str]:
@@ -1130,8 +1160,15 @@ def reduce_series(  # noqa: C901
             high = w1 if w1 is not None else (last_ts if w0 is None else None)
             inside = pl.lit(value=True)
             if low is not None:
-                # a cell begins where its step does: the day of a value dated 06:00 begins at 00:00, before the value
-                inside &= pl.col("timestamp") >= _floor(series.resolution, low)
+                # a cell begins where its step does: the day of a value dated 06:00 begins at 00:00, before the value.
+                # A month or a year the window begins inside has passed, as a window counts them: its cell is not
+                # inside, unless the period begins at a value's own stamp, which that month or year holds
+                calendar_step = series.resolution in ("monthly", "annual")
+                from_window = w0 is not None
+                lower = (
+                    _ceil(series.resolution, low) if calendar_step and from_window else _floor(series.resolution, low)
+                )
+                inside &= pl.col("timestamp") >= lower
             if high is not None:
                 inside &= pl.col("timestamp") <= high
             expected = (
@@ -1771,7 +1808,7 @@ class StatisticsResult:
             count_response_warning(
                 GAPS_ALLOWED,
                 groups,
-                gaps_allowed_message(groups, most, lacking, plan.max_missing, ranked=bool(plan.sort)),
+                gaps_allowed_message(groups, most, lacking, plan),
             )
         every = [*self.series, *self.left_out]
         in_answer = sum(int(s.frame.get_column("_incomplete").sum()) for s in self.series)

@@ -21,7 +21,7 @@ from wetterdienst.metadata.resolution import Resolution, count_readings
 from wetterdienst.model.group_statistics import GroupsOverLimitError, parse_statistics
 from wetterdienst.model.series_report import searched_of
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.util.response_warnings import recorded_warnings
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from wetterdienst.model.group_statistics import StatisticsResult
@@ -775,3 +775,204 @@ def test_the_warnings_of_a_cut_are_restated_or_dropped(monkeypatch: pytest.Monke
     restated = _restated_warnings(result.plan, cut, warnings)
     assert "gaps-allowed" not in {w["code"] for w in restated}
     assert len(restated) == len(warnings) - 1
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# the last look: a window that begins inside a month, the advice of `gaps-allowed`, what mutants passed
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def test_a_window_that_begins_inside_a_month_has_no_group_for_that_month(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Monthly values for December 2018 to December 2019 in a window from 2018-11-15: 13 groups, not 14, and no hole."""
+    readings = {at(2018, 12, 1): 1.0, **{at(2019, m, 1): 1.0 for m in range(1, 13)}}
+    _serve(monkeypatch, readings, resolution="monthly", dataset="climate_summary")
+    request = DwdObservationRequest(
+        parameters=["monthly/climate_summary/temperature_air_mean_2m"],
+        start=dt.datetime(2018, 11, 15, tzinfo=UTC),
+        end=at(2019, 12, 31),
+    ).all()
+    result = request.values().statistics("count", by="year,month")
+    rows = _rows(result)
+    assert [(r["year"], r["month"]) for r in rows] == [(2018, 12), *[(2019, m) for m in range(1, 13)]]
+    assert result.totals()["groups"] == result.totals()["groups_not_listed"] + len(rows) == 13
+    assert "no-values-in-groups" not in _codes()
+
+
+def test_a_window_that_begins_inside_a_year_has_no_group_for_that_year_of_annual_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Annual values for 2019 and 2020 in a window from 2018-06-01: 2018 is no group."""
+    _serve(monkeypatch, {at(2019, 1, 1): 1.0, at(2020, 1, 1): 2.0}, resolution="annual", dataset="climate_summary")
+    request = DwdObservationRequest(
+        parameters=["annual/climate_summary/temperature_air_mean_2m"],
+        start=dt.datetime(2018, 6, 1, tzinfo=UTC),
+        end=at(2020, 12, 31),
+    ).all()
+    result = request.values().statistics("count", by="year")
+    assert [r["year"] for r in _rows(result)] == [2019, 2020]
+    assert result.totals()["groups"] == 2
+
+
+def test_a_month_a_window_begins_at_midnight_of_is_a_group_and_one_it_begins_in_is_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """From 2018-12-01 the month of December is in; from 2018-12-01T12:00 it has passed (as `values` count it)."""
+    readings = {at(2019, m, 1): 1.0 for m in range(1, 4)}
+    for start, groups in ((at(2018, 12, 1), 4), (dt.datetime(2018, 12, 1, 12, tzinfo=UTC), 3)):
+        _serve(monkeypatch, readings, resolution="monthly", dataset="climate_summary")
+        request = DwdObservationRequest(
+            parameters=["monthly/climate_summary/temperature_air_mean_2m"], start=start, end=at(2019, 3, 31)
+        ).all()
+        result = request.values().statistics("count", by="year,month")
+        assert [r["month"] for r in _rows(result)] == [1, 2, 3]
+        assert result.totals()["groups"] == groups, start
+
+
+@pytest.mark.parametrize(
+    ("aggregate", "sort", "mentions_mean", "advice"),
+    [
+        (
+            "count",
+            "-count",
+            False,
+            "To rank only groups that have every value, use `having=complete` with `max_missing` 0.",
+        ),
+        (
+            "min,max",
+            "-max",
+            False,
+            "To rank only groups that have every value, use `having=complete` with `max_missing` 0.",
+        ),
+        (
+            "earliest,latest",
+            None,
+            False,
+            "To rank only groups that have every value, use `having=complete` with `max_missing` 0.",
+        ),
+        ("mean", "-mean", True, "Keep `max_missing` at 0 to rank only groups that have every value."),
+        ("count,sum", "-sum", True, "Keep `max_missing` at 0 to rank only groups that have every value."),
+    ],
+)
+def test_the_advice_of_gaps_allowed_is_for_what_was_asked(
+    monkeypatch: pytest.MonkeyPatch,
+    aggregate: str,
+    sort: str | None,
+    mentions_mean: bool,  # noqa: FBT001
+    advice: str,
+) -> None:
+    """`count`, `min`, `max`, `earliest` and `latest` do not depend on `max_missing`: only `complete` does."""
+    request = _gappy(monkeypatch)
+    request.values().statistics(aggregate, by="year", sort=sort, max_missing=66)
+    message = _codes()["gaps-allowed"]
+    assert ("`mean` and `sum` are of the values there are" in message) is mentions_mean
+    assert message.endswith(advice)
+    assert "`complete` is true, which says no more than `max_missing` lack" in message
+    assert message.count("Keep `max_missing` at 0") == int(mentions_mean)
+
+
+def test_one_value_is_singular(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A group that lacks one value: '1 value', and for two such groups 'up to 1 value (2 in all)'."""
+    readings = {
+        **{at(2019, 1, 1) + dt.timedelta(days=n): 1.0 for n in range(364)},
+        **{at(2020, 1, 1) + dt.timedelta(days=n): 1.0 for n in range(365)},
+    }
+    _serve(monkeypatch, readings)
+    request = _request(at(2019, 1, 1), dt.datetime(2020, 12, 31, 23, tzinfo=UTC))
+    request.values().statistics("mean", by="year", sort="-mean", max_missing=1, filter="year=2019")
+    assert _codes()["gaps-allowed"].startswith("1 group lacks 1 value and is ranked because `max_missing` is 1:")
+    begin_response()
+    request.values().statistics("mean", by="year", sort="-mean", max_missing=1)
+    assert _codes()["gaps-allowed"].startswith("2 groups lack up to 1 value (2 in all) and are ranked")
+
+
+# ---- what mutants passed ----------------------------------------------------------------------------------------
+
+
+def _nulls(stamps: list[dt.datetime]) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "station_id": ["00001"] * len(stamps),
+            "resolution": ["daily"] * len(stamps),
+            "dataset": ["climate_summary"] * len(stamps),
+            "parameter": ["temperature_air_mean_2m"] * len(stamps),
+            "timestamp": stamps,
+            "value": [None] * len(stamps),
+        },
+        schema_overrides={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
+    )
+
+
+def test_a_series_with_no_value_is_expected_over_a_window_in_the_past_and_not_over_one_in_the_future() -> None:
+    """(13) All missing over a past window is 31 expected of 0 searched; over a future one nothing is known."""
+    now = dt.datetime(2100, 1, 1, tzinfo=UTC)
+    frame = _nulls([at(2020, 1, d) for d in range(1, 6)])
+    (past,) = searched_of(frame, (at(2020, 1, 1), at(2020, 1, 31)), now).to_dicts()
+    assert (past["searched"], past["expected"], past["gaps"]) == (0, 31, None)
+    (future,) = searched_of(frame, (at(2200, 1, 1), at(2200, 1, 31)), now).to_dicts()
+    assert (future["searched"], future["expected"], future["gaps"]) == (0, None, None)
+    (ever,) = searched_of(frame, (None, None), now).to_dicts()
+    assert (ever["searched"], ever["expected"]) == (0, None)
+    (live,) = searched_of(frame, (at(2020, 1, 1), at(2020, 1, 31)), now, forecast=True).to_dicts()
+    assert live["expected"] is None
+
+
+def test_a_held_result_gives_the_whole_answer_the_reader_gives(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(31) Series, units, groups and totals of a result already read are those of the reader, in both unit modes."""
+    from wetterdienst import Options  # noqa: PLC0415
+
+    readings = {at(2020, 1, 1) + dt.timedelta(days=n): float(n % 9) for n in range(120)}
+    _serve(monkeypatch, readings)
+    for options in (
+        Options(convert_units=False),
+        Options(),
+        Options(unit_targets={"temperature": "degree_fahrenheit"}),
+    ):
+        request = _request(at(2020, 1, 1), at(2020, 4, 29, 23), options=options)
+        for aggregates in ("count,mean,sum,min,max", "earliest,latest,count"):
+            reader = request.values().statistics(aggregates, by="year,month", max_missing=40)
+            held = request.values().all().statistics(aggregates, by="year,month", max_missing=40)
+            assert held.series_dicts() == reader.series_dicts()
+            assert held.totals() == reader.totals()
+            assert held.df.equals(reader.df)
+
+
+def test_the_series_of_per_none_are_listed_parameter_by_parameter_by_their_best_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """(47) Two parameters: the request's order, and within one the series whose best group ranks first."""
+    serve(monkeypatch, count=5)
+    request = DwdObservationRequest(parameters=[TMIN, GUST], start=at(2018, 1, 1), end=at(2020, 12, 31, 23)).all()
+    result = request.values().statistics("max", by="year,month", sort="-max", first=8, per="none")
+    listed = result.series_dicts()
+    parameters = [s["parameter"] for s in listed]
+    assert parameters == sorted(parameters, key=lambda name: [TMIN, GUST].index(f"daily/climate_summary/{name}"))
+    for parameter in dict.fromkeys(parameters):
+        block = [s for s in listed if s["parameter"] == parameter]
+        best = [min(g["rank"] for g in s["groups"]) for s in block]
+        assert best == sorted(best)
+        assert sorted(g["rank"] for s in block for g in s["groups"]) == list(range(1, 9))
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {},
+        {"max_rows": 5},
+        {"having": "count>=360"},
+        {"sort": "-count", "first": 4},
+        {"sort": "-count", "first": 4, "per": "none"},
+        {"sort": "-count", "first": 4, "per": "none", "max_rows": 3},
+        {"having": "count>9999"},
+    ],
+)
+def test_groups_returned_is_what_the_series_hold_in_every_shape(
+    monkeypatch: pytest.MonkeyPatch, options: dict[str, Any]
+) -> None:
+    """(73) `groups_returned`, the frame and the rows of the series are one number, whatever cut the answer."""
+    serve(monkeypatch, count=4)
+    request = DwdObservationRequest(parameters=[TMIN], start=at(2018, 1, 1), end=at(2020, 12, 31, 23)).all()
+    result = request.values().statistics("count", by="year", max_missing=400, **options)
+    returned = result.totals()["groups_returned"]
+    assert returned == result.df.height == sum(len(s["groups"]) for s in result.series_dicts())
+    assert result.totals()["groups_matched"] >= returned
+    assert result.totals()["series"] == 4

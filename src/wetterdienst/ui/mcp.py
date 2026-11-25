@@ -287,7 +287,8 @@ and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`
 
 For counts, sums or means per year, month or day (frost days, the coldest winter) use `statistics`; \
 for a record or the hottest days, `values` with `sort` and `first`. `statistics` has no runs (dry spells), \
-moving windows, percentiles or medians: say so, do not estimate.
+moving windows (the wettest 3-day total), percentiles or medians: say so, do not estimate, unless a short \
+window fits in one `values` answer.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -307,7 +308,7 @@ rejected). `providers` does not check them and has no `valid`: it says whether t
 `providers` to list every provider and its networks.
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \
-measurement. Prefer the single-measurement form to keep responses small. Parameter names are \
+measurement. Parameter names are \
 snake_case; `coverage(provider="dwd", network="observation", datasets="climate_summary")` lists them. \
 Its answer is keyed by resolution, then `datasets`, then each dataset's `parameters`, and every one \
 of those three levels carries a `description` saying what the source means by it. `unit` is what `values` \
@@ -517,8 +518,9 @@ _ALERTS_ADVICE = (
 # The sentence that ends the description of the `statistics` tool, which only the tool has: its answer is cut to the
 # same budget, keeping the first groups (GH-4412).
 _STATISTICS_ADVICE = (
-    "It cannot find runs (the longest dry spell), moving windows (the wettest 3 days), percentiles or medians: say so, "
-    "do not estimate them. An answer over 40,000 characters keeps the first groups (`answer-truncated`)."
+    "It cannot find runs (the longest dry spell), moving windows (the wettest 3-day total), percentiles or medians: "
+    "say so, do not estimate them, unless the values of a short window fit in one `values` answer. An answer over "
+    "40,000 characters keeps the first groups (`answer-truncated`)."
 )
 
 

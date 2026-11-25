@@ -290,15 +290,23 @@ def test_two_parameters_are_cut_by_rank_one_after_the_other(monkeypatch: pytest.
 
 
 def test_the_totals_of_the_series_a_tool_leaves_out_are_counted(monkeypatch: pytest.MonkeyPatch) -> None:
-    """(79) 30 series, 20 listed: `searched`, `expected` and `gaps` are the sums of all 30, as REST gives them."""
+    """(79) 30 series, 20 listed: every total but `groups_returned` is that of all 30, as REST gives it."""
     serve(monkeypatch, count=30)
-    whole = _rest(**_PLAIN).json()["metadata"]["search"]["totals"]
-    tool = _tool(_PLAIN)["metadata"]["search"]["totals"]
-    assert {key: tool[key] for key in ("stations_read", "searched", "expected", "gaps", "series", "groups")} == {
-        key: whole[key] for key in ("stations_read", "searched", "expected", "gaps", "series", "groups")
-    }
-    assert tool["series"] == 30
-    assert tool["groups_returned"] == 60 < whole["groups_returned"] == 90
+    for options in (_PLAIN, {**_PLAIN, "max_missing": 400}, {"aggregate": "max", "by": "year", "sort": "-max"}):
+        whole = _rest(**options).json()["metadata"]["search"]["totals"]
+        tool = _tool(options)["metadata"]["search"]["totals"]
+        assert {**tool, "groups_returned": 0} == {**whole, "groups_returned": 0}
+        assert tool["series"] == tool["stations_with_values"] == 30
+        assert tool["groups_returned"] == 60 < whole["groups_returned"] == 90
+
+
+def test_the_totals_of_the_series_a_tool_ranks_out_are_counted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(79) The 20 series of `per=none` over two parameters leave 4 out: the totals still count all 24."""
+    serve(monkeypatch, count=12)
+    whole = _rest(parameters=_TWO, **_RANKED).json()["metadata"]["search"]["totals"]
+    tool = _tool({"parameters": _TWO, **_RANKED})["metadata"]["search"]["totals"]
+    assert whole["series"] > 20
+    assert {**tool, "groups_returned": 0} == {**whole, "groups_returned": 0}
 
 
 def test_a_series_left_with_no_group_by_a_cut_is_not_in_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -355,10 +363,11 @@ def test_the_tool_says_what_statistics_cannot_do_and_not_to_estimate_it() -> Non
     """Runs, moving windows, percentiles and medians are not in `statistics`: the description says so, briefly."""
     description = _statistics_tool().description
     assert (
-        "cannot find runs (the longest dry spell), moving windows (the wettest 3 days), percentiles or medians"
+        "cannot find runs (the longest dry spell), moving windows (the wettest 3-day total), percentiles or medians"
         in description
     )
-    assert "do not estimate" in description
+    assert "say so, do not estimate them, unless the values of a short window fit in one `values` answer" in description
+    assert "the wettest 3 days" not in description
     assert len(description) < 1_300
 
 
@@ -367,9 +376,10 @@ def test_the_instructions_say_it_too_within_the_cap() -> None:
     pytest.importorskip("fastmcp")
     from wetterdienst.ui.mcp import INSTRUCTIONS  # noqa: PLC0415
 
+    flat = " ".join(INSTRUCTIONS.split())
     assert (
-        "`statistics` has no runs (dry spells), moving windows, percentiles or medians: say so, do not estimate."
-        in INSTRUCTIONS
+        "`statistics` has no runs (dry spells), moving windows (the wettest 3-day total), percentiles or medians: "
+        "say so, do not estimate, unless a short window fits in one `values` answer." in flat
     )
     assert len(INSTRUCTIONS) < 7_800
 

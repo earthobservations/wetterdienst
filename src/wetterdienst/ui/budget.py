@@ -816,7 +816,7 @@ def _restated_warnings(
             # the groups that are left in the answer, which may be none of them
             if not allowed[0]:
                 continue
-            message = gaps_allowed_message(*allowed, plan.max_missing, ranked=bool(plan.sort))
+            message = gaps_allowed_message(*allowed, plan)
             w = ResponseWarning(**{**w, "message": message})
         restated.append(w)
     return restated

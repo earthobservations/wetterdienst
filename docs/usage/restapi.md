@@ -1521,7 +1521,9 @@ follow these twelve rules, each held by a test that works the case out by hand (
     or a year that is not over, is `complete: true` (the flag says that no more than `max_missing` values lack, not
     that none does) and competes in `sort` and `first` with its `mean` of the values there are; the warning
     `gaps-allowed` counts such groups of the answer and what they lack, and is not told where none is in it. A model
-    that sets `max_missing=400` out of habit ranks half-years with whole ones: read `searched` and `expected`.
+    that sets `max_missing=400` out of habit ranks half-years with whole ones: read `searched` and `expected`. For `count`,
+    `min`, `max`, `earliest` and `latest`, `max_missing` changes only `complete`: to rank only groups that have every value
+    use `having=complete` with `max_missing` 0.
 11. **`year_start` and `year`.** `year` means the year a season ends in, in `by`, `filter` and `sort`: with
     `year_start=12` the winter 2023/24 is 2024 and `filter=year=2024` selects December 2023 to November 2024. A season
     the record or the window covers only in part is incomplete by rule 3.
