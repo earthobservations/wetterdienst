@@ -67,6 +67,8 @@ Types of changes:
 
 ### Fixed
 
+- Exports to a `duckdb://` file from several threads of a process run one after the other: on DuckDB 2
+  they could fail with `Table Function with name python_arrow_scan does not exist!` (GH-4457)
 - An MCP tool refuses an object (or a list that holds one) for an argument that takes no object,
   naming the argument: `values(shape={"format": "png"})` was sent to the route as `format=png`,
   past the refusal of the chart formats, and answered an image, a PDF or markup of any size. A tool
