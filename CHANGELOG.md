@@ -51,7 +51,8 @@ Types of changes:
 - An MCP tool refuses an object (or a list that holds one) for an argument that takes no object,
   naming the argument: `values(shape={"format": "png"})` was sent to the route as `format=png`,
   past the refusal of the chart formats, and answered an image, a PDF or markup of any size. A tool
-  also answers an error for any 2xx that is not JSON, csv or ndjson. The arguments that are
+  also answers an error for any 2xx that is not JSON, csv or ndjson. An empty object for such an
+  argument was dropped before and is refused now. The arguments that are
   objects (`limits`, `unit_targets`, the station distances) are unchanged (GH-4453)
 
 ## [0.199.0] - 2026-11-25

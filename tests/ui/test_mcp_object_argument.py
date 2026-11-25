@@ -87,7 +87,7 @@ def _make_calls(
 def test_no_query_parameter_reaches_a_route_but_those_the_tool_declares() -> None:
     """Every argument of every tool, given as each kind of object: what the route gets is its own query.
 
-    1,620 calls with the tools of today: the object is refused by the tool where the argument is no object, and sent as
+    1,314 calls with the tools of today: the object is refused by the tool where the argument is no object, and sent as
     the JSON text of the argument where it is one. A key of an object is never a query parameter.
     """
     cases = [
@@ -107,7 +107,9 @@ def test_no_query_parameter_reaches_a_route_but_those_the_tool_declares() -> Non
         queries = seen[position : position + count]
         position += count
         assert all(set(query) <= set(schema["properties"]) for query in queries), (tool, arguments, queries)
-        if name not in _object_arguments(schema):
+        # `pretty` and the size options are let go where the tool's route took them, as documented: they are no
+        # argument of the schema, nothing of them is sent (the assertion on the query above), and none is refused
+        if name in schema["properties"] and name not in _object_arguments(schema):
             assert result is not None
             assert result.is_error, (tool, arguments)
             assert count == 0, (tool, arguments)
@@ -189,7 +191,10 @@ def test_a_value_that_is_no_object_is_let_through_as_it_was() -> None:
     ],
 )
 def test_an_answer_that_is_not_data_is_an_error_of_the_tool_whatever_reached_it(media_type: str, body: bytes) -> None:
-    """A 2xx that is not csv, ndjson or JSON is no answer a tool carries: an error, and its body is not read.
+    """A 2xx that is not csv, ndjson or JSON is no answer a tool carries: an error.
+
+    Its body is not decoded, not copied and not passed on (the stand-in's transport holds it whole, the tool's does not
+    use it).
 
     Before, a text body was decoded as text and an image or pdf made an image content or an embedded resource, which
     no client was meant to get from a tool.

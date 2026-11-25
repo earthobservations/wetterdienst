@@ -656,7 +656,7 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Rout
                     f"{name} is not an object argument of {tool.name}: give it a value, not an object, "
                     "as an object is read as arguments of its own"
                     for name, value in arguments.items()
-                    if name != "format" and name not in objects and _holds_object(value)
+                    if name in taken and name != "format" and name not in objects and _holds_object(value)
                 ]
                 unknown = [name for name in arguments if name not in taken and name not in route.rest_only]
                 # a name the tool's route never had is no old name of one it has (`stations` never took `date`)
@@ -825,7 +825,8 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
             if not 200 <= response.status_code < 300 or not media_type or _is_json(media_type):
                 return response
             if media_type not in _CARRIED_MEDIA_TYPES:
-                # the body is not read: no tool answers it (a chart, or whatever an argument made the route answer)
+                # the body is not decoded, not copied and not passed on: no tool answers it (a chart, or what an
+                # argument made the route answer)
                 await response.aclose()
                 text = (
                     f"The REST API answered {media_type}, which a tool does not carry: "
