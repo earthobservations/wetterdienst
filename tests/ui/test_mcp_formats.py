@@ -5,6 +5,10 @@
 The tools are the routes of the REST API run in process. FastMCP reads a route's answer as JSON: a text body (csv,
 ndjson) it passed on without structured content, which the output schema of the tool refuses ("has an output schema
 but did not return structured content"). And the refusal of a row limit told an assistant to use `format=ndjson` or
+`format=csv`, which it could not. No tool answers a chart (GH-4318, GH-4453), so none answers an image either
+(GH-4450).
+
+
 `format=csv`, which it could not. No tool answers a chart (GH-4318), so none answers an image either (GH-4453).
 
 Offline: the selection of the stations and the reader are stood in for, as in `test_operations.py`.
@@ -33,7 +37,7 @@ from tests.ui.test_operations import _VALUES, _no_ambient_settings, _selection_o
 from tests.ui.test_restapi import _stub_stream, _values_result_of_shape
 from wetterdienst.model.processing_note import PROCESSING_NOTE
 from wetterdienst.ui import restapi
-from wetterdienst.ui.mcp import _mark_tool_requests, _report_of, _sentence_of, build_mcp_server
+from wetterdienst.ui.mcp import _TOOL_NAMES, _mark_tool_requests, _report_of, _sentence_of, build_mcp_server
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -247,6 +251,80 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
     assert json_.structured_content["result"]["values"][0]["station_id"] == "01048"
 
 
+#: the formats a tool answers, and the media types the REST API answers them in: what the transport carries
+_DATA_FORMATS = {"json", "geojson", "csv", "ndjson"}
+_DATA_MEDIA_TYPES = {"application/json", "text/csv", "application/x-ndjson"}
+
+
+def _formats_of(schema: dict[str, Any]) -> set[str]:
+    """Give the formats a tool's input schema offers, which must be said as an enum of the argument itself.
+
+    The refusal of a format the tool does not offer reads that enum (`ui.mcp._refused_formats`). An argument that
+    says its formats another way (a nullable one is an `anyOf` of the enum and `null`) has none there, and a tool
+    made so would refuse nothing: it fails here instead.
+    """
+    argument = schema.get("properties", {}).get("format")
+    if argument is None:
+        return set()
+    assert "enum" in argument, f"the format of a tool is not an enum of its own, so no format is refused: {argument}"
+    return set(argument["enum"])
+
+
+def test_a_format_that_is_not_an_enum_of_its_own_is_found() -> None:
+    """A nullable format (an `anyOf`, as pydantic writes `Literal[...] | None`) fails the check of the formats."""
+    nullable = {"properties": {"format": {"anyOf": [{"enum": ["json", "png"], "type": "string"}, {"type": "null"}]}}}
+
+    with pytest.raises(AssertionError, match="not an enum of its own"):
+        _formats_of(nullable)
+    assert _formats_of({"properties": {"format": {"enum": ["json", "csv"], "type": "string"}}}) == {"json", "csv"}
+    assert _formats_of({"properties": {}}) == set()
+
+
+def test_the_formats_the_tools_offer_are_answered_as_data() -> None:
+    """Every `format` of every tool is one of the four data formats, and each is answered as JSON, csv or ndjson.
+
+    What this holds is the offer, not the answers: a chart format (html, png, jpg, webp, svg, pdf) is no format of a
+    tool, and a call that gives one, by `format` or inside an object for another argument, is refused before its route
+    is called (GH-4318, GH-4453; `test_mcp_slim_schemas.py`, `test_mcp_object_argument.py`). The transport carries
+    csv and ndjson as text and answers an error for any other 2xx that is not JSON (`ui.mcp._carry_bodies_as_json`),
+    so no tool answers an image, a pdf or markup and none of them is built as content (GH-4450).
+    """
+
+    async def tools() -> list[Any]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return await client.list_tools()
+
+    offered = set()
+    for tool in asyncio.run(tools()):
+        formats = _formats_of(tool.input_schema)
+        assert formats <= _DATA_FORMATS, tool.name
+        offered |= formats
+
+    assert offered == _DATA_FORMATS
+    # the media type the REST API answers each of them in: JSON where none is named
+    assert {restapi._MEDIA_TYPES.get(fmt, "application/json") for fmt in offered} == _DATA_MEDIA_TYPES  # noqa: SLF001
+
+
+def test_no_route_a_tool_is_made_from_declares_a_2xx_that_is_not_data() -> None:
+    """The OpenAPI document of the REST API declares JSON, csv or ndjson for every 2xx of the routes of the tools.
+
+    That is what the document says; a route answers what it is not declared to (a chart format has no entry in it), so
+    it holds no more than the declarations. The transport's own guard and the refusals of the arguments hold the rest.
+    """
+    operations = [
+        (path, operation)
+        for path, item in restapi.app.openapi()["paths"].items()
+        for operation in item.values()
+        if isinstance(operation, dict) and operation.get("operationId") in _TOOL_NAMES
+    ]
+
+    assert len(operations) == len(_TOOL_NAMES)
+    for path, operation in operations:
+        for status, response in operation["responses"].items():
+            if status.startswith("2"):
+                assert set(response.get("content", {})) <= _DATA_MEDIA_TYPES, (path, status)
+
+
 def test_every_tool_with_a_format_that_is_no_json_admits_a_string_for_it() -> None:
     """The structured content of such an answer is a sentence, which the output schema of the tool has to admit.
 
@@ -377,8 +455,8 @@ def test_the_report_and_the_sentence_read_what_the_headers_write() -> None:
         "attribution": "© Météo-France",
         "warnings": ["station-skipped", "parameter-without-rows"],
     }
-    assert _sentence_of("text/csv", 1234, "text content", report) == (
-        "The answer is text/csv (1,234 bytes), sent as text content of this result. "
+    assert _sentence_of("text/csv", 1234, report) == (
+        "The answer is text/csv (1,234 bytes) and follows below (it is also the text content of this result). "
         "Licence: Licence Ouverte v2.0 (Etalab) é (https://www.etalab.gouv.fr/licence). "
         "Attribution: © Météo-France. Warnings: station-skipped, parameter-without-rows."
     )
@@ -388,20 +466,20 @@ def test_an_attribution_that_ends_in_a_period_does_not_get_a_second() -> None:
     """IMGW's attribution ends in a period, which the sentence's own is not added to."""
     report = _report_of(_headers("Source: IMGW-PIB.", '<https://example.org/licence>; rel="license"'))
 
-    assert "Attribution: Source: IMGW-PIB. Warnings" in _sentence_of("text/csv", 1, "text content", report)
+    assert "Attribution: Source: IMGW-PIB. Warnings" in _sentence_of("text/csv", 1, report)
 
 
 def test_an_answer_without_a_licence_or_warnings_has_a_plain_sentence() -> None:
     """A report that is empty adds nothing to the sentence."""
     assert _report_of({}) == {}
-    assert _sentence_of("image/png", 3, "image content", {}) == (
-        "The answer is image/png (3 bytes), sent as image content of this result."
+    assert _sentence_of("text/csv", 3, {}) == (
+        "The answer is text/csv (3 bytes) and follows below (it is also the text content of this result)."
     )
 
 
 def test_the_sentence_of_a_repeated_body_says_it_follows_and_does_not_send_a_reader_to_a_block() -> None:
     """A reader of the structured content alone is told the answer follows, not that it was sent as content."""
-    sentence = _sentence_of("text/csv", 1234, "text content", {"license": "CC-BY-4.0"}, repeated=True)
+    sentence = _sentence_of("text/csv", 1234, {"license": "CC-BY-4.0"})
 
     assert sentence == (
         "The answer is text/csv (1,234 bytes) and follows below (it is also the text content of this result). "

@@ -18,9 +18,10 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   cost every session part of its tool list (GH-4318),
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
-- an answer in a format that is not JSON (csv, ndjson; and, though no tool offers a chart since GH-4318, the html
-  and svg of one and its png, jpg, webp and pdf) as content of the tool result: FastMCP answers a text body without
-  structured content, which the output schema of the tool refuses, and fails on a binary one (GH-3464),
+- an answer in a format that is not JSON (csv, ndjson) as content of the tool result: FastMCP answers a text body
+  without structured content, which the output schema of the tool refuses (GH-3464). No tool offers a chart (GH-4318)
+  and a call cannot ask a route for one (GH-4453), so no answer is an image, a pdf or markup: a 2xx of any other
+  media type is an error of the tool, never content (GH-4450),
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
   not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
 - exclusion of the non-data endpoints (index, robots, health, ready, version, settings) so the tool
@@ -33,7 +34,6 @@ become the parameter descriptions, so those live with the endpoints in ``restapi
 
 from __future__ import annotations
 
-import base64
 import copy
 import json
 import re
@@ -95,7 +95,8 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
 
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
         # a chart as html carries plotly.js from the CDN, not inline: 4.8 MB less for an assistant to read (GH-3464).
-        # No tool offers html since GH-4318; a route that did again would not answer 4.8 MB to an assistant
+        # A call cannot ask for html (`_refuse_unknown_arguments`, GH-4318, GH-4453) and the transport answers an error
+        # for it (`_carry_bodies_as_json`); the CDN is what a chart that reached the route would cost, the last line
         token = HTML_PLOTLYJS.set("cdn")
         try:
             await app(scope, receive, send)
@@ -780,11 +781,10 @@ _REPORTING_HEADERS = (
     "x-wetterdienst-values-expected",
     "x-wetterdienst-rows-matched",
 )
-# The media types that are text though they are not `text/*`.
-_TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
-# The media types of data, whose body is repeated in the structured content (GH-4017). A chart (html, svg) is markup
-# of 100 KB and more that a model cannot read as data, so it is not.
-_REPEATED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
+
+
+# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
+_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
 
 
 # The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
@@ -793,10 +793,6 @@ _CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
 
 def _is_json(media_type: str) -> bool:
     return media_type == "application/json" or media_type.endswith("+json")
-
-
-def _is_text(media_type: str) -> bool:
-    return media_type.startswith("text/") or media_type in _TEXT_MEDIA_TYPES
 
 
 def _decode(body: bytes, charset: str | None) -> str:
@@ -812,9 +808,18 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
 
     FastMCP's tool for a route reads the answer as JSON. A text body it passes on as text content without structured
     content, which the output schema of the tool refuses ("has an output schema but did not return structured
-    content"), and a binary body it fails to decode. So the body is put in a JSON object,
-    `{_BODY_KEY: {"media_type", "encoding", "body"}}`, which `_return_bodies_as_content` takes apart again into the
-    content blocks of the result (GH-3464). A failure (not a 2xx) is left as it is.
+    content"). So the body is put in a JSON object, `{_BODY_KEY: {"media_type", "size", "headers", "body"}}`, which
+    `_return_bodies_as_content` takes apart again into the content block of the result (GH-3464). A failure (not a
+    2xx) is left as it is.
+
+    What it carries is text: csv and ndjson, the data formats of a tool that are not JSON. A 2xx of any other media
+    type is no answer of a tool (a chart, or what a route answered to an argument it should not have been given): it is
+    an error, a 502 that names the media type, and its body is not decoded, not copied and not passed on (GH-4453; the
+    in-process transport holds it whole, nothing here uses it). That is the last line, not the first: a chart format
+    and an object for an argument that takes none are refused before the route is called
+    (`_refuse_unknown_arguments`, GH-4318, GH-4453), and `tests/ui/test_mcp_formats.py` holds what a tool offers (every
+    `format` an enum of the data formats, and no route of the OpenAPI document that a tool is made from declaring
+    another media type for a 2xx, which says nothing of what a route answers without declaring it).
     """
     import httpx2  # noqa: PLC0415
 
@@ -840,7 +845,6 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
                 )
             body = await response.aread()
             await response.aclose()
-            text = _is_text(media_type)
             envelope = {
                 _BODY_KEY: {
                     "media_type": media_type,
@@ -848,10 +852,7 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
                     "headers": {
                         name: response.headers[name] for name in _REPORTING_HEADERS if name in response.headers
                     },
-                    "encoding": "text" if text else "base64",
-                    "body": _decode(body, response.charset_encoding)
-                    if text
-                    else base64.b64encode(body).decode("ascii"),
+                    "body": _decode(body, response.charset_encoding),
                 }
             }
             return httpx2.Response(
@@ -894,18 +895,15 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:  # noqa: C901
     return report
 
 
-def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], *, repeated: bool = False) -> str:
+def _sentence_of(media_type: str, size: int, report: dict[str, Any]) -> str:
     """Tell what the answer is and whose, in the sentence that stands as the structured content of the result.
 
-    With `repeated` the body follows the sentence in the structured content, which the sentence says, so that a reader
-    of the structured content alone does not look for a content block it cannot see.
+    The body follows the sentence in the structured content, which the sentence says, so that a reader of the
+    structured content alone does not look for a content block it cannot see.
     """
-    if repeated:
-        sentence = (
-            f"The answer is {media_type} ({size:,} bytes) and follows below (it is also the {kind} of this result)."
-        )
-    else:
-        sentence = f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."
+    sentence = (
+        f"The answer is {media_type} ({size:,} bytes) and follows below (it is also the text content of this result)."
+    )
     if "license" in report:
         url = f" ({report['license_url']})" if "license_url" in report else ""
         sentence += f" Licence: {report['license']}{url}."
@@ -935,13 +933,10 @@ def structured_size(media_type: str, body: str, headers: dict[str, str]) -> int:
     sentence of the answer (`_sentence_of`, which `_return_bodies_as_content` builds from the same `headers` the REST
     app sent), a blank line and the body. It reaches the client as JSON, where every newline and quote of the text is
     an escape of two characters, so that is what is counted: compact, with each character that is not ASCII as it is,
-    as the client reads it. It is what `ui.budget` holds to its budget (GH-4022, GH-4029). Any other media type is not
-    repeated in the structured content, and counts as its body.
+    as the client reads it. It is what `ui.budget` holds to its budget (GH-4022, GH-4029).
     """
-    if media_type not in _REPEATED_MEDIA_TYPES:
-        return len(body)
     size = len(body.encode("utf-8"))
-    sentence = _sentence_of(media_type, size, "text content", _report_of(headers), repeated=True)
+    sentence = _sentence_of(media_type, size, _report_of(headers))
     return len(json.dumps({"result": f"{sentence}\n\n{body}"}, separators=(",", ":"), ensure_ascii=False))
 
 
@@ -960,19 +955,17 @@ def _envelope_of(result: ToolResult) -> dict[str, Any] | None:
 def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
     """Build the middleware that makes the body of an answer that is not JSON the content of the tool result.
 
-    A text body (csv, ndjson, html, svg) is a text content block, as the REST API answers it; an image (png, jpg,
-    webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
-    the output schema of a tool requires, is a sentence about the answer, with its licence, attribution,
-    processing note and warnings, which the REST API sends in headers for these formats: the schema of every tool that
-    has one admits a string as its `result` (the `str` of the REST route's response model). For data (csv, ndjson) the
-    sentence is followed by the body itself, since a client may hand the model the structured content alone (Claude
-    Code does, and the rows of a csv never reached it, GH-4017); a client that reads the content blocks has the same
-    text there, so the body is twice in the result. A chart (html, svg), an image or a pdf is not repeated, and its
-    sentence stands alone. The report, structured, is in the `_meta` of the result under `wetterdienst`.
+    The body (csv, ndjson) is a text content block, as the REST API answers it. The structured content, which the
+    output schema of a tool requires, is a sentence about the answer, with its licence, attribution, processing note
+    and warnings, which the REST API sends in headers for these formats: the schema of every tool that has one admits a
+    string as its `result` (the `str` of the REST route's response model). The sentence is followed by the body itself,
+    since a client may hand the model the structured content alone (Claude Code does, and the rows of a csv never
+    reached it, GH-4017); a client that reads the content blocks has the same text there, so the body is twice in the
+    result. The report, structured, is in the `_meta` of the result under `wetterdienst`.
     """
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
     from fastmcp.tools import ToolResult  # noqa: PLC0415
-    from mcp_types import BlobResourceContents, EmbeddedResource, ImageContent, TextContent  # noqa: PLC0415
+    from mcp_types import TextContent  # noqa: PLC0415
 
     class ReturnBodiesAsContent(Middleware):
         async def on_call_tool(
@@ -985,28 +978,15 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
             if envelope is None:
                 return result
             media_type, body, size = envelope["media_type"], envelope["body"], envelope["size"]
-            if envelope["encoding"] == "text":
-                block = TextContent(type="text", text=body)
-                kind = "text content"
-            elif media_type.startswith("image/"):
-                block = ImageContent(type="image", data=body, mime_type=media_type)
-                kind = "image content"
-            else:
-                block = EmbeddedResource(
-                    type="resource",
-                    resource=BlobResourceContents(uri="wetterdienst://answer", mime_type=media_type, blob=body),
-                )
-                kind = "an embedded resource"
+            block = TextContent(type="text", text=body)
             report = _report_of(envelope["headers"])
             tool = await provider.get_tool(context.message.name)
             structured = None
             if tool is not None and tool.output_schema is not None:
                 # A client may hand the model the structured content and not the content blocks (Claude Code does:
                 # a result with both reaches the model as the structured content alone, so the rows of a csv were
-                # lost behind the sentence, GH-4017). The schema admits a string, so data is repeated in it.
-                repeated = envelope["encoding"] == "text" and media_type in _REPEATED_MEDIA_TYPES
-                sentence = _sentence_of(media_type, size, kind, report, repeated=repeated)
-                structured = {"result": f"{sentence}\n\n{body}" if repeated else sentence}
+                # lost behind the sentence, GH-4017). The schema admits a string, so the data is repeated in it.
+                structured = {"result": f"{_sentence_of(media_type, size, report)}\n\n{body}"}
             # also where the tool has no output schema to put the sentence in
             return ToolResult(
                 content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None
