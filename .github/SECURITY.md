@@ -123,7 +123,8 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   upgrade and is not left believing it filters. The library and the command line keep their SQL filters, on a
   connection with external access off, its configuration locked, no extension to fetch or load, no secret to
   store, one thread and a memory limit (`io/sql_filter.py`; `tests/test_sql_filter_connection.py`), and need
-  DuckDB 1.5.3 or newer: an older release is refused. No check of the condition is kept, since the caller there
+  DuckDB 1.5.3 or newer: an older release is refused, and the restrictions are tested on 1.5.3, 1.5.6 and 2.0
+  (`duckdb>=1.5.3,<3`, GH-4348). No check of the condition is kept, since the caller there
   is the host's own user. These restrictions are defence in depth, not a sandbox: never pass text from someone
   you do not trust; time, memory outside DuckDB's limit and the process are not protected. The removal also
   settles GHSA-rpwr-qmm5-m9wp and GHSA-w2gf-jxc9-pf2q for a server.

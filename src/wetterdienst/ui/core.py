@@ -2453,8 +2453,8 @@ def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
     carries a clause, are the
     refusals of the connection the clause runs on (`wetterdienst.io.sql_filter.filter_by_sql`): a file, URL or
     extension it may not touch (`PermissionException`), more memory than the limit sized to the
-    frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as an
-    outer join on a correlated column (`NotSupportedError`), and an extension DuckDB would install
+    frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as a
+    time zone it does not know (`NotSupportedError`), and an extension DuckDB would install
     on the fly, refused with the bare `duckdb.Error`. Every DuckDB error derives from that one, so
     only the exact class counts: an `InternalException` or an `IOException` fails inside DuckDB and
     stays a 500, and so does DuckDB running out of memory for a request without a clause. DuckDB is
