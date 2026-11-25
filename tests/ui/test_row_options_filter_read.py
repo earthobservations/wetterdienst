@@ -357,6 +357,12 @@ def test_a_stream_limit_below_rows_does_not_refuse_what_the_plain_request_is_ans
     assert refused.status_code == 400
     body = refused.json()
     assert (body["limit"], body["maximum"], body["requested"]) == ("rows", 3000, _READ)
+    # `statistics` reads under `stream_rows` alone: a limit of a stream below `rows` refuses it at that limit
+    _limits(monkeypatch, 5000, 1000)
+    statistics = TestClient(app).get("/api/statistics", params={**_BASE, "aggregate": "count", "by": "year"})
+    assert statistics.status_code == 400, statistics.text
+    assert statistics.json()["limit"] == "stream_rows"
+    assert statistics.json()["maximum"] == 1000
     # and where the stream limit is the larger it is the one named, to the row
     _limits(monkeypatch, 1000, _READ - 1)
     assert _rest(filter="value<=-9").json()["limit"] == "stream_rows"
@@ -422,3 +428,16 @@ def test_the_refusal_of_the_rows_chosen_names_a_stream_over_rest_only_and_what_t
     with pytest.raises(ProblemError) as error:
         check_chosen_rows(2000, limits, first=False)
     assert "stream" not in str(error.value)
+
+
+def test_a_filter_that_matches_more_than_rows_is_told_it_can_stream_where_the_stream_limit_is_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With `stream_rows` at 0 the refusal of the rows chosen ends with the stream sentence, and a tool's does not."""
+    _limits(monkeypatch, 1000, 0)
+    detail = _rest(filter="value<=20").json()["detail"]
+    assert "so far" in detail
+    assert detail.endswith(
+        "Or stream it: `format=ndjson` and `format=csv` send the rows as they are read and hold none."
+    )
+    assert "stream" not in str(_tool({"filter": "value<=20"}).content)

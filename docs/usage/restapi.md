@@ -1263,13 +1263,13 @@ before the options choose the rows.
 - **`max_rows`** is the last step, after `filter`, `sort` and `first`: the answer is cut to its first rows, in the order
   it has, over all stations and parameters together. No ties are kept, there is no offset and no page. It cuts what is
   returned and nothing that is counted: `metadata.search` still holds what was searched, expected and matched over
-  everything, and `returned` beside `matched`, and a `rows-capped` warning says "20 of 25,311 matched rows are returned".
-  With sort it keeps the first of the whole order (the lowest, the highest), without it the first rows as they are read
-  (by station, by series, by time). It does not raise what may be read (only `first` and `filter` do, below), and
-  what the server holds for it is bounded by it: a station is cut to it as it is read. In the wide shape the rows are those of the wide
-  frame, a timestamp of a station and resolution, since that is what `counts.rows` counts there. A tool's answer may be
-  cut once more to fit its budget: the note of `answer-truncated` then says how many of the rows `max_rows` returned
-  are kept, and how many matched.
+  everything, and `returned` beside `matched`, and a `rows-capped` warning says "20 of 25,311 matched rows are
+  returned". With sort it keeps the first of the whole order (the lowest, the highest), without it the first rows as
+  they are read (by station, by series, by time). It does not raise what may be read (only `first` and `filter` do,
+  below), and what the server holds for it is bounded by it: a station is cut to it as it is read. In the wide shape the
+  rows are those of the wide frame, a timestamp of a station and resolution, since that is what `counts.rows` counts
+  there. A tool's answer may be cut once more to fit its budget: the note of `answer-truncated` then says how many of
+  the rows `max_rows` returned are kept, and how many matched.
 - **The order of the answer.** Without `sort` the rows are in the order they are read in: by station, by series, by time
   (with [parameters as columns](#parameters-as-columns): by station, by time, by parameter, so that a cut keeps every
   parameter). With `sort` they are ordered by series (resolution, dataset, parameter), then by the keys, then by station and
@@ -1394,13 +1394,13 @@ the rows chosen before `max_rows`; a tool's answer that is cut to its budget kee
 
 ### Limits and streaming
 
-A request with `first` or a `filter` may read up to the limit of a stream (`stream_rows`, 10,000,000 rows estimated;
-the larger of `stream_rows` and `rows` where an answer is one body, 0 for either being no limit), whatever its format, so
-that a long record can be searched; the estimate counts rows of the frame, a wide row once. The
-series is read station by station and only the rows chosen are kept: the readings that do not match a `filter` are let
-go as each station is read. The rows it chooses are held until they are sent, so they are held to the limit of one body
-(`rows`, 500,000) in every format (a `filter` alone that is streamed, below, is the exception), and the refusal of a
-walk that holds more says "N rows so far", where it stopped and not at the start:
+A request with `first` or a `filter` may read up to the limit of a stream (`stream_rows`, 10,000,000 rows estimated; the
+larger of `stream_rows` and `rows` where an answer is one body, 0 for either being no limit), whatever its format, so
+that a long record can be searched; the estimate counts rows of the frame, a wide row once. The series is read station
+by station and only the rows chosen are kept: the readings that do not match a `filter` are let go as each station is
+read. The rows it chooses are held until they are sent, so they are held to the limit of one body (`rows`, 500,000) in
+every format (a `filter` alone that is streamed, below, is the exception), and the refusal of a walk that holds more
+says "N rows so far", where it stopped and not at the start:
 
 - a choice whose groups stay in a station (the default) is the answer as it is read, and the walk is refused the moment
   it holds more, "N rows so far";
@@ -1426,11 +1426,12 @@ stopped there: it holds `rows` rows and the station in hand, where the plain req
 A request with `sort` and neither `first` nor `filter` holds every row it reads, and nothing it holds can be let go, so
 it is held to `rows` for what it reads, as it was, and a stream does not help it (the refusal says: add `first` or a
 `filter`, or drop `sort`). A request with a `filter` alone that is streamed (`format=ndjson`, `format=csv`) is the other
-exception: it sends the rows as they are read and holds none, so it may match as many rows as `stream_rows` allows; add a
-`sort` and it is held to `rows` like the body of `json`. `max_rows` alone does not raise what may be read: the request
-is read as it was. The number of stations and the timeout hold as they do for every request: a request the timeout ends is a 504 and its walk stops at the station in hand, the rows
-it held are freed and its place of the cap is free again (the rows chosen are not made for nobody). The estimate of
-rows, and the stations, are those of the request without options.
+exception: it sends the rows as they are read and holds none, so it may match as many rows as `stream_rows` allows; add
+a `sort` and it is held to `rows` like the body of `json`. `max_rows` alone does not raise what may be read: the request
+is read as it was. The number of stations and the timeout hold as they do for every request: a request the timeout ends
+is a 504 and its walk stops at the station in hand, the rows it held are freed and its place of the cap is free again
+(the rows chosen are not made for nobody). The estimate of rows, and the stations, are those of the request without
+options.
 
 `max_rows` stops what a stream sends at the cap and goes on counting: the stations after it are read, and the `end` line
 has the counts, the `rows-capped` warning and the whole `search`; a CSV has no place for the warning, and its headers
@@ -1629,8 +1630,9 @@ in the order the stations were read, or with `per=none` those with the best grou
 all, with `groups_returned` the groups shown, and the warning `incomplete-groups` says how many of its groups are in the
 answer. REST, the command line and Python are never cut.
 
-**Limits.** The stations and the readings read are held to the limits of `values` as a request with `first` is, but under
-`stream_rows` alone (`values` takes the larger of it and `rows`), whatever the format. A request of more than 100 series (stations times parameters) is refused before a
+**Limits.** The stations and the readings read are held to the limits of `values` as a request with `first` is, but
+under `stream_rows` alone (`values` takes the larger of it and `rows`), whatever the format. A request of more than 100
+series (stations times parameters) is refused before a
 station is read (`series`): "This request has 240 series, more than the 100 an answer reports: name fewer stations or
 parameters, or ask in several requests." The groups held, as the stations are read, and the groups of an answer are held
 to `max_groups` of the [limits](#limits), 50,000 by default (`WD_RESTAPI_MAX_GROUPS`; a group is about 150 bytes of
@@ -1726,9 +1728,11 @@ timeout of 60 seconds the client is answered `request-timeout` first, and the wo
 
 ## Limits
 
-A request that would return, or for a `filter` or `first` read, more than the server allows is refused with a 400 before anything is
-downloaded, as a problem of the kind `limit-exceeded`. It names the limit, its value and what the request comes
-to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
+A request whose estimate is more than the server allows (what it would return, or for a `filter` or `first` what it
+would read) is refused with a 400 before anything is downloaded, as a problem of the kind `limit-exceeded`. A `filter`
+or `first` that then holds more than `rows` is refused as the stations are read, as the same problem with "N rows so
+far" in its `detail`. It names the limit, its value and what the request comes to (`limit`, `maximum`, `requested`), and
+`detail` says how to narrow it:
 
 ```json
 {
