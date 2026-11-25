@@ -143,6 +143,10 @@ keeps working where it can. Where the tool's route took the option:
   /api/v1/values takes format=png.`), whether it is a chart format (also in capitals, or with spaces round it) or any
   other, such as `ndjson` for `interpolate`; so is a list of formats with such a one in it. Nothing is requested from
   the provider.
+- an object (or a list that holds one) for an argument that takes none, such as `shape={"format": "png"}`, is a tool
+  error that names the argument: an object is read as arguments of its own, which would go past the refusal of the
+  format. An empty object is refused too; `limits`, `unit_targets` and the station distances take objects. `pretty`
+  stays let go, whatever it is given.
 
 The option is an unknown argument, refused as above, for a tool whose route never took it (`pretty` for `glossary`).
 All the refusals of a call are one error.
