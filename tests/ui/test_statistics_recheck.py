@@ -101,7 +101,9 @@ def test_exactly_twenty_series_are_no_cap(monkeypatch: pytest.MonkeyPatch) -> No
     answer = _tool(_PLAIN)
     assert len(answer["series"]) == 20
     message = _warning(answer, "answer-truncated") or ""
-    assert "The answer lists 20 of 21 series that have a group" in message
+    assert (
+        "The answer lists the first 20 of 21 series that have a group, in the order the stations were read" in message
+    )
     assert "40,000" not in message
 
 
@@ -217,3 +219,117 @@ def test_complete_is_a_boolean_in_every_form(monkeypatch: pytest.MonkeyPatch) ->
     column = header.index("complete")
     assert {line.split(",")[column] for line in csv[1:]} <= {"true", "false"}
     assert len(csv) == 1 + len(flags)
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# S2, S4, S5: what the notes of a tool say
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def test_the_note_of_per_station_does_not_claim_the_best_series(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without `per=none` the 20 series are the first read, and the note says so and where the ranking is."""
+    serve(monkeypatch, count=50)
+    answer = _tool(_PLAIN)
+    message = _warning(answer, "answer-truncated") or ""
+    assert "the first 20 of 50 series that have a group, in the order the stations were read" in message
+    assert "`per=none` ranks across the stations" in message
+    assert "best" not in message
+    assert [s["station_id"] for s in answer["series"]] == [f"{n:05d}" for n in range(1, 21)]
+    ranked = _tool({**_RANKED, "parameters": TMIN})
+    assert "the series with the best groups" in (_warning(ranked, "answer-truncated") or "")
+
+
+def test_the_incomplete_warning_of_a_cut_answer_counts_the_groups_it_still_holds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After the cut the warning says how many of the incomplete groups are still in the answer."""
+    serve(monkeypatch, count=6)
+    options = {"aggregate": "count,mean", "by": "year,month,day"}
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 20_000)
+    answer = _tool(options)
+    shown = sum(len(s["groups"]) for s in answer["series"])
+    whole_incomplete = answer["metadata"]["search"]["totals"]["groups_incomplete"]
+    held = sum(1 for s in answer["series"] for g in s["groups"] if not g["complete"])
+    assert 0 < held < whole_incomplete
+    assert shown < answer["metadata"]["search"]["totals"]["groups"]
+    message = _warning(answer, "incomplete-groups") or ""
+    assert f"{whole_incomplete:,} groups have fewer values" in message
+    assert f"({held:,} of them in this answer)" in message
+
+
+def test_a_having_with_no_match_does_not_say_to_name_fewer_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Series with no group because `having` kept none: the note says no group met it, nothing about stations."""
+    serve(monkeypatch, count=30)
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 6_000)
+    answer = _tool({**_PLAIN, "having": "count>1000"})
+    message = _warning(answer, "answer-truncated") or ""
+    assert "No group of the series left out met `having`" in message
+    assert "fewer stations" not in message
+    assert answer["series"] == []
+    assert answer["metadata"]["search"]["totals"]["series"] == 30
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# what mutants passed
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def test_two_parameters_are_cut_by_rank_one_after_the_other(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(49) `max_rows=3` over two parameters keeps rank 1 of each and rank 2 of the first, not three of the first."""
+    serve(monkeypatch, count=6)
+    answer = _rest(
+        parameters=_TWO, aggregate="max", by="year,month", sort="-max", first=5, per="none", max_rows=3
+    ).json()
+    groups = [(s["parameter"], g["rank"]) for s in answer["series"] for g in s["groups"]]
+    assert sorted(rank for _, rank in groups) == [1, 1, 2]
+    assert len({parameter for parameter, _ in groups}) == 2
+    # the one that has the second rank is the one the answer lists first
+    first = _rest(parameters=_TWO, aggregate="max", by="year,month", sort="-max", first=5, per="none").json()
+    order = list(dict.fromkeys(s["parameter"] for s in first["series"]))
+    assert (order[0], 2) in groups
+
+
+def test_the_totals_of_the_series_a_tool_leaves_out_are_counted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(79) 30 series, 20 listed: `searched`, `expected` and `gaps` are the sums of all 30, as REST gives them."""
+    serve(monkeypatch, count=30)
+    whole = _rest(**_PLAIN).json()["metadata"]["search"]["totals"]
+    tool = _tool(_PLAIN)["metadata"]["search"]["totals"]
+    assert {key: tool[key] for key in ("stations_read", "searched", "expected", "gaps", "series", "groups")} == {
+        key: whole[key] for key in ("stations_read", "searched", "expected", "gaps", "series", "groups")
+    }
+    assert tool["series"] == 30
+    assert tool["groups_returned"] == 60 < whole["groups_returned"] == 90
+
+
+def test_a_series_left_with_no_group_by_a_cut_is_not_in_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(80) A cut that ends in the third series leaves the others out; the totals still count all six."""
+    serve(monkeypatch, count=6)
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 20_000)
+    answer = _tool({"aggregate": "count,mean", "by": "year,month,day"})
+    assert 0 < len(answer["series"]) < 6
+    assert all(s["groups"] for s in answer["series"])
+    assert answer["metadata"]["search"]["totals"]["series"] == 6
+    assert answer["metadata"]["counts"]["stations"] == len({s["station_id"] for s in answer["series"]})
+
+
+@pytest.mark.parametrize(("count", "status"), [(100, 200), (101, 400)])
+def test_a_hundred_series_are_answered_and_a_hundred_and_one_refused(
+    monkeypatch: pytest.MonkeyPatch, count: int, status: int
+) -> None:
+    """(83) The limit is 100 series: exactly 100 is no excess."""
+    serve(monkeypatch, count=count)
+    monkeypatch.setenv("WD_RESTAPI_MAX_STATIONS", "1000")
+    response = _rest(aggregate="count", by="year")
+    assert response.status_code == status, response.text[:300]
+    if status == 400:
+        assert response.json()["limit"] in ("series", "stations")
+
+
+def test_empty_year_start_and_max_missing_are_not_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(88) `year_start=` and `max_missing=` are what a form sends for nothing: the answer of the defaults."""
+    serve(monkeypatch, count=2)
+    plain = _rest(aggregate="count,mean", by="year")
+    empty = _rest(aggregate="count,mean", by="year", year_start="", max_missing="")
+    assert (plain.status_code, empty.status_code) == (200, 200)
+    assert empty.json()["series"] == plain.json()["series"]
+    assert empty.json()["metadata"]["search"]["options"] == plain.json()["metadata"]["search"]["options"]

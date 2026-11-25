@@ -61,8 +61,8 @@ def _one_cell_too_few(patch: pytest.MonkeyPatch) -> None:
     """Give a group one cell fewer than it should have: `expected` is off by one."""
     original = group_statistics._cells  # noqa: SLF001
 
-    def fewer(resolution: str, low: Any, high: Any) -> Any:  # noqa: ANN401
-        return original(resolution, low, high).slice(1)
+    def fewer(resolution: str, low: Any, high: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        return original(resolution, low, high, **kwargs).slice(1)
 
     patch.setattr(group_statistics, "_cells", fewer)
 
@@ -96,7 +96,7 @@ def _the_running_year_ends_today(patch: pytest.MonkeyPatch) -> None:
     def cut(plan: Any, resolution: Any, window: Any, first: Any, last: Any, now: Any) -> Any:  # noqa: ANN401
         period = original(plan, resolution, window, first, last, now)
         if period is not None and "year" in plan.by:
-            return period[0], min(period[1], max(now, last or now))
+            return period[0], min(period[1], max(now, last or now)), period[2]
         return period
 
     patch.setattr(group_statistics, "_period", cut)
@@ -123,9 +123,9 @@ def _the_window_cuts_the_year(patch: pytest.MonkeyPatch) -> None:
         period = original(plan, resolution, window, first, last, now)
         if period is None or "year" not in plan.by:
             return period
-        low, high = period
+        low, high, own = period
         w0, w1 = window
-        return (max(low, w0) if w0 is not None else low), (min(high, w1) if w1 is not None else high)
+        return (max(low, w0) if w0 is not None else low), (min(high, w1) if w1 is not None else high), own
 
     patch.setattr(group_statistics, "_period", cut)
 
@@ -158,8 +158,8 @@ def test_the_hours_of_a_station_of_minutes_are_counted_by_their_weight(monkeypat
     """A step finer than an hour counts for the readings it stands for: weight 1 makes a day 24 cells, not 144."""
     original = group_statistics._cells  # noqa: SLF001
 
-    def unweighted(resolution: str, low: Any, high: Any) -> Any:  # noqa: ANN401
-        return original(resolution, low, high).with_columns(pl.lit(1, pl.Int64).alias("_w"))
+    def unweighted(resolution: str, low: Any, high: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        return original(resolution, low, high, **kwargs).with_columns(pl.lit(1, pl.Int64).alias("_w"))
 
     monkeypatch.setattr(group_statistics, "_cells", unweighted)
     with pytest.raises(AssertionError):

@@ -1601,8 +1601,10 @@ warnings and the series without their groups. Both are one body and are not stre
 **The MCP tool** is `statistics`. Its answer is cut to 40,000 characters as `values` is, by dropping groups from the
 end in the answer's order (by rank with `per=none`), and says so: "the first 279 of 1,607 groups are returned, in the
 answer's order; `metadata.search.totals` and `over_groups` cover all of them. Narrow with `having`, `first` or `filter`."
-A tool lists at most 20 series, with the same note; the totals count all. REST, the command line and Python are never
-cut.
+A tool lists at most 20 series that have a group, and says so in its own note, which is no cut to the budget: the first 20
+in the order the stations were read, or with `per=none` those with the best groups over all parameters. The totals count
+all, with `groups_returned` the groups shown, and the warning `incomplete-groups` says how many of its groups are in the
+answer. REST, the command line and Python are never cut.
 
 **Limits.** The stations and the readings read are held to the limits of `values` as a request with `first` is: up to
 the stream limit whatever the format. A request of more than 100 series (stations times parameters) is refused before a

@@ -464,3 +464,217 @@ def test_the_months_of_a_window_that_starts_in_one_begin_with_the_next(monkeypat
     ).all()
     (row,) = _rows(request.values().statistics("count,mean"))
     assert (row["searched"], row["expected"], row["complete"]) == (9, 9, True)
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# S1, S3: a cell begins where its step does, and a window that begins at noon of the 1st has passed that month
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def test_the_day_of_a_value_dated_0600_begins_at_midnight(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Daily values dated 06:00: each day is a group of 1 of 1, the first included (its cell begins before it)."""
+    _serve(monkeypatch, {at(2020, 1, d, 6): float(d) for d in range(1, 6)})
+    request = _request(None, None)
+    rows = _rows(request.values().statistics("count", by="day"))
+    assert [(r["day"], r["searched"], r["expected"], r["complete"]) for r in rows] == [
+        (d, 1, 1, True) for d in range(1, 6)
+    ]
+    (row,) = _rows(request.values().statistics("count,mean"))
+    assert (row["searched"], row["expected"]) == (5, 5)
+
+
+def test_the_hour_of_a_value_dated_half_past_begins_on_the_hour(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hourly values dated :30: each hour is a group of 1 of 1, the first included."""
+    readings: dict[dt.datetime, float | None] = {at(2020, 1, 1, h) + dt.timedelta(minutes=30): 1.0 for h in range(6)}
+    _serve(monkeypatch, readings, resolution="hourly", dataset="air_temperature", parameter="temperature_air_2m")
+    request = DwdObservationRequest(parameters=["hourly/air_temperature/temperature_air_2m"]).all()
+    rows = _rows(request.values().statistics("count", by="day,hour"))
+    assert [(r["hour"], r["searched"], r["expected"], r["complete"]) for r in rows] == [
+        (h, 1, 1, True) for h in range(6)
+    ]
+
+
+def test_the_month_of_a_value_dated_0600_of_the_1st_is_a_group_of_1_of_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Monthly values dated 06:00 of the 1st: every month, January included, is 1 of 1."""
+    _serve(
+        monkeypatch, {at(2020, m, 1, 6): float(m) for m in range(1, 7)}, resolution="monthly", dataset="climate_summary"
+    )
+    request = DwdObservationRequest(parameters=["monthly/climate_summary/temperature_air_mean_2m"]).all()
+    rows = _rows(request.values().statistics("count", by="month"))
+    assert [(r["month"], r["searched"], r["expected"], r["complete"]) for r in rows] == [
+        (m, 1, 1, True) for m in range(1, 7)
+    ]
+
+
+def test_the_first_hour_of_a_record_that_begins_at_0010_lacks_its_first_step(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A year whole: hour 0 of a 10-minute record from 00:10 is 5 of 6, incomplete, with an `expected`."""
+    readings: dict[dt.datetime, float | None] = {
+        at(2020, 3, 1) + dt.timedelta(minutes=10 * n): 1.0 for n in range(1, 19)
+    }
+    _serve(monkeypatch, readings, resolution="10_minutes", dataset="temperature_air", parameter="temperature_air_2m")
+    request = DwdObservationRequest(parameters=["10_minutes/temperature_air/temperature_air_2m"]).all()
+    rows = _rows(request.values().statistics("count", by="year,month,day,hour"))
+    first = rows[0]
+    assert (first["hour"], first["searched"], first["expected"], first["complete"]) == (0, 5, 6, False)
+    assert all(r["expected"] is not None for r in rows)
+
+
+def test_a_window_from_0030_to_0220_has_3_6_and_3_steps_in_its_hours(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first and the last hour of a window are cut where it begins and ends: each has its `expected`."""
+    readings: dict[dt.datetime, float | None] = {
+        at(2020, 3, 1) + dt.timedelta(minutes=10 * n): 1.0 for n in range(1, 19)
+    }
+    _serve(monkeypatch, readings, resolution="10_minutes", dataset="temperature_air", parameter="temperature_air_2m")
+    request = DwdObservationRequest(
+        parameters=["10_minutes/temperature_air/temperature_air_2m"],
+        start=dt.datetime(2020, 3, 1, 0, 30, tzinfo=UTC),
+        end=dt.datetime(2020, 3, 1, 2, 20, tzinfo=UTC),
+    ).all()
+    rows = _rows(request.values().statistics("count", by="hour"))
+    assert [(r["hour"], r["searched"], r["expected"], r["complete"]) for r in rows] == [
+        (0, 3, 3, True),
+        (1, 6, 6, True),
+        (2, 3, 3, True),
+    ]
+
+
+def test_a_monthly_window_from_noon_of_the_1st_is_11_of_11_for_the_group_as_for_the_series(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Values for February to December in a window from 2019-01-01T12:00: the group says what the series does."""
+    _serve(monkeypatch, {at(2019, m, 1): 1.0 for m in range(2, 13)}, resolution="monthly", dataset="climate_summary")
+    request = DwdObservationRequest(
+        parameters=["monthly/climate_summary/temperature_air_mean_2m"],
+        start=dt.datetime(2019, 1, 1, 12, tzinfo=UTC),
+        end=at(2019, 12, 31),
+    ).all()
+    result = request.values().statistics("count,mean")
+    series = result.series_dicts()[0]
+    (row,) = series["groups"]
+    assert (series["searched"], series["expected"]) == (11, 11)
+    assert (row["searched"], row["expected"], row["complete"]) == (11, 11, True)
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# S6: a name is suggested for a misspelling only, and `complete` is a flag
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def test_another_quantity_is_not_suggested_for_a_name_in_a_request_for_the_mean(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`temperature_air_min_2m<0` is not a typo of the mean's name: the refusal says what to write, with no name."""
+    _serve(monkeypatch, daily(dt.date(2020, 1, 1), [1.0, 2.0]))
+    request = _request(at(2020, 1, 1), at(2020, 1, 2, 23))
+    with pytest.raises(ValueError, match="is not a parameter of this request") as refused:
+        request.values().statistics("count", filter="temperature_air_min_2m<0")
+    assert "did you mean" not in str(refused.value).lower()
+    assert "write `value`" in str(refused.value)
+    with pytest.raises(ValueError, match="Did you mean temperature_air_mean_2m") as typo:
+        request.values().statistics("count", filter="temperature_air_mean_2n<0")
+    assert "is not a parameter of this request" not in str(typo.value)
+
+
+@pytest.mark.parametrize(
+    ("having", "word"),
+    [("complete=maybe", "maybe"), ("complete=1|maybe", "maybe"), ("count>1,complete!=perhaps", "perhaps")],
+)
+def test_complete_with_a_word_that_is_no_flag_says_what_the_flag_takes(
+    monkeypatch: pytest.MonkeyPatch, having: str, word: str
+) -> None:
+    """`complete=maybe` is refused with its position and `1, 0, true, yes, false or no`; no unit of the values."""
+    request = _gappy(monkeypatch)
+    with pytest.raises(ValueError, match="`complete` is a flag, not a quantity") as refused:
+        request.values().statistics("count", by="year", having=having)
+    text = str(refused.value)
+    assert "1, 0, true, yes, false or no" in text
+    assert "unit of the values" not in text
+    assert getattr(refused.value, "position", None) == having.index(word) + 1
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# what mutants passed (the numbers are the reviewer's)
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def test_a_group_with_more_values_than_cells_has_no_expected_the_others_have(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(10) Rule 4 at the group: January, with a day read twice, has no `expected`; February and March are counted."""
+    readings: dict[dt.datetime, float | None] = {at(2020, 1, d): 1.0 for d in range(1, 32)}
+    readings[at(2020, 1, 1, 18)] = 2.0
+    readings.update({at(2020, 2, d): 1.0 for d in range(1, 11)})
+    readings.update({at(2020, 3, d): 1.0 for d in range(1, 32)})
+    _serve(monkeypatch, readings)
+    request = _request(None, None)
+    rows = _rows(request.values().statistics("count", by="month"))
+    assert [(r["month"], r["searched"], r["expected"], r["complete"]) for r in rows] == [
+        (1, 32, None, True),
+        (2, 10, 29, False),
+        (3, 31, 31, True),
+    ]
+    assert "completeness-unknown" in _codes()
+
+
+def test_a_held_result_names_the_unit_the_reader_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(31) Cloud cover is 1/8 as the source has it and % converted: a held result says what the reader says."""
+    from wetterdienst import Options  # noqa: PLC0415
+
+    _serve(monkeypatch, daily(dt.date(2020, 1, 1), [1.0, 2.0, 3.0]), parameter="cloud_cover_total_mean")
+    for options, unit in ((Options(convert_units=False), "1/8"), (Options(), "%")):
+        request = _request(
+            at(2020, 1, 1),
+            at(2020, 1, 3, 23),
+            parameter="daily/climate_summary/cloud_cover_total_mean",
+            options=options,
+        )
+        reader = request.values().statistics("mean").series_dicts()[0]["unit"]
+        held = request.values().all().statistics("mean").series_dicts()[0]["unit"]
+        assert held == reader == unit
+
+
+def test_the_series_of_per_none_are_listed_by_their_best_group(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(47) The station read first has the lowest mean: it comes last; the ranks are 1, 2, 3 in that order."""
+    from tests.model.statistics_stub import serve_custom  # noqa: PLC0415
+
+    monkeypatch.setattr("wetterdienst.model.group_statistics._now", lambda: dt.datetime(2100, 1, 1, tzinfo=UTC))
+    series = {
+        station: {at(2020, 1, 1) + dt.timedelta(days=n): value for n in range(366)}
+        for station, value in (("00001", 1.0), ("00002", 9.0), ("00003", 5.0))
+    }
+    serve_custom(monkeypatch, series, parameter=PARAMETER)
+    request = DwdObservationRequest(parameters=[DAILY], start=at(2020, 1, 1), end=at(2020, 12, 31, 23)).all()
+    result = request.values().statistics("mean", by="year", sort="-mean", first=3, per="none")
+    listed = result.series_dicts()
+    assert [s["station_id"] for s in listed] == ["00002", "00003", "00001"]
+    assert [g["rank"] for s in listed for g in s["groups"]] == [1, 2, 3]
+
+
+def test_the_df_and_the_rows_have_complete_as_a_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(70) `complete` is a true or a false in the frame and in the rows, not a 1 or a 0."""
+    request = _gappy(monkeypatch)
+    result = request.values().statistics("count", by="year")
+    assert result.df.schema["complete"] == pl.Boolean
+    assert result.df.get_column("complete").to_list() == [True, False]
+    assert [row["complete"] for row in _rows(result)] == [True, False]
+    assert all(type(row["complete"]) is bool for row in _rows(result))
+
+
+def test_the_totals_count_the_groups_returned_after_every_cut(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(73) `groups_returned` is what the series hold: after `max_rows`, after `head`, and with none."""
+    request = _gappy(monkeypatch)
+    whole = request.values().statistics("count", by="year")
+    assert whole.totals()["groups_returned"] == whole.totals()["groups"] == 2
+    capped = request.values().statistics("count", by="year", max_rows=1)
+    totals = capped.totals()
+    assert (totals["groups_returned"], totals["groups_matched"], totals["groups"]) == (1, 2, 2)
+    assert whole.head(1).totals()["groups_returned"] == 1
+    none = request.values().statistics("count", by="year", having="count>9999")
+    assert none.totals()["groups_returned"] == 0
+
+
+def test_a_monthly_value_dated_0600_is_for_values_as_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
+    """(113) Only `statistics` count a value of the 1st at 06:00 as its month's: `values` report as they always did."""
+    _serve(monkeypatch, {at(2020, m, 1, 6): 1.0 for m in range(1, 13)}, resolution="monthly", dataset="climate_summary")
+    request = DwdObservationRequest(parameters=["monthly/climate_summary/temperature_air_mean_2m"]).all()
+    result = request.values().all(filter="value>=0")
+    assert result.search is not None
+    assert result.search.series.get_column("expected").to_list() == [None]

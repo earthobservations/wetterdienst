@@ -278,8 +278,8 @@ plain-language "summary". `history` is different again: it returns a station's *
 (a point is the reliable way). For design rainfall at a point in Germany (rain depth by duration \
 and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`.
 
-For counts, sums or means per year, month or day (frost days, the coldest winter or the hottest \
-days) use `statistics`; for a record, `values` with `sort` and `first`.
+For counts, sums or means per year, month or day (frost days, the coldest winter) use `statistics`; \
+for a record or the hottest days, `values` with `sort` and `first`.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \

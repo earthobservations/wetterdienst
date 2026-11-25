@@ -154,7 +154,9 @@ def test_a_tool_lists_20_series_and_says_the_totals_cover_all(monkeypatch: pytes
     assert [s["station_id"] for s in tool["series"]] == [s["station_id"] for s in rest["series"]][:20]
     message = _warning(tool, "answer-truncated") or ""
     # a cap of series, not a cut to the 40,000 characters: it says which, and that every group of the 20 is there
-    assert "The answer lists 20 of 30 series that have a group" in message
+    assert (
+        "The answer lists the first 20 of 30 series that have a group, in the order the stations were read" in message
+    )
     assert "40,000" not in message
     assert tool["metadata"]["search"]["totals"]["series"] == 30
     assert tool["metadata"]["counts"]["rows"] == 60

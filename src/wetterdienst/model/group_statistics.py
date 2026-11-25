@@ -165,6 +165,18 @@ def incomplete_groups_message(total: int, shown: int, maximum: int) -> str:
     )
 
 
+_IN_ANSWER = re.compile(r"\((?:[\d,]+ of them in this answer|it is in this answer|it is not in this answer)\)")
+
+
+def restate_incomplete(message: str, shown: int) -> str:
+    """Say in the warning about incomplete groups how many of them an answer that was cut afterwards still holds."""
+    if message.startswith("1 group has"):
+        text = "it is in this answer" if shown else "it is not in this answer"
+    else:
+        text = f"{shown:,} of them in this answer"
+    return _IN_ANSWER.sub(f"({text})", message)
+
+
 NO_VALUES_IN_GROUPS = "no-values-in-groups"
 NO_VALUES_IN_GROUPS_MESSAGE = (
     "{count} groups lie before the first or after the last value of their series and are not listed{where}; "
@@ -244,6 +256,8 @@ class StatisticsPlan:
         named = [c for c in self.conditions if c.column not in ("value", *CALENDAR)]
         if not named:
             return self
+        from wetterdienst.metadata.parameter_table import PARAMETERS  # noqa: PLC0415
+
         columns = {column for hits in names.lookup.values() for _, column in hits}
         conditions = []
         for condition in self.conditions:
@@ -258,6 +272,13 @@ class StatisticsPlan:
                 hint = (
                     f"`{condition.column}` is a parameter of this request, but a parameter's name is a column of "
                     "`statistics` only where the request has that one parameter: ask for it alone and write `value`."
+                )
+            elif condition.column in PARAMETERS:
+                # another quantity of the library, not a misspelling: no name is suggested for it
+                hint = (
+                    f"`{condition.column}` is not a parameter of this request, and a parameter's name is a column of "
+                    "`statistics` only where the request has that one parameter: write `value`, with one parameter in "
+                    "`parameters`."
                 )
             else:
                 close = names.close_to(condition.column)
@@ -327,19 +348,45 @@ _TRUTH: Final = {"true": "1", "yes": "1", "false": "0", "no": "0"}
 
 
 def _bare_complete(text: str) -> str:
-    """Read `complete` as a condition of `having`: alone it is `complete=1`; `true`, `yes`, `false`, `no` are 1, 0."""
+    """Read `complete` as a condition of `having`: alone it is `complete=1`; `true`, `yes`, `false`, `no` are 1, 0.
+
+    A word that is neither a number nor one of them is refused here, saying what the flag takes: it is no quantity, so
+    the grammar's "write the number alone, in the unit of the values" would send the caller the wrong way.
+    """
     parts = []
+    offset = 0
     for part in text.split(","):
         word = part.strip().lower()
+        found = re.fullmatch(r"(\s*complete\s*!?=\s*)(.+?)\s*", part, flags=re.IGNORECASE)
         if word == "complete":
-            part = "complete=1"
+            parts.append("complete=1")
+        elif found:
+            values = []
+            inside = 0
+            for value in found.group(2).split("|"):
+                token = value.strip().lower()
+                if token not in _TRUTH and not _is_number(token):
+                    raise RowSelectionError(
+                        "having",
+                        "`complete` is a flag, not a quantity",
+                        position=offset + len(found.group(1)) + inside + len(value) - len(value.lstrip()) + 1,
+                        found=repr(value.strip()),
+                        expected="1, 0, true, yes, false or no",
+                        hint="`complete` alone keeps the complete groups: having=complete, or having=complete=false",
+                    )
+                values.append(_TRUTH.get(token, value))
+                inside += len(value) + 1
+            operator = "!=" if "!=" in found.group(1) else "="
+            parts.append(f"complete{operator}{'|'.join(values)}")
         else:
-            found = re.fullmatch(r"\s*complete\s*(!?=)\s*(.+?)\s*", part, flags=re.IGNORECASE)
-            if found:
-                values = "|".join(_TRUTH.get(v.strip().lower(), v) for v in found.group(2).split("|"))
-                part = f"complete{found.group(1)}{values}"
-        parts.append(part)
+            parts.append(part)
+        offset += len(part) + 1
     return ",".join(parts)
+
+
+def _is_number(token: str) -> bool:
+    """Say whether a token is a number the grammar reads: digits, a point, a sign, an exponent."""
+    return re.fullmatch(r"-?\d+(\.\d+)?([eE][-+]?\d+)?", token) is not None
 
 
 def _filter_resolver() -> Callable[[_Scanner, str, int], str]:
@@ -784,17 +831,20 @@ def _floor(resolution: str, stamp: dt.datetime) -> dt.datetime:
     return stamp.replace(minute=0, second=0, microsecond=0)
 
 
-def _anchor(resolution: str, stamp: dt.datetime) -> dt.datetime:
+def _anchor(resolution: str, stamp: dt.datetime, *, own_stamp: bool = False) -> dt.datetime:
     """Give where the cells of a period that begins at `stamp` begin.
 
-    A month or a year the period begins in is counted when the stamp is on its first day, at whatever time of it (a
-    monthly value dated 06:00 of the 1st is that month's), and not when it begins later in it, as `count_readings`
-    counts; the steps of the finer resolutions begin at the step they lie in.
+    A month or a year is counted when the period begins at a value's own stamp on its first day, at whatever time of it
+    (`own_stamp`: a monthly value dated 06:00 of the 1st is that month's). A window that begins at 12:00 of the 1st has
+    passed that month, as `count_readings` counts it, and so does a period that begins later in it; the steps of the
+    finer resolutions begin at the step they lie in.
     """
     if resolution == "monthly":
-        return _floor(resolution, stamp) if stamp.day == 1 else _ceil(resolution, stamp)
+        return _floor(resolution, stamp) if own_stamp and stamp.day == 1 else _ceil(resolution, stamp)
     if resolution == "annual":
-        return _floor(resolution, stamp) if (stamp.month, stamp.day) == (1, 1) else _ceil(resolution, stamp)
+        return (
+            _floor(resolution, stamp) if own_stamp and (stamp.month, stamp.day) == (1, 1) else _ceil(resolution, stamp)
+        )
     return _floor(resolution, stamp)
 
 
@@ -812,7 +862,7 @@ def _ceil(resolution: str, stamp: dt.datetime) -> dt.datetime:
 _CELL_HOURS: Final = {"hourly": 1, "6_hours": 6, "daily": 24, "monthly": 24 * 28, "annual": 24 * 365}
 
 
-def _cells(resolution: str, low: dt.datetime, high: dt.datetime) -> pl.DataFrame:
+def _cells(resolution: str, low: dt.datetime, high: dt.datetime, *, own_stamp: bool = False) -> pl.DataFrame:
     """Make the cells a period holds, the steps of a resolution, with how many readings each stands for (`_w`).
 
     A step finer than an hour is counted by the hour, so that a station of one-minute readings costs no more than one of
@@ -829,7 +879,7 @@ def _cells(resolution: str, low: dt.datetime, high: dt.datetime) -> pl.DataFrame
     if resolution not in _INTERVAL:
         message = f"`{resolution}` has no fixed step to count the values of a group by"
         raise RowSelectionRefusedError(message)
-    start = _anchor(resolution, low)
+    start = _anchor(resolution, low, own_stamp=own_stamp)
     empty = pl.DataFrame(schema={"timestamp": pl.Datetime("us", "UTC"), "_w": pl.Int64})
     if high < start:
         return empty
@@ -1049,7 +1099,7 @@ def reduce_series(  # noqa: C901
     if known and (first_ts is not None or w0 is not None):
         period = _period(plan, series.resolution, (w0, w1), first_ts, last_ts, now)
         if period is not None:
-            cells = _cells(series.resolution, *period)
+            cells = _cells(series.resolution, period[0], period[1], own_stamp=period[2])
             cells = keep(_keyed(cells, plan.year_start, calendar), plan.time_conditions)
             if not plan.by:
                 cells = cells.with_columns(pl.lit(0).alias("_all"))
@@ -1059,7 +1109,8 @@ def reduce_series(  # noqa: C901
             high = w1 if w1 is not None else (last_ts if w0 is None else None)
             inside = pl.lit(value=True)
             if low is not None:
-                inside &= pl.col("timestamp") >= low
+                # a cell begins where its step does: the day of a value dated 06:00 begins at 00:00, before the value
+                inside &= pl.col("timestamp") >= _floor(series.resolution, low)
             if high is not None:
                 inside &= pl.col("timestamp") <= high
             expected = (
@@ -1202,8 +1253,10 @@ def _period(
     first_ts: dt.datetime | None,
     last_ts: dt.datetime | None,
     now: dt.datetime,
-) -> tuple[dt.datetime, dt.datetime] | None:
+) -> tuple[dt.datetime, dt.datetime, bool] | None:
     """Give the period the cells of a series are counted over, None where it has none (rule 3 of the completeness).
+
+    The third member says whether the period begins at a value's own stamp (and not at the start of a window).
 
     With a `year` in `by`: the years (or seasons) of the window, whole, and cut neither by the window nor by the record
     nor by today, so that a year that the window cuts, or that is not over, is incomplete. Without a `year`: from the
@@ -1219,7 +1272,7 @@ def _period(
             return None
         low = _season_bounds(_season_year(start_at.year, start_at.month, plan.year_start), plan.year_start)[0]
         high = _season_bounds(_season_year(end_at.year, end_at.month, plan.year_start), plan.year_start)[1]
-        return (low, high) if low <= high else None
+        return (low, high, False) if low <= high else None
     from wetterdienst.metadata.resolution import Resolution  # noqa: PLC0415
 
     latest = latest_complete(Resolution(resolution), now)
@@ -1227,12 +1280,12 @@ def _period(
     if first_ts is None or last_ts is None:
         if not has_window or w0 is None or latest is None:
             return None
-        return w0, min(w1 or latest, latest)
+        return w0, min(w1 or latest, latest), False
     low, high = first_ts, last_ts
     if has_window and w0 is not None and latest is not None:
         low = min(w0, first_ts)
         high = max(min(w1 or latest, latest), last_ts)
-    return low, high
+    return low, high, low == first_ts
 
 
 # ----------------------------------------------------------------------------------------------------------------

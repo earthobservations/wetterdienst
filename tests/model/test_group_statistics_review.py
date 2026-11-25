@@ -334,9 +334,7 @@ def test_any_other_name_is_refused_with_what_to_write(monkeypatch: pytest.Monkey
     """The name of a parameter that is not in the request is no column: `value`, with one parameter."""
     serve(monkeypatch)
     request = DwdObservationRequest(parameters=[TMIN, GUST], start=at(2018, 1, 1), end=at(2018, 12, 31)).all()
-    with pytest.raises(
-        RowSelectionError, match=rf"`{name}` is no column of this option.*unless the request has that one"
-    ):
+    with pytest.raises(RowSelectionError, match=rf"`{name}` is no column of this option.*write `value`"):
         request.values().statistics("count", filter=f"{name}<0")
     assert name in PARAMETERS
 

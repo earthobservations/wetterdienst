@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
     from wetterdienst.core.station_search import StationIdSearchResult
-    from wetterdienst.model.group_statistics import SeriesStatistics, StatisticsResult
+    from wetterdienst.model.group_statistics import SeriesStatistics, StatisticsPlan, StatisticsResult
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
     from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
@@ -753,6 +753,47 @@ def _first_series(result: StatisticsResult, count: int) -> list[SeriesStatistics
     return [series for n, series in enumerate(held) if n in chosen]
 
 
+def _statistics_note(
+    plan: StatisticsPlan,
+    *,
+    shown: int,
+    total: int,
+    in_base: int,
+    series: int,
+    listed: int,
+    many: bool,
+    where: str,
+    head: str,
+) -> str:
+    """Say what a tool's answer left out: groups cut to the budget, series capped, or series with no group."""
+    if shown < in_base:
+        return (
+            f"{head}the first {shown:,} of {total:,} groups{where} are returned, in the answer's "
+            "order; `metadata.search.totals` and `over_groups` cover all of them. "
+            "Narrow with `having`, `first` or `filter`."
+        )
+    if many and plan.per_station:
+        return (
+            f"The answer lists the first {series:,} of {listed:,} series that have a group, in the order the "
+            "stations were read; `per=none` ranks across the stations. `metadata.search.totals` covers all of "
+            "them. Name fewer stations or parameters for the others."
+        )
+    if many:
+        return (
+            f"The answer lists {series:,} of {listed:,} series that have a group, the series with the best "
+            "groups; `metadata.search.totals` covers all of them. Name fewer stations or parameters for the others."
+        )
+    if plan.having:
+        return (
+            "No group of the series left out met `having`; they are not listed, and `metadata.search.totals` "
+            "counts them."
+        )
+    return (
+        "The series with no group are left out of the answer; `metadata.search.totals` counts them. "
+        "Name fewer stations or parameters to see the others."
+    )
+
+
 def fit_statistics(
     result: StatisticsResult,
     fmt: str,
@@ -771,6 +812,8 @@ def fit_statistics(
     groups are not cut, only the rows. Where not even one group fits beside them the first is kept and the note says
     that the answer is still over the budget. `render` writes the answer for a cut result and the block it is given.
     """
+    from wetterdienst.model.group_statistics import INCOMPLETE_GROUPS, restate_incomplete  # noqa: PLC0415
+
     size = _size_in(content, fmt, metadata)
     held = [series for series in result.series if series.frame.height]
     many = len(held) > MAX_TOOL_SERIES
@@ -792,30 +835,32 @@ def fit_statistics(
     def attempt(count: int, *, honest: bool) -> bool:
         cut, shown, series = _cut_statistics(base, count)
         where = f" of the first {series:,} of {len(held):,} series" if series < len(held) else ""
-        if shown < in_base:
-            note = (
-                f"{_head(honest=honest)}the first {shown:,} of {total:,} groups{where} are returned, in the answer's "
-                "order; `metadata.search.totals` and `over_groups` cover all of them. "
-                "Narrow with `having`, `first` or `filter`."
-            )
-        elif many:
-            note = (
-                f"The answer lists {series:,} of {len(held):,} series that have a group, the series with the best "
-                "groups; `metadata.search.totals` covers all of them. Name fewer stations or parameters for the others."
-            )
-        else:
-            note = (
-                "The series with no group are left out of the answer; `metadata.search.totals` counts them. "
-                "Name fewer stations or parameters to see the others."
-            )
+        note = _statistics_note(
+            result.plan,
+            shown=shown,
+            total=total,
+            in_base=in_base,
+            series=series,
+            listed=len(held),
+            many=many,
+            where=where,
+            head=_head(honest=honest),
+        )
+        shown_incomplete = sum(int(s.frame.get_column("_incomplete").sum()) for s in cut.series)
+        warnings = [
+            ResponseWarning(**{**w, "message": restate_incomplete(w["message"], shown_incomplete)})
+            if w["code"] == INCOMPLETE_GROUPS
+            else w
+            for w in metadata.warnings
+        ]
         search = metadata.search
         if search is not None:
             search = search.model_copy(update={"totals": search.totals.model_copy(update={"groups_returned": shown})})
         block = metadata.model_copy(
             update={
-                "counts": Counts(stations=metadata.counts.stations, rows=shown),
+                "counts": Counts(stations=len({s.station_id for s in cut.series}), rows=shown),
                 "search": search,
-                "warnings": [*metadata.warnings, ResponseWarning(code=ANSWER_TRUNCATED, message=note)],
+                "warnings": [*warnings, ResponseWarning(code=ANSWER_TRUNCATED, message=note)],
             }
         )
         body, block = render(cut, block)
