@@ -115,7 +115,6 @@ const examples = [
           <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">json</code> - {{ t('api.formatJson') }}</li>
           <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">csv</code> - {{ t('api.formatCsv') }}</li>
           <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">geojson</code> - {{ t('api.formatGeojson') }}</li>
-          <li><code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">html</code> - {{ t('api.formatHtml') }}</li>
         </ul>
       </UCard>
 

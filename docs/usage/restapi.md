@@ -737,7 +737,8 @@ release commit, with `uv run poe contracts:baseline`.
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
   requests as it allows, and a 504 when the request times out; a route with a query also the 422. Beyond those: the
   routes that read from a provider (`stations`, `issues`, `history`, `values`, `interpolate`, `summarize`,
-  `alerts`, `storm-cells`, `kostra`, `station-ids`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502; `coverage` a 400, 404 and 501,
+  `alerts`, `storm-cells`, `kostra`, `station-ids`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502 (and `stations`, `values`, `interpolate` and `summarize` the 403 of a chart
+  that the server does not draw); `coverage` a 400, 404 and 501,
   `auth` a 404 and 501, `providers` a 404 and `settings` a 400. A test makes each
   of these routes fail with each exception of the table of [Errors](#errors) and holds the status it answers to
   what the document declares.
@@ -1283,7 +1284,7 @@ before the options choose the rows.
   which are its columns. `value` is refused in `filter` and `sort`: a row has one column for each parameter and no
   `value`. Use a name, or `shape=long`. A CSV of the rows chosen by `sort` or `first` is one
   frame that was cut, not streamed station by station, so it has the columns the stations delivered.
-- **Every format.** `json`, `geojson`, `csv`, `ndjson` and the charts hold the rows chosen. `with_stations` lists the
+- **Every format.** `json`, `geojson`, `csv`, `ndjson` and the charts (where the server [draws them](#charts)) hold the rows chosen. `with_stations` lists the
   stations that have a row left, as it does for any cut of the rows. Forecasts with an issue and `lead_time` are chosen
   among the rows the request reads, as the rows are.
 
@@ -1710,10 +1711,50 @@ filters: there the caller is the host's own user, who could run the SQL on their
 [Python API](python-api.md#sql). They need DuckDB 1.5.3 or newer (`pip install --upgrade "duckdb>=1.5.3"`); an
 older one is refused with an error that says so. These restrictions are defence in depth, not a sandbox: never pass text from someone you do not trust to the filter. The time a condition runs, memory outside DuckDB's limit and the process itself are not protected.
 
+## Charts
+
+A server draws no charts until its operator says so: `WD_RESTAPI_PLOTTING` (`restapi_plotting`) is off by default. A
+request for a chart format of `stations`, `values`, `interpolate` or `summarize` (`format=html`, `png`, `jpg`, `webp`,
+`svg` or `pdf`, under `/api` and `/api/v1`) is then refused with a 403 problem of the kind `charts-disabled`, before
+anything is read: no station is looked up, nothing is downloaded and no plotting library is loaded. `detail` names the
+formats the route answers and says that the operator can switch charts on, and the `errors` entry for `format` has
+them in `ctx.formats`. The answer carries `Cache-Control: no-store`, since the operator may switch charts on without a
+restart: the variable (or `.env`) is read for every request.
+
+```json
+{
+  "type": "urn:wetterdienst:problem:charts-disabled",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "This server draws no charts, so format=png is refused. It answers json, geojson, csv or ndjson. The request was valid: ask for one of these, or ask whoever runs this instance to switch charts on (WD_RESTAPI_PLOTTING=true).",
+  "instance": "urn:wetterdienst:request:4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
+  "request_id": "4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
+  "errors": [
+    {"type": "charts_disabled", "loc": ["query", "format"], "input": "png", "ctx": {"formats": ["json", "geojson", "csv", "ndjson"]}, "msg": "..."}
+  ]
+}
+```
+
+Only the chart formats are refused. A request that is also malformed is the 422 first, as ever (a parameter that is
+unknown, a `width` that is not positive, a `format` that is none: `PNG` is no format); a chart that is too large, or for
+a network that is not served, is told that charts are off, not to lower the `scale` or that the network is unknown. The
+`width`, `height` and `scale` of a request in a data format are ignored, as they were. The OpenAPI document is the same
+for every server: `format` keeps its chart values, and its description says that a chart needs the setting.
+
+Each image costs the server a Chrome that Kaleido starts for it (see [Image size](#image-size) for the limits and the
+time it is given), which is why a public server keeps charts off. With `WD_RESTAPI_PLOTTING=true` the answers are what
+they were. The library, the command line (`--format=png`) and the web app, which draws its own charts in the browser,
+are not affected, and the MCP tools offer no chart. The index page and the web app link to none.
+
+```shell
+WD_RESTAPI_PLOTTING=true wetterdienst restapi --listen 0.0.0.0:7890
+docker run --env WD_RESTAPI_PLOTTING=true --publish=7890:7890 ghcr.io/earthobservations/wetterdienst wetterdienst restapi --listen 0.0.0.0:7890
+```
+
 ## Image size
 
-A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
-the image is longer than 8192 px, `scale` applied. A chart of several parameters is 300 px tall for each, and is measured as drawn.
+Where the server [draws charts](#charts), a chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused
+with a 400 when a side of the image is longer than 8192 px, `scale` applied. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
 A chart is drawn by a Chrome that Kaleido starts for the image, and the start of that browser and the
@@ -1971,6 +2012,8 @@ and what follows is for an instance that others can reach (the
   the `svg` answers only, which need no script or request: not with data answers, the `html` chart (a script by
   design), `pdf`, or `/docs` and `/redoc`, which load their own from a CDN. Other headers (HSTS, a
   `Referrer-Policy`, a policy for those answers) are for the reverse proxy to add.
+- **Charts.** Every image starts a Chrome on the server, so [charts](#charts) are off until you set
+  `WD_RESTAPI_PLOTTING=true`; a public server is better off without them.
 - **SQL.** The REST API and the MCP tools take no SQL any more, see [SQL filters](#sql-filters); a server started with
   `WD_RESTAPI_SQL=true` warns once and runs without it.
 - **Limits.** The [limits](#limits) are the ones you set. How to set them, and what raising one costs, is on
@@ -2047,6 +2090,7 @@ entry for each invalid parameter, where `loc` names it:
 | Status | When |
 | --- | --- |
 | 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have (the whole request is refused, and `detail` names each unknown one), a point out of range, a `Host` or an MCP `Origin` the server does not answer to ([Allowed hosts](#allowed-hosts)) |
+| 403 | a chart (`format` `html`, `png`, `jpg`, `webp`, `svg` or `pdf`) of `stations`, `values`, `interpolate` or `summarize`, which a server draws only with `WD_RESTAPI_PLOTTING=true` ([Charts](#charts)); `detail` names the formats it answers |
 | 404 | what the request names does not exist: a provider, network, a resolution or dataset of `/api/coverage`, station, forecast run, or a path |
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several; or a map of stations (`format` `html`, `png`, `jpg`, `webp`, `svg` or `pdf`) none of which has a position (`dwd/derived`'s `monthly/climate_correction_factor`, `dwd/pollen`), where `detail` says to ask for `json`, `csv` or `geojson` and `errors` has the entry for `format` |
@@ -2069,6 +2113,7 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:request-refused` | 400 | The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range. |
 | `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows`, `groups` or `series`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
 | `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
+| `urn:wetterdienst:problem:charts-disabled` | 403 | The request asks for a chart (`html`, `png`, `jpg`, `webp`, `svg` or `pdf`) and this server draws none (`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, or ask whoever runs the server to switch charts on. |
 | `urn:wetterdienst:problem:host-not-allowed` | 400 | The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists. |
 | `urn:wetterdienst:problem:origin-not-allowed` | 400 | The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint. |
 | `urn:wetterdienst:problem:not-found` | 404 | What the request names does not exist: a station, a forecast run, a resolution or dataset, or a path. |

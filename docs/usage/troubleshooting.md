@@ -18,6 +18,7 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | 400 `limit-exceeded`, 504 `request-timeout` | the REST API or MCP server holds a request to its limits | see [Limits](#limits-and-timeouts) |
 | `ImageTimeoutError`, exit 1, 504 `image-timeout` | the browser that draws an image did not finish within 120 seconds and was closed | try again; if it keeps happening, check that Chrome starts on this machine, see [Other things that go wrong](#other-things-that-go-wrong) |
 | 503 `server-busy` | the server works on as many requests as it is set to | wait the `Retry-After` and ask again, see [Limits](#limits-and-timeouts) |
+| 403 `charts-disabled` | the REST API server draws no charts: `format` is `html`, `png`, `jpg`, `webp`, `svg` or `pdf` and `WD_RESTAPI_PLOTTING` is off, its default | ask for `json`, `geojson` or `csv`, or run your own server with `WD_RESTAPI_PLOTTING=true`, see [Charts](restapi.md#charts) |
 | 400 `host-not-allowed` or `origin-not-allowed` | the server answers only to the `Host` names it lists (`WD_RESTAPI_ALLOWED_HOSTS`) | reach it by a name it lists, or add yours, see [Allowed hosts](restapi.md#allowed-hosts) |
 | 429 `rate-limited` | the web app limits what a client may count against it | wait the `Retry-After`, see [Web app](app.md#rate-limit) |
 | an empty `values` or `stations` | nothing in the window, or no such station: an answer, not an error | see [An empty answer](#an-empty-answer) |
@@ -190,6 +191,9 @@ the answer, see [Concurrency](restapi.md#concurrency).
   message says what to do. In the library and the command line it works.
 - **A warning at start that names `WD_RESTAPI_SQL`**: the setting was removed and the variable is set to true; the
   server runs without SQL. Remove the variable.
+- **`403 charts-disabled`**: the server answers no chart format (`WD_RESTAPI_PLOTTING` is off by default). Ask for data,
+  or switch charts on where you run the server, see [Charts](restapi.md#charts); the command line and Python draw them
+  without it. Nothing was read, so the request is cheap to repeat.
 - **`400 image-too-large`**: a chart longer than 8192 px on a side; lower `width`, `height` or `scale`.
 - **`ImageTimeoutError`, exit 1, `504 image-timeout`**: Chrome, which Kaleido starts for every image, did not finish
   within 120 seconds and was closed with its processes. A retry usually works. If it keeps happening, start Chrome
