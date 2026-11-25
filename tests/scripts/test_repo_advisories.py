@@ -398,6 +398,7 @@ def test_the_real_pnpm_lock_is_read_when_the_lock_is_there() -> None:
         ),
         ([("Security Policy", "https://github.com/a/policy"), ("Home", "https://github.com/a/code")], "a/code"),
         ([("Contributing", "https://github.com/a/contrib")], None),
+        ([("Barcode", "https://github.com/a/bar"), ("Home", "https://github.com/a/code")], "a/code"),  # a word
         (
             [("bugs", "https://github.com/iconify/icon-sets/issues")],
             "iconify/icon-sets",
@@ -544,7 +545,7 @@ def test_the_advisories_of_a_repository_are_read_page_by_page() -> None:
     net = FakeNet(
         {
             first: ok([{"ghsa_id": "GHSA-2222-3333-4444"}], link=f'<{second}>; rel="next"'),
-            second: ok([{"ghsa_id": "GHSA-5555-6666-7777"}], link='<https://evil.example/?page=3>; rel="next"'),
+            second: ok([{"ghsa_id": "GHSA-5555-6666-7777"}]),
         }
     )
 
@@ -553,6 +554,25 @@ def test_the_advisories_of_a_repository_are_read_page_by_page() -> None:
         "GHSA-5555-6666-7777",
     ]
     assert [url for _, url in net.requests] == [first, second]
+
+
+def test_a_next_link_to_another_host_is_an_error_and_not_the_end_of_the_list() -> None:
+    """Test that a `next` link that is not the GitHub API raises: the first page alone is not the whole list."""
+    url = advisories_url("o/r")
+    net = FakeNet({url: ok([{"ghsa_id": "GHSA-2222-3333-4444"}], link='<https://evil.example/?page=2>; rel="next"')})
+
+    with pytest.raises(ra.AdvisoryCheckError, match="another host"):
+        ra.read_repository_advisories(net, "o/r")
+    assert len(net.requests) == 1
+
+
+@pytest.mark.parametrize("item", ["not even a dict", None, 3, ["a"]])
+def test_an_item_of_the_list_that_is_no_advisory_stops_the_run(item: Any) -> None:  # noqa: ANN401
+    """Test that a 200 list with an item that is no object raises, and is not skipped as nothing."""
+    net = FakeNet({advisories_url("o/r"): ok([advisory("GHSA-2222-3333-4444", ("pip", "x", "< 2", None)), item])})
+
+    with pytest.raises(ra.AdvisoryCheckError, match="no advisory"):
+        ra.read_repository_advisories(net, "o/r")
 
 
 def test_twenty_pages_without_an_end_is_an_error_and_not_partial_data() -> None:
@@ -594,7 +614,10 @@ def test_a_locked_numcodecs_is_affected_by_the_advisory_of_its_repository() -> N
     assert finding.cooldown == "past"  # 0.17.1 was published on 2026-09-17
     assert finding.repo == "zarr-developers/numcodecs"
     assert finding.url == "https://github.com/zarr-developers/numcodecs/security/advisories/GHSA-jqc8-qjfv-5m6r"
-    assert (finding.vulnerable, finding.patched) == (">= 0.17.0, < 0.17.1", "0.17.1")
+    assert (finding.vulnerable, finding.patched) == (
+        ">= 0.17.0, < 0.17.1 // >= 0.16.0, < 0.16.6 // >= 0.1.0, < 0.15.2",
+        "0.17.1 // 0.16.6 // 0.15.2",
+    )  # every entry of the advisory
     assert not report.unclear
     assert not report.unreadable
 
@@ -652,8 +675,8 @@ def test_a_withdrawn_advisory_does_not_count() -> None:
     assert not report.affected
 
 
-def test_an_advisory_with_a_range_that_is_not_understood_is_unclear() -> None:
-    """Test the real advisory of pydantic with the range `all`: unclear, and not "nothing found"."""
+def test_a_text_that_is_no_range_is_read_as_fixed_when_every_version_in_it_is_older_and_a_fix_is_named() -> None:
+    """Test the real advisory of pydantic with the range `all` and the fixes of 1.x: read as fixed, and listed."""
     net = FakeNet(
         {
             "https://pypi.org/pypi/pydantic/2.14.4/json": ok(
@@ -666,7 +689,8 @@ def test_an_advisory_with_a_range_that_is_not_understood_is_unclear() -> None:
     report = ra.check([pkg("pydantic", "2.14.4")], net, [], NOW)
 
     assert not report.affected
-    assert [(f.advisory, f.reason) for f in report.unclear] == [("GHSA-5jqp-qgf6-3pvh", "version 'all' not understood")]
+    assert not report.unclear  # the text is no range, but a fix is named and everything in it is below 2.14.4
+    assert [f.advisory for f in report.closed] == ["GHSA-5jqp-qgf6-3pvh"]
 
 
 def _one_repo_net(
@@ -723,7 +747,6 @@ def test_an_advisory_that_names_no_package_is_unclear_for_every_package_of_the_r
         },
         {"ghsa_id": "GHSA-5555-6666-7777", "severity": "low", "vulnerabilities": None},
         {"ghsa_id": "GHSA-cfgh-jmpq-rvwx", "severity": "low"},
-        "not even a dict",
     ]
     net = FakeNet(
         {
@@ -888,13 +911,13 @@ def test_whole_recorded_repositories_are_judged_without_a_crash(
     ecosystem = "npm" if package in ("h3", "vite", "nuxt") else "pip"
 
     for version in versions:
-        affected, unclear, closed = ra.judge(pkg(package, version, ecosystem), advisories, repo)
+        affected, unclear, closed, fixed = ra.judge(pkg(package, version, ecosystem), advisories, repo)
 
-        ids = {f.advisory for f in [*affected, *unclear, *closed]}
-        assert len(ids) == len(affected) + len(unclear) + len(closed)  # each advisory in one bucket only
+        ids = {f.advisory for f in [*affected, *unclear, *closed, *fixed]}
+        assert len(ids) == len(affected) + len(unclear) + len(closed) + len(fixed)  # each advisory in one bucket only
         assert all(
             f.repo == repo and f.url.startswith(f"https://github.com/{repo}/security/advisories/GHSA-")
-            for f in [*affected, *unclear, *closed]
+            for f in [*affected, *unclear, *closed, *fixed]
         )
 
 
@@ -1021,8 +1044,8 @@ def ignore_entry(**changes: str) -> Any:  # noqa: ANN401
         "advisory": "GHSA-jqc8-qjfv-5m6r",
         "reason": "the Pickle codec is never used",
         "date": "2026-11-25",
-        "vulnerable": ">= 0.17.0, < 0.17.1",
-        "patched": "0.17.1",
+        "vulnerable": ">= 0.17.0, < 0.17.1 // >= 0.16.0, < 0.16.6 // >= 0.1.0, < 0.15.2",
+        "patched": "0.17.1 // 0.16.6 // 0.15.2",
     } | changes
     return ra.IgnoreEntry(**values)
 
@@ -1077,24 +1100,37 @@ def test_an_entry_that_matches_nothing_any_more_is_stale_but_only_for_a_package_
     assert [e.package for e in report.stale] == ["numcodecs"]
 
 
-def test_an_unclear_finding_can_be_ignored_too() -> None:
-    """Test that the entry for the pydantic advisory with the range `all` removes it from the unclear list."""
-    net = FakeNet(
-        {
-            "https://pypi.org/pypi/pydantic/2.14.4/json": ok(
-                {"info": {"project_urls": {"Source": "https://github.com/pydantic/pydantic"}}}
-            ),
-            advisories_url("pydantic/pydantic"): ok(recorded("advisories_pydantic.json")),
-        }
+def test_an_unclear_finding_can_be_ignored_too_also_one_from_an_entry_without_a_name_by_its_range() -> None:
+    """Test that an entry of the ignore list hides an unclear finding, one from a nameless entry included."""
+    net, package = _one_repo_net(
+        advisory("GHSA-2222-3333-4444", ("pip", "x", "^1.2.0", None)),
+        {"ghsa_id": "GHSA-5555-6666-7777", "severity": "low", "vulnerabilities": [{"vulnerable_version_range": "< 2"}]},
     )
-    entry = ignore_entry(
-        package="pydantic", advisory="GHSA-5jqp-qgf6-3pvh", vulnerable="all", patched="v1.8.2,v1.7.4,v1.6.2"
+    entries = [
+        ignore_entry(package="x", advisory="GHSA-2222-3333-4444", vulnerable="^1.2.0", patched=""),
+        ignore_entry(package="x", advisory="GHSA-5555-6666-7777", vulnerable="< 2", patched=""),
+    ]
+
+    shown = ra.check([package], net, [], NOW)
+    hidden = ra.check([package], net, entries, NOW)
+
+    assert sorted(f.advisory for f in shown.unclear) == ["GHSA-2222-3333-4444", "GHSA-5555-6666-7777"]
+    assert not hidden.unclear
+    assert len(hidden.ignored) == 2
+
+
+def test_the_ignore_list_compares_every_entry_of_the_advisory_and_ignores_blanks() -> None:
+    """Test that a second entry that changes brings the finding back, and that blanks around the text do not."""
+    net, package = _one_repo_net(
+        advisory("GHSA-2222-3333-4444", ("pip", "x", " < 2 ", None), ("pip", "x", "< 1", "1.0.1")),
     )
+    entry = ignore_entry(package="x", advisory="GHSA-2222-3333-4444", vulnerable="< 2 // < 1", patched=" // 1.0.1")
+    changed = ignore_entry(package="x", advisory="GHSA-2222-3333-4444", vulnerable="< 2", patched="")
 
-    report = ra.check([pkg("pydantic", "2.14.4")], net, [entry], NOW)
-
-    assert not report.unclear
-    assert len(report.ignored) == 1
+    assert ra.check([package], net, [entry], NOW).ignored
+    brought_back = ra.check([package], net, [changed], NOW)
+    assert not brought_back.ignored
+    assert [f.advisory for f in brought_back.affected] == ["GHSA-2222-3333-4444"]
 
 
 def test_the_checked_in_ignore_list_is_valid_and_matches_what_the_advisories_state() -> None:
@@ -1105,12 +1141,12 @@ def test_the_checked_in_ignore_list_is_valid_and_matches_what_the_advisories_sta
     assert all(e.package and ra.GHSA_ID.match(e.advisory) and e.reason and e.date and e.vulnerable for e in entries)
     assert len({(e.package, e.advisory) for e in entries}) == len(entries)
     # and each is what the recorded advisory says today
-    for entry, file in zip(
-        sorted(entries, key=lambda e: e.package),
-        ["advisories_anyio.json", "advisories_fastmcp.json", "advisories_pydantic.json"],
-        strict=True,
-    ):
-        (vulnerability,) = [v for a in recorded(file) if a["ghsa_id"] == entry.advisory for v in a["vulnerabilities"]]
+    files = {"anyio": "advisories_anyio.json", "fastmcp": "advisories_fastmcp.json", "h3": "advisories_h3.json"}
+    assert sorted(files) == sorted(e.package for e in entries)
+    for entry in entries:
+        (vulnerability,) = [
+            v for a in recorded(files[entry.package]) if a["ghsa_id"] == entry.advisory for v in a["vulnerabilities"]
+        ]
         assert entry.vulnerable == vulnerability["vulnerable_version_range"]
         assert entry.patched == (vulnerability["patched_versions"] or "")
 
@@ -1400,10 +1436,13 @@ def test_an_open_issue_is_updated_and_never_a_second_one_opened() -> None:
 
     assert result == "issue #7 updated and got a comment"
     assert net.writes == [
+        (
+            "POST",
+            f"{ra.GITHUB_API}repos/owner/repo/issues/7/comments",
+        ),  # first: if the body fails, the next run asks again
         ("PATCH", f"{ra.GITHUB_API}repos/owner/repo/issues/7"),
-        ("POST", f"{ra.GITHUB_API}repos/owner/repo/issues/7/comments"),
     ]
-    assert net.payloads[-1] == {"body": ra.CHANGED_COMMENT}
+    assert net.payloads[-2] == {"body": ra.CHANGED_COMMENT}
     assert ra.CHANGED_COMMENT == "The findings changed, see the list above."
 
 
@@ -1437,7 +1476,7 @@ def test_when_nothing_is_affected_an_open_issue_is_updated_to_none_now_and_left_
     result = sync(net, report_with(affected=False))
 
     assert result == "issue #7 updated to none now and got a comment"
-    assert [method for method, _ in net.writes] == ["PATCH", "POST"]
+    assert [method for method, _ in net.writes] == ["POST", "PATCH"]
 
 
 def test_when_nothing_is_affected_and_no_issue_is_open_none_is_opened() -> None:
@@ -1484,8 +1523,8 @@ def test_only_the_issue_of_this_check_made_by_the_bot_is_found() -> None:
     assert [item["number"] for item in found] == [9]
 
 
-def test_the_listing_asks_for_the_bots_issues_with_the_label_and_not_the_search() -> None:
-    """Test the request: the creator, the label and every state, through the issues listing and not the search."""
+def test_the_listing_asks_for_the_bots_issues_without_a_label_and_not_the_search() -> None:
+    """Test the request: the creator and every state, through the issues listing and not the search."""
     net = issues_net([])
 
     ra.find_issues(net, "owner/repo")
@@ -1494,7 +1533,7 @@ def test_the_listing_asks_for_the_bots_issues_with_the_label_and_not_the_search(
     assert method == "GET"
     assert "/repos/owner/repo/issues?" in url
     assert "creator=github-actions%5Bbot%5D" in url
-    assert "labels=security" in url
+    assert "labels" not in url  # a label that a person removes must not make a second issue
     assert "state=all" in url
     assert "search" not in url
 
@@ -1635,7 +1674,8 @@ def test_the_command_exits_0_when_the_only_finding_is_ignored(
     ignore = tmp_path / "ignore.toml"
     ignore.write_text(
         '[[ignore]]\npackage = "numcodecs"\nadvisory = "GHSA-jqc8-qjfv-5m6r"\n'
-        'range = ">= 0.17.0, < 0.17.1"\npatched = "0.17.1"\n'
+        'range = ">= 0.17.0, < 0.17.1 // >= 0.16.0, < 0.16.6 // >= 0.1.0, < 0.15.2"\n'
+        'patched = "0.17.1 // 0.16.6 // 0.15.2"\n'
         'reason = "never used"\ndate = "2026-11-25"\n',
         encoding="utf-8",
     )
@@ -1901,6 +1941,7 @@ def test_the_token_reaches_a_script_that_runs_in_an_isolated_environment_without
     command = run.group(1)
     assert "--no-project" in command
     assert "--isolated" in command
+    assert "--no-build" in command  # a wheel only: no build backend runs beside the token
     assert re.search(r"--with packaging==\d+\.\d+", command)
     assert "python -I scripts/repo_advisories.py --issue" in command
     assert "uv sync" not in WORKFLOW
@@ -1921,3 +1962,313 @@ def test_the_pinned_packaging_is_the_one_the_lock_has() -> None:
 
     assert pinned
     assert f'name = "packaging"\nversion = "{pinned.group(1)}"' in lock
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# the second review
+# --------------------------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("given", "bucket"),
+    [
+        ("other", "unclear"),  # GitHub's own `other` says nothing about which package it is
+        ("python", "unclear"),
+        ("npmjs", "unclear"),
+        ("node", "unclear"),
+        ("pip (PyPI)", "unclear"),
+        ("PyPI ", "affected"),
+        ("rust", "none"),
+        ("go", "none"),
+        ("maven", "none"),
+        ("rubygems", "none"),
+        ("nuget", "none"),
+        ("composer", "none"),
+        ("actions", "none"),
+        ("erlang", "none"),
+        ("pub", "none"),
+        ("swift", "none"),
+        ("npm", "none"),  # the opposite of ours
+    ],
+)
+def test_a_matching_name_under_an_ecosystem_nobody_knows_is_unclear_and_under_a_known_other_it_is_skipped(
+    given: str, bucket: str
+) -> None:
+    """Test the ecosystems: ours and its alias judge, GitHub's other known ones skip, anything else is unclear."""
+    net, package = _one_repo_net(advisory("GHSA-2222-3333-4444", (given, "x", "< 2.0", None)))
+
+    report = ra.check([package], net, [], NOW)
+
+    assert [len(report.affected), len(report.unclear)] == {"affected": [1, 0], "unclear": [0, 1], "none": [0, 0]}[
+        bucket
+    ]
+
+
+def test_an_npm_package_skips_the_pip_entry_and_judges_its_own() -> None:
+    """Test the opposite ecosystem from the other side: `pip` is skipped for an npm package, `python` is unclear."""
+    net, package = _one_repo_net(
+        advisory("GHSA-2222-3333-4444", ("pip", "x", "< 2.0.0", None)),
+        advisory("GHSA-5555-6666-7777", ("python", "x", "< 2.0.0", None)),
+        advisory("GHSA-cfgh-jmpq-rvwx", ("npm", "x", "< 2.0.0", None)),
+        version="1.0.0",
+        eco="npm",
+    )
+
+    report = ra.check([package], net, [], NOW)
+
+    assert [f.advisory for f in report.affected] == ["GHSA-cfgh-jmpq-rvwx"]
+    assert [f.advisory for f in report.unclear] == ["GHSA-5555-6666-7777"]
+
+
+def test_an_advisory_with_an_empty_list_of_entries_is_unclear_and_not_dropped() -> None:
+    """Test `vulnerabilities: []`: nothing says whom it is about, so it is unclear for the package."""
+    net, package = _one_repo_net({"ghsa_id": "GHSA-2222-3333-4444", "severity": "low", "vulnerabilities": []})
+
+    report = ra.check([package], net, [], NOW)
+
+    assert [f.advisory for f in report.unclear] == ["GHSA-2222-3333-4444"]
+
+
+def _nameless(vulnerable: str, patched: str = "") -> dict[str, Any]:
+    return {"package": None, "vulnerable_version_range": vulnerable, "patched_versions": patched}
+
+
+def test_an_entry_without_a_name_is_judged_as_if_it_named_the_package() -> None:
+    """Test rule 1: out and fixed are exact, affected is unclear (names no package), a range nobody reads is unclear."""
+    net, package = _one_repo_net(
+        {"ghsa_id": "GHSA-2222-3333-4444", "severity": "high", "vulnerabilities": [_nameless("< 0.5")]},  # out
+        {
+            "ghsa_id": "GHSA-5555-6666-7777",
+            "severity": "high",
+            "vulnerabilities": [_nameless("< 3.0", "1.0.0")],
+        },  # fixed
+        {"ghsa_id": "GHSA-cfgh-jmpq-rvwx", "severity": "high", "vulnerabilities": [_nameless("< 3.0")]},  # affected
+        {"ghsa_id": "GHSA-fjhm-pqrv-wxcf", "severity": "high", "vulnerabilities": [_nameless("^9.9")]},  # no range
+    )
+
+    report = ra.check([package], net, [], NOW)
+
+    assert not report.affected
+    assert {f.advisory: f.reason for f in report.unclear} == {
+        "GHSA-cfgh-jmpq-rvwx": "the advisory names no package or no name",
+        "GHSA-fjhm-pqrv-wxcf": "version '^9.9' not understood",
+    }
+
+
+def test_a_text_that_is_no_range_stays_unclear_without_a_fix_or_with_a_version_at_or_above_the_locked_one() -> None:
+    """Test rule 3: no fix named, or a version in the text that is not below the locked one, is not read as fixed."""
+    net, package = _one_repo_net(
+        advisory("GHSA-2222-3333-4444", ("pip", "x", "all", None)),  # no fix named
+        advisory("GHSA-5555-6666-7777", ("pip", "x", "all", "0.5.0 // 7.0.0")),  # a fix above the locked version
+        advisory("GHSA-cfgh-jmpq-rvwx", ("pip", "x", "^0.9", "0.9.5")),  # all below 1.0, a fix named
+        advisory("GHSA-fjhm-pqrv-wxcf", ("pip", "x", "^1.0.5", "0.9.5")),  # a version above the locked 1.0
+    )
+
+    report = ra.check([package], net, [], NOW)
+
+    assert sorted(f.advisory for f in report.unclear) == [
+        "GHSA-2222-3333-4444",
+        "GHSA-5555-6666-7777",
+        "GHSA-fjhm-pqrv-wxcf",
+    ]
+    assert [f.advisory for f in report.closed] == ["GHSA-cfgh-jmpq-rvwx"]
+
+
+def test_a_closed_reading_does_not_beat_an_unclear_entry_of_the_same_advisory() -> None:
+    """Test that an advisory with one entry read as fixed and one unclear is listed as unclear only."""
+    net, package = _one_repo_net(
+        advisory("GHSA-2222-3333-4444", ("pip", "x", ">= 0.5.0", "0.9.0"), ("pip", "x", "^9.9", None)),
+    )
+
+    report = ra.check([package], net, [], NOW)
+
+    assert [f.advisory for f in report.unclear] == ["GHSA-2222-3333-4444"]
+    assert not report.closed
+
+
+def test_a_version_cleared_only_by_the_patched_text_is_listed() -> None:
+    """Test R7: the range covers the version, only `patched_versions` clears it, and that is listed, not silent."""
+    net, package = _one_repo_net(
+        advisory("GHSA-2222-3333-4444", ("pip", "x", ">= 0.5.0, < 3.0.0", "1.0.0")),
+        advisory("GHSA-5555-6666-7777", ("pip", "x", ">= 0.5.0, < 3.0.0", "2.0.0")),  # the fix is above: affected
+        version="1.6.0",
+    )
+
+    report = ra.check([package], net, [], NOW)
+
+    assert [f.advisory for f in report.fixed] == ["GHSA-2222-3333-4444"]
+    assert [f.advisory for f in report.affected] == ["GHSA-5555-6666-7777"]
+    assert "GHSA-2222-3333-4444" in ra.render_table(report)
+    body = ra.render_issue(report, NOW)
+    assert "## Cleared by the patched versions only (1)" in body
+    without = dataclasses.replace(report, fixed=[])
+    assert report.fingerprint == without.fingerprint  # listed, and no reason for a comment or a new issue
+
+
+def test_the_carried_repository_is_validated() -> None:
+    """Test that a repository in the hidden block that is no `owner/name` is dropped with its link."""
+    body = (
+        "<!-- affected\n"
+        "pip|x|1.0|GHSA-2222-3333-4444|high||evil.example%2Fx%2F..%2Fy\n"
+        "pip|y|1.0|GHSA-5555-6666-7777|high||o%2Fr\n"
+        "-->"
+    )
+
+    first, second = ra.previous_affected(body)
+
+    assert (first.repo, first.url) == ("", "")
+    assert (second.repo, second.url) == ("o/r", "https://github.com/o/r/security/advisories/GHSA-5555-6666-7777")
+
+
+def test_an_unclear_package_the_open_issue_listed_does_not_leave_the_list_when_it_becomes_unreadable() -> None:
+    """Test the carry-over of unclear findings, matched on ecosystem and name."""
+    old = ra.Report(checked=1)
+    old.unclear.append(
+        finding("x", "1.0", advisory="GHSA-2222-3333-4444", reason="range `all` not understood", fixed=None, repo="o/r")
+    )
+    body = ra.render_issue(old, NOW)
+    now = ra.Report(checked=1)
+    now.unreadable.append((pkg("x", "1.1"), "o/r: cannot be read (HTTP 404)"))  # another version: still carried
+    other = ra.Report(checked=1)
+    other.unreadable.append((pkg("x", "1.1", "npm"), "x"))  # another ecosystem: not carried
+
+    ra.carry_over(now, body)
+    ra.carry_over(other, body)
+
+    assert [(f.package.name, f.advisory, f.reason) for f in now.unclear] == [
+        ("x", "GHSA-2222-3333-4444", "range `all` not understood")
+    ]
+    assert not other.unclear
+    assert now.fingerprint != ra.Report(checked=1).fingerprint
+
+
+def _two_package_lock(tmp_path: Path) -> Path:
+    path = tmp_path / "uv.lock"
+    path.write_text(
+        "version = 1\n\n"
+        '[[package]]\nname = "numcodecs"\nversion = "0.17.0"\nsource = { registry = "https://pypi.org/simple" }\n\n'
+        '[[package]]\nname = "x"\nversion = "1.0"\nsource = { registry = "https://pypi.org/simple" }\n\n'
+        '[[package]]\nname = "wetterdienst"\nversion = "1"\nsource = { editable = "." }\n'
+        'dependencies = [\n    { name = "numcodecs" },\n    { name = "x" },\n]\n',
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_the_command_keeps_what_the_open_issue_listed_when_a_repository_goes_away(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test the call in `_run`: affected and unclear last week, repository gone (404) now: still listed, not none."""
+    last_week = ra.Report(checked=2)
+    last_week.affected.append(finding())
+    last_week.unclear.append(finding(advisory="GHSA-5555-6666-7777", reason="range `all` not understood", fixed=None))
+    old_body = ra.render_issue(last_week, NOW - dt.timedelta(days=7))
+    net = FakeNet(
+        {
+            "https://pypi.org/pypi/numcodecs/0.17.0/json": ok(recorded("pypi_numcodecs_0.17.0.json")),
+            advisories_url("zarr-developers/numcodecs"): status(404),
+            "https://pypi.org/pypi/x/1.0/json": ok({"info": {"project_urls": {"Source": "https://github.com/o/r"}}}),
+            advisories_url("o/r"): ok([]),
+            issues_url(): ok([issue_item(7, "open", old_body)]),
+        }
+    )
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    arguments = ["--only", "python", "--uv-lock", str(_two_package_lock(tmp_path)), "--issue", "--dry-run"]
+
+    code = ra.main(arguments, fetch=net, now=NOW)
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "None now" not in out
+    assert "## Affected (1)" in out
+    assert "## Unclear (1)" in out
+    assert "GHSA-jqc8-qjfv-5m6r" in out
+    assert "GHSA-5555-6666-7777" in out
+    assert "issue #7 would be updated" in out
+    assert not net.writes
+
+
+def _many(count: int) -> Any:  # noqa: ANN401
+    report = ra.Report(checked=1200)
+    for i in range(count):
+        package = pkg(f"package-number-{i}-with-a-long-name", "1.2.3", "npm", direct=False)
+        report.affected.append(
+            ra.Finding(
+                package,
+                "GHSA-jqc8-qjfv-5m6r",
+                "medium",
+                fixed="1.2.4",
+                cooldown="from 2026-11-26",
+                repo="some-organisation/some-repository",
+                url="https://github.com/some-organisation/some-repository/security/advisories/GHSA-jqc8-qjfv-5m6r",
+            )
+        )
+        report.closed.append(
+            ra.Finding(package, "GHSA-5555-6666-7777", "low", repo="o/r", vulnerable=">= 1.0.0", patched="1.1.0")
+        )
+        report.unreadable.append((package, "no GitHub repository in the package metadata"))
+    return report
+
+
+def test_a_body_over_the_limit_of_github_gives_up_its_secondary_sections_first() -> None:
+    """Test 150 findings: the body stays under 65,536 characters, affected is listed, read as fixed is cut first."""
+    report = _many(150)
+
+    body = ra.render_issue(report, NOW)
+
+    assert len(body) <= ra.MAX_BODY < 65_536
+    assert body.startswith(ra.ISSUE_MARKER)
+    assert f"fingerprint: {report.fingerprint} " in body
+    assert "## Affected (150)" in body
+    assert "more are not listed" not in body
+    assert "## Read as fixed (150)\n\nNot listed" in body
+
+
+def test_a_body_that_is_still_too_long_cuts_rows_of_the_affected_table_and_says_so() -> None:
+    """Test 900 findings: rows are halved until the body fits, and a line says how many are left out."""
+    report = _many(900)
+
+    body = ra.render_issue(report, NOW)
+
+    assert len(body) <= ra.MAX_BODY
+    assert "## Affected (900)" in body
+    assert re.search(r"\d+ more are not listed: the body is at its size limit", body)
+    assert "<!-- affected" in body  # the hidden list that carries findings over stays
+
+
+def test_a_body_that_fits_lists_everything() -> None:
+    """Test that nothing is cut when the body is small."""
+    body = ra.render_issue(_many(3), NOW)
+
+    assert "Not listed" not in body
+    assert "more are not listed" not in body
+
+
+def test_a_git_describe_in_a_text_counts_by_its_numbers_and_a_bounded_fix_is_a_fix() -> None:
+    """Test rule 3 for the real authlib and vitest texts: numbers below the locked version, a fix named."""
+    net, package = _one_repo_net(
+        advisory(
+            "GHSA-2222-3333-4444", ("pip", "x", "< v0.5.0 and current HEAD v0.5.0-104-g68e6ab3f ", "0.5.5, 0.6.1")
+        ),
+        advisory("GHSA-5555-6666-7777", ("pip", "x", "<=0.0.125,>=0.0.5, <=0.6.0", ">=0.6.1,<0.7.0")),
+        advisory("GHSA-cfgh-jmpq-rvwx", ("pip", "x", "< v1.5.0 and current HEAD v1.5.0-104-g68e6ab3f ", "0.5.5")),
+        advisory("GHSA-fjhm-pqrv-wxcf", ("pip", "x", "<=0.0.125,>=0.0.5, <=0.6.0", "")),
+    )
+
+    report = ra.check([package], net, [], NOW)
+
+    assert sorted(f.advisory for f in report.closed) == ["GHSA-2222-3333-4444", "GHSA-5555-6666-7777"]
+    assert sorted(f.advisory for f in report.unclear) == ["GHSA-cfgh-jmpq-rvwx", "GHSA-fjhm-pqrv-wxcf"]
+
+
+def test_deno_is_one_of_githubs_other_ecosystems() -> None:
+    """Test the real esbuild advisory of the Deno module: a package of another ecosystem, skipped."""
+    net, package = _one_repo_net(
+        advisory("GHSA-2222-3333-4444", ("deno", "x", ">=0.17.0", ">=0.28.1")), version="0.25.12", eco="npm"
+    )
+
+    report = ra.check([package], net, [], NOW)
+
+    assert not report.affected
+    assert not report.unclear

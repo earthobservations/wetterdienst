@@ -28,9 +28,9 @@ reason = "affects OAuthProxy; the MCP server of wetterdienst is open and has no 
 date = "2026-11-25"
 
 [[ignore]]
-package = "pydantic"
-advisory = "GHSA-5jqp-qgf6-3pvh"
-range = "all"
-patched = "v1.8.2,v1.7.4,v1.6.2"
-reason = "a 2021 advisory about pydantic 1.x (fixed in 1.6.2, 1.7.4 and 1.8.2) whose range is recorded as 'all'; wetterdienst uses pydantic 2"
+package = "h3"
+advisory = "GHSA-26f5-8h2x-34xh"
+range = ">=v2.0.1-beta.0, <=v2.0.0-rc.8"
+patched = ">= 2.0.1-rc.9"
+reason = "a timing difference in the basic auth utilities of the h3 2.0 pre-releases; the range is written with its ends the wrong way round, and every version in it is a 2.0 pre-release (fixed in 2.0.1-rc.9), while the app locks h3 1.15.11"
 date = "2026-11-25"

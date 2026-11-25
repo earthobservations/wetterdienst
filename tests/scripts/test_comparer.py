@@ -56,10 +56,10 @@ AFFECTED = [
     ("npm", "1.15.5", "<= 2.0.1-rc.16", ">= 1.15.9 || >= v2.0.1-rc.17", True),
     ("npm", "2.0.0", "<= 2.0.1-rc.16", ">= 1.15.9 || >= v2.0.1-rc.17", True),
     ("npm", "2.0.1-rc.17", "<= 2.0.1-rc.18", ">= 1.15.9 || >= v2.0.1-rc.17", False),
-    ("pip", "1.7.0", ">= 1.0, <= 3.0", "1.5.3, 2.1.1", False),
-    ("pip", "1.4.0", ">= 1.0, <= 3.0", "1.5.3, 2.1.1", True),
-    ("pip", "2.0", ">= 1.0, <= 3.0", "1.5.3, 2.1.1", True),
-    ("pip", "2.1.1", ">= 1.0, <= 3.0", "1.5.3, 2.1.1", False),
+    ("pip", "1.7.0", ">= 1.0.0, <= 3.0.0", "1.5.3, 2.1.1", False),
+    ("pip", "1.4.0", ">= 1.0.0, <= 3.0.0", "1.5.3, 2.1.1", True),
+    ("pip", "2.0", ">= 1.0.0, <= 3.0.0", "1.5.3, 2.1.1", True),
+    ("pip", "2.1.1", ">= 1.0.0, <= 3.0.0", "1.5.3, 2.1.1", False),
     ("pip", "0.16.3", ">= 0.1.0, < 0.17.5", "0.16.6, 0.17.1", True),
     ("pip", "0.16.6", ">= 0.1.0, < 0.17.5", "0.16.6, 0.17.1", False),
     ("pip", "0.17.0", ">= 0.1.0, < 0.17.5", "0.16.6, 0.17.1", True),
@@ -79,9 +79,9 @@ AFFECTED = [
     ("pip", "3.14.4", ">=3.10.6", "3.10.11", False),
     ("pip", "3.10.8", ">=3.10.6", "3.10.11", True),
     ("pip", "5.0.0", ">= 4.5.0", None, True),
-    ("pip", "3.2", "> 3.1", "3.3.2+", True),  # a fix written `3.3.2+`, as the cryptography advisory of 2021 has it
-    ("pip", "3.4", "> 3.1", "3.3.2+", False),
-    ("pip", "3.3.2", "> 3.1", "1.0+, 3.3.2+", False),
+    ("pip", "3.2.0", "> 3.1.0", "3.3.2+", True),  # a fix written `3.3.2+`, as the cryptography advisory of 2021 has it
+    ("pip", "3.4.0", "> 3.1.0", "3.3.2+", False),
+    ("pip", "3.3.2", "> 3.1.0", "1.0+, 3.3.2+", False),
     ("pip", "5.0.0", ">= 4.5.0", "", True),
     ("pip", "5.0.0", ">= 4.5.0", "None", True),
     # what the authors of advisories write
@@ -143,19 +143,15 @@ UNCLEAR = [
     ("npm", "not-a-version", "< 2.0.0", None),
     # B3: a comma list that is never true, or that is no "and" of one lower and one upper bound
     ("pip", "1.2.3", "1.2.3, 1.2.4", None),
-    ("pip", "1.0", "< 1.2.3, < 2.1.0", None),
     ("pip", "1.0", ">= 1.0, >= 2.0", None),
     ("pip", "1.0", ">= 3.0.0, < 2.0.0", None),
-    ("pip", "1.0", ">= 1.0, < 2.0, < 3.0", None),
     ("pip", "1.0", ">= 1.0, <= 2.0, >= 3.0", None),
-    ("pip", "1.0", ">= 1.0, != 1.5", None),
     ("pip", "1.0", ">= 3.0, < 3.0", None),
     ("npm", "1.2.3", "< 2.0.0 (up to and including 1.9.9)", None),
     ("npm", "1.2.3", "< 2.0.0 (1.9.9)", None),
     ("npm", "1.2.3", "(< 2.0.0", None),
     # the low list: a range written without spaces, `1.x.3`, a local version, a partial form in the middle
     ("pip", "1.0", "1.0-2", None),
-    ("npm", "1.2.3", "1.0.0-2.0.0", None),
     ("npm", "1.2.3", "1.x.3", None),
     ("npm", "1.2.3", ">= 1.x.3", None),
     ("pip", "1.0+local", "< 2", None),
@@ -169,6 +165,149 @@ UNCLEAR = [
         None,
     ),  # every part is fine, the whole is too long
 ]
+
+
+# the second review: a fix of a lower release line, a fix written `> x`, the readings of what the grammar refuses
+AFFECTED_AGAIN = [
+    # R1: inside a range that ends, a fix of a lower release line clears nothing (the real h3 entries, and others)
+    ("npm", "2.0.1-rc.16", "<= 2.0.1-rc.16", ">= 1.15.9 || >= v2.0.1-rc.17", True),
+    ("npm", "2.0.1-rc.14", "<= 2.0.1-rc.14", ">=1.15.6 <2.0.0-0 || >=2.0.1-rc.15", True),
+    ("npm", "2.0.0-0", "<= 2.0.1-rc.14", ">=1.15.6 <2.0.0-0 || >=2.0.1-rc.15", True),
+    ("npm", "2.0.1-rc.14", "<= 2.0.1-rc.14", ">= 1.15.6, >= 2.0.1-rc.15", True),
+    ("npm", "2.0.0-rc.3", "<= 2.0.1-rc.16", ">= 1.15.9 || >= v2.0.1-rc.17", True),
+    ("npm", "1.15.8", "<= 2.0.1-rc.16", ">= 1.15.9 || >= v2.0.1-rc.17", True),
+    ("pip", "2.1.0", "<= 2.3.0", "1.9.5", True),
+    ("pip", "1.5.0", ">= 1.0.0, <= 3.0.0", "0.9.0", True),
+    ("pip", "2.1.0", "<= 2.3.0", "2.0.5", False),  # the same release line clears it
+    ("npm", "1.15.9", "<= 2.0.1-rc.16", ">= 1.15.9 || >= v2.0.1-rc.17", False),
+    # R2: a lone `>` is a fix that the version itself has not reached
+    ("npm", "1.15.5", "<= 2.0.1", "> 1.15.5", True),
+    ("npm", "1.15.6", "<= 2.0.1", "> 1.15.5", False),
+    ("npm", "2.0.0", "<= 2.5.0", "> 1.15.5 || > 2.0.1", True),
+    ("npm", "2.0.2", "<= 2.5.0", "> 1.15.5 || > 2.0.1", False),
+    ("npm", "3.5.0", ">= 3.0.0-alpha.1, <= 3.5.0", "> 3.5.0", True),
+    # a fix below the lower bound is no fix of the range, and `0.0.0` is no fix at all
+    ("pip", "6.0.0", ">= 5.0.0", "1.0.0", True),
+    ("pip", "3.0.0", "*", "0.0.0", True),
+    ("npm", "3.0.0", "*", "0.0.0", True),
+    ("npm", "3.0.0", "*", "0.0.0-0", True),
+    # a version that two ranges hold is cleared only if each of them clears it, against its own lower bound
+    ("pip", "2.5.0", ">= 1.0.0 || >= 2.0.0, < 4.0.0", "1.5.0", True),
+    ("pip", "2.5.0", ">= 1.0.0 || >= 2.0.0, < 4.0.0", "2.2.0", False),
+    # a bounded patched range counts only above the lower bound of the vulnerable one
+    ("pip", "2.5.0", ">= 2.0.0, <= 4.0.0", ">= 1.0.0, < 3.0.0", True),
+    ("pip", "2.5.0", "<= 4.0.0", ">= 1.0.0, < 3.0.0", False),
+    # the readings of what the strict grammar refuses: out under all is out, affected under all is affected
+    ("pip", "1.0", "< 1.2.3, < 2.1.0", None, True),
+    ("pip", "3.0", "< 1.2.3, < 2.1.0", None, False),
+    ("pip", "1.0", ">= 1.0, < 2.0, < 3.0", None, True),
+    ("pip", "1.0", ">= 1.0, != 1.5", None, True),
+    ("npm", "17.0.6", "18.0.0,18.0.1", None, False),  # marked, GHSA-6v9c
+    ("pip", "1.9.10", "<= 1.7.0,<=1.6.11", None, False),  # authlib, GHSA-r95x
+    ("pip", "6.1.0", "<= 5.2.0, <= 4.3.2", None, False),  # zrender, GHSA-fhv8
+    # a dash without spaces between two whole versions in order is a range, as lib0 GHSA-r5c8 writes it
+    ("npm", "0.2.117", "0.2.1-0.2.117", None, True),
+    ("npm", "0.2.1", "0.2.1-0.2.117", None, True),
+    ("npm", "0.2.120", "0.2.1-0.2.117", None, False),
+    ("npm", "0.1.0", "0.2.1-0.2.117", None, False),
+    ("npm", "1.2.3", "1.0.0-2.0.0", None, True),
+    ("npm", "3.0.0", "1.0.0-2.0.0", None, False),
+    ("pip", "3.0.0", "1.0-2", None, False),  # out under both readings, so out
+    # R6: a partial version where the zero-fill is exact
+    ("pip", "2.5.0", ">= 2, < 3", None, True),
+    ("pip", "3.0.0", ">= 2, < 3", None, False),
+    ("pip", "9.0.0", "< 20", None, True),
+]
+
+UNCLEAR_AGAIN = [
+    # R6: a partial version after `<=`, `>`, `=` or alone: the x-range reading differs from the exact one
+    ("pip", "1.0.0", "<= 2", None),
+    ("pip", "1.0.0", "> 3.10", None),
+    ("pip", "1.0.0", "= 2", None),
+    ("pip", "3.10.2", "3.10", None),
+    ("pip", "1.0.0", "2", None),
+    ("pip", "1.0.0", "1.0 - 2", None),
+    ("npm", "1.2.3", ">=1.0.0-2.0.0", None),
+    ("npm", "1.2.3", "<=1.0.0-2.0.0", None),
+    # the readings disagree: affected under some, out under others
+    ("pip", "1.5.0", "1.0-2", None),
+    ("pip", "1.2.3", "1.2.3, 1.2.4", None),
+    ("pip", "1.0", ">= 1.0, >= 2.0", None),
+    ("npm", "5.0.13", ">= 3.0.0, < 5.0.7, >= 2.0.0, < 2.1.2, < 1.1.16", None),  # brace-expansion
+    ("npm", "5.1.1", "<=0.0.125,>=1.0.0, <=1.6.0", None),  # vitest
+    ("npm", "1.15.11", ">=v2.0.1-beta.0, <=v2.0.0-rc.8", None),  # h3
+    ("pip", "2.0.0", "<3.0.0,>=2.0.0,<4.0.0,>=3.5.0", None),  # upper, lower, upper, lower is no pair
+    ("pip", "6.0.0", ">=3.0.0,<2.0.0,>=5.0.0,<6.0.0", None),  # a pair that never holds
+    # a text that is no range at all
+    ("npm", "1.2.3", "(< 2.0.0 and a note", None),
+]
+
+
+@pytest.mark.parametrize(("ecosystem", "installed", "vulnerable", "patched", "expected"), AFFECTED_AGAIN)
+def test_the_second_review_cases(
+    ecosystem: str,
+    installed: str,
+    vulnerable: str,
+    patched: str | None,
+    expected: bool,  # noqa: FBT001
+) -> None:
+    """Test the ranges the first review round missed: lower-line fixes, `> x` fixes, readings, partial versions."""
+    assert ra.is_affected(ecosystem, installed, vulnerable, patched) is expected
+
+
+@pytest.mark.parametrize(("ecosystem", "installed", "vulnerable", "patched"), UNCLEAR_AGAIN)
+def test_the_second_review_unclear_cases(ecosystem: str, installed: str, vulnerable: str, patched: str | None) -> None:
+    """Test that what is ambiguous, and where the readings disagree, is unclear."""
+    with pytest.raises(ra.UnclearRange):
+        ra.assess(ecosystem, installed, vulnerable, patched)
+
+
+def test_the_strict_grammar_still_refuses_what_only_the_readings_take() -> None:
+    """Test that `parse_range` (the strict reading) refuses lists that are no "and" and pairs out of order or empty."""
+    for text in (
+        "< 1.2.3, < 2.1.0",
+        "1.2.3, 1.2.4",
+        "<3.0.0,>=2.0.0,<4.0.0,>=3.5.0",
+        ">=3.0.0,<2.0.0,>=5.0.0,<6.0.0",
+        ">=2.0.0,<3.0.0,>=4.0.0",
+    ):
+        with pytest.raises(ra.UnclearRange):
+            ra.parse_range("pip", text)
+
+
+def test_the_readings_of_a_comma_list_and_of_a_dash() -> None:
+    """Test how many readings an ambiguous text has, and when a dash is a clear range."""
+    readings, dash = ra._readings("pip", "< 1.2.3, < 2.1.0")  # noqa: SLF001
+    assert (len(readings), dash) == (3, False)  # an "and" of all, an "or" of the parts, lower-upper pairs
+    readings, dash = ra._readings("npm", "0.2.1-0.2.117")  # noqa: SLF001
+    assert (len(readings), dash) == (2, True)  # a range and a pre-release; both ends whole and in order
+    readings, dash = ra._readings("npm", "0.2.117-0.2.1")  # noqa: SLF001
+    assert dash is False
+    readings, dash = ra._readings("npm", ">= 1.0.0, < 2.0.0")  # noqa: SLF001
+    assert (len(readings), dash) == (1, False)
+
+
+def test_too_many_readings_are_unclear() -> None:
+    """Test that a range with many ambiguous parts is refused instead of read in thousands of ways."""
+    text = " || ".join("< 1.2.3, < 2.1.0" for _ in range(8))
+
+    with pytest.raises(ra.UnclearRange, match="too many readings"):
+        ra.assess("pip", "9.0.0", text, None)
+
+
+@pytest.mark.parametrize(
+    ("installed", "vulnerable", "patched", "verdict"),
+    [
+        ("3.5.0", ">= 1.0.0 || >= 3.0.0, < 4.0.0", "3.2.0", "fixed"),  # one of the ranges ends: not `closed`
+        ("3.5.0", ">= 1.0.0", "3.2.0", "closed"),
+        ("2.1.0", "<= 2.3.0", "1.9.5", "affected"),
+        ("2.1.0", "<= 2.3.0", "2.0.5", "fixed"),
+        ("1.6.0", ">= 1.0.0, < 3.0.0", "1.5.0", "fixed"),
+    ],
+)
+def test_the_verdicts_of_the_second_review(installed: str, vulnerable: str, patched: str, verdict: str) -> None:
+    """Test `closed` only when no range that holds the version ends, and the cross-line rule in the verdict."""
+    assert ra.assess("pip", installed, vulnerable, patched) == verdict
 
 
 @pytest.mark.parametrize(("ecosystem", "installed", "vulnerable", "patched", "expected"), AFFECTED)
@@ -280,7 +419,21 @@ def test_the_fixed_version_is_the_lowest_one_above_the_locked_version(
 # the fuzz: ranges rendered in the spellings the parser knows, against an independent reading of them
 # --------------------------------------------------------------------------------------------------------------------
 
-PIP_VERSIONS = ["0.9", "1.0", "1.0.1", "1.2", "1.2.3", "2.0rc1", "2.0", "2.0.post1", "2.1.dev1", "3.0b2", "3.0", "10.0"]
+PIP_VERSIONS = [
+    "0.9.0",
+    "0.10.0",
+    "1.0.0",
+    "1.0.1",
+    "1.2.0",
+    "1.2.3",
+    "2.0.0rc1",
+    "2.0.0",
+    "2.0.0.post1",
+    "2.1.0.dev1",
+    "3.0.0b2",
+    "3.0.0",
+    "10.0.0",
+]
 NPM_VERSIONS = [
     "0.9.0",
     "1.0.0",
@@ -339,18 +492,20 @@ OPERATORS = {">": operator.gt, ">=": operator.ge, "<": operator.lt, "<=": operat
 
 def _holds(ecosystem: str, version: str, interval: tuple[tuple[str, str] | None, tuple[str, str] | None]) -> bool:
     lower, upper = interval
-    return (
-        all(
-            OPERATORS[op](_cmp(ecosystem, version, bound), 0)
-            for op, bound in (lower, upper)
-            if (op, bound) != (None, None)
-        )
-        if False
-        else (
-            (lower is None or OPERATORS[lower[0]](_cmp(ecosystem, version, lower[1]), 0))
-            and (upper is None or OPERATORS[upper[0]](_cmp(ecosystem, version, upper[1]), 0))
-        )
+    return (lower is None or OPERATORS[lower[0]](_cmp(ecosystem, version, lower[1]), 0)) and (
+        upper is None or OPERATORS[upper[0]](_cmp(ecosystem, version, upper[1]), 0)
     )
+
+
+def _line(ecosystem: str, version: str) -> tuple[int, ...]:
+    """Return the release line of a version, written apart from the script: the major, the minor below 1.0."""
+    release = (
+        Version(version).release
+        if ecosystem == "pip"
+        else tuple(int(x) for x in version.split("-", maxsplit=1)[0].split("."))
+    )
+    release = (*release, 0, 0)
+    return (0, release[1]) if release[0] == 0 else (release[0],)
 
 
 def _interval(rng: random.Random, ecosystem: str, versions: list[str]) -> tuple[Any, Any]:
@@ -402,46 +557,69 @@ def test_fuzz_the_membership_agrees_with_an_independent_reading_of_the_ranges(
         assert ra.in_range(ecosystem, installed, text) is expected, (installed, text)
 
 
-def _patched(rng: random.Random, fixes: list[str]) -> str:
-    """Render fixes in the spellings of `patched_versions`, with entries that name no fix mixed in."""
-    entries = [rng.choice(["{v}", ">= {v}", ">={v}", "v{v}"]).format(v=v) for v in fixes]
+def _patched(rng: random.Random, fixes: list[str]) -> tuple[str, set[str]]:
+    """Render fixes in the spellings of `patched_versions`, with entries that name no fix mixed in.
+
+    Returns the text and the fixes written `> x`, which the version x itself has not reached.
+    """
+    exclusive: set[str] = set()
+    entries = []
+    for version in fixes:
+        form = rng.choice(["{v}", ">= {v}", ">={v}", "v{v}", "> {v}"])
+        if form.startswith(">") and not form.startswith(">="):
+            exclusive.add(version)
+        entries.append(form.format(v=version))
     noise = rng.choice(["", "", "0", "*", "2.x", "2"])
     if noise:
         entries.append(noise)
     rng.shuffle(entries)
-    return rng.choice([", ", ",", " || ", "; "]).join(entries)
+    return rng.choice([", ", ",", " || ", "; "]).join(entries), exclusive
 
 
 @pytest.mark.parametrize(("ecosystem", "versions"), [("pip", PIP_VERSIONS), ("npm", NPM_VERSIONS)])
 def test_fuzz_no_false_negative_and_no_unnamed_fix(ecosystem: str, versions: list[str]) -> None:
-    """Test the property that matters: a covered version is cleared only by a fix that is named and is at or below it.
+    """Test the property that matters: a covered version is cleared only by a fix that is named and reached.
 
     `assess` never says `affected` for a version that no range holds, and never clears one that a range holds
-    unless some named fix is at or below it (the false negatives, held to zero), whatever the spelling of the fixes.
+    unless some named fix is at or below it (the false negatives, held to zero), whatever the spelling of the
+    fixes. In a range that ends, a fix of a lower release line never clears a version of a higher one: only a
+    fix of the version's own line does. A fix written `> x` is not reached by x itself.
     """
     rng = random.Random(4379)  # noqa: S311
     covered = 0
-    for _ in range(4000):
+    bounded_covered = 0
+    for _ in range(6000):
         intervals = [_interval(rng, ecosystem, versions) for _ in range(rng.choice([1, 1, 2]))]
         vulnerable = _render(rng, intervals)
         installed = rng.choice(versions)
         fixes = rng.sample(versions, rng.choice([0, 1, 1, 2, 3]))
-        patched = _patched(rng, fixes) if fixes else rng.choice(["", "None", "0", "*", "2.x"])
-        in_range = any(_holds(ecosystem, installed, interval) for interval in intervals)
-        at_or_below = [f for f in fixes if _cmp(ecosystem, f, installed) <= 0]
+        patched, exclusive = _patched(rng, fixes) if fixes else (rng.choice(["", "None", "0", "*", "2.x"]), set())
+        holding = [i for i in intervals if _holds(ecosystem, installed, i)]
+        reached = [
+            f
+            for f in fixes
+            if _cmp(ecosystem, f, installed) < 0 or (f not in exclusive and _cmp(ecosystem, f, installed) == 0)
+        ]
+        same_line = [f for f in reached if _line(ecosystem, f) == _line(ecosystem, installed)]
+        ends = bool(holding) and all(upper is not None for _, upper in holding)
 
         verdict = ra.assess(ecosystem, installed, vulnerable, patched)
 
         context = (installed, vulnerable, patched)
-        if not in_range:
+        if not holding:
             assert verdict == "out", context
             continue
         covered += 1
-        if not at_or_below:
+        bounded_covered += ends
+        if not reached:
             assert verdict == "affected", context  # the false negative: cleared by a fix nobody named
+        if ends and not same_line:
+            assert verdict == "affected", context  # cleared across release lines, inside a range that ends
         if verdict in ("fixed", "closed"):
-            assert at_or_below, context
-    assert covered > 500
+            assert reached, context
+            assert same_line or not ends, context
+    assert covered > 800
+    assert bounded_covered > 300
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -579,3 +757,64 @@ def test_real_entries_of_h3_and_nuxt_and_vite_are_read_as_their_authors_meant() 
         True,
         False,
     ]
+
+
+def test_no_real_entry_clears_across_release_lines_inside_a_range_that_ends() -> None:
+    """Test every real entry at the versions its texts name: in a range that ends only a fix of its own line clears.
+
+    The oracle reads the numbers of the texts apart from the comparer, and the release line as the major version (the
+    minor below 1.0). A bounded range of fixed versions in `patched_versions` may clear too.
+    """
+    checked = 0
+    for ecosystem, ghsa, vulnerable, patched in CORPUS:
+        try:
+            alternatives = ra.parse_range(ecosystem, vulnerable)
+        except ra.UnclearRange:
+            continue
+        for probe in _probes(ecosystem, vulnerable, patched):
+            installed = ra.parse_version(ecosystem, probe)
+            holding = [c for c in alternatives if ra._holds(installed, c)]  # noqa: SLF001
+            if not holding or not all(ra._has_upper_bound(c) for c in holding):  # noqa: SLF001
+                continue
+            try:
+                verdict = ra.assess(ecosystem, probe, vulnerable, patched)
+            except ra.UnclearRange:
+                continue
+            checked += 1
+            if verdict in ("fixed", "closed"):
+                named = [
+                    text.removeprefix("v")
+                    for text in _VERSION_TEXT.findall(patched)
+                    if _parses(ecosystem, text.removeprefix("v"))
+                ]
+                same_line = [
+                    v
+                    for v in named
+                    if _line(ecosystem, v) == _line(ecosystem, probe) and _cmp(ecosystem, v, probe) <= 0
+                ]
+                try:
+                    in_patched_range = ra.in_range(ecosystem, probe, patched)
+                except ra.UnclearRange:
+                    in_patched_range = False
+                assert same_line or in_patched_range, (ghsa, probe, vulnerable, patched)
+    assert checked > 400
+
+
+def _parses(ecosystem: str, text: str) -> bool:
+    try:
+        ra.parse_version(ecosystem, text)
+    except ra.UnclearRange:
+        return False
+    return True
+
+
+def test_the_strict_grammar_refuses_a_range_of_more_than_500_characters_however_fine_its_parts() -> None:
+    """Test the length limit of `parse_range` itself, and of `in_range` through it."""
+    text = " || ".join(f">= {i}.0, < {i}.1" for i in range(60))
+
+    assert len(text) > 500
+    with pytest.raises(ra.UnclearRange, match="too long"):
+        ra.parse_range("pip", text)
+    with pytest.raises(ra.UnclearRange, match="too long"):
+        ra.in_range("pip", "5.0.0", text)
+    assert ra.in_range("pip", "99.0.0", text[:200].rsplit(" || ", 1)[0]) is False

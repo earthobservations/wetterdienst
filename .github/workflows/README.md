@@ -87,10 +87,10 @@ that the packages publish in their *own* repositories against the locked version
 `app/pnpm-lock.yaml`, because `uv audit`, `pnpm audit` and GitHub's alerts list them days or weeks later
 (GH-4378). The job has `contents: read` and `issues: write` and the job token as its only credential. It runs
 `scripts/repo_advisories.py` (tests under `tests/scripts`) in an isolated environment (`uv run --no-project
---isolated --with packaging==<pin> python -I`), so no package of the project runs beside the token; no text of an
+--isolated --no-build --with packaging==<pin> python -I`), so no package of the project runs beside the token; no text of an
 advisory goes into a shell or into the issue. The result is one issue, found among the issues of
-`github-actions[bot]` with the label `security` by its fixed title and a marker in its body (nobody else can hold
-the title). While it is open it is updated; when its findings change (the fingerprint holds the version and the
+`github-actions[bot]` by its fixed title and a marker in its body (nobody else can hold the title, and no label
+filter, so that a label a person removes does not make a second issue). While it is open it is updated; when its findings change (the fingerprint holds the version and the
 fix too) one comment of a fixed text says so, since an edit of a body notifies nobody. A clean run rewrites it to
 "None now" and leaves closing to a person; a package that was listed and can no longer be read stays listed. A
 closed issue with the same findings is not opened again, and different findings open a new one. An advisory that

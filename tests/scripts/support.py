@@ -76,9 +76,9 @@ def advisories_url(repo: str) -> str:
 
 
 def issues_url(repo: str = "owner/repo") -> str:
-    """Return the URL of the listing of the bot's issues with the label."""
+    """Return the URL of the listing of the bot's issues."""
     return (
-        f"{ra.GITHUB_API}repos/{repo}/issues?creator=github-actions%5Bbot%5D&labels=security&state=all"
+        f"{ra.GITHUB_API}repos/{repo}/issues?creator=github-actions%5Bbot%5D&state=all"
         "&sort=created&direction=desc&per_page=100"
     )
 

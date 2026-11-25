@@ -34,10 +34,12 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import contextlib
 import dataclasses
 import datetime as dt
 import hashlib
 import http.client
+import itertools
 import json
 import os
 import re
@@ -78,6 +80,8 @@ WORKERS = 8
 RETRIES = 3
 MAX_RANGE_LENGTH = 500
 MAX_PAGES = 20
+MAX_READINGS = 64
+MAX_BODY = 64_000  # GitHub refuses an issue body of more than 65,536 characters
 UNREADABLE_STATUSES = (404, 410, 451)  # a repository or a version that is not there; any other answer stops the run
 
 
@@ -177,6 +181,8 @@ _COMPARATOR = re.compile(rf"^({_OPERATOR})?(\S+)$")
 _PARTIAL = re.compile(r"^v?(\d+)(?:\.(\d+|[xX*]))?(?:\.(\d+|[xX*]))?$", re.ASCII)
 # `1.0.0-2.0.0` and `1.0-2` are a hyphen range written without spaces as often as a pre-release or a post-release
 _DASHED_NUMBERS = re.compile(r"^v?\d+(\.\d+)*-\d+(\.\d+)*$", re.ASCII)
+# after an operator a number with a number after the dash (`>=1.0.0-2.0.0`) is a pre-release and a range gone wrong
+_DASHED_AFTER_OPERATOR = re.compile(r"^v?\d+\.\d+\.\d+-\d+\.\d+(?:\.\d+)*$", re.ASCII)
 
 
 def _compare(version: Parsed, operator: str, bound: Parsed) -> bool:
@@ -229,6 +235,15 @@ def _partial(text: str) -> tuple[list[int], bool]:
     return numbers, wildcard
 
 
+def _is_short(text: str) -> bool:
+    """Whether `text` is `2` or `3.10`: a version of fewer than three numbers, without a wildcard."""
+    match = _PARTIAL.match(text)
+    if not match:
+        return False
+    parts = [part for part in match.groups() if part is not None]
+    return all(part not in "xX*" for part in parts) and len(parts) < 3
+
+
 def _filled(ecosystem: str, text: str) -> Parsed:
     """Parse a version whose missing or `x` parts are zero: `10`, `9.1` and `4.x` as a lower bound or as `<`."""
     try:
@@ -248,11 +263,14 @@ def _x_range(ecosystem: str, text: str) -> list[Comparator]:
     ]
 
 
-def _segment(ecosystem: str, segment: str) -> list[Comparator]:
+def _segment(ecosystem: str, segment: str) -> list[Comparator]:  # noqa: C901
     """Return the comparators of one segment, which all hold; `[]` is every version."""
     segment = segment.strip()
     hyphen = _HYPHEN.match(segment)
     if hyphen:
+        if ecosystem == "pip" and _is_short(hyphen.group(2)):  # `1.0 - 2`: up to 2.0, or to the last 2.x?
+            msg = f"range {segment[:60]!r} not understood"
+            raise UnclearRange(msg)
         return [(">=", _filled(ecosystem, hyphen.group(1))), ("<=", parse_version(ecosystem, hyphen.group(2)))]
     if segment in ("*", "x"):
         return []
@@ -261,8 +279,18 @@ def _segment(ecosystem: str, segment: str) -> list[Comparator]:
         msg = f"range {segment[:60]!r} not understood"
         raise UnclearRange(msg)
     parsed = [(token.group(1), token.group(2)) for token in tokens if token]
-    if any(operator is None and _DASHED_NUMBERS.match(text) for operator, text in parsed):
+    if any(
+        (operator is None and _DASHED_NUMBERS.match(text)) or (operator and _DASHED_AFTER_OPERATOR.match(text))
+        for operator, text in parsed
+    ):
         msg = f"range {segment[:60]!r} not understood"  # `1.0.0-2.0.0`: a range without spaces, or a pre-release?
+        raise UnclearRange(msg)
+    if ecosystem == "pip" and any(
+        _is_short(text) and (operator in ("<=", ">", "=", "==") or (operator is None and len(parsed) == 1))
+        for operator, text in parsed
+    ):
+        # `<= 2`, `= 3.10`, `2`: up to 2.0 and exactly 3.10.0, or the whole of 2.x and 3.10.x? npm reads the latter
+        msg = f"range {segment[:60]!r} not understood"
         raise UnclearRange(msg)
     if len(parsed) == 1 and parsed[0][0] is None:
         try:
@@ -336,6 +364,51 @@ def _alternative(ecosystem: str, alternative: str, text: str) -> list[list[Compa
     return [_valid(segment, text) for segment in segments]
 
 
+def _ambiguous(ecosystem: str, alternative: str, strict: UnclearRange) -> tuple[list[list[list[Comparator]]], bool]:
+    """Return every reading of an alternative that the strict grammar refuses, and whether a dash is a clear range.
+
+    A comma list that is no "and" (`< 1.2.3, < 2.1.0`, `1.2.3, 1.2.4`, `>= 3.0, < 2.0`) is read as an "and" of
+    everything, as an "or" of the segments, and as lower,upper pairs. A dash without spaces (`0.2.1-0.2.117`) is
+    read as a range and as one pre-release version; it is a clear range (`True`) if both ends are whole versions
+    in order. Anything else raises the strict error.
+    """
+    segments = alternative.split(",")
+    if len(segments) == 1:
+        token = segments[0].strip()
+        if not _DASHED_NUMBERS.match(token):
+            raise strict
+        low, _, high = token.partition("-")
+        try:
+            hyphen = [(">=", _filled(ecosystem, low)), ("<=", parse_version(ecosystem, high))]
+        except UnclearRange:
+            raise strict from None
+        readings: list[list[list[Comparator]]] = [[hyphen]]
+        with contextlib.suppress(UnclearRange):  # `1.0-2` is 1.0.post2 on PyPI; `0.2.1-0.2.117` is a pre-release on npm
+            readings.append([[("=", parse_version(ecosystem, token))]])
+        whole = all(re.fullmatch(r"v?\d+\.\d+\.\d+", part) for part in (low, high))
+        return readings, bool(whole and hyphen[0][1] < hyphen[1][1])
+    try:
+        parts = [_segment(ecosystem, segment) for segment in segments]
+    except UnclearRange:
+        raise strict from None
+    if any(not part for part in parts):
+        raise strict
+    flat = [comparator for part in parts for comparator in part]
+    readings = [[flat], list(parts)]
+    if all(len(part) == 1 for part in parts):
+        pairs: list[list[Comparator]] = []
+        index = 0
+        while index < len(flat):
+            if flat[index][0] in _LOWER and index + 1 < len(flat) and flat[index + 1][0] in _UPPER:
+                pairs.append([flat[index], flat[index + 1]])
+                index += 2
+            else:
+                pairs.append([flat[index]])
+                index += 1
+        readings.append(pairs)
+    return readings, False
+
+
 def parse_range(ecosystem: str, text: str | None) -> list[list[Comparator]]:
     """Parse a range into alternatives of comparators that all hold.
 
@@ -361,6 +434,37 @@ def parse_range(ecosystem: str, text: str | None) -> list[list[Comparator]]:
     return alternatives
 
 
+def _readings(ecosystem: str, text: str | None) -> tuple[list[list[list[Comparator]]], bool]:
+    """Return every reading of a range, each a list of alternatives, and whether a dash in it is a clear range.
+
+    A range the strict grammar reads has one reading; an alternative it refuses (see `_ambiguous`) has several, and
+    the readings of a whole range are the combinations of those of its alternatives.
+    """
+    if text is None or not text.strip():
+        msg = "no range"
+        raise UnclearRange(msg)
+    if len(text) > MAX_RANGE_LENGTH:
+        msg = "range too long"
+        raise UnclearRange(msg)
+    per_alternative: list[list[list[list[Comparator]]]] = []
+    clear_dash = False
+    for alternative in re.split(r"\|\||;", _normalise(text)):
+        try:
+            per_alternative.append([_alternative(ecosystem, alternative, text)])
+        except UnclearRange as strict:
+            readings, whole = _ambiguous(ecosystem, alternative, strict)
+            per_alternative.append(readings)
+            clear_dash = clear_dash or whole
+    size = 1
+    for readings in per_alternative:
+        size *= len(readings)
+    if size > MAX_READINGS:
+        msg = "range has too many readings"
+        raise UnclearRange(msg)
+    combined = [[c for part in combination for c in part] for combination in itertools.product(*per_alternative)]
+    return combined, clear_dash
+
+
 def in_range(ecosystem: str, version: str, text: str | None) -> bool:
     """Whether `version` is in the range `text`. Raises `UnclearRange` for what it does not understand."""
     installed = parse_version(ecosystem, version)
@@ -375,15 +479,20 @@ def _has_upper_bound(conjunction: list[Comparator]) -> bool:
     return any(operator in (*_UPPER, "=", "==") for operator, _ in conjunction)
 
 
-_FIX_ENTRY = re.compile(r"^(?:>=\s*)?v?\d+\.\d+[0-9A-Za-z.+-]*$", re.ASCII)
+_FIX_ENTRY = re.compile(r"^(>=|>)?\s*(v?\d+\.\d+[0-9A-Za-z.+-]*)$", re.ASCII)
+_REPOSITORY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$", re.ASCII)
 _PATCHED_SEPARATOR = re.compile(r",|;|\|\|")
 
 
 @dataclasses.dataclass(frozen=True)
 class Patch:
-    """What `patched_versions` names: fixes that hold from their version on, and bounded ranges of fixed versions."""
+    """What `patched_versions` names.
 
-    fixes: tuple[tuple[Parsed, str], ...] = ()
+    Fixes hold from their version on (`(version, text, inclusive)`: `> 1.15.5` is a fix that 1.15.5 itself is not),
+    and bounded ranges of fixed versions hold between their ends.
+    """
+
+    fixes: tuple[tuple[Parsed, str, bool], ...] = ()
     bounded: tuple[tuple[Comparator, ...], ...] = ()
 
 
@@ -398,10 +507,11 @@ def _full_version(ecosystem: str, token: str) -> bool:
 
 
 def patch_of(ecosystem: str, patched: str | None) -> Patch:  # noqa: C901
-    """Read `patched_versions`: `0.17.1`, `4.2.4, 3.1.1`, `>= 6.21.2`, `>= 5.28.4 < 6.0.0; >= 6.11.1`, `> 3.21.5, < 4`.
+    """Read `patched_versions`: `0.17.1`, `4.2.4, 3.1.1`, `>= 6.21.2`, `> 1.15.5`, `>= 5.28.4 < 6.0.0; >= 6.11.1`.
 
-    The text is read as a range (a comma is "and") where every version in it is a whole one; a list that is no
-    range (`1.5.3, 2.1.1`, `>= 1.15.9 || >= 2.0.1-rc.17`) gives one fix per entry. `0`, `*`, `2.x` and other
+    The text is read as a range where every version in it is a whole one (a comma is "and"); a list that is no
+    range (`1.5.3, 2.1.1`, `>= 1.15.9 || >= 2.0.1-rc.17`) gives one fix per entry. A lower bound without an end is a
+    fix, `>=` and `>` alike; a range with both ends is a bounded range of fixed versions. `0`, `*`, `2.x` and other
     partial forms name no fix and never override the vulnerable range.
     """
     if not patched or not patched.strip() or patched.strip().lower() == "none" or len(patched) > MAX_RANGE_LENGTH:
@@ -409,7 +519,7 @@ def patch_of(ecosystem: str, patched: str | None) -> Patch:  # noqa: C901
     patched = re.sub(r"(?<=\d)\+(?=\s*(?:[,;]|\|\||$))", "", patched)  # `3.3.2+` says "3.3.2 and above", as a fix does
     tokens = [re.sub(rf"^{_OPERATOR}", "", t) for t in re.split(r"[\s,;|]+", patched) if t]
     tokens = [t for t in tokens if t]
-    fixes: list[tuple[Parsed, str]] = []
+    fixes: list[tuple[Parsed, str, bool]] = []
     bounded: list[tuple[Comparator, ...]] = []
     alternatives: list[list[Comparator]] | None = None
     if tokens and all(_full_version(ecosystem, t) for t in tokens):
@@ -421,37 +531,58 @@ def patch_of(ecosystem: str, patched: str | None) -> Patch:  # noqa: C901
         for conjunction in alternatives:
             lower, upper = _lower(conjunction), _upper(conjunction)
             if len(conjunction) == 1 and conjunction[0][0] in ("=", "=="):
-                fixes.append((conjunction[0][1], str(conjunction[0][1])))
-            elif lower and not upper and lower[0] == ">=":
-                fixes.append((lower[1], str(lower[1])))
+                fixes.append((conjunction[0][1], str(conjunction[0][1]), True))
+            elif lower and not upper:
+                fixes.append((lower[1], str(lower[1]), lower[0] == ">="))
             elif lower:
                 bounded.append(tuple(conjunction))
     else:
         for raw in _PATCHED_SEPARATOR.split(patched):
-            entry = raw.strip()
-            if _FIX_ENTRY.match(entry):
-                text = entry.removeprefix(">=").strip()
-                if _full_version(ecosystem, text):
-                    fixes.append((parse_version(ecosystem, text), text))
-    fixes = [(v, t) for v, t in fixes if any(_release(v))]  # `0` names no fix
+            match = _FIX_ENTRY.match(raw.strip())
+            if match and _full_version(ecosystem, match.group(2)):
+                fixes.append((parse_version(ecosystem, match.group(2)), match.group(2), match.group(1) != ">"))
+    fixes = [fix for fix in fixes if any(_release(fix[0]))]  # `0` names no fix
     return Patch(tuple(fixes), tuple(bounded))
 
 
-def _is_fixed(installed: Parsed, patch: Patch, floor: Parsed | None) -> bool:
-    """Whether the patch names the locked version as fixed.
+def _cleared(installed: Parsed, fix: tuple[Parsed, str, bool]) -> bool:
+    """Whether the locked version is at or above a fix (above it, if the fix is `> x`)."""
+    version, _, inclusive = fix
+    return installed > version or (inclusive and installed == version)
 
-    A bounded patched range holds it; or it is at or above the highest fix named; or at or above the highest fix
-    of its own release line. A fix at or below the lower bound of the vulnerable range is no fix of it.
+
+def _top(fixes: list[tuple[Parsed, str, bool]]) -> tuple[Parsed, str, bool]:
+    return max(fixes, key=lambda fix: (fix[0], not fix[2]))
+
+
+def _is_fixed(installed: Parsed, patch: Patch, floor: Parsed | None, *, bounded_above: bool) -> bool:
+    """Whether the patch names the locked version as fixed in a range with the lower bound `floor`.
+
+    A bounded patched range holds it; or it is at or above the highest fix of its own release line; or, in a range
+    without an upper bound only, at or above the highest fix named (a fix of a lower release line does not clear
+    a version of a higher one inside a range that ends). A fix at or below the lower bound is no fix of the range.
     """
     for conjunction in patch.bounded:
         lower = _lower(list(conjunction))
         if (floor is None or (lower and lower[1] > floor)) and _holds(installed, list(conjunction)):
             return True
-    relevant = [version for version, _ in patch.fixes if floor is None or version > floor]
-    if relevant and installed >= max(relevant):
+    relevant = [fix for fix in patch.fixes if floor is None or fix[0] > floor]
+    if relevant and not bounded_above and _cleared(installed, _top(relevant)):
         return True
-    same_line = [version for version in relevant if _line(version) == _line(installed)]
-    return bool(same_line) and installed >= max(same_line)
+    same_line = [fix for fix in relevant if _line(fix[0]) == _line(installed)]
+    return bool(same_line) and _cleared(installed, _top(same_line))
+
+
+def _verdict(installed: Parsed, alternatives: list[list[Comparator]], patch: Patch) -> str:
+    holding = [c for c in alternatives if _holds(installed, c)]
+    if not holding:
+        return "out"
+    # fixed for every range that holds it, each against its own lower bound: one that is not makes it affected
+    if all(
+        _is_fixed(installed, patch, (_lower(c) or ("", None))[1], bounded_above=_has_upper_bound(c)) for c in holding
+    ):
+        return "closed" if not any(_has_upper_bound(c) for c in holding) else "fixed"
+    return "affected"
 
 
 def assess(ecosystem: str, version: str, vulnerable: str | None, patched: str | None) -> str:
@@ -460,17 +591,23 @@ def assess(ecosystem: str, version: str, vulnerable: str | None, patched: str | 
     `out`: not in the vulnerable range. `fixed`: in it, but the patched versions name it fixed. `closed`: in a range
     that has no upper bound and at or above a fix the entry names: a fix and "every later version is affected"
     cannot both be meant, so the fix is the end of the range (read as such, and listed as such). `affected`: the rest.
+    A range that can be read in several ways takes every reading: `affected` under all of them is `affected`, under
+    some of them is unclear (`UnclearRange`), under none is `out`, `closed` or `fixed`; a dash between two whole
+    versions in order (`0.2.1-0.2.117`) is a range, so `affected` under either of its readings stands.
     Raises `UnclearRange` for a range or a version that is not understood.
     """
     installed = parse_version(ecosystem, version)
-    holding = [c for c in parse_range(ecosystem, vulnerable) if _holds(installed, c)]
-    if not holding:
-        return "out"
+    readings, clear_dash = _readings(ecosystem, vulnerable)
     patch = patch_of(ecosystem, patched)
-    # fixed for every range that holds it, each against its own lower bound: one that is not makes it affected
-    if all(_is_fixed(installed, patch, (_lower(c) or ("", None))[1]) for c in holding):
-        return "closed" if not any(_has_upper_bound(c) for c in holding) else "fixed"
-    return "affected"
+    verdicts = {_verdict(installed, reading, patch) for reading in readings}
+    if len(readings) == 1:
+        return verdicts.pop()
+    if "affected" in verdicts:
+        if verdicts == {"affected"} or clear_dash:
+            return "affected"
+        msg = "the range can be read in several ways and they disagree"
+        raise UnclearRange(msg)
+    return next((v for v in ("closed", "fixed") if v in verdicts), "out")
 
 
 def is_affected(ecosystem: str, version: str, vulnerable: str | None, patched: str | None) -> bool:
@@ -479,16 +616,19 @@ def is_affected(ecosystem: str, version: str, vulnerable: str | None, patched: s
 
 
 def first_fixed(ecosystem: str, version: str, patched: str | None) -> str | None:
-    """Return the lowest fix above the locked version, of its own release line first (`None`: none yet)."""
+    """Return the lowest fix the locked version has not reached, as written (`> x` for an exclusive one)."""
     installed = parse_version(ecosystem, version)
     patch = patch_of(ecosystem, patched)
-    candidates = [(v, t) for v, t in patch.fixes if v > installed]
-    candidates += [
-        (lower[1], str(lower[1])) for c in patch.bounded if (lower := _lower(list(c))) and lower[1] > installed
+    candidates = [
+        (version, text if inclusive else f"> {text}")
+        for version, text, inclusive in patch.fixes
+        if not _cleared(installed, (version, text, inclusive))
     ]
-    same_line = [c for c in candidates if _line(c[0]) == _line(installed)]
-    pool = sorted(same_line or candidates, key=lambda c: c[0])
-    return pool[0][1] if pool else None
+    for conjunction in patch.bounded:
+        lower = _lower(list(conjunction))
+        if lower and lower[1] >= installed:
+            candidates.append((lower[1], str(lower[1]) if lower[0] == ">=" else f"> {lower[1]}"))
+    return min(candidates, key=lambda c: c[0])[1] if candidates else None
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -947,7 +1087,8 @@ def resolve_repository(fetch: Fetch, package: Package) -> str:
 def read_repository_advisories(fetch: Fetch, repo: str) -> list[dict[str, Any]]:
     """Read every published advisory of a repository.
 
-    A rate limit raises; so does any answer but a list. Only a repository that is not there is `Unreadable`.
+    A rate limit raises; so does any answer but a list of advisories, a `next` link to another host, and a listing
+    that does not end. Only a repository that is not there is `Unreadable`.
     """
     advisories: list[dict[str, Any]] = []
     url: str | None = f"{GITHUB_API}repos/{repo}/security-advisories?state=published&per_page=100"
@@ -960,11 +1101,17 @@ def read_repository_advisories(fetch: Fetch, repo: str) -> list[dict[str, Any]]:
         if response.status != 200 or not isinstance(response.body, list):
             msg = f"{url} answered HTTP {response.status} and no list of advisories"
             raise AdvisoryCheckError(msg)
+        if not all(isinstance(item, dict) for item in response.body):
+            msg = f"{url} answered a list with an item that is no advisory"
+            raise AdvisoryCheckError(msg)
         advisories.extend(response.body)
         link = {key.lower(): value for key, value in response.headers.items()}.get("link", "")
         next_url = re.search(r'<([^>]+)>;\s*rel="next"', link)
-        if not next_url or not next_url.group(1).startswith(GITHUB_API):
+        if not next_url:
             return advisories
+        if not next_url.group(1).startswith(GITHUB_API):
+            msg = f"{url} points to another host for the next page"
+            raise AdvisoryCheckError(msg)
         url = next_url.group(1)
     msg = f"the advisories of {repo} run over {MAX_PAGES} pages"
     raise AdvisoryCheckError(msg)
@@ -1036,6 +1183,7 @@ class Report:
     affected: list[Finding] = dataclasses.field(default_factory=list)
     unclear: list[Finding] = dataclasses.field(default_factory=list)
     closed: list[Finding] = dataclasses.field(default_factory=list)  # read as fixed: no upper bound, a fix named
+    fixed: list[Finding] = dataclasses.field(default_factory=list)  # covered by a range, cleared by the patched text
     unreadable: list[tuple[Package, str]] = dataclasses.field(default_factory=list)
     ignored: list[tuple[Finding, IgnoreEntry]] = dataclasses.field(default_factory=list)
     stale: list[IgnoreEntry] = dataclasses.field(default_factory=list)
@@ -1106,18 +1254,62 @@ def _advisory_url(advisory: Mapping[str, Any], repo: str, ghsa: str) -> str:
     return url if isinstance(url, str) and url.lower() == expected.lower() else expected
 
 
+_VERSION_IN_TEXT = re.compile(r"v?\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?", re.ASCII)
+
+
+def _read_as_fixed(ecosystem: str, version: str, vulnerable: str | None, patched: str | None) -> bool:
+    """Whether a text that is no range can be read as fixed: a fix is named and every version in it is lower.
+
+    `all` with the fixes `1.8.2, 1.7.4` of a pydantic 1.x advisory, for a locked 2.14: nothing in either text is at
+    or above the locked version, and a fix is named, so the advisory is about older releases. A version that is no
+    version (`v1.6.6-104-g68e6ab3f`, a `git describe`) counts by its numbers (1.6.6), which must be lower.
+    """
+    installed = parse_version(ecosystem, version)
+    versions = []
+    for text in (vulnerable or "", patched or ""):
+        for match in _VERSION_IN_TEXT.findall(text):
+            candidate = match.removeprefix("v")
+            try:
+                versions.append(parse_version(ecosystem, candidate))
+            except UnclearRange:
+                core = re.match(r"\d+\.\d+(?:\.\d+)?", candidate)
+                try:
+                    versions.append(parse_version(ecosystem, core.group() if core else ""))
+                except UnclearRange:
+                    return False
+    patch = patch_of(ecosystem, patched)
+    return bool(patch.fixes or patch.bounded) and all(v < installed for v in versions)
+
+
+_OTHER_ECOSYSTEMS = {
+    "actions",
+    "composer",
+    "deno",
+    "erlang",
+    "go",
+    "maven",
+    "nuget",
+    "pub",
+    "rubygems",
+    "rust",
+    "swift",
+}
+
+
 def judge(  # noqa: C901
     package: Package, advisories: list[dict[str, Any]], repo: str
-) -> tuple[list[Finding], list[Finding], list[Finding]]:
-    """Return `(affected, unclear, closed)` of one package against the advisories of its repository.
+) -> tuple[list[Finding], list[Finding], list[Finding], list[Finding]]:
+    """Return `(affected, unclear, closed, fixed)` of one package against the advisories of its repository.
 
-    An entry that names the package under an ecosystem that is not given, an entry without a name or a package,
-    and an advisory with an invalid id are unclear for every package of the repository, never dropped.
+    An entry that names the package is judged as it is. An entry without a name, a package or an ecosystem, or with
+    one nobody knows (`python`, `node`, `pip (PyPI)`, `other`), is judged as if it named this package: where it
+    clears it (`out`, `fixed`) that is exact; where it would affect it, it is unclear. A text that is no range is
+    read as fixed if a fix is named and every version in it is lower than the locked one (`_read_as_fixed`).
+    `fixed` lists the versions that a range covers and only the patched versions clear.
     """
     wanted = normalise_name(package.ecosystem, package.name)
-    affected: dict[str, Finding] = {}
-    unclear: dict[str, Finding] = {}
-    closed: dict[str, Finding] = {}
+    other = "npm" if package.ecosystem == "pip" else "pip"
+    buckets: dict[str, dict[str, Finding]] = {"affected": {}, "unclear": {}, "closed": {}, "fixed": {}}
     for advisory in advisories:
         if not isinstance(advisory, dict) or advisory.get("withdrawn_at"):
             continue
@@ -1125,47 +1317,62 @@ def judge(  # noqa: C901
         ghsa = raw_id if GHSA_ID.match(raw_id) else re.sub(r"[^\w-]", "?", raw_id)[:40] or "(no id)"
         severity = _severity(advisory.get("severity"))
         url = _advisory_url(advisory, repo, ghsa) if GHSA_ID.match(ghsa) else ""
-        entries = advisory.get("vulnerabilities")
-        mine: list[Mapping[str, Any]] = []
-        reasons: list[str] = []
-        for entry in entries if isinstance(entries, list) else [None]:
+        listed = advisory.get("vulnerabilities")
+        evaluated: list[tuple[bool, str, Mapping[str, Any] | None]] = []  # (names this package, why not, entry)
+        for entry in listed if isinstance(listed, list) and listed else [None]:
             named = entry.get("package") if isinstance(entry, dict) else None
             name = str(named.get("name") or "").strip() if isinstance(named, dict) else ""
             if not name:
-                reasons.append("the advisory names no package or no name")
+                evaluated.append((False, "the advisory names no package or no name", entry))
             elif normalise_name(package.ecosystem, name) == wanted:
                 given = str(named.get("ecosystem") or "").strip().lower()
                 if not given:
-                    reasons.append("the ecosystem of the advisory is not given")
+                    evaluated.append((False, "the ecosystem of the advisory is not given", entry))
                 elif _ECOSYSTEMS.get(given) == package.ecosystem:
-                    mine.append(entry)
-        base = {"repo": repo, "url": url}
-        if not mine and not reasons:
+                    evaluated.append((True, "", entry))
+                elif _ECOSYSTEMS.get(given) != other and given not in _OTHER_ECOSYSTEMS:
+                    evaluated.append((False, "the ecosystem of the advisory is not known", entry))
+        if not evaluated:
             continue
+        pairs = [
+            (
+                str(entry.get("vulnerable_version_range") or "").strip() if isinstance(entry, dict) else "",
+                str(entry.get("patched_versions") or "").strip() if isinstance(entry, dict) else "",
+            )
+            for _, _, entry in evaluated
+        ]
+        base = {
+            "repo": repo,
+            "url": url,
+            "vulnerable": " // ".join(v for v, _ in pairs),
+            "patched": " // ".join(p for _, p in pairs),
+        }
         if not GHSA_ID.match(raw_id):
-            unclear[ghsa] = Finding(package, ghsa, severity, reason="the advisory id is not valid", **base)
+            buckets["unclear"][ghsa] = Finding(package, ghsa, severity, reason="the advisory id is not valid", **base)
             continue
-        if reasons:
-            unclear[ghsa] = Finding(package, ghsa, severity, reason=reasons[0], **base)
-        for entry in mine:
-            vulnerable = str(entry.get("vulnerable_version_range") or "")
-            patched = str(entry.get("patched_versions") or "")
-            texts = {"vulnerable": vulnerable, "patched": patched, **base}
+        for (names_package, why, _), (vulnerable, patched) in zip(evaluated, pairs, strict=True):
             try:
                 verdict = assess(package.ecosystem, package.version, vulnerable, patched)
             except UnclearRange as exc:
-                unclear.setdefault(ghsa, Finding(package, ghsa, severity, reason=str(exc), **texts))
+                if not _read_as_fixed(package.ecosystem, package.version, vulnerable, patched):
+                    buckets["unclear"].setdefault(ghsa, Finding(package, ghsa, severity, reason=str(exc), **base))
+                    continue
+                verdict = "closed"
+            if not names_package:
+                if verdict == "affected":
+                    buckets["unclear"].setdefault(ghsa, Finding(package, ghsa, severity, reason=why, **base))
                 continue
             if verdict == "affected":
                 fixed = first_fixed(package.ecosystem, package.version, patched)
-                affected.setdefault(ghsa, Finding(package, ghsa, severity, fixed=fixed, **texts))
-            elif verdict == "closed":
-                closed.setdefault(ghsa, Finding(package, ghsa, severity, **texts))
-    return (
-        list(affected.values()),
-        [f for ghsa, f in unclear.items() if ghsa not in affected],
-        [f for ghsa, f in closed.items() if ghsa not in affected and ghsa not in unclear],
-    )
+                buckets["affected"].setdefault(ghsa, Finding(package, ghsa, severity, fixed=fixed, **base))
+            elif verdict in ("closed", "fixed"):
+                buckets[verdict].setdefault(ghsa, Finding(package, ghsa, severity, **base))
+    taken: set[str] = set()
+    result = []
+    for kind in ("affected", "unclear", "closed", "fixed"):
+        result.append([f for ghsa, f in buckets[kind].items() if ghsa not in taken])
+        taken |= set(buckets[kind])
+    return result[0], result[1], result[2], result[3]
 
 
 def cooldown_status(published: dt.datetime | None, now: dt.datetime) -> str:
@@ -1214,6 +1421,11 @@ def _read_sources(
     ]
 
 
+def _plain_version(text: str | None) -> bool:
+    """Whether a fixed version is a version (`4.7.0`), not `> 4.4.5`: only a version has a release date."""
+    return bool(text) and re.fullmatch(r"v?\d[\w.+-]*", text or "") is not None
+
+
 def check(packages: list[Package], fetch: Fetch, ignore: list[IgnoreEntry], now: dt.datetime) -> Report:  # noqa: C901
     """Run the whole reading. Raises `AdvisoryCheckError` where a source fails (never answers "nothing found")."""
     report = Report(checked=len(packages))
@@ -1227,9 +1439,10 @@ def check(packages: list[Package], fetch: Fetch, ignore: list[IgnoreEntry], now:
             report.unreadable.append((package, f"{repo}: {found}"))
             continue
         read_packages.add(_ignore_key(package.name))
-        affected, unclear, closed = judge(package, found, repo)
+        affected, unclear, closed, fixed = judge(package, found, repo)
         findings += [("affected", f) for f in affected] + [("unclear", f) for f in unclear]
         report.closed += closed
+        report.fixed += fixed
 
     ignore_by_key = {(_ignore_key(e.package), e.advisory): e for e in ignore}
     matched: set[tuple[str, str]] = set()
@@ -1246,7 +1459,7 @@ def check(packages: list[Package], fetch: Fetch, ignore: list[IgnoreEntry], now:
         if kind == "unclear":
             report.unclear.append(finding)
         else:
-            published = release_date(fetch, finding.package, finding.fixed) if finding.fixed else None
+            published = release_date(fetch, finding.package, finding.fixed) if _plain_version(finding.fixed) else None
             cooldown = cooldown_status(published, now) if finding.fixed else "no fix yet"
             report.affected.append(dataclasses.replace(finding, cooldown=cooldown))
     report.changed = list(changed.values())
@@ -1267,7 +1480,7 @@ def check(packages: list[Package], fetch: Fetch, ignore: list[IgnoreEntry], now:
         package = finding.package
         return package.ecosystem, package.name.lower(), package.version, finding.advisory
 
-    for findings_list in (report.affected, report.unclear, report.closed):
+    for findings_list in (report.affected, report.unclear, report.closed, report.fixed):
         findings_list.sort(key=order)
     report.ignored.sort(key=lambda pair: order(pair[0]))
     report.unreadable.sort(key=lambda pair: (pair[0].ecosystem, pair[0].name.lower(), pair[0].version))
@@ -1335,9 +1548,14 @@ def render_table(report: Report) -> str:
         [[f.package.name, f.package.version, f.advisory, f.reason, f.repo] for f in report.unclear],
     )
     table(
-        "read as fixed: no upper bound in the range, and the advisory names a fix at or below the locked version",
+        "read as fixed: no upper bound in the range, or no range, and a fix below the locked version",
         ["package", "locked", "advisory", "range", "patched", "repository"],
         [[f.package.name, f.package.version, f.advisory, f.vulnerable, f.patched, f.repo] for f in report.closed],
+    )
+    table(
+        "cleared by the patched versions only: the range covers the locked version",
+        ["package", "locked", "advisory", "range", "patched", "repository"],
+        [[f.package.name, f.package.version, f.advisory, f.vulnerable, f.patched, f.repo] for f in report.fixed],
     )
     table(
         "unreadable",
@@ -1377,147 +1595,235 @@ def comparable(body: str) -> str:
     return _VOLATILE.sub("", body)
 
 
-def _entry_line(finding: Finding) -> str:
+def _entry_line(finding: Finding, detail: str) -> str:
     fields = [
         finding.package.ecosystem,
         finding.package.name,
         finding.package.version,
         finding.advisory,
         finding.severity,
-        finding.fixed or "",
+        detail,
         finding.repo,
     ]
     return "|".join(urllib.parse.quote(field, safe="") for field in fields)
 
 
-def previous_affected(body: str) -> list[Finding]:
-    """Read the affected findings an earlier body listed (the hidden `affected` block)."""
-    match = re.search(r"<!-- affected\n(.*?)\n-->", body or "", re.DOTALL)
+def _previous(body: str, kind: str, detail_is_fix: bool) -> list[Finding]:  # noqa: FBT001
+    """Read the findings an earlier body listed in its hidden block (`affected` or `unclear`), with care."""
+    match = re.search(rf"<!-- {kind}\n(.*?)\n-->", body or "", re.DOTALL)
     findings = []
     for line in match.group(1).splitlines() if match else []:
         fields = [urllib.parse.unquote(field) for field in line.split("|")]
         if len(fields) != 7 or fields[0] not in ("pip", "npm") or not GHSA_ID.match(fields[3]):
             continue
-        ecosystem, name, version, ghsa, severity, fixed, repo = fields
+        ecosystem, name, version, ghsa, severity, detail, repo = fields
+        repo = repo if _REPOSITORY.match(repo) else ""
         package = Package(ecosystem, name, version, direct=False, runtime=True)
         url = f"https://github.com/{repo}/security/advisories/{ghsa}" if repo else ""
         findings.append(
             Finding(
-                package, ghsa, _severity(severity), fixed or None, "unknown (not readable this run)", repo=repo, url=url
+                package,
+                ghsa,
+                _severity(severity),
+                fixed=(detail or None) if detail_is_fix else None,
+                cooldown="unknown (not readable this run)" if detail_is_fix else "no fix yet",
+                reason="" if detail_is_fix else detail,
+                repo=repo,
+                url=url,
             )
         )
     return findings
 
 
-def carry_over(report: Report, previous_body: str) -> None:
-    """Keep a package the open issue listed as affected in the list when it can no longer be read.
+def previous_affected(body: str) -> list[Finding]:
+    """Read the affected findings an earlier body listed (the hidden `affected` block)."""
+    return _previous(body, "affected", detail_is_fix=True)
 
-    An unreadable package is not a package that is safe: it stays until a reading says it is.
+
+def previous_unclear(body: str) -> list[Finding]:
+    """Read the unclear findings an earlier body listed (the hidden `unclear` block)."""
+    return _previous(body, "unclear", detail_is_fix=False)
+
+
+def carry_over(report: Report, previous_body: str) -> None:
+    """Keep a package the open issue listed as affected or unclear in the list when it can no longer be read.
+
+    An unreadable package is not a package that is safe: it stays until a reading says it is. An affected finding
+    is matched on ecosystem, name and version, an unclear one on ecosystem and name.
     """
     unreadable = {(p.ecosystem, p.name, p.version) for p, _ in report.unreadable}
+    unreadable_names = {(p.ecosystem, p.name) for p, _ in report.unreadable}
     listed = {(f.package.ecosystem, f.package.name, f.package.version, f.advisory) for f in report.affected}
+    listed_unclear = {(f.package.ecosystem, f.package.name, f.advisory) for f in report.unclear}
     for finding in previous_affected(previous_body):
         package = finding.package
         triple = (package.ecosystem, package.name, package.version)
         if triple in unreadable and (*triple, finding.advisory) not in listed:
             report.affected.append(finding)
+    for finding in previous_unclear(previous_body):
+        package = finding.package
+        pair = (package.ecosystem, package.name)
+        if pair in unreadable_names and (*pair, finding.advisory) not in listed_unclear:
+            report.unclear.append(finding)
 
 
-def render_issue(report: Report, now: dt.datetime, run_url: str | None = None) -> str:
-    """Return the body of the issue: public data only, names, versions and ranges as code, nobody mentioned."""
-    parts = [ISSUE_MARKER, f"<!-- fingerprint: {report.fingerprint} -->"]
-    if report.affected:
-        parts += ["<!-- affected", *[_entry_line(f) for f in report.affected], "-->"]
-    parts.append("")
-    parts.append(
-        "The published advisories in the repositories of the locked packages (`uv.lock`, `app/pnpm-lock.yaml`), "
-        "read against the locked versions, since the global advisory database lists them later. "
-        f"Checked {now:%Y-%m-%d}, {report.checked} packages."
-    )
-    if report.affected:
-        parts += [
-            "",
-            f"## Affected ({len(report.affected)})",
-            "",
-            "| Package | Locked | Advisory | Severity | Fixed in | Past the cooldown | Scope | Repository |",
-            "|---|---|---|---|---|---|---|---|",
-        ]
-        parts += [
-            f"| {_code(f.package.name)} | {_code(f.package.version)} | {_advisory_link(f)} | {f.severity} "
-            f"| {_code(f.fixed) if f.fixed else 'none yet'} | {f.cooldown} | {_scope(f.package)} | {_code(f.repo)} |"
-            for f in report.affected
-        ]
-        parts += [
-            "",
-            (
-                "Past the cooldown: the fixed version is old enough to be locked (3 days, `exclude-newer` and "
-                "`minimumReleaseAge`); `from <date>` is the day it will be."
-            ),
-        ]
-    else:
-        parts += ["", "## Affected", "", "None now."]
-    if report.unclear:
-        parts += ["", f"## Unclear ({len(report.unclear)})", "", "Read by hand; none of these is assumed safe.", ""]
-        parts += [
-            f"- {_code(f.package.name)} {_code(f.package.version)}: {_advisory_link(f)}, {_code(f.reason, 160)}"
-            for f in report.unclear
-        ]
-    if report.closed:
-        parts += [
-            "",
-            f"## Read as fixed ({len(report.closed)})",
-            "",
-            (
-                "The range has no upper bound and the advisory names a fix at or below the locked version, "
-                "which is read as the end of the range."
-            ),
-            "",
-        ]
-        parts += [
-            f"- {_code(f.package.name)} {_code(f.package.version)}: {_advisory_link(f)}, {_code(f.vulnerable, 120)}, "
-            f"fixed in {_code(f.fixed or f.patched, 60)}"
-            for f in report.closed
-        ]
-    if report.unreadable:
-        parts += [
-            "",
-            f"## Unreadable ({len(report.unreadable)})",
-            "",
-            "No GitHub repository or no readable advisories: these are not checked.",
-            "",
-        ]
-        parts += [f"- {_code(p.name)} {_code(p.version)}: {_code(reason, 120)}" for p, reason in report.unreadable]
-    if report.ignored:
-        parts += ["", f"## Known not to affect us ({len(report.ignored)})", ""]
-        parts += [
-            f"- {_code(f.package.name)} {_code(f.package.version)}: {_advisory_link(f)}, "
-            f"{_code(e.reason, 300)} ({e.date})"
-            for f, e in report.ignored
-        ]
-    for title, note, entries in (
-        (
-            "Ignore entries to read again",
-            "The advisory says something else than when the entry was written.",
-            report.changed,
-        ),
-        ("Ignore entries to remove", "The advisory no longer matches the locked version.", report.stale),
-        (
-            "Ignore entries to review",
-            f"Written more than {IGNORE_REVIEW_AFTER.days} days ago.",
-            report.expired,
-        ),
-    ):
-        if entries:
-            parts += ["", f"## {title}", "", note, ""]
-            parts += [f"- {_code(e.package)} `{e.advisory}` ({e.date})" for e in entries]
+def render_issue(report: Report, now: dt.datetime, run_url: str | None = None) -> str:  # noqa: C901
+    """Return the body of the issue: public data only, names, versions and ranges as code, nobody mentioned.
+
+    GitHub refuses a body of more than 65,536 characters, so a body over `MAX_BODY` gives up its sections from the
+    least important (read as fixed, cleared by the patched versions, unreadable, ignored, ...) and then rows of the
+    table of what is affected, each with a line that says what was left out.
+    """
     footer = (
         "This issue is updated by the weekly check while it is open; close it when it is dealt with. "
         "Advisories that do not affect us go to `scripts/repo_advisories_ignore.toml`."
     )
     if run_url:
         footer += f" Run: {run_url}"
-    parts += ["", "---", footer, ""]
-    return "\n".join(parts)
+
+    def build(collapsed: frozenset[str], rows: int | None) -> str:
+        shown = report.affected if rows is None else report.affected[:rows]
+        parts = [ISSUE_MARKER, f"<!-- fingerprint: {report.fingerprint} -->"]
+        if shown:  # the hidden lists carry what is listed: a finding cut from the table is not carried over
+            parts += ["<!-- affected", *[_entry_line(f, f.fixed or "") for f in shown], "-->"]
+        if report.unclear and "unclear" not in collapsed:
+            parts += ["<!-- unclear", *[_entry_line(f, f.reason) for f in report.unclear], "-->"]
+        parts += [
+            "",
+            (
+                "The published advisories in the repositories of the locked packages (`uv.lock`, "
+                "`app/pnpm-lock.yaml`), read against the locked versions, since the global advisory database lists "
+                f"them later. Checked {now:%Y-%m-%d}, {report.checked} packages."
+            ),
+        ]
+
+        def section(key: str, title: str, count: int, note: str, lines: list[str]) -> None:
+            if not count:
+                return
+            parts.extend(["", f"## {title} ({count})", ""])
+            if key in collapsed:
+                parts.append(
+                    "Not listed: this issue has reached the size GitHub allows. `uv run poe advisories` lists them."
+                )
+                return
+            if note:
+                parts.extend([note, ""])
+            parts.extend(lines)
+
+        if report.affected:
+            parts += [
+                "",
+                f"## Affected ({len(report.affected)})",
+                "",
+                "| Package | Locked | Advisory | Severity | Fixed in | Past the cooldown | Scope | Repository |",
+                "|---|---|---|---|---|---|---|---|",
+            ]
+            parts += [
+                f"| {_code(f.package.name)} | {_code(f.package.version)} | {_advisory_link(f)} | {f.severity} "
+                f"| {_code(f.fixed) if f.fixed else 'none yet'} | {f.cooldown} | {_scope(f.package)} "
+                f"| {_code(f.repo)} |"
+                for f in shown
+            ]
+            if len(shown) < len(report.affected):
+                parts += [
+                    "",
+                    f"{len(report.affected) - len(shown)} more are not listed: the body is at its size limit.",
+                ]
+            parts += [
+                "",
+                (
+                    "Past the cooldown: the fixed version is old enough to be locked (3 days, `exclude-newer` and "
+                    "`minimumReleaseAge`); `from <date>` is the day it will be."
+                ),
+            ]
+        else:
+            parts += ["", "## Affected", "", "None now."]
+        section(
+            "unclear",
+            "Unclear",
+            len(report.unclear),
+            "Read by hand; none of these is assumed safe.",
+            [
+                f"- {_code(f.package.name)} {_code(f.package.version)}: {_advisory_link(f)}, {_code(f.reason, 160)}"
+                for f in report.unclear
+            ],
+        )
+        section(
+            "closed",
+            "Read as fixed",
+            len(report.closed),
+            (
+                "The range has no upper bound, or is no range, and the advisory names a fix below the locked "
+                "version, which is read as the end of the range."
+            ),
+            [
+                f"- {_code(f.package.name)} {_code(f.package.version)}: {_advisory_link(f)}, "
+                f"{_code(f.vulnerable, 120)}, fixed in {_code(f.patched, 60)}"
+                for f in report.closed
+            ],
+        )
+        section(
+            "fixed",
+            "Cleared by the patched versions only",
+            len(report.fixed),
+            "The range covers the locked version and the patched versions of the advisory clear it.",
+            [
+                f"- {_code(f.package.name)} {_code(f.package.version)}: {_advisory_link(f)}, "
+                f"{_code(f.vulnerable, 120)}, fixed in {_code(f.patched, 60)}"
+                for f in report.fixed
+            ],
+        )
+        section(
+            "unreadable",
+            "Unreadable",
+            len(report.unreadable),
+            "No GitHub repository or no readable advisories: these are not checked.",
+            [f"- {_code(p.name)} {_code(p.version)}: {_code(reason, 120)}" for p, reason in report.unreadable],
+        )
+        section(
+            "ignored",
+            "Known not to affect us",
+            len(report.ignored),
+            "",
+            [
+                f"- {_code(f.package.name)} {_code(f.package.version)}: {_advisory_link(f)}, "
+                f"{_code(e.reason, 300)} ({e.date})"
+                for f, e in report.ignored
+            ],
+        )
+        for key, title, note, entries in (
+            (
+                "changed",
+                "Ignore entries to read again",
+                "The advisory says something else than when written.",
+                report.changed,
+            ),
+            ("stale", "Ignore entries to remove", "The advisory no longer matches the locked version.", report.stale),
+            (
+                "expired",
+                "Ignore entries to review",
+                f"Written more than {IGNORE_REVIEW_AFTER.days} days ago.",
+                report.expired,
+            ),
+        ):
+            section(
+                key, title, len(entries), note, [f"- {_code(e.package)} `{e.advisory}` ({e.date})" for e in entries]
+            )
+        parts += ["", "---", footer, ""]
+        return "\n".join(parts)
+
+    collapsed: set[str] = set()
+    body = build(frozenset(), None)
+    for key in ("closed", "fixed", "unreadable", "ignored", "expired", "stale", "changed", "unclear"):
+        if len(body) <= MAX_BODY:
+            return body
+        collapsed.add(key)
+        body = build(frozenset(collapsed), None)
+    rows = len(report.affected)
+    while len(body) > MAX_BODY and rows > 1:
+        rows = rows // 2
+        body = build(frozenset(collapsed), rows)
+    return body
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -1526,17 +1832,14 @@ def render_issue(report: Report, now: dt.datetime, run_url: str | None = None) -
 
 
 def find_issues(fetch: Fetch, repo: str) -> list[dict[str, Any]]:
-    """Return the issues of this check, newest first: the bot's, with the label, the title and the marker.
+    """Return the issues of this check, newest first: the bot's, with the title and the marker.
 
     Only an issue that `github-actions[bot]` created counts, so that nobody else can hold the title and turn
-    the check off, or make it write into an issue of theirs.
+    the check off, or make it write into an issue of theirs. The listing has no label filter: a label that a person
+    removes must not make the next run open a second issue.
     """
     creator = urllib.parse.quote(ISSUE_AUTHOR, safe="")
-    label = urllib.parse.quote(ISSUE_LABELS[0], safe="")
-    url = (
-        f"{GITHUB_API}repos/{repo}/issues?creator={creator}&labels={label}&state=all"
-        "&sort=created&direction=desc&per_page=100"
-    )
+    url = f"{GITHUB_API}repos/{repo}/issues?creator={creator}&state=all&sort=created&direction=desc&per_page=100"
     response = fetch(url, github=True)
     raise_if_rate_limited(response, url)
     if response.status != 200 or not isinstance(response.body, list):
@@ -1594,9 +1897,9 @@ def sync_issue(
             return f"issue #{number} is up to date"
         changed = _fingerprint_of(old) != report.fingerprint
         if not dry_run:
-            write("PATCH", f"{GITHUB_API}repos/{repo}/issues/{number}", {"body": body})
-            if changed:
+            if changed:  # the comment first: if the body then fails, the next run still finds the old fingerprint
                 write("POST", f"{GITHUB_API}repos/{repo}/issues/{number}/comments", {"body": CHANGED_COMMENT})
+            write("PATCH", f"{GITHUB_API}repos/{repo}/issues/{number}", {"body": body})
         verb = "would be updated" if dry_run else "updated"
         return (
             f"issue #{number} {verb}"

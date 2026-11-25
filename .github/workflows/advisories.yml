@@ -10,7 +10,7 @@ name: Advisories
 # It runs on a schedule only, never on a pull request: the answer depends on what the packages
 # publish, not on a change. The job token is the only credential, and the only write is the issue.
 # The token is handed to the script alone: nothing of the project is installed (`--no-project
-# --isolated`, `packaging` pinned), so no package of ours runs beside it, and `-I` keeps the
+# --isolated`, `packaging` pinned, a wheel only: `--no-build`), so no package of ours runs beside it, and `-I` keeps the
 # working directory and the environment's PYTHON* variables out of the interpreter.
 on:
   schedule:
@@ -51,4 +51,4 @@ jobs:
       - name: Read the advisories of the locked packages and update the issue
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: uv run --no-project --isolated --with packaging==26.3 python -I scripts/repo_advisories.py --issue
+        run: uv run --no-project --isolated --no-build --with packaging==26.3 python -I scripts/repo_advisories.py --issue
