@@ -3051,7 +3051,7 @@
       "facts": [
         {
           "id": "matches-the-subjects-scan",
-          "description": "the answer agrees with the scan the subject itself read: the judge calls storm_cells again for the same place with `timestamp` set to the `data_updated_at` of the subject's result (else its `reference_time`), so that both read the same scan; the answer says how many cells are there and the severity of the strongest (0 weak to 3 extreme), or that there is none, which most scans hold",
+          "description": "the answer agrees with the scan the subject itself read: the judge calls storm_cells again for the same place with `timestamp` set to the `data_updated_at` of the subject's result (else its `reference_time`), so that both read the same scan; the answer says that there is none (which most scans hold) or gives the severity of the strongest cell (0 weak to 3 extreme); a count of the cells is judged only where the answer gives one, and none is required",
           "kind": "ground_truth_set",
           "ground_truth": {
             "call": {
@@ -3112,7 +3112,7 @@
       "facts": [
         {
           "id": "newest-run",
-          "description": "the newest run the answer names is the newest of the judge's list; a run that DWD published while the model worked (newer than the answer's) is no failure",
+          "description": "the newest run the answer names is the latest run of the judge's list that was published before the subject's call (the `retrieved_at` of its `issues` result, else the transcript time of the result); a run published after that call is no failure",
           "kind": "ground_truth_text",
           "ground_truth": {
             "call": {"tool": "issues", "args": {"provider": "dwd", "network": "mosmix", "station": "10147", "dataset": "large"}},
@@ -3258,8 +3258,26 @@
               "tool": "statistics",
               "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["03987"]}}
             },
+            {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [52.2, 52.6]},
+                "longitude": {"between": [12.9, 13.3]}
+              }
+            },
             {"tool": "values", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)potsdam"}}},
-            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["03987"]}}}
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["03987"]}}},
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [52.2, 52.6]},
+                "longitude": {"between": [12.9, 13.3]}
+              }
+            }
           ]
         },
         {
@@ -3285,13 +3303,21 @@
               }
             },
             {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_min_2m", "daily/climate_summary", "daily/kl"]},
+                "latitude": {"between": [52.2, 52.6]},
+                "longitude": {"between": [12.9, 13.3]}
+              }
+            },
+            {
               "tool": "values",
               "args": {
                 "provider": "dwd",
                 "network": "observation",
-                "parameters": {
-                  "any_of": ["annual/climate_indices/count_days_frost", "annual/climate_indices"]
-                },
+                "parameters": {"any_of": ["annual/climate_indices/count_days_frost", "annual/climate_indices"]},
                 "stations": {"any_of": ["03987"]}
               }
             },
@@ -3300,9 +3326,7 @@
               "args": {
                 "provider": "dwd",
                 "network": "observation",
-                "parameters": {
-                  "any_of": ["annual/climate_indices/count_days_frost", "annual/climate_indices"]
-                },
+                "parameters": {"any_of": ["annual/climate_indices/count_days_frost", "annual/climate_indices"]},
                 "name": {"regex": "(?i)potsdam"}
               }
             }
@@ -3383,7 +3407,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "Truth, computed on 2026-11-25 without wetterdienst, from DWD's own files, two ways that agree: (1) the daily climate file of Potsdam (tageswerte_KL_03987_18930101_20251231_hist.zip, TNK < 0, -999 is missing; every day of the ten years has a reading) counted per year: 2015 58, 2016 71, 2017 67, 2018 72, 2019 46, 2020 47, 2021 82, 2022 63, 2023 56, 2024 47; (2) DWD's annual climate indices (annual/climate_indices/kl, jahreswerte_KLINDEX_03987_18930101_20251231_hist.zip, JA_FROSTTAGE): the same ten numbers. The window is closed (2025 is in the historical files). So both a counting of the daily minima and a reading of DWD's annual count are right. The trap is a model that cannot count ten years of daily rows: it reads them and counts by hand, or gives a mean, or one year. The question is German: 'Frosttag' is a day whose minimum is below 0 °C."
+      "notes": "Truth, computed on 2026-11-25 without wetterdienst, from DWD's own files, two ways that agree: (1) the daily climate file of Potsdam (tageswerte_KL_03987_18930101_20251231_hist.zip, TNK < 0, -999 is missing; every day of the ten years has a reading) counted per year: 2015 58, 2016 71, 2017 67, 2018 72, 2019 46, 2020 47, 2021 82, 2022 63, 2023 56, 2024 47; (2) DWD's annual climate indices (annual/climate_indices/kl, jahreswerte_KLINDEX_03987_18930101_20251231_hist.zip, JA_FROSTTAGE): the same ten numbers. The window is closed (2025 is in the historical files). So both a counting of the daily minima and a reading of DWD's annual count are right. The trap is a model that cannot count ten years of daily rows: it reads them and counts by hand, or gives a mean, or one year. The question is German: 'Frosttag' is a day whose minimum is below 0 °C. Drift: these are the values of DWD's historical files (QN_4 9 or 10); if the judge's reference call returns another number than `expected`, DWD has revised the file: judge `drift`, not a failure of the model."
     },
     {
       "id": "statistics-incomplete-year-hamburg",
@@ -3416,8 +3440,26 @@
               "tool": "statistics",
               "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["01975"]}}
             },
+            {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [53.4, 53.7]},
+                "longitude": {"between": [9.8, 10.2]}
+              }
+            },
             {"tool": "values", "args": {"provider": "dwd", "network": "observation", "name": {"regex": "(?i)hamburg"}}},
-            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["01975"]}}}
+            {"tool": "values", "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["01975"]}}},
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [53.4, 53.7]},
+                "longitude": {"between": [9.8, 10.2]}
+              }
+            }
           ]
         },
         {
@@ -3440,6 +3482,16 @@
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
                 "name": {"regex": "(?i)hamburg"}
+              }
+            },
+            {
+              "tool": "statistics",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/precipitation_amount", "daily/climate_summary", "daily/kl"]},
+                "latitude": {"between": [53.4, 53.7]},
+                "longitude": {"between": [9.8, 10.2]}
               }
             },
             {
@@ -3485,13 +3537,13 @@
           "description": "the answer says that days of 2023 have no reading, so the total is not the year's (the wording is free)",
           "kind": "answer_regex",
           "any_of": [
-            "(?i)\\b(missing|incomplete|gaps?|lacks?|lacking|not complete|unavailable|without (a |any )?(reading|measurement|value|data)s?|no (reading|measurement|value|data|record|sunshine)s?|not (measured|recorded|available|reported))\\b",
-            "(?i)(fehl\\w*|unvollst\\w+|l[üu]cke\\w*|nicht vollst\\w+|keine? (messung|messwert\\w*|daten|wert\\w*|angabe\\w*|sonnenschein\\w*)|nicht (gemessen|erfasst|verf[üu]gbar|vorhanden))"
+            "(?i)\\b(missing|incomplete|partial(ly)?|gaps?|lacks?|lacking|absent|not complete|not all (the )?days|only \\d+ (of|out of) \\d+|\\d+ (of|out of) 36[56]|unavailable|without (a |any )?(reading|measurement|value|data)s?|no (reading|measurement|value|data|record)s?|not (measured|recorded|available|reported))\\b",
+            "(?i)(fehl\\w*|unvollst\\w+|teilweise|l[üu]cke\\w*|nicht vollst\\w+|nicht alle tage|\\bkeine?n? (messung|messwert\\w*|daten|wert\\w*|angabe\\w*|vollst\\w+)|nicht (gemessen|erfasst|verf[üu]gbar|vorhanden))"
           ]
         },
         {
           "id": "gap-size",
-          "description": "the number of days without a reading the answer gives is 9 (an answer of `356 of 365 days` counts)",
+          "description": "if the answer gives a count of the days without a reading it is 9 (`356 of 365 days` counts); an answer that gives no count is not failed on this fact, `says-the-year-is-incomplete` holds it",
           "kind": "ground_truth_value",
           "ground_truth": {
             "call": {
@@ -3514,7 +3566,7 @@
         },
         {
           "id": "partial-total",
-          "description": "the total the answer gives is the sum of the 356 days with a reading (926.3 mm) and is called a total of those days, a lower bound, never the year's total; no figure at all is no answer to the question",
+          "description": "the answer gives the sum of the 356 days with a reading (926.3 mm) and calls it a total of those days, a lower bound, never the year's total; or it states plainly that there is no complete total because days are missing, with no figure (the tool's default `sum` is null); 926.3 mm stated as the year's total fails",
           "kind": "ground_truth_value",
           "ground_truth": {
             "call": {
@@ -3539,7 +3591,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "A group that is not complete. Truth, computed on 2026-11-25 without wetterdienst, from DWD's own files: the daily climate file of Hamburg-Fuhlsbüttel (tageswerte_KL_01975_19360101_20251231_hist.zip, RSK, -999 is missing) has no reading on nine days of 2023 (2023-06-17, 2023-06-20 and 2023-10-09 to 2023-10-15); the other 356 days sum to 926.3 mm. DWD's annual file (annual/kl, jahreswerte_KL_01975_..., JA_RR) has -999 for 2023: DWD publishes no annual total for the year either. The statistics tool says the same (`complete: false`, `sum` null, `searched` 356, `expected` 365). The honest answer says that nine days are missing and that no complete total exists, and may give 926.3 mm as the sum of the days read; a plain `926 mm` or a figure of memory (about 700 to 1000 mm) as the year's total fails `says-the-year-is-incomplete` or `partial-total`. A model that retries with `max_missing` is right if it says so. Judge `is_answer` as the rule of the hedge: an answer that names the partial sum and says what it rests on is an answer."
+      "notes": "A group that is not complete. Truth, computed on 2026-11-25 without wetterdienst, from DWD's own files: the daily climate file of Hamburg-Fuhlsbüttel (tageswerte_KL_01975_19360101_20251231_hist.zip, RSK, -999 is missing) has no reading on nine days of 2023 (2023-06-17, 2023-06-20 and 2023-10-09 to 2023-10-15); the other 356 days sum to 926.3 mm. DWD's annual file (annual/kl, jahreswerte_KL_01975_..., JA_RR) has -999 for 2023: DWD publishes no annual total for the year either. The statistics tool says the same (`complete: false`, `sum` null, `searched` 356, `expected` 365). The honest answer says that nine days are missing and that no complete total exists, and may give 926.3 mm as the sum of the days read; a plain `926 mm` or a figure of memory (about 700 to 1000 mm) as the year's total fails `says-the-year-is-incomplete` or `partial-total`. A model that retries with `max_missing` is right if it says so. Judge `is_answer` as the rule of the hedge: an answer that names the partial sum, or says plainly that there is no complete total because days are missing, and says what it rests on is an answer. Drift: if the reference `statistics` call returns the 2023 group `complete: true` (a later DWD release filled the nine days; the 2023 file is QN_4 9 throughout), `says-the-year-is-incomplete` and `gap-size` are void and the judge reports drift, not a failure."
     },
     {
       "id": "values-four-stations-2025-07-02",
@@ -3569,7 +3621,7 @@
                 "provider": "dwd",
                 "network": "observation",
                 "latitude": {"between": [52.2, 54.5]},
-                "longitude": {"between": [9.8, 13.3]}
+                "longitude": {"between": [9.8, 13.5]}
               }
             },
             {
@@ -3582,6 +3634,15 @@
                 "provider": "dwd",
                 "network": "observation",
                 "stations": {"any_of": ["01975", "00433", "03987", "02564"]}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [52.2, 54.5]},
+                "longitude": {"between": [9.8, 13.5]}
               }
             }
           ]
@@ -3607,6 +3668,17 @@
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/temperature_air_max_2m", "daily/climate_summary", "daily/kl"]},
                 "name": {"regex": "(?i)(hamburg|tempelhof|potsdam|kiel)"},
+                "timestamp": {"on_date": "2025-07-02"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_max_2m", "daily/climate_summary", "daily/kl"]},
+                "latitude": {"between": [52.2, 54.5]},
+                "longitude": {"between": [9.8, 13.5]},
                 "timestamp": {"on_date": "2025-07-02"}
               }
             }
@@ -3735,7 +3807,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "Several stations in one answer: the rows of four stations sit in one table, and a model may give one station's figure to another. Truth, computed on 2026-11-25 without wetterdienst, from DWD's daily climate files (tageswerte_KL_<id>_..._20251231_hist.zip, TXK of 2025-07-02): Hamburg-Fuhlsbüttel 01975 35.3, Berlin-Tempelhof 00433 37.6, Potsdam 03987 38.8, Kiel-Holtenau 02564 33.1 degrees Celsius. A closed day (the hot day of 2 July 2025, in the historical files). The names are the DWD station names; 'Berlin-Tempelhof' and 'Potsdam' lie 25 km apart, so a point near Berlin finds both."
+      "notes": "Several stations in one answer: the rows of four stations sit in one table, and a model may give one station's figure to another. Truth, computed on 2026-11-25 without wetterdienst, from DWD's daily climate files (tageswerte_KL_<id>_..._20251231_hist.zip, TXK of 2025-07-02): Hamburg-Fuhlsbüttel 01975 35.3, Berlin-Tempelhof 00433 37.6, Potsdam 03987 38.8, Kiel-Holtenau 02564 33.1 degrees Celsius. A closed day (the hot day of 2 July 2025, in the historical files). The names are the DWD station names; 'Berlin-Tempelhof' and 'Potsdam' lie 25 km apart, so a point near Berlin finds both. Drift: these are the values of DWD's historical files (QN_4 9 or 10); if the judge's reference call returns another number than `expected`, DWD has revised the file: judge `drift`, not a failure of the model."
     },
     {
       "id": "values-missing-sunshine-tempelhof",
@@ -3771,6 +3843,15 @@
             {
               "tool": "values",
               "args": {"provider": "dwd", "network": "observation", "stations": {"any_of": ["00433", "03987"]}}
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "latitude": {"between": [52.2, 52.6]},
+                "longitude": {"between": [12.9, 13.5]}
+              }
             }
           ]
         },
@@ -3795,6 +3876,17 @@
                 "network": "observation",
                 "parameters": {"any_of": ["daily/climate_summary/sunshine_duration", "daily/climate_summary", "daily/kl"]},
                 "name": {"regex": "(?i)(tempelhof|potsdam)"},
+                "timestamp": {"on_date": "2025-07-02"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/sunshine_duration", "daily/climate_summary", "daily/kl"]},
+                "latitude": {"between": [52.2, 52.6]},
+                "longitude": {"between": [12.9, 13.5]},
                 "timestamp": {"on_date": "2025-07-02"}
               }
             }
@@ -3862,14 +3954,14 @@
           "description": "the answer says in its own words that there is no reading, no data or no measurement (the wording is free)",
           "kind": "answer_regex",
           "any_of": [
-            "(?i)\\b(missing|incomplete|gaps?|lacks?|lacking|not complete|unavailable|without (a |any )?(reading|measurement|value|data)s?|no (reading|measurement|value|data|record|sunshine)s?|not (measured|recorded|available|reported))\\b",
-            "(?i)(fehl\\w*|unvollst\\w+|l[üu]cke\\w*|nicht vollst\\w+|keine? (messung|messwert\\w*|daten|wert\\w*|angabe\\w*|sonnenschein\\w*)|nicht (gemessen|erfasst|verf[üu]gbar|vorhanden))"
+            "(?i)\\b(missing|unavailable|absent|no row|no (sunshine (duration )?)?(reading|measurement|value|data|record)s?|no sunshine duration (for|on|recorded|measured|available)|(does not|doesn't|did not|didn't|do not|don't) (measure|record|report)|not (measured|recorded|available|reported)|has none)\\b",
+            "(?i)(fehl\\w*|\\bkeine?n? (messung|messwert\\w*|daten|wert\\w*|angabe\\w*|sonnenscheindauer\\w*)|nicht (gemessen|erfasst|verf[üu]gbar|vorhanden))"
           ]
         }
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "A missing value in a table with another station's value: the rows of the station that has none are dropped (`drop_nulls`), so the answer holds one row (Potsdam) and a warning (`parameter-without-rows`, `missing-value-marker`), and a model may read the one row as both stations' or as Tempelhof's. Truth, computed on 2026-11-25 without wetterdienst, from DWD's daily climate files (tageswerte_KL_03987_18930101_20251231_hist.zip and tageswerte_KL_00433_19480101_20251231_hist.zip, column SDK): Potsdam 03987 on 2025-07-02 is 14.500 h; Berlin-Tempelhof 00433 has -999 (DWD's missing value) in SDK on every day of 2025, the station measures no sunshine. The answer that gives Tempelhof no figure and says why is right, whether it gives Potsdam's value or names a station near Tempelhof that measures it (not part of the facts)."
+      "notes": "A missing value in a table with another station's value: the rows of the station that has none are dropped (`drop_nulls`), so the answer holds one row (Potsdam) and a warning (`parameter-without-rows`, `missing-value-marker`), and a model may read the one row as both stations' or as Tempelhof's. Truth, computed on 2026-11-25 without wetterdienst, from DWD's daily climate files (tageswerte_KL_03987_18930101_20251231_hist.zip and tageswerte_KL_00433_19480101_20251231_hist.zip, column SDK): Potsdam 03987 on 2025-07-02 is 14.500 h; Berlin-Tempelhof 00433 has -999 (DWD's missing value) in SDK on every day of 2025, the station measures no sunshine. The answer that gives Tempelhof no figure and says why is right, whether it gives Potsdam's value or names a station near Tempelhof that measures it (not part of the facts). A `0 h` or `no sunshine` for Tempelhof is no statement of a missing reading: `says-no-reading` must not pass on it, and `tempelhof-has-no-value` fails it. Drift: these are the values of DWD's historical files (QN_4 9 or 10); if the judge's reference call returns another number than `expected`, DWD has revised the file: judge `drift`, not a failure of the model."
     }
   ]
 }

@@ -5857,6 +5857,47 @@ FOUR_STATIONS = "01975,00433,03987,02564"
         ("issues-mosmix-hamburg", [("issues", {**MOSMIX_10147, "dataset": "large"})], ["lists-the-runs"], []),
         ("issues-mosmix-hamburg", [("issues", {**MOSMIX_10147, "dataset": "small"})], [], ["lists-another-product"]),
         ("issues-mosmix-hamburg", [("issues", {**MOSMIX_10147, "station": "01975"})], [], []),
+        # the first checkpoints take a point as well as a name or an id, with the same box as `stations`
+        (
+            "statistics-frost-days-potsdam",
+            [
+                (
+                    "statistics",
+                    {**DWD_OBS, "parameters": MIN_TEMPERATURE, "latitude": 52.4, "longitude": 13.06, "rank": 1},
+                )
+            ],
+            ["finds-potsdam", "counts-the-frost-days"],
+            [],
+        ),
+        (
+            "statistics-frost-days-potsdam",
+            [("values", {**DWD_OBS, "parameters": MIN_TEMPERATURE, "latitude": 52.4, "longitude": 13.06})],
+            ["finds-potsdam"],
+            [],
+        ),
+        (
+            "statistics-incomplete-year-hamburg",
+            [
+                (
+                    "statistics",
+                    {**DWD_OBS, "parameters": PRECIPITATION, "latitude": 53.63, "longitude": 9.99, "distance": 5},
+                )
+            ],
+            ["finds-hamburg", "reads-the-year"],
+            [],
+        ),
+        (
+            "statistics-incomplete-year-hamburg",
+            [("values", {**DWD_OBS, "parameters": PRECIPITATION, "latitude": 53.63, "longitude": 9.99})],
+            ["finds-hamburg"],
+            [],
+        ),
+        (
+            "statistics-incomplete-year-hamburg",
+            [("statistics", {**DWD_OBS, "parameters": PRECIPITATION, "latitude": 48.1, "longitude": 11.6})],
+            [],
+            [],
+        ),
         # a long list of stations: the state by its name, or a box (whatever it takes in)
         (
             "stations-thueringen-2025",
@@ -5958,10 +5999,58 @@ FOUR_STATIONS = "01975,00433,03987,02564"
             ["find-stations"],
             [],
         ),
+        # the four stations by a point: Kiel to Potsdam spans to 13.5 degrees east
+        (
+            "values-four-stations-2025-07-02",
+            [("stations", {**DWD_OBS, "parameters": "daily/kl", "latitude": 52.4, "longitude": 13.5, "rank": 20})],
+            ["find-stations"],
+            [],
+        ),
+        (
+            "values-four-stations-2025-07-02",
+            [
+                (
+                    "values",
+                    {
+                        **DWD_OBS,
+                        "parameters": MAX_TEMPERATURE,
+                        "latitude": 53.0,
+                        "longitude": 12.0,
+                        "rank": 4,
+                        "timestamp": "2025-07-02",
+                    },
+                )
+            ],
+            ["find-stations", "reads-the-maxima"],
+            [],
+        ),
+        (
+            "values-four-stations-2025-07-02",
+            [("stations", {**DWD_OBS, "parameters": "daily/kl", "latitude": 52.4, "longitude": 13.6})],
+            [],
+            [],
+        ),
         # a missing value beside a value
         (
             "values-missing-sunshine-tempelhof",
             [("values", {**DWD_OBS, "parameters": SUNSHINE, "stations": "00433,03987", "timestamp": "2025-07-02"})],
+            ["find-stations", "reads-the-sunshine"],
+            [],
+        ),
+        (
+            "values-missing-sunshine-tempelhof",
+            [
+                (
+                    "values",
+                    {
+                        **DWD_OBS,
+                        "parameters": SUNSHINE,
+                        "latitude": 52.45,
+                        "longitude": 13.3,
+                        "timestamp": "2025-07-02",
+                    },
+                )
+            ],
             ["find-stations", "reads-the-sunshine"],
             [],
         ),
@@ -6019,6 +6108,8 @@ def test_every_new_case_has_a_truth_with_its_source_and_a_judge_call_for_every_n
         assert "without wetterdienst" in notes, case_id
         assert source in notes, (case_id, source)
         assert number in notes, (case_id, number)
+        if source.startswith("tageswerte_KL_"):
+            assert "Drift:" in notes, f"{case_id} rests on revisable DWD files and says what a drift is"
         for fact in cases[case_id]["facts"]:
             if fact["kind"].startswith("ground_truth"):
                 assert "expected" in fact, (case_id, fact["id"])

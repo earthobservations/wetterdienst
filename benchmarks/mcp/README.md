@@ -12,7 +12,7 @@ something is unclear or breaks. Told *"run a comparison of branch X against base
 Part 8 unless you are given another): **none yet.** The cases changed with the re-baseline of #4318 (a case dropped a forbidden
 rule, the judging of a forecast figure at the current hour changed, and a case was added) and again with the cases of
 #4445 (nine cases for the tools nobody asked about, and the prompt names all 15 tools: 37 cases that need no key, hash of
-`cases.json` and of the prompt changed), so a file of the old cases is no baseline for a run of these (`compare` leaves the changed cases out and the new ones have no counterpart). The last
+`cases.json` and of the prompt changed), so a file of the old cases is no baseline for a run of these: `compare` refuses a file made with the old prompt (exit 4, the prompt hash differs), and for a file with the same prompt it leaves out the cases whose hash changed (the new ones have no counterpart in an old file). The last
 reference of the **old** cases is the strategy-4 comparison run of #4030, a secret gist,
 <https://gist.github.com/gutzbenj/c1e6f5f10d6716da4355230204a0cae3>, made with the server at label `11d3c1419` (it stays as the
 record of strategies 1 to 4, not as a baseline). **A new baseline of `main` after the PR of the cases of #4445 is the
