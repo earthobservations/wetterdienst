@@ -285,7 +285,8 @@ releases after a `/api/v2` exists is written down and not held by a test.
 The endpoint is `/mcp/v1`, and `/mcp` is its alias for the current version, as `/api` is for `/api/v1`. The tools
 are the REST routes, generated from them: a tool has the name given in the table of the [MCP page](mcp.md#the-tools),
 the arguments are the query parameters of its route with the same names but for those only REST needs (`pretty`, the
-size and scale of an image, the skip options of `values`; see below), and the answer is the REST answer.
+size and scale of an image) and the skip options of `values`, which models did not use (see below), and the answer is
+the REST answer.
 
 - A breaking change of a tool (its name, an argument, the answer) comes with `/mcp/v2`, and `/mcp/v1` keeps serving the
   tools as they were for at least two minor releases, announced in the changelog.
@@ -295,8 +296,8 @@ size and scale of an image, the skip options of `values`; see below), and the an
   dropped from their schemas (GH-4318), are let go by the tools whose routes had them, since they change nothing of a
   data answer. A `width`, `height` or `scale` with a value and a `format` the tool does not offer (a chart format
   among them, which the tools no longer offer) are refused, naming the formats the tool answers. The same holds for
-  `skip_empty`, `skip_threshold` and `skip_criteria` of `values` (GH-4471): `null` or the default is let go, any other
-  value is refused with what to do instead. Those removals are breaks of `/mcp/v1` made before 1.0.0, **Breaking** in
+  `skip_empty`, `skip_threshold` and `skip_criteria` of `values` (GH-4471), dropped because models did not use them:
+  `null` or the value the server itself uses is let go, any other value is refused with what the server does. Those removals are breaks of `/mcp/v1` made before 1.0.0, **Breaking** in
   the changelog and named in `ACCEPTED_BREAKS` of `tests/baselines/mcp.py`; after 1.0.0 they would be `/mcp/v2`.
 - The descriptions of the tools and the instructions the server gives are written for agents and are improved without
   a new version.

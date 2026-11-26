@@ -8,7 +8,7 @@ them. A call that still sends one is answered or refused as `ui.mcp._refuse_unkn
 value and `width`, `height` and `scale` as `null` (the default they had) are let go, by a tool whose route took them; a
 `width`, `height` or `scale` with a value, and a `format` the tool does not offer, are refused, with every other
 refusal of the call in the same error. `skip_empty`, `skip_threshold` and `skip_criteria` (`values`, GH-4471) are let
-go as `null` or at their default and refused at any other value.
+go as `null` or as the value the server uses (its `WD_TS_SKIP_*`) and refused at any other.
 
 Offline: the REST app is stood in for by one that answers every route with a csv and records the request it got, so
 that what is held is what the tool sends.
@@ -520,7 +520,7 @@ def test_only_values_had_the_skip_options_and_rest_still_takes_them_with_the_def
     assert {name: route[name]["schema"]["default"] for name in _SKIP_OPTIONS} == _SKIP_DEFAULTS
 
 
-def test_a_skip_option_at_its_default_or_null_is_answered_as_a_call_without_and_is_not_sent() -> None:
+def test_a_skip_option_at_the_servers_value_or_null_is_answered_as_a_call_without_and_is_not_sent() -> None:
     """A client that fills in the old schema's defaults is not refused for it, and the route never sees them."""
     app, seen = _stand_in()
     calls = [
@@ -541,38 +541,161 @@ def test_a_skip_option_at_its_default_or_null_is_answered_as_a_call_without_and_
     assert not set(_SKIP_OPTIONS) & set(seen[0])
 
 
+@pytest.mark.parametrize("spelled", ["false", "False", " FALSE ", "0", "no", "No", "off", "OFF", "f", "n", " n "])
+def test_a_false_spelled_as_the_route_reads_it_is_the_default_of_skip_empty(spelled: str) -> None:
+    """Pydantic's false spellings (as REST's query parser takes them) are let go like `false`: nothing is sent."""
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, "skip_empty": spelled})])
+
+    assert not result.is_error, result.content
+    assert "skip_empty" not in seen[0]
+
+
+@pytest.mark.parametrize("spelled", ["true", "yes", "on", "1", "t", "y", "maybe", "", "2"])
+def test_a_true_or_unknown_spelling_is_refused_where_the_server_skips_nothing(spelled: str) -> None:
+    """Only the false spellings are the default: any other is refused, a true one included."""
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, "skip_empty": spelled})])
+
+    assert result.is_error
+    assert result.content[0].text.startswith("skip_empty is not an argument of values: ")
+    assert seen == []
+
+
+#: what a call gets from a server with the defaults, and what it says of the option, as a refusal tells it
+_NO_STATION_LEFT_OUT = "This server leaves out no station: the answer has each station asked for, with the rows it has."
+_COUNT_YOURSELF = (
+    "To get the result asked for, count each station's readings against what the window holds and leave out those "
+    "below the share wanted, or call the REST API: /api/v1/values takes {option}."
+)
+
+
+@pytest.mark.parametrize(
+    ("option", "value", "was"),
+    [
+        (
+            "skip_empty",
+            True,
+            "left out the stations whose readings cover less of the window than `skip_threshold` asks",
+        ),
+        ("skip_empty", 0, "left out the stations whose readings cover less of the window than `skip_threshold` asks"),
+        (
+            "skip_empty",
+            "maybe",
+            "left out the stations whose readings cover less of the window than `skip_threshold` asks",
+        ),
+        ("skip_threshold", "0.5", "set the share of the window a station's readings had to cover to stay in"),
+        ("skip_threshold", "x", "set the share of the window a station's readings had to cover to stay in"),
+        ("skip_threshold", 0.5, "set the share of the window a station's readings had to cover to stay in"),
+        ("skip_threshold", 1, "set the share of the window a station's readings had to cover to stay in"),
+        ("skip_criteria", "mean", "chose how that share is judged across the parameters: by their min, mean or max"),
+        ("skip_criteria", "max", "chose how that share is judged across the parameters: by their min, mean or max"),
+        ("skip_criteria", "", "chose how that share is judged across the parameters: by their min, mean or max"),
+    ],
+)
+def test_a_skip_option_with_another_value_is_refused_with_what_the_server_does_and_how_to_get_the_result(
+    option: str,
+    value: Any,  # noqa: ANN401
+    was: str,
+) -> None:
+    """The whole text: the option and what it did, what this server does, what to do instead; nothing is requested.
+
+    A station with no rows is left out anyway, so the advice is to count each station's readings against the window,
+    which is what `skip_empty` did, or the REST API: not "leave out the stations without rows".
+    """
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, option: value})])
+
+    assert result.is_error
+    assert result.content[0].text == (
+        f"{option} is not an argument of values: it {was}, and the tool no longer takes it. "
+        f"{_NO_STATION_LEFT_OUT} {_COUNT_YOURSELF.format(option=option)}"
+    )
+    assert seen == []
+
+
+#: a server whose operator set the skip options in the environment
+_SKIPPING_SERVER = {"WD_TS_SKIP_EMPTY": "true", "WD_TS_SKIP_THRESHOLD": "0.5", "WD_TS_SKIP_CRITERIA": "max"}
+
+
+@pytest.fixture
+def skipping_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set the skip options of the server, which `Options()` reads for each call."""
+    for name, value in _SKIPPING_SERVER.items():
+        monkeypatch.setenv(name, value)
+
+
+@pytest.mark.usefixtures("skipping_server")
 @pytest.mark.parametrize(
     ("option", "value"),
     [
         ("skip_empty", True),
-        ("skip_empty", 0),
-        ("skip_empty", "true"),
-        ("skip_empty", "maybe"),
-        ("skip_threshold", "0.5"),
-        ("skip_threshold", "x"),
+        ("skip_empty", "yes"),
+        ("skip_empty", "On"),
         ("skip_threshold", 0.5),
-        ("skip_threshold", 1),
-        ("skip_criteria", "mean"),
+        ("skip_threshold", "0.5"),
         ("skip_criteria", "max"),
-        ("skip_criteria", ""),
     ],
 )
-def test_a_skip_option_with_another_value_is_refused_saying_how_to_get_the_same(
-    option: str,
-    value: Any,  # noqa: ANN401
-) -> None:
-    """The call is a tool error that names the option, what to do instead and the route; nothing is requested."""
+def test_the_value_a_skipping_server_uses_is_let_go_and_not_sent(option: str, value: Any) -> None:  # noqa: ANN401
+    """On a server that skips, what it does is the default: sending it changes nothing, and the route never gets it."""
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, option: value})])
+
+    assert not result.is_error, result.content
+    assert option not in seen[0]
+
+
+@pytest.mark.usefixtures("skipping_server")
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("skip_empty", False),
+        ("skip_empty", "false"),
+        ("skip_empty", "off"),
+        ("skip_threshold", 0.95),
+        ("skip_threshold", "0.95"),
+        ("skip_criteria", "min"),
+        ("skip_criteria", "mean"),
+    ],
+)
+def test_a_value_other_than_the_one_a_skipping_server_uses_is_refused_saying_so(option: str, value: Any) -> None:  # noqa: ANN401
+    """`skip_empty=false` on a server that skips would still skip: it is refused, and the text does not say it does not.
+
+    It was let go before, answered with the stations left out that the call asked to keep.
+    """
     app, seen = _stand_in()
 
     ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, option: value})])
 
     assert result.is_error
     text = result.content[0].text
-    assert text.startswith(f"{option} is not an argument of values: it was ")
-    assert "the tool answers every station it is asked for" in text
-    assert "Leave the stations without rows in `values` out of the answer yourself" in text
-    assert text.endswith(f"or call the REST API: /api/v1/values takes {option}.")
-    assert text.count("is not an argument") == 1
+    assert text.startswith(f"{option} is not an argument of values: it ")
+    assert (
+        "This server leaves out the stations whose readings cover less than 0.5 of the window "
+        "(judged by the max of the parameters), whatever the call says."
+    ) in text
+    assert "leaves out no station" not in text
+    assert "answer has each station asked for" not in text
+    assert text.endswith(_COUNT_YOURSELF.format(option=option))
+    assert seen == []
+
+
+def test_a_server_with_a_malformed_skip_setting_still_refuses_with_the_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The settings that cannot be read do not turn the refusal into an error: wetterdienst's defaults stand in."""
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, "skip_empty": True})])
+
+    assert result.is_error
+    assert _NO_STATION_LEFT_OUT in result.content[0].text
     assert seen == []
 
 

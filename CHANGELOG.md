@@ -95,11 +95,12 @@ Types of changes:
   share is 3,441). REST, the command line and Python are unchanged: ask the REST API for a chart
   (GH-4318)
 - **Breaking**: the MCP tool `values` no longer takes `skip_empty`, `skip_threshold` and
-  `skip_criteria`; a model never used them. A call that sends one as `null` or at its default is
-  answered as one without it; any other value is a tool error that says to leave the stations
-  without values out of the answer yourself, or to call the REST API, which takes them
-  (`/api/v1/values?skip_empty=true`). The input schemas of the tools are 718 of 57,504 characters
-  shorter. REST, the command line and Python are unchanged (GH-4471)
+  `skip_criteria`. A call that sends one as `null`, or as the value the server itself uses (its
+  `WD_TS_SKIP_*`, by default `false`, `0.95`, `min`), is answered as one without it; any other value
+  is a tool error that says what the server does. To get stations left out, count each station's
+  readings against what the window holds and drop those below the share you want, or call the REST
+  API (`/api/v1/values?skip_empty=true`). The input schemas of the tools are 718 of 57,504
+  characters shorter. REST, the command line and Python are unchanged (GH-4471)
 
 ### Fixed
 
