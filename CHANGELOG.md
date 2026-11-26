@@ -101,6 +101,9 @@ Types of changes:
   provider's form, an old name, or one written in the dataset's place gets the whole corrected
   string: `daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`, is
   `daily/data/temperature_air_mean_2m`. The "renamed to" texts are as before (GH-4466)
+- The floor of rapidfuzz is 3.7.0 (was 3.1.0): from 3.1 to 3.6 `import rapidfuzz.process` imports
+  numpy, which wetterdienst does not depend on and does not need to match station names; from 3.7
+  rapidfuzz no longer loads it through wetterdienst's name search (GH-4491)
 
 ### Fixed
 
