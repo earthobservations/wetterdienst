@@ -13,13 +13,13 @@ Offline: the routes are made to fail by what their reader raises.
 from __future__ import annotations
 
 import asyncio
-from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import pytest
 
 pytest.importorskip("fastmcp")
 
+import httpx2
 from fastapi import FastAPI, HTTPException, Response
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
@@ -77,7 +77,7 @@ def _tool_error(tool: str, arguments: dict[str, Any], app: FastAPI | None = None
 
 
 def _frame(tool: str, status: int, detail: str) -> str:
-    return f"Error calling tool '{tool}': HTTP error {status}: {HTTPStatus(status).phrase} - {detail}"
+    return f"Error calling tool '{tool}': HTTP error {status}: {httpx2.codes.get_reason_phrase(status)} - {detail}"
 
 
 @pytest.mark.parametrize(
