@@ -5780,3 +5780,339 @@ def test_an_inconclusive_rate_that_did_not_move_says_so() -> None:
     assert moved == "inconclusive"
     assert "unchanged" not in moved_text
     assert "unchanged" not in bench._non_inferiority("passed", 40, 40, 40, 40, 0.10)[1]  # noqa: SLF001
+
+
+# ------------------------------------------ the cases of GH-4445: the routes their checkpoints and rules accept
+
+DWD_OBS = {"provider": "dwd", "network": "observation"}
+MIN_TEMPERATURE = "daily/climate_summary/temperature_air_min_2m"
+FROST_ANNUAL = "annual/climate_indices/count_days_frost"
+PRECIPITATION = "daily/climate_summary/precipitation_amount"
+MAX_TEMPERATURE = "daily/climate_summary/temperature_air_max_2m"
+SUNSHINE = "daily/climate_summary/sunshine_duration"
+MOSMIX_10147 = {"provider": "dwd", "network": "mosmix", "station": "10147"}
+HAMBURG_DESIGN_RAIN = {"latitude": 53.55, "longitude": 10.0}
+MUNICH = {"latitude": 48.14, "longitude": 11.58}
+THURINGIA = {**DWD_OBS, "parameters": "daily/climate_summary"}
+FOUR_STATIONS = "01975,00433,03987,02564"
+
+
+@pytest.mark.parametrize(
+    ("case_id", "calls", "met", "violations"),
+    [
+        # kostra: the point is Hamburg; one duration is the narrow route and a second, unordered checkpoint
+        (
+            "kostra-hamburg-100-year-hour",
+            [("kostra", {**HAMBURG_DESIGN_RAIN, "duration": 60, "return_period": 100})],
+            ["reads-the-design-rain", "asks-one-duration"],
+            [],
+        ),
+        ("kostra-hamburg-100-year-hour", [("kostra", HAMBURG_DESIGN_RAIN)], ["reads-the-design-rain"], []),
+        (
+            "kostra-hamburg-100-year-hour",
+            [("kostra", {"latitude": 52.5, "longitude": 13.4, "duration": 60})],
+            ["asks-one-duration"],
+            [],
+        ),
+        ("kostra-hamburg-100-year-hour", [("values", {**DWD_OBS, "name": "Hamburg"})], [], ["fetches-measurements"]),
+        # station ids: the cross-provider search, or `stations` of a network that lists the code
+        ("station-ids-eddh", [("station_ids", {"icao_id": "EDDH"})], ["looks-up-the-code"], []),
+        ("station-ids-eddh", [("station_ids", {"icao_id": "eddh,EDDB"})], ["looks-up-the-code"], []),
+        (
+            "station-ids-eddh",
+            [("stations", {"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "icao_id": "EDDH"})],
+            ["looks-up-the-code"],
+            [],
+        ),
+        ("station-ids-eddh", [("station_ids", {"wmo_id": "10147"})], [], []),
+        (
+            "station-ids-eddh",
+            [("station_ids", {"icao_id": "EDDH"}), ("station_ids", {"icao_id": "EDDH"})],
+            ["looks-up-the-code"],
+            ["repeats-station-ids"],
+        ),
+        # storm cells: a place is the point or a box; none is every cell of Germany
+        (
+            "storm-cells-munich",
+            [("storm_cells", {**MUNICH, "distance": 30})],
+            ["reads-the-cells-of-munich"],
+            [],
+        ),
+        (
+            "storm-cells-munich",
+            [("storm_cells", {"left": 11.2, "bottom": 47.9, "right": 12.0, "top": 48.4})],
+            ["reads-the-cells-of-munich"],
+            [],
+        ),
+        ("storm-cells-munich", [("storm_cells", {})], [], ["reads-every-cell-of-germany"]),
+        ("storm-cells-munich", [("storm_cells", HAMBURG_DESIGN_RAIN)], [], []),
+        (
+            "storm-cells-munich",
+            [("alerts", {}), ("storm_cells", MUNICH)],
+            ["reads-the-cells-of-munich"],
+            ["reads-warnings-or-weather-instead"],
+        ),
+        # issues: MOSMIX-L is the default, `large` the same; the other products are another question
+        ("issues-mosmix-hamburg", [("issues", MOSMIX_10147)], ["lists-the-runs"], []),
+        ("issues-mosmix-hamburg", [("issues", {**MOSMIX_10147, "dataset": "large"})], ["lists-the-runs"], []),
+        ("issues-mosmix-hamburg", [("issues", {**MOSMIX_10147, "dataset": "small"})], [], ["lists-another-product"]),
+        ("issues-mosmix-hamburg", [("issues", {**MOSMIX_10147, "station": "01975"})], [], []),
+        # the first checkpoints take a point as well as a name or an id, with the same box as `stations`
+        (
+            "statistics-frost-days-potsdam",
+            [
+                (
+                    "statistics",
+                    {**DWD_OBS, "parameters": MIN_TEMPERATURE, "latitude": 52.4, "longitude": 13.06, "rank": 1},
+                )
+            ],
+            ["finds-potsdam", "counts-the-frost-days"],
+            [],
+        ),
+        (
+            "statistics-frost-days-potsdam",
+            [("values", {**DWD_OBS, "parameters": MIN_TEMPERATURE, "latitude": 52.4, "longitude": 13.06})],
+            ["finds-potsdam"],
+            [],
+        ),
+        (
+            "statistics-incomplete-year-hamburg",
+            [
+                (
+                    "statistics",
+                    {**DWD_OBS, "parameters": PRECIPITATION, "latitude": 53.63, "longitude": 9.99, "distance": 5},
+                )
+            ],
+            ["finds-hamburg", "reads-the-year"],
+            [],
+        ),
+        (
+            "statistics-incomplete-year-hamburg",
+            [("values", {**DWD_OBS, "parameters": PRECIPITATION, "latitude": 53.63, "longitude": 9.99})],
+            ["finds-hamburg"],
+            [],
+        ),
+        (
+            "statistics-incomplete-year-hamburg",
+            [("statistics", {**DWD_OBS, "parameters": PRECIPITATION, "latitude": 48.1, "longitude": 11.6})],
+            [],
+            [],
+        ),
+        # a long list of stations: the state by its name, or a box (whatever it takes in)
+        (
+            "stations-thueringen-2025",
+            [("stations", {**THURINGIA, "region": "Thüringen", "timestamp": "2025"})],
+            ["lists-the-stations"],
+            [],
+        ),
+        ("stations-thueringen-2025", [("stations", {**THURINGIA, "region": "thueringen"})], ["lists-the-stations"], []),
+        (
+            "stations-thueringen-2025",
+            [("stations", {**THURINGIA, "left": 9.8, "bottom": 50.2, "right": 12.7, "top": 51.7})],
+            ["lists-the-stations"],
+            [],
+        ),
+        ("stations-thueringen-2025", [("stations", {**THURINGIA, "region": "Hessen"})], [], []),
+        (
+            "stations-thueringen-2025",
+            [("values", {**DWD_OBS, "region": "Thüringen"})],
+            [],
+            ["reads-measurements-for-a-list"],
+        ),
+        # frost days: counted by `statistics`, or read from DWD's annual count; a daily series by `values` is neither
+        (
+            "statistics-frost-days-potsdam",
+            [
+                ("stations", {**DWD_OBS, "parameters": "daily/kl", "name": "Potsdam"}),
+                (
+                    "statistics",
+                    {**DWD_OBS, "parameters": MIN_TEMPERATURE, "stations": "03987", "timestamp": "2015/2024"},
+                ),
+            ],
+            ["finds-potsdam", "counts-the-frost-days"],
+            [],
+        ),
+        (
+            "statistics-frost-days-potsdam",
+            [("statistics", {**DWD_OBS, "parameters": "daily/kl", "name": "Potsdam", "timestamp": "2015/2024"})],
+            ["finds-potsdam", "counts-the-frost-days"],
+            [],
+        ),
+        (
+            "statistics-frost-days-potsdam",
+            [("values", {**DWD_OBS, "parameters": FROST_ANNUAL, "stations": "03987", "timestamp": "2015/2024"})],
+            ["finds-potsdam", "counts-the-frost-days"],
+            [],
+        ),
+        (
+            "statistics-frost-days-potsdam",
+            [("values", {**DWD_OBS, "parameters": MIN_TEMPERATURE, "stations": "03987", "timestamp": "2015"})],
+            ["finds-potsdam"],
+            [],
+        ),
+        # a year with nine days missing: a sum per year, DWD's annual value or the daily rows
+        (
+            "statistics-incomplete-year-hamburg",
+            [("statistics", {**DWD_OBS, "parameters": PRECIPITATION, "stations": "01975", "timestamp": "2023"})],
+            ["finds-hamburg", "reads-the-year"],
+            [],
+        ),
+        (
+            "statistics-incomplete-year-hamburg",
+            [("values", {**DWD_OBS, "parameters": "annual/climate_summary/precipitation_amount", "stations": "01975"})],
+            ["finds-hamburg", "reads-the-year"],
+            [],
+        ),
+        (
+            "statistics-incomplete-year-hamburg",
+            [("statistics", {**DWD_OBS, "parameters": PRECIPITATION, "stations": "03987", "timestamp": "2023"})],
+            [],
+            [],
+        ),
+        # several stations: one call with the ids or one call a station, on the day
+        (
+            "values-four-stations-2025-07-02",
+            [
+                (
+                    "values",
+                    {**DWD_OBS, "parameters": MAX_TEMPERATURE, "stations": FOUR_STATIONS, "timestamp": "2025-07-02"},
+                )
+            ],
+            ["find-stations", "reads-the-maxima"],
+            [],
+        ),
+        (
+            "values-four-stations-2025-07-02",
+            [
+                (
+                    "values",
+                    {**DWD_OBS, "parameters": MAX_TEMPERATURE, "name": "Kiel-Holtenau", "timestamp": "2025-07-02"},
+                ),
+                ("values", {**DWD_OBS, "parameters": MAX_TEMPERATURE, "name": "Potsdam", "timestamp": "2025-07-02"}),
+            ],
+            ["find-stations", "reads-the-maxima"],
+            [],
+        ),
+        (
+            "values-four-stations-2025-07-02",
+            [("values", {**DWD_OBS, "parameters": MAX_TEMPERATURE, "stations": "01975", "timestamp": "2025-07-03"})],
+            ["find-stations"],
+            [],
+        ),
+        # the four stations by a point: Kiel to Potsdam spans to 13.5 degrees east
+        (
+            "values-four-stations-2025-07-02",
+            [("stations", {**DWD_OBS, "parameters": "daily/kl", "latitude": 52.4, "longitude": 13.5, "rank": 20})],
+            ["find-stations"],
+            [],
+        ),
+        (
+            "values-four-stations-2025-07-02",
+            [
+                (
+                    "values",
+                    {
+                        **DWD_OBS,
+                        "parameters": MAX_TEMPERATURE,
+                        "latitude": 53.0,
+                        "longitude": 12.0,
+                        "rank": 4,
+                        "timestamp": "2025-07-02",
+                    },
+                )
+            ],
+            ["find-stations", "reads-the-maxima"],
+            [],
+        ),
+        (
+            "values-four-stations-2025-07-02",
+            [("stations", {**DWD_OBS, "parameters": "daily/kl", "latitude": 52.4, "longitude": 13.6})],
+            [],
+            [],
+        ),
+        # a missing value beside a value
+        (
+            "values-missing-sunshine-tempelhof",
+            [("values", {**DWD_OBS, "parameters": SUNSHINE, "stations": "00433,03987", "timestamp": "2025-07-02"})],
+            ["find-stations", "reads-the-sunshine"],
+            [],
+        ),
+        (
+            "values-missing-sunshine-tempelhof",
+            [
+                (
+                    "values",
+                    {
+                        **DWD_OBS,
+                        "parameters": SUNSHINE,
+                        "latitude": 52.45,
+                        "longitude": 13.3,
+                        "timestamp": "2025-07-02",
+                    },
+                )
+            ],
+            ["find-stations", "reads-the-sunshine"],
+            [],
+        ),
+        (
+            "values-missing-sunshine-tempelhof",
+            [("values", {**DWD_OBS, "parameters": "daily/kl", "name": "Potsdam", "timestamp": "2025-07-02"})],
+            ["find-stations", "reads-the-sunshine"],
+            [],
+        ),
+        (
+            "values-missing-sunshine-tempelhof",
+            [
+                (
+                    "summarize",
+                    {
+                        **DWD_OBS,
+                        "parameters": SUNSHINE,
+                        "latitude": 52.47,
+                        "longitude": 13.4,
+                        "timestamp": "2025-07-02",
+                    },
+                )
+            ],
+            [],
+            ["estimates-instead"],
+        ),
+    ],
+)
+def test_the_routes_the_cases_of_gh_4445_accept_and_the_rules_they_hold(
+    case_id: str, calls: list[tuple[str, dict[str, Any]]], met: list[str], violations: list[str]
+) -> None:
+    """Each valid route meets its checkpoints, a wrong one misses them, and the forbidden rules fire as they should."""
+    verdict = _evaluate_calls(case_id, *(_call(tool, args) for tool, args in calls))
+
+    assert verdict["checkpoints"]["met"] == met
+    assert verdict["violations"] == violations
+
+
+def test_every_new_case_has_a_truth_with_its_source_and_a_judge_call_for_every_number() -> None:
+    """The nine cases of GH-4445: closed ones carry numbers and source files; the others say how the judge verifies."""
+    cases = {c["id"]: c for c in bench.load_cases()["cases"]}
+    closed = {
+        "kostra-hamburg-100-year-hour": ("StatRR_KOSTRA-DWD-2020_D00060", "083144"),
+        "station-ids-eddh": ("mosmix_stationskatalog", "10147"),
+        "stations-thueringen-2025": ("Beschreibung_Stationen", "28"),
+        "statistics-frost-days-potsdam": ("tageswerte_KL_03987", "JA_FROSTTAGE"),
+        "statistics-incomplete-year-hamburg": ("tageswerte_KL_01975", "926.3"),
+        "values-four-stations-2025-07-02": ("tageswerte_KL_", "38.8"),
+        "values-missing-sunshine-tempelhof": ("tageswerte_KL_", "-999"),
+    }
+    by_the_day = ("storm-cells-munich", "issues-mosmix-hamburg")
+
+    for case_id, (source, number) in closed.items():
+        notes = cases[case_id]["notes"]
+        assert "without wetterdienst" in notes, case_id
+        assert source in notes, (case_id, source)
+        assert number in notes, (case_id, number)
+        if source.startswith("tageswerte_KL_"):
+            assert "Drift:" in notes, f"{case_id} rests on revisable DWD files and says what a drift is"
+        for fact in cases[case_id]["facts"]:
+            if fact["kind"].startswith("ground_truth"):
+                assert "expected" in fact, (case_id, fact["id"])
+    for case_id in by_the_day:
+        assert "judge" in json.dumps(cases[case_id]["facts"]), case_id
+    assert "$subject_snapshot" in json.dumps(cases["storm-cells-munich"]["facts"])
