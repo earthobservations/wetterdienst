@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import io
 import json
+import os
 import re
 import struct
 import subprocess
@@ -20,6 +21,7 @@ import sys
 import textwrap
 import xml.etree.ElementTree as ET
 from importlib import resources
+from pathlib import Path
 from typing import Any
 
 import polars as pl
@@ -437,6 +439,17 @@ def test_timestamps_of_another_zone_are_the_same_instants_in_utc() -> None:
     assert "+01:00" not in csv
 
 
+def _bare_environment() -> dict[str, str]:
+    """Give a fresh process the environment to import this repository's `tests` and `wetterdienst` and nothing else.
+
+    The root is found as a path, not by cutting text, so it is right on Windows too, which also needs `SYSTEMROOT`
+    for a process to start its sockets and random numbers.
+    """
+    root = str(Path(pytest.importorskip("tests").__path__[0]).parent)
+    kept = {name: os.environ[name] for name in ("SYSTEMROOT", "TEMP", "TMP") if name in os.environ}
+    return {**kept, "PYTHONPATH": root, "PATH": ""}
+
+
 # --- what it draws and what it fetches -------------------------------------------------------------------------------
 
 
@@ -455,11 +468,10 @@ def test_no_pandas_is_needed_and_no_file_is_written(tmp_path: Any) -> None:  # n
         print(sorted(name for name in ("pandas", "pyarrow", "numpy") if name in sys.modules))
         """
     )
-    root = str(pytest.importorskip("tests").__path__[0]).rsplit("/tests", 1)[0]
     done = subprocess.run(  # noqa: S603
         [sys.executable, "-c", code],
         cwd=tmp_path,
-        env={"PYTHONPATH": root, "PATH": ""},
+        env=_bare_environment(),
         capture_output=True,
         text=True,
         check=False,
@@ -852,11 +864,10 @@ def test_a_picture_writes_nothing_to_stderr(tmp_path: Any) -> None:  # noqa: ANN
                 render_image(chart, fmt)
         """
     )
-    root = str(pytest.importorskip("tests").__path__[0]).rsplit("/tests", 1)[0]
     done = subprocess.run(  # noqa: S603
         [sys.executable, "-c", code],
         cwd=tmp_path,
-        env={"PYTHONPATH": root, "PATH": ""},
+        env=_bare_environment(),
         capture_output=True,
         text=True,
         check=False,
