@@ -24,6 +24,10 @@ Types of changes:
 
 ### Changed
 
+- An MCP tool's error says more of what failed: the 502 for an answer a tool does not carry names
+  the formats of the tool that was called (`interpolate` and `summarize` answer `json`, `geojson`
+  or `csv`, no `ndjson`), and the text of a 500 ends with `Request id: <id>`, the one the server
+  log names (the REST problem has it as `request_id`), to quote to the operator (GH-4469)
 - **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
   (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `webp`, `svg` or
   `pdf` on `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
