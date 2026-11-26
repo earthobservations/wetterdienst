@@ -589,8 +589,12 @@ describe('what the texts say about which provider has which parameter', () => {
     })
 
     it('has no flag for the providers the entry says return none, and QN for DWD\'s observation', () => {
-      const row = flags.split('\n').find(line => line.startsWith('| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Geosphere, Météo-France synop |'))
+      const lines = flags.split('\n')
+      const row = lines.find(line => line.startsWith('| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Météo-France synop |'))
       expect(row).toContain('| null (apart from the `suspect:`/`rejected:` and `raw:` tokens)')
+      // Geosphere has a flag of its own (q21) that this library does not read yet (GH-4480): its answers have none either
+      const geosphere = lines.find(line => line.startsWith('| Geosphere |'))
+      expect(geosphere).toContain('| null (apart from the `suspect:`/`rejected:` and `raw:` tokens)')
       expect(flags).toContain('| DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null')
       expect(flags).toMatch(/\| DWD observation \| `QN`, the quality control level/)
     })

@@ -7646,7 +7646,19 @@
             },
             "type": "array",
             "title": "Legend",
-            "description": "What the tokens of `quality_flags` mean for this network, in the order of the column: the source's own flag, its further kinds, and `raw` last. Empty for a network whose readings carry no flag."
+            "description": "What the tokens of `quality_flags` mean for this network, in the order of the column: the source's own flag, its further kinds, and `raw` last. For DWD's observation network the source's own flag (the quality level QN) lists the levels of the datasets read, with DWD's words and the documents they are from."
+          },
+          "source_flag_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Flag Note",
+            "description": "Said where this library carries no quality flag of the source, so that `quality_flags` holds only its own tokens (a source may still publish one that is not read yet, which the note says); null where it carries one."
           }
         },
         "additionalProperties": false,
