@@ -36,6 +36,12 @@ Types of changes:
   an upstream error at 1,000 characters (`… (truncated)`) from 4.1.5, so the list of available
   parameters in the answer to a wrong parameter name is shortened for providers with many (`dwd`
   `mosmix`, `noaa` `ghcn`); `coverage` lists them all (GH-4384)
+- The error of an unknown resolution, dataset or parameter name names the closest names first,
+  then how many there are and that `coverage` lists them all, in under 1,000 characters on every
+  provider and network (`noaa` `ghcn` was 8,148). A parameter in the form of another provider
+  (`daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`) is answered
+  with the whole corrected string, `daily/data/temperature_air_mean_2m`. The "renamed to" texts
+  and the exception types are as before (GH-4466)
 
 ### Security
 
