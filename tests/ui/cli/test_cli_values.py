@@ -1436,6 +1436,48 @@ def test_cli_a_package_missing_after_the_values_were_collected_is_one_line(
     assert all(record.exc_info is None for record in caplog.records)
 
 
+def test_the_tests_of_the_command_line_run_with_the_rest_setting_as_the_host_has_it() -> None:
+    """The hook of `tests/ui/conftest.py` switches the REST API's charts on for its tests, not for these (GH-4461)."""
+    import os  # noqa: PLC0415
+
+    from tests.ui.conftest import AMBIENT_PLOTTING  # noqa: PLC0415
+
+    assert os.environ.get("WD_RESTAPI_PLOTTING") == AMBIENT_PLOTTING
+
+
+@pytest.mark.parametrize("fmt", ["png", "html"])
+def test_cli_draws_a_chart_with_the_charts_of_the_rest_api_off(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """`WD_RESTAPI_PLOTTING` is the REST API's: with it false the command line draws a chart as ever (GH-4461).
+
+    The image is stood in for; what is held is that the command asks `to_format` for it and exits 0.
+    """
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "false")
+    asked: list[dict[str, object]] = []
+
+    def render(**kwargs: object) -> bytes:
+        asked.append(kwargs)
+        return b"<html></html>" if kwargs["fmt"] == "html" else b"\x89PNG"
+
+    values = SimpleNamespace(df=pl.DataFrame({"value": [1.0]}), to_format=render)
+    monkeypatch.setattr("wetterdienst.ui.cli.get_values", lambda **_kwargs: values)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            "--parameters=daily/kl",
+            "--stations=00011",
+            "--periods=recent",
+            f"--format={fmt}",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert [call["fmt"] for call in asked] == [fmt]
+
+
 @pytest.mark.parametrize(
     ("provider", "network", "parameters", "setting"),
     [

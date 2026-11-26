@@ -599,7 +599,6 @@
     "formatJson": "JSON-format (standard)",
     "formatCsv": "CSV-format",
     "formatGeojson": "GeoJSON-format til kort",
-    "formatHtml": "HTML-tabelformat",
     "commonParamsTitle": "Almindelige parametre",
     "paramHeader": "Parameter",
     "descHeader": "Beskrivelse",
@@ -631,7 +630,7 @@
       "parameters": "Parametersti (f.eks. daily/kl/temperature_air_mean_2m)",
       "stations": "Stations-id'er, adskilt af kommaer",
       "timestamp": "Dato eller datointerval (f.eks. 2020-01-01/2020-12-31)",
-      "format": "Outputformat (json, csv, geojson, html)"
+      "format": "Outputformat (json, csv, geojson)"
     }
   },
   "glossary": {

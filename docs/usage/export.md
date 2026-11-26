@@ -183,7 +183,8 @@ routes and MCP tools that return a result; `alerts` and `history` have fewer for
 with their own commands. A file target is chosen by its extension, not by a format, so it has its own column.
 `tests/test_export_formats.py` holds this table to the code: a format that a surface takes and the table leaves
 out, or the other way round, fails it. The MCP tools take no chart format: their schemas lack the options that only
-REST needs (see [what a tool does not take](mcp.md#what-a-tool-does-not-take)).
+REST needs (see [what a tool does not take](mcp.md#what-a-tool-does-not-take)). The REST column is what the routes
+take: a server answers the charts in it only where `WD_RESTAPI_PLOTTING=true` ([Charts](restapi.md#charts)).
 
 | Format | `to_format` | `to_target` file | CLI `--format` | REST `format` | MCP `format` |
 | --- | --- | --- | --- | --- | --- |

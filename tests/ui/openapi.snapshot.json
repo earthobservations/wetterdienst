@@ -1881,11 +1881,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -2002,6 +2002,9 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -2952,11 +2955,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -3532,6 +3535,9 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -4609,11 +4615,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf).",
+              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf)."
+            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403."
           },
           {
             "name": "with_metadata",
@@ -4743,6 +4749,9 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -5139,11 +5148,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf).",
+              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf)."
+            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403."
           },
           {
             "name": "with_metadata",
@@ -5273,6 +5282,9 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -12420,7 +12432,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-quota-exhausted`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `charts-disabled`, `host-not-allowed`, `origin-not-allowed`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-quota-exhausted`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -12447,7 +12459,7 @@
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             },
-            "description": "The invalid parameters, each with the `loc` of its parameter, of a 422."
+            "description": "The invalid parameters, each with the `loc` of its parameter, of a 422; the `format` of a `charts-disabled`, with the `formats` the server answers in its `ctx`."
           },
           "limit": {
             "type": "string",
@@ -12504,6 +12516,16 @@
     "responses": {
       "BadRequest": {
         "description": "Bad Request. The body is a problem (`Problem`) of one of the kinds:\n\n- `request-refused`: The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range.\n- `limit-exceeded`: The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows`, `groups`, `series` or `image_points`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it.\n- `image-too-large`: A chart would be longer than 8192 px on a side.\n- `host-not-allowed`: The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists.\n- `origin-not-allowed`: The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden. The body is a problem (`Problem`) of one of the kinds:\n\n- `charts-disabled`: The request asks for a chart (`html`, `png`, `jpg`, `svg` or `pdf`) and this server draws none (`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, or ask whoever runs the server to switch charts on.",
         "content": {
           "application/problem+json": {
             "schema": {

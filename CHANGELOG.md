@@ -16,6 +16,44 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
+  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `svg` or `pdf` on
+  `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
+  `charts-disabled`, before anything is read, that names the formats the server answers. A chart is
+  drawn by vl-convert in the server's process, which it holds while it draws: the server answers
+  nothing else meanwhile (about 5 s for a chart of 100,000 points). On your own server set the
+  variable to keep the charts, or ask for `json`, `geojson` or `csv`. The library, the command
+  line, the MCP tools and the web app are unchanged (GH-4461)
+- **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for values, a
+  `LayerChart` for the station map), no longer a Plotly figure. The `plotting` extra is `altair`
+  and `vl-convert-python` now, with no Chrome. Where you called Plotly methods on the figure
+  (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image exactly
+  `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a
+  Vega-Embed page with zoom and pan along time. vl-convert has no wheel for musllinux, Windows
+  ARM64 or a free-threaded Python (GH-3238)
+- **Breaking**: `webp` is no longer an image format: REST `format=`, `--format` and `to_format`
+  take `html`, `png`, `jpg`, `svg` and `pdf`. Ask for `png` and convert it (GH-3238)
+- **Breaking**: `ImageTimeoutError`, the REST problem `image-timeout`, `render_image(timeout=)`
+  and `IMAGE_TIMEOUT` are removed: there is no browser that can hang. `require_kaleido` is
+  `require_vl_convert` (GH-3238)
+- Where REST charts are on, a chart of more than 100,000 points (an image or `html`, which embeds
+  them) is refused with a 400 `limit-exceeded`, `limit` `image_points`: vl-convert 1.9 holds the
+  interpreter while it draws. The Python API and the CLI have no limit (GH-3238)
+- Images are drawn in the process by vl-convert, in 0.1 to 1 s where Kaleido started a Chrome for
+  each: the Docker image installs none. They are exactly `width` x `height` pixels (times `scale`),
+  and a series of more than 5000 rows is drawn. The look changes: Liberation Sans for all text,
+  and the station map draws the country borders of Natural Earth 1:50m (shipped, nothing fetched)
+  where it drew OpenStreetMap tiles (GH-3238)
+
+### Fixed
+
+- A command that drew an image no longer hangs when it exits: the images are drawn without
+  Kaleido, so there is no Chrome to close (GH-3742)
+
+## [0.200.0] - 2026-11-25
+
 ### Added
 
 - A parameter's name is a column of `filter` and `sort` (REST, MCP, command line, Python):
@@ -62,34 +100,14 @@ Types of changes:
   `jpg`, `webp`, `svg` and `pdf`. A call that still sends `pretty`, or a `null` size option, is
   answered as one without; a size with a value and a `format` the tool does not offer are tool
   errors that say what the tool answers: charts through the tools are gone.
-  The input schemas shrink by 3,441 of 54,314 characters. REST, the command line and Python are
-  unchanged: ask the REST API for a chart (GH-4318)
-- **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for values, a
-  `LayerChart` for the station map), no longer a Plotly figure. The `plotting` extra is `altair`
-  and `vl-convert-python` now, with no Chrome. Where you called Plotly methods on the figure
-  (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image exactly
-  `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a
-  Vega-Embed page with zoom and pan along time. vl-convert has no wheel for musllinux, Windows
-  ARM64 or a free-threaded Python (GH-3238)
-- **Breaking**: `webp` is no longer an image format: REST `format=`, `--format` and `to_format`
-  take `html`, `png`, `jpg`, `svg` and `pdf`. Ask for `png` and convert it (GH-3238)
-- **Breaking**: `ImageTimeoutError`, the REST problem `image-timeout`, `render_image(timeout=)`
-  and `IMAGE_TIMEOUT` are removed: there is no browser that can hang. `require_kaleido` is
-  `require_vl_convert` (GH-3238)
-- REST refuses a chart of more than 100,000 points (an image or `html`, which embeds them) with a
-  400 `limit-exceeded`, `limit` `image_points`: vl-convert 1.9 holds the interpreter while it
-  draws, so the server answers nothing else meanwhile. The Python API and the CLI have no limit
-  (GH-3238)
-- Images are drawn in the process by vl-convert, in 0.1 to 1 s where Kaleido started a Chrome for
-  each: the Docker image installs none. They are exactly `width` x `height` pixels (times `scale`),
-  and a series of more than 5000 rows is drawn. The look changes: Liberation Sans for all text,
-  and the station map draws the country borders of Natural Earth 1:50m (shipped, nothing fetched)
-  where it drew OpenStreetMap tiles (GH-3238)
+  The input schemas of the tools of 0.199.0 are 3,173 of 54,101 characters shorter (the options'
+  share is 3,441). REST, the command line and Python are unchanged: ask the REST API for a chart
+  (GH-4318)
 
 ### Fixed
 
-- A command that drew an image no longer hangs when it exits: the images are drawn without
-  Kaleido, so there is no Chrome to close (GH-3742)
+- Exports to a `duckdb://` file from several threads of a process run one after the other: on DuckDB 2
+  they could fail with `Table Function with name python_arrow_scan does not exist!` (GH-4457)
 - An MCP tool refuses an object (or a list that holds one) for an argument that takes no object,
   naming the argument: `values(shape={"format": "png"})` was sent to the route as `format=png`,
   past the refusal of the chart formats, and answered an image, a PDF or markup of any size. A tool
@@ -8674,7 +8692,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.200.0...HEAD
+[0.200.0]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...v0.200.0
 [0.199.0]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...v0.199.0
 [0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0
 [0.197.0]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...v0.197.0

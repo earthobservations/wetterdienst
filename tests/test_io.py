@@ -2221,6 +2221,61 @@ def test_export_duckdb_from_several_threads_into_one_file(tmp_path: Path) -> Non
     assert _duckdb_storage_version(filename) == 64
 
 
+def test_export_duckdb_is_one_connection_at_a_time(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exports of several threads never have two connections open, and one that fails lets go of its own.
+
+    Connections to one file share an instance of DuckDB, which on DuckDB 2 a thread can get before its functions are
+    registered (GH-4457).
+    """
+    pytest.importorskip("duckdb")
+    import threading  # noqa: PLC0415
+    import time  # noqa: PLC0415
+
+    from wetterdienst.io import sinks  # noqa: PLC0415
+
+    connect = sinks._connect_duckdb  # noqa: SLF001
+    counter = threading.Lock()
+    counts = {"open": 0, "most": 0}
+
+    class Counted:
+        def __init__(self, connection: Any) -> None:  # noqa: ANN401
+            self._connection = connection
+            with counter:
+                counts["open"] += 1
+                counts["most"] = max(counts["most"], counts["open"])
+            time.sleep(0.05)
+
+        def __getattr__(self, name: str) -> Any:  # noqa: ANN401
+            return getattr(self._connection, name)
+
+        def close(self) -> None:
+            self._connection.close()
+            with counter:
+                counts["open"] -= 1
+
+    monkeypatch.setattr(sinks, "_connect_duckdb", lambda duckdb, database: Counted(connect(duckdb, database)))
+    targets = [f"duckdb:///{tmp_path / name}?table=testdrive" for name in ("a.duckdb", "a.duckdb", "b.duckdb")]
+    _one_row("start").to_target(targets[0])
+    with pytest.raises(ExportRefusedError, match="already exists"):
+        _one_row("again").to_target(targets[0], if_exists="fail")
+    errors: list[BaseException] = []
+
+    def export(target: str) -> None:
+        try:
+            _one_row("01048").to_target(target, if_exists="append")
+        except BaseException as e:  # noqa: BLE001
+            errors.append(e)
+
+    workers = [threading.Thread(target=export, args=(target,)) for target in targets * 2]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(timeout=60)
+
+    assert errors == []
+    assert counts == {"open": 0, "most": 1}
+
+
 def test_export_duckdb_if_exists_skip(
     tmp_path: Path,
 ) -> None:

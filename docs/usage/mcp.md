@@ -128,7 +128,8 @@ which were part of the tool list of every session: `pretty`, the `width`, `heigh
 formats of a chart (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`). Nothing else is dropped (the `left`, `right`, `top` and
 `bottom` of a station box are arguments of the tools as they were). Charts are gone from the tools: a client that needs
 a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`, `/interpolate` and `/summarize` with
-`format=png` and the like, as do the command line and Python, which are unchanged.
+`format=png` and the like where its operator has switched charts on (`WD_RESTAPI_PLOTTING=true`, off by default, see
+[Charts](restapi.md#charts)), as do the command line and Python, which are unchanged.
 
 A call that still sends one of the options is answered like this, so that a client written for an earlier release
 keeps working where it can. Where the tool's route took the option:
@@ -141,7 +142,8 @@ keeps working where it can. Where the tool's route took the option:
   level, which let go would have been ignored.
 - a `format` that the tool does not offer is a tool error that names the formats the tool answers (`format=png is not
   offered by the tool values, which answers json, geojson, csv or ndjson. Charts are drawn by the REST API:
-  /api/v1/values takes format=png.`), whether it is a chart format (also in capitals, or with spaces round it) or any
+  /api/v1/values takes format=png.`, or `This server draws no charts.` where the server has charts off), whether it
+  is a chart format (also in capitals, or with spaces round it) or any
   other, such as `ndjson` for `interpolate`; so is a list of formats with such a one in it. Nothing is requested from
   the provider.
 - an object (or a list that holds one) for an argument that takes none, such as `shape={"format": "png"}`, is a tool

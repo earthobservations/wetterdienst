@@ -114,6 +114,11 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
 - **Timeout and concurrency:** 60 s (`WD_RESTAPI_TIMEOUT`, a 504), 32 requests at once (`WD_RESTAPI_MAX_CONCURRENT`, a
   503). A timed-out request's thread runs on but keeps its slot, so the cap bounds the threads. There is **no
   per-client rate limit**; that is the proxy's job (the app has one, `docs/usage/app.md`).
+- **No charts unless switched on.** A chart is drawn by vl-convert in the server's process, which it holds while it draws
+  (the server answers nothing else meanwhile), so the REST API refuses the
+  chart formats (`html`, `png`, `jpg`, `svg`, `pdf`) of `stations`, `values`, `interpolate` and `summarize` with
+  a 403 `charts-disabled`, before anything is read, unless `WD_RESTAPI_PLOTTING=true` (`docs/usage/restapi.md`,
+  `tests/ui/test_restapi_plotting.py`). The MCP tools offer no chart.
 - **No SQL.** The REST API and the MCP tools take no `sql` or `sql_values`: a caller's text is never run in
   DuckDB on the server (GHSA-332g-7w2w-4w59; `tests/ui/test_restapi.py`:
   `test_a_request_to_the_rest_api_does_not_import_duckdb`,
@@ -185,7 +190,8 @@ Archives are read in memory. Apart from the cache directory (below) and what the
 write (`--target`, `to_target`, an output path; no REST or MCP parameter reaches these), the files written are the BUFR
 message, in a private temporary directory that is removed afterwards (`util/eccodes.py`, `dwd/road`). A chart is drawn to
 an image (`png`, `jpg`, `svg`, `pdf`) by vl-convert in the process, with no browser and no file, and no address
-is let through to it (`allowed_base_urls=[]`: a chart holds all its data). Nothing is unpickled, evaluated or loaded from YAML that a
+is let through to it (`allowed_base_urls=[]`: a chart holds all its data); a REST request can start one where
+`WD_RESTAPI_PLOTTING=true` (it is off by default; the MCP tools draw no chart). Nothing is unpickled, evaluated or loaded from YAML that a
 caller or provider sent. The native parsers (eccodes, lxml, polars) are dependencies with advisories of their own. Wrong
 numbers from a provider are a data-quality problem, not a vulnerability (`tests/provider/physical_ranges.py` catches the
 sentinels it can).

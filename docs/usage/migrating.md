@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.199.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.199.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.200.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.200.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -14,13 +14,13 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 before 0.139.0, read the **Breaking** entries up to it first.
 
 The web app is released as a pair with the backend: `app-v0.60.0` is the app of 0.198.0 and works with
-0.199.0, where the stripes routes are gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number,
+0.200.0, where the stripes routes are gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number,
 WIGOS identifier or ICAO code, draws the stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
 per-element lists of `noaa/ghcn` of 0.194.0 for the stripes' station list, the `provider` and `network` of the stripes
 of 0.192.0, the stripes' `reference`, `stripe_class` and `anomaly` and the stations' `wmo_id` of 0.191.0, the dataset
 `hourly/snow` of `dwd/mosmix` for the snow panel of the forecast, and otherwise no more of the backend than
 `app-v0.47.0`, the app of 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads the separate
-`providers` and `coverage`; `app-v0.59.0` went with 0.196.0 and works with 0.199.0, `app-v0.58.0` with 0.195.0 and works
+`providers` and `coverage`; `app-v0.59.0` went with 0.196.0 and works with 0.200.0, `app-v0.58.0` with 0.195.0 and works
 with 0.196.0, `app-v0.57.0` with 0.194.0 and works with 0.195.0, `app-v0.56.0` with 0.193.0 and works with 0.194.0,
 `app-v0.55.0` and `app-v0.54.0` with 0.192.0, `app-v0.53.0` with 0.191.0, `app-v0.52.0` with 0.190.0, `app-v0.51.1` with
 0.189.1, `app-v0.51.0` with 0.189.0, `app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1, `app-v0.48.0` with 0.187.0
@@ -169,9 +169,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.199.0 renames by network, resolution and dataset.
+0.200.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.199.0.
+Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.200.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -397,7 +397,7 @@ to change.
 
 | Before | Now | Release, issue |
 | --- | --- | --- |
-| `format=webp` of `/api/stations`, `/api/values`, `/api/interpolate`, `/api/summarize` | `png`, `jpg`, `svg`, `pdf` or `html`: `webp` is a 422. A chart of more than 100,000 points, an image or `html`, is a 400 `limit-exceeded` (`limit` is `image_points`): ask for fewer stations or parameters, or a shorter `timestamp` | unreleased, GH-3238 |
+| `format=webp` of `/api/stations`, `/api/values`, `/api/interpolate`, `/api/summarize` | `png`, `jpg`, `svg`, `pdf` or `html`: `webp` is a 422. Where the server draws charts, a chart of more than 100,000 points, an image or `html`, is a 400 `limit-exceeded` (`limit` is `image_points`): ask for fewer stations or parameters, or a shorter `timestamp` | unreleased, GH-3238 |
 | `debug` on a REST endpoint (all but `version`, `settings` and `health`), which set the log level of the whole server process | a 422 of type `removed`, `debug was removed`: drop it; the level is the operator's (`logging.getLogger("wetterdienst")`, or `wetterdienst restapi --debug`) | 0.174.0, GH-3336 |
 | `date=` on `values`, `interpolate`, `summarize`, `alerts` | `timestamp=`: a 422 naming the new name | 0.142.0, GH-2438 |
 | `station=` as a list on `stations`, `values`, `history` | `stations=` (comma-separated); `station` there is refused naming the plural, while `parameter`, `period`, `resolution` and `dataset` are unknown parameters: no route had them in 0.139.0, which took the plurals already. The one reference `station` of `interpolate` and `summarize`, and the `station` of `issues` and `stripes`, stay | 0.156.0, GH-2561 |
@@ -411,6 +411,7 @@ to change.
 | `sql`, `sql_values` | a 403 (`sql-disabled`) unless the server runs with `WD_RESTAPI_SQL=true` | 0.140.0, GHSA-rpwr-qmm5-m9wp |
 | `sql`, `sql_values` of the REST API and the MCP tools, and the problem type `sql-disabled` (403) | removed: a 422 (a tool error) that says what to do. Select the stations with the filters of the route (`stations`, `name`, `wmo_id`, a point with `rank` or `distance`, a bounding box) or filter the rows of the answer yourself; the command line (`--sql`, `--sql-values`) and the library keep SQL | 0.198.0, GHSA-332g-7w2w-4w59 (Breaking) |
 | `values` for `all=true` on any network, any number of stations | refused with the 400 `limit-exceeded` over 100 stations or over the row limits (500,000 as one body; `format=ndjson` and `csv` stream to 10,000,000). Request fewer stations or a shorter `timestamp`, stream, or raise `WD_RESTAPI_MAX_STATIONS`, `WD_RESTAPI_MAX_ROWS`, `WD_RESTAPI_MAX_STREAM_ROWS` on your own server | 0.158.0, GH-3065 |
+| `format=html`, `png`, `jpg`, `svg` or `pdf` on `stations`, `values`, `interpolate` and `summarize` of the REST API | **Breaking**: a 403 problem of the kind `charts-disabled`, before anything is read, unless the server runs with `WD_RESTAPI_PLOTTING=true` (off by default; the hosted instance keeps it off). On your own server set the variable, or ask for `json`, `geojson` or `csv`; the library and the command line (`--format=png`) draw charts as before, and the MCP tools offer none | unreleased, GH-4461 |
 | a chart with a side over 8192 px | a 400 naming the limit (the library and the CLI are not limited) | 0.147.0, GH-2765 (not marked Breaking) |
 | `name` of only whitespace on `/api/alerts` (and the MCP tool `alerts`) answered every warning, the name read as none | **Breaking**: a 422 of type `blank_name` located at `name` (REST), a tool error (MCP); in Python a `RequestError`, on the command line a usage error of `--name`. An empty `name` is still none, and so is no `name`: leave it out to ask for all | 0.198.0, GH-4354 |
 
@@ -450,7 +451,7 @@ arguments are the query parameters. In addition:
 | the tools `values` and `stations` returned the whole answer, whatever its size | **Breaking**: an answer is cut to 40,000 characters, `metadata` included, in every format (a CSV or NDJSON answer is counted as the JSON the client receives), with an `answer-truncated` warning (for CSV also the `X-Wetterdienst-Truncated` header). `values` keeps whole timestamps, the end nearest to now or the start of a given `timestamp` window, and the note names the next window; `stations` without `name` keeps the first stations (the nearest, for a `rank` or a `distance`) and says how many match. Ask for a `timestamp` window, or use the REST API or the library for the whole answer; those are unchanged | 0.187.0, GH-4022, GH-4029, GH-4036 |
 | the tools `interpolate`, `summarize`, `stripes_stations` and `coverage` returned the whole answer | **Breaking**: the same 40,000-character cut. `interpolate` and `summarize` keep whole timestamps from the start of their `timestamp` window; `stripes_stations` keeps the first stations (give a station's name to `stripes_values` or `stripes_image`); `coverage` sends the parameters' `description` as null, then whole datasets in order, and its note names the datasets left out and how to ask for them. REST, command line and Python are unchanged | 0.187.0, GH-4024 |
 | the tool `values` of a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) without a `timestamp`, or with one of whole days, returned the whole model run, past hours of today included | **Breaking**: it starts at the current hour (UTC), and a `timestamp` of whole days (`2026-11-12`, `2026-11-12/2026-11-14`) that contains now leaves today's earlier hours out; a `forecast-from-now` warning (for CSV also the `X-Wetterdienst-Forecast-From-Now` header) names the `timestamp` to ask for them. To read the past hours, pass a window with a time part (`2026-11-12T10:00/2026-11-12T14:00`). REST, command line and Python return the whole run as before | 0.187.0, GH-4025 |
-| the tools took `pretty`, the `width`, `height` and `scale` of an image, and offered `html`, `png`, `jpg`, `webp`, `svg` and `pdf` as a `format` (`stations`, `values`, `interpolate`, `summarize` for the images and the formats; `pretty` on every tool but `auth`, `glossary` and `issues`) | **Breaking**: they are not in the schemas of the tools (3,441 of 54,314 characters less). A call that still sends `pretty` (at any value) or `width`, `height` or `scale` as `null` is answered as one without them; a `width`, `height` or `scale` with a value is a tool error (for `height` of `interpolate` and `summarize` it names `elevation`), and so is a `format` the tool does not offer, which names the formats it answers (`json`, `geojson`, `csv`, `ndjson`; `json`, `geojson`, `csv` for `interpolate` and `summarize`). A client that drew the images has to call the REST API (`/api/v1/values?format=png`), which is unchanged, as are the command line and Python | unreleased, GH-4318 |
+| the tools took `pretty`, the `width`, `height` and `scale` of an image, and offered `html`, `png`, `jpg`, `webp`, `svg` and `pdf` as a `format` (`stations`, `values`, `interpolate`, `summarize` for the images and the formats; `pretty` on every tool but `auth`, `glossary` and `issues`) | **Breaking**: they are not in the schemas of the tools (3,173 of 54,101 characters less than the schemas of 0.199.0). A call that still sends `pretty` (at any value) or `width`, `height` or `scale` as `null` is answered as one without them; a `width`, `height` or `scale` with a value is a tool error (for `height` of `interpolate` and `summarize` it names `elevation`), and so is a `format` the tool does not offer, which names the formats it answers (`json`, `geojson`, `csv`, `ndjson`; `json`, `geojson`, `csv` for `interpolate` and `summarize`). A client that drew the images has to call the REST API (`/api/v1/values?format=png`), which is unchanged, as are the command line and Python; from the next release on the REST API draws charts only where the server has `WD_RESTAPI_PLOTTING` on (GH-4461) | 0.200.0, GH-4318 |
 | the endpoint kept a session | stateless: no session kept, no `initialize` needed before `tools/list` or `tools/call`; `DELETE` and the `GET` that opens a stream answer 405. A client that depended on a session id being kept has to stop; `initialize` returns an `mcp-session-id` again since GH-4341, which is neither stored nor checked | 0.159.0, GH-3088, GH-4341 |
 | `/mcp` | `/mcp/v1` is the endpoint to configure; `/mcp` stays as an alias of the current version | 0.158.0, GH-3074 (nothing to change) |
 

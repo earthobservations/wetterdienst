@@ -75,6 +75,7 @@ The following settings are available:
 | restapi_timeout      | seconds a REST API request may take until its answer begins (a stream: between two chunks), else a 504; 0 for none, see [Timeout](restapi.md#timeout) | 60 |
 | restapi_max_concurrent | the most requests under `/api` the server works on at once, counted until their work is done, else a 503 with `Retry-After`; 0 for no limit, see [Concurrency](restapi.md#concurrency) | 32 |
 | restapi_allowed_hosts | comma-separated `Host` names the REST API and the MCP endpoint answer to, else a 400; empty for any. `wetterdienst restapi` on a loopback `--listen` sets the loopback names for its process, see [Allowed hosts](restapi.md#allowed-hosts) | none |
+| restapi_plotting     | whether the REST API answers the chart formats (`html`, `png`, `jpg`, `svg`, `pdf`) of `stations`, `values`, `interpolate` and `summarize`; off, such a request is a 403 `charts-disabled` before anything is read. A chart is drawn in the server's process by vl-convert, which holds the interpreter meanwhile, so the server answers nothing else while it draws (about 5 s for a chart of 100,000 points); the library, the command line and the MCP tools are not affected, see [Charts](restapi.md#charts) | False |
 
 ### Python
 
