@@ -1164,7 +1164,10 @@ png = values.to_image(fmt="png", width=1000, height=600, scale=2)  # bytes: an i
   and no file is written. Polars frames need no pandas.
 - **The station map** draws the stations on the borders and coastlines of the countries of Natural Earth 1:50m, which
   the package ships (742 KB) and which nothing fetches while it draws. There are no map tiles, and at the scale of a
-  town the borders are those of a map of the world at 1:50 million.
+  town the borders are those of a map of the world at 1:50 million. Every station has its dot; Vega places a label round
+  its dot where it is clear of the other labels and of the dots, and leaves it out of an image where it fits nowhere
+  (the page keeps every name in its tooltip). `chart.save("x.png")` is Altair's own and places none: use
+  `result.to_image(...)`.
 - **The text** is set in Liberation Sans, which vl-convert carries, so that an image is the same on every system.
 - **A caller of the earlier releases** who took the Plotly figure that `to_plot()` returned (`to_plot().update_layout(...)`,
   `to_plot().write_image(...)`) takes the Altair chart now: `chart.properties(...)`, `chart.save("name.png")`

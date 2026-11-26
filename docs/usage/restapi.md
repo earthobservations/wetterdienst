@@ -1742,16 +1742,9 @@ a network that is not served, is told that charts are off, not to lower the `sca
 `width`, `height` and `scale` of a request in a data format are ignored, as they were. The OpenAPI document is the same
 for every server: `format` keeps its chart values, and its description says that a chart needs the setting.
 
-A chart is drawn by vl-convert in the process of the server, and vl-convert 1.9 holds the interpreter's lock (the GIL)
-while it draws: charts render one after another, and the server answers nothing else meanwhile, `/health` included. That
-is why a public server keeps charts off. Measured on a real `uvicorn` with one worker: a values chart of a month takes
-0.2 s, the station map about 1 s and a chart of 100,000 points about 5 s and 1.4 GB, during which a request for
-`/health` waits for the end of the render. Sixteen charts at once make 16 times one, and at the cap the last of them is
-answered after more than a minute (35 s for the longest wait of `/health`, and past the default [request
-timeout](#timeout) of 60 seconds the requests that still wait are answered `504`, while the render goes on). See [Image
-size](#image-size) for the limits. With `WD_RESTAPI_PLOTTING=true` the answers are what they were. The library, the
-command line (`--format=png`) and the web app, which draws its own charts in the browser, are not affected, and the MCP
-tools offer no chart. The index page and the web app link to none. vl-convert 2.0 releases the lock (GH-4095).
+A chart is drawn by vl-convert in the process of the server, and a server that draws charts is one that spends time and memory on them, which is why a public server keeps them off. Measured (2026-11-26): vl-convert 2 draws in a worker thread of its own and does not hold the interpreter, so the server goes on answering while a chart renders: on a real `uvicorn` with one worker `/health` was answered in a median 1 ms during renders of a month of values, of the station map and of a chart of 100,000 points, and waited at most 0.1 s with one chart of 100,000 points rendering and 0.5 s with four, 1.2 s with sixteen. The charts render one after another in that one worker, so a chart waits for those before it: about 0.3 s for a month of values, 1.5 s for the station map and 11 s for a chart of 100,000 points (1.3 GB), and sixteen of the last took more than the default [request timeout](#timeout) of 60 seconds, which answered 11 of them `504` while the worker went on. A station map made some requests wait up to 0.6 s (four at once) and 3 s (sixteen), which was not traced to a cause. See [Image size](#image-size) for the limits. With `WD_RESTAPI_PLOTTING=true` the answers are what they were. The
+library, the command line (`--format=png`) and the web app, which draws its own charts in the browser, are not affected,
+and the MCP tools offer no chart. The index page and the web app link to none.
 
 ```shell
 WD_RESTAPI_PLOTTING=true wetterdienst restapi --listen 0.0.0.0:7890
@@ -1768,13 +1761,11 @@ chart).
 A chart is drawn to an image by vl-convert, in the process of the server: there is no browser to start. The image is
 exactly as large as `width` and `height` say, `scale` times as large: a request for 700 x 500 px is an image of
 700 x 500 px. A normal image takes 0.1 to 1 second, but the time and the memory grow with the points the chart draws:
-87,000 points take 3.4 s, and 262,000 take 10 s and 2.6 GB. While vl-convert 1.9 draws, it holds the interpreter's
-lock (the GIL), so the other requests of the process wait for the drawing. Hence a chart of more than 100,000 points,
-an image or the page (`format=html` embeds every point), is refused with a 400 of the kind `limit-exceeded`
-(`limit` is `image_points`) once the data is read and before anything is drawn; `detail` says to ask for fewer
-stations or parameters, or a shorter `timestamp` window. The Python API and the
-command line have none: they draw what they are given, as many rows as there are. vl-convert 2.0 releases the lock,
-and the cap of the `plotting` extra is raised to it then (GH-4095).
+a chart of 100,000 points took 11 s and 1.3 GB here, and the one after it waits for it. Hence a chart of more than
+100,000 points, an image or the page (`format=html` embeds every point), is refused with a 400 of the kind
+`limit-exceeded` (`limit` is `image_points`) once the data is read and before anything is drawn; `detail` says to ask
+for fewer stations or parameters, or a shorter `timestamp` window. The Python API and the command line have none: they
+draw what they are given, as many rows as there are.
 
 ## Limits
 

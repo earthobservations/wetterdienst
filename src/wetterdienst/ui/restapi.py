@@ -670,8 +670,8 @@ _CHARTS_DISABLED_HEADERS = {"Cache-Control": "no-store"}
 def _refuse_disabled_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
     """Refuse a chart format with a 403 before anything is read, where the server draws no charts (GH-4461).
 
-    vl-convert draws a chart in the server's process and holds the interpreter while it does, so the server answers
-    nothing else meanwhile: `WD_RESTAPI_PLOTTING` is off by default (`Settings.restapi_plotting`).
+    vl-convert draws a chart in the server's process, one at a time, which takes time and memory (11 s and 1.3 GB at
+    100,000 points): `WD_RESTAPI_PLOTTING` is off by default (`Settings.restapi_plotting`).
     This is the first thing a handler does: no station is looked up, nothing is downloaded, and the plotting libraries
     are not imported. The request is validated by then, and `values` has refused a row option given twice (which reads
     nothing), so a request that is malformed is the 422 first; a chart that is also too large is told that charts are

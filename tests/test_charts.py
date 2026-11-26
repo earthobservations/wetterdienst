@@ -497,9 +497,9 @@ http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 def test_a_chart_that_asks_for_an_address_is_refused_and_the_address_is_not_asked(tmp_path: Any) -> None:  # noqa: ANN401
     """A specification holds its data, so no address is let through: a URL in one is an error, not a request.
 
-    The server that would be asked runs in a process of its own: vl-convert 1.9 holds the interpreter while it draws,
-    so a server in a thread of this one could not answer, and a render that let the address through would hang the
-    test instead of failing it.
+    The server that would be asked runs in a process of its own, so that the test does not depend on what the
+    renderer does with the interpreter while it waits for it. vl-convert 2 has no address per call: its configuration
+    is the guard (`charts.vl_convert`).
     """
     import socket  # noqa: PLC0415
     import time  # noqa: PLC0415
@@ -529,7 +529,7 @@ def test_a_chart_that_asks_for_an_address_is_refused_and_the_address_is_not_aske
 def test_the_map_has_the_borders_and_the_stations_and_fetches_nothing() -> None:
     """The countries come from the file of the package, as an inline TopoJSON: the layer is in the chart itself."""
     spec = _stations_result().to_plot().to_dict()
-    land, dots, *labels = spec["layer"]
+    land, dots, anchors, *labels = spec["layer"]
     assert land["mark"]["type"] == "geoshape"
     assert land["data"]["format"] == {"type": "topojson", "feature": "countries"}
     border = land["data"]["values"]
@@ -540,7 +540,8 @@ def test_the_map_has_the_borders_and_the_stations_and_fetches_nothing() -> None:
     used = [index if index >= 0 else ~index for geometry in kept for index in charts._arcs_of(geometry["arcs"])]  # noqa: SLF001
     assert max(used) < len(border["arcs"])
     assert len(border["arcs"]) < 500
-    assert dots["mark"]["type"] == "circle"
+    assert dots["mark"]["type"] == anchors["mark"]["type"] == "circle"
+    assert anchors["mark"]["opacity"] == 0  # the points the labels are placed round, which nobody sees
     # the labels of the left half to the right of their stations and the right half to the left, a halo under each
     assert [layer["mark"]["type"] for layer in labels] == ["text"] * 4
     assert [layer["mark"]["align"] for layer in labels] == ["left", "left", "right", "right"]
@@ -605,7 +606,12 @@ def test_the_world_file_is_small_and_is_natural_earth_50m() -> None:
 
 
 def test_the_font_is_the_one_vl_convert_carries_and_it_draws_text() -> None:
-    """A family installed nowhere draws no text at all: the stack starts with Liberation Sans, which is there."""
+    """The stack starts with Liberation Sans, which vl-convert carries: the text is drawn with it, not a fallback.
+
+    vl-convert 1 drew no text at all for a family that is installed nowhere; vl-convert 2 falls back to another font
+    (`missing_fonts`), so the premise is that the stack and Liberation Sans alone are drawn the same, and a family
+    nobody has is not drawn like it.
+    """
     chart = charts.empty_chart().properties(title="Title of a chart")
     assert chart.to_dict()["config"]["font"] == charts.FONT
     assert charts.FONT.startswith("Liberation Sans,")
@@ -615,10 +621,11 @@ def test_the_font_is_the_one_vl_convert_carries_and_it_draws_text() -> None:
     def ink(png: bytes) -> int:
         return sum(1 for pixel in _pixels(png).get_flattened_data() if pixel != (255, 255, 255))
 
-    assert ink(render_image(chart, "png")) > 200
-    # and the premise: with a family nobody has, the same chart has none of it
-    nobody = chart.configure(font="NoSuchFontAnywhere")
-    assert ink(render_image(nobody, "png")) == 0
+    stack = render_image(chart, "png")
+    assert ink(stack) > 200
+    assert render_image(chart.configure(font="Liberation Sans"), "png") == stack
+    # and the premise: with a family nobody has, the same chart is drawn with another font
+    assert render_image(chart.configure(font="NoSuchFontAnywhere"), "png") != stack
 
 
 # --- the charts of the results ---------------------------------------------------------------------------------------
@@ -813,3 +820,46 @@ def test_the_thinned_data_keeps_the_lowest_and_highest_values_where_a_line_has_n
         kept = thin.filter((pl.col("station_id") == station) & (pl.col("parameter") == parameter))
         assert kept["value"].min() == group["value"].min() == -12.5
         assert kept["value"].max() == group["value"].max() == 5_000.5
+
+
+def test_a_picture_writes_nothing_to_stderr(tmp_path: Any) -> None:  # noqa: ANN401
+    """The zoom and pan of the page are not in a picture: vl-convert 2 writes that it has no window for them."""
+    code = textwrap.dedent(
+        """
+        from tests.test_charts import _stations_result, _values
+        from wetterdienst.io import charts
+        from wetterdienst.io.export import render_image
+
+        for chart in (charts.values_chart(_values()), _stations_result().to_plot()):
+            for fmt in ("png", "svg", "pdf"):
+                render_image(chart, fmt)
+        """
+    )
+    root = str(pytest.importorskip("tests").__path__[0]).rsplit("/tests", 1)[0]
+    done = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", code],
+        cwd=tmp_path,
+        env={"PYTHONPATH": root, "PATH": ""},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stderr == ""
+
+
+def test_no_address_is_let_through_whatever_else_configured_vl_convert() -> None:
+    """vl-convert 2 has no address per call: its configuration is the guard, set where a chart is drawn, every time."""
+    vlc = pytest.importorskip("vl_convert")
+    try:
+        vlc.configure(allowed_base_urls=["*"])
+        assert vlc.get_config()["allowed_base_urls"] == ["*"]
+        chart = charts.empty_chart()
+        render_image(chart, "svg")
+        assert vlc.get_config()["allowed_base_urls"] == []
+        vlc.configure(allowed_base_urls=["*"])
+        chart_to_html(chart)
+        assert vlc.get_config()["allowed_base_urls"] == []
+    finally:
+        vlc.configure(allowed_base_urls=[])

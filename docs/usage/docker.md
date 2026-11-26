@@ -56,8 +56,8 @@ Images up to 0.158.0 listened on 3000 instead: a deployment that mapped `3000:30
 `3000:7890` to keep its host port (or move to `7890:7890`), and a health check or proxy that asks the
 container for port 3000 asks for 7890. The [MCP server](mcp.md) is served next to it, at `/mcp/v1`.
 
-The REST API answers no chart (`format=png`, `html`, `svg` and the like) until it is told to: a chart is drawn in the server's
-process, which it holds while it draws, so `WD_RESTAPI_PLOTTING` is off by default and such a request is a 403 `charts-disabled`. Start the
+The REST API answers no chart (`format=png`, `html`, `svg` and the like) until it is told to: a chart takes the server's time and
+memory (about 11 s and 1.3 GB for one of 100,000 points), so `WD_RESTAPI_PLOTTING` is off by default and such a request is a 403 `charts-disabled`. Start the
 container with `--env WD_RESTAPI_PLOTTING=true` where you want them, see [Charts](restapi.md#charts). The command line
 inside the image draws them either way.
 

@@ -21,15 +21,15 @@ Types of changes:
 - **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
   (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `svg` or `pdf` on
   `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
-  `charts-disabled`, before anything is read, that names the formats the server answers. A chart is
-  drawn by vl-convert in the server's process, which it holds while it draws: the server answers
-  nothing else meanwhile (about 5 s for a chart of 100,000 points). On your own server set the
-  variable to keep the charts, or ask for `json`, `geojson` or `csv`. The library, the command
-  line, the MCP tools and the web app are unchanged (GH-4461)
+  `charts-disabled`, before anything is read, that names the formats the server answers. Charts
+  take the server's time and memory: they render one after another (11 s and 1.3 GB for a chart of
+  100,000 points). On your own server set the variable to keep the charts, or ask for `json`,
+  `geojson` or `csv`. The library, the command line, the MCP tools and the web app are unchanged
+  (GH-4461)
 - **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for
   values, a `LayerChart` for the station map), no longer a Plotly figure. The `plotting` extra is
-  `altair` and `vl-convert-python` now, with no Chrome. Where you called Plotly methods on the
-  figure (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image
+  `altair` and `vl-convert-python>=2.0.0rc7` now, with no Chrome. Where you called Plotly methods
+  on the figure (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image
   exactly `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a
   Vega-Embed page with zoom and pan along time. vl-convert has no wheel for musllinux, Windows
   ARM64 or a free-threaded Python (GH-3238)
@@ -40,15 +40,20 @@ Types of changes:
   `except ImageTimeoutError` and any match on `image-timeout`, and the `timeout=` of
   `render_image`. `require_kaleido` is `require_vl_convert` (GH-3238)
 - Where REST charts are on, a chart of more than 100,000 points (an image or `html`, which embeds
-  them) is refused with a 400 `limit-exceeded`, `limit` `image_points`: vl-convert 1.9 holds the
-  interpreter while it draws. A chart too small for its labels is measured as it is drawn, so
-  `scale` cannot take an image past the 8192 px of `image-too-large`. The Python API and the CLI
-  have no limit (GH-3238)
+  them) is refused with a 400 `limit-exceeded`, `limit` `image_points`: a render of that many
+  takes 11 s and 1.3 GB of vl-convert's one worker. A chart too small for its labels is measured
+  as it is drawn, so `scale` cannot take an image past the 8192 px of `image-too-large`. The Python
+  API and the CLI have no limit (GH-3238)
 - Images are drawn in the process by vl-convert, in 0.1 to 1 s where Kaleido started a Chrome for
   each: the Docker image installs none. They are exactly `width` x `height` pixels (times
   `scale`). The look changes: Liberation Sans for all text, and the station map draws the country
-  borders of Natural Earth 1:50m (shipped, nothing fetched) where it drew OpenStreetMap tiles
-  (GH-3238)
+  borders of Natural Earth 1:50m (shipped, nothing fetched) where it drew OpenStreetMap tiles, and
+  its labels are placed by Vega where they fit (a label that would sit on another or on a dot is
+  left out of a picture; the page keeps every name in its tooltip) (GH-3238)
+- The `plotting` extra needs `vl-convert-python>=2.0.0rc7,<3`, a release candidate (pip and uv
+  take it from the specifier): vl-convert 2 renders in a worker and does not hold the interpreter,
+  so the server answers while a chart renders, and Vega's label transform works in it. The floor
+  is 2.0.0 when that is out. It has no wheel below Python 3.10 or for musllinux (GH-4095)
 
 ### Fixed
 

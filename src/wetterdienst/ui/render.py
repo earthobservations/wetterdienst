@@ -248,9 +248,8 @@ def _applied_settings(model: type[_M], options: Options) -> _M:
     )
 
 
-#: the most points a chart of the REST API draws, an image or a page (GH-3238): 87,000 points take
-#: 3.4 s to draw and 262,000 take 10 s and 2.6 GB, during which vl-convert 1.9 holds the interpreter. The library
-#: and the command line draw what they are given
+#: the most points a chart of the REST API draws, an image or a page (GH-3238): 100,000 points took 11 s and 1.3 GB
+#: to draw, one chart after another. The library and the command line draw what they are given
 MAX_IMAGE_POINTS = 100_000
 
 
@@ -266,8 +265,8 @@ def render_kwargs(
 
     `max_side` is the largest side of a rendered chart that is let through, which the REST API sets
     and the command line, whose caller is at the keyboard, does not. Where it is set, a chart (an image or the
-    page) of more than `MAX_IMAGE_POINTS` points is refused as well: vl-convert holds the interpreter while it draws,
-    and the page embeds every point.
+    page) of more than `MAX_IMAGE_POINTS` points is refused as well: a render of that many takes seconds and
+    gigabytes of the one worker, and the page embeds every point.
     """
     kwargs: dict[str, Any] = {"fmt": request.format, "with_metadata": request.with_metadata}
     if request.format in ("json", "geojson"):

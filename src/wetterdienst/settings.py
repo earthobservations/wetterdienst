@@ -536,7 +536,7 @@ class Settings(BaseSettings):
     restapi_allowed_hosts: Annotated[tuple[str, ...], NoDecode] = Field(default=())
     # whether the REST API answers the chart formats (`html`, `png`, `jpg`, `svg`, `pdf`) of `stations`,
     # `values`, `interpolate` and `summarize` (GH-4461). Off: such a request is a 403 before anything is read, since
-    # vl-convert draws in the server's process and holds the interpreter meanwhile (GH-3238). The library, the command
+    # a chart takes the server's time and memory: vl-convert draws one at a time (GH-3238). The library, the command
     # line and the app, which draws its own, are not affected, and the MCP tools offer no chart
     restapi_plotting: bool = Field(default=False)
 

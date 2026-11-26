@@ -6535,15 +6535,15 @@ wheels = [
 
 [[package]]
 name = "vl-convert-python"
-version = "1.9.0.post1"
+version = "2.0.0rc7"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/93/89/36722344d1758ec2106f4e8eca980f173cfe8f8d0358c1b77cc5d2e035a4/vl_convert_python-1.9.0.post1.tar.gz", hash = "sha256:a5b06b3128037519001166f5341ec7831e19fbd7f3a5f78f73d557ac2d5859ef", size = 4663469, upload-time = "2026-01-21T00:09:55.61Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/ff/9714412a34f60a3ad1162099633b1ec78d106c4cc34276df71340b03d104/vl_convert_python-2.0.0rc7.tar.gz", hash = "sha256:9a9f6ee40370ec48cbf5190f36101e13e03a0d177ceb822054dd2ca4f67fadb4", size = 6084440, upload-time = "2026-09-14T15:27:14.495Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/59/e5862245972ff467d38b0eb5ad28154685e23ecabb47e14f2b6962da7b56/vl_convert_python-1.9.0.post1-cp37-abi3-macosx_10_12_x86_64.whl", hash = "sha256:43e9515f65bbcd317d1ef328787fd7bf0344c2fde9292eb7a0e64d5d3d29fccb", size = 30512930, upload-time = "2026-01-21T00:09:43.198Z" },
-    { url = "https://files.pythonhosted.org/packages/62/e6/e7d0b538c2f0daaf120901dc113bd5d5d1fa51a9532fa5ffd90234e8c69e/vl_convert_python-1.9.0.post1-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:b0e7a3245f32addec7e7abeb1badf72b1513ed71ba1dba7aca853901217b3f4e", size = 29738742, upload-time = "2026-01-21T00:09:46.016Z" },
-    { url = "https://files.pythonhosted.org/packages/b8/e2/5645a1bc174c53ff8cd305ed76a4a76ba36e155302db20b42b7e78daeef8/vl_convert_python-1.9.0.post1-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e6ecfe4b7e2ea9e8c30fd6d6eaea3ef85475be1ad249407d9796dce4ecdb5b32", size = 33366278, upload-time = "2026-01-21T00:09:48.42Z" },
-    { url = "https://files.pythonhosted.org/packages/a0/18/88e02899b72fa8273ffb32bde12b0e5776ee0fd9fb29559a49c48ec4c5fa/vl_convert_python-1.9.0.post1-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3c1558fa0055e88c465bd3d71760cde9fa2c94a95f776a0ef9178252fd820b1f", size = 33520215, upload-time = "2026-01-21T00:09:50.992Z" },
-    { url = "https://files.pythonhosted.org/packages/2f/db/6e8616587035bf0745d0f10b1791c7e945180ac5d6b28677d2f2b3ca693c/vl_convert_python-1.9.0.post1-cp37-abi3-win_amd64.whl", hash = "sha256:7e263269ac0d304640ca842b44dfe430ed863accd9edecff42e279bfc48ce940", size = 32051516, upload-time = "2026-01-21T00:09:53.47Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/38/c14a182268889b138fb735c59187feb92ab0362638dae254bd0a33c14960/vl_convert_python-2.0.0rc7-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:59e79d60a06bdf7b5c3720d91e5f751e347ee5419877523d3576cfde453f8e7a", size = 41880272, upload-time = "2026-09-14T15:26:51.009Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/0e/6d8acc539b8486b8789732a545738f8e446bf778cdabfb8a9d5763bc128b/vl_convert_python-2.0.0rc7-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:400535cc9172995cf1152847a2ac24c93657ba8b00345daac61c76260fbdc561", size = 41186825, upload-time = "2026-09-14T15:26:55.931Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/3d/414d6acc9eadabe9aa672de6296240f08b4925ed2ffaf5589114569c5756/vl_convert_python-2.0.0rc7-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:e317b03a37755ef882b55e7936f7e360804690c0cb2ae1045619c3944334f3dd", size = 46245753, upload-time = "2026-09-14T15:27:00.618Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/4d/930d22bc61e4e3adbe1b02cc84a301dc1c8f49b86eec48d8224dfab431bd/vl_convert_python-2.0.0rc7-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:4a5306fd9ccb0b94ed0aa621647c2f7c199ddb80c5b06ef910da4fbb70b38190", size = 46336287, upload-time = "2026-09-14T15:27:06.022Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/b5/c088025b5efc663fe1fba1af0e5363aa01145fe9837c47478bc0179e3b00/vl_convert_python-2.0.0rc7-cp310-abi3-win_amd64.whl", hash = "sha256:3c8f9e1e960ffd65d378669c8b18ee21fdaebc04e12aed31eb555a0bb8b6b243", size = 43776482, upload-time = "2026-09-14T15:27:11.356Z" },
 ]
 
 [[package]]
@@ -6981,7 +6981,7 @@ requires-dist = [
     { name = "tzdata", specifier = ">=2024.2" },
     { name = "utm", marker = "extra == 'interpolation'", specifier = ">=0.8,<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'restapi'", specifier = ">=0.30,<1" },
-    { name = "vl-convert-python", marker = "extra == 'plotting'", specifier = ">=1.9.0.post1,<2" },
+    { name = "vl-convert-python", marker = "extra == 'plotting'", specifier = ">=2.0.0rc7,<3" },
     { name = "wetterdienst", extras = ["restapi"], marker = "extra == 'mcp'" },
     { name = "wradlib", marker = "extra == 'radarplus'", specifier = ">=2.6.0,<3" },
     { name = "xarray", marker = "extra == 'export'", specifier = ">=2025.6.0,<2027" },

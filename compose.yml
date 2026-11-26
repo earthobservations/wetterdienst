@@ -14,7 +14,7 @@ services:
     environment:
       # Common development env overrides; can be overridden in .env
       - PYTHONUNBUFFERED=1
-      # the REST API draws no charts (format=png, html, ...) unless this is true: a chart holds the server's process while it draws (GH-4461)
+      # the REST API draws no charts (format=png, html, ...) unless this is true: a chart takes the server's time and memory (GH-4461)
       # - WD_RESTAPI_PLOTTING=true
     ports:
       # on this machine only; WETTERDIENST_BIND_HOST=0.0.0.0 (shell or .env) opens it to the network

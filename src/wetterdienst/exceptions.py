@@ -495,9 +495,9 @@ class ImageTooLargeError(RequestError):
 class ImageTooManyPointsError(RequestError):
     """Raised when a chart would draw more points than the caller allows (`max_points`).
 
-    The REST API sets the limit and answers it with a 400 of the kind `limit-exceeded`: vl-convert
-    holds the interpreter while it draws, and a page embeds every point it draws. The library and the command line
-    set none. Counted from the data of the chart once it is built, before it is drawn.
+    The REST API sets the limit and answers it with a 400 of the kind `limit-exceeded`: a render of that
+    many points takes seconds and gigabytes of the one worker, and a page embeds every point it draws. The library and
+    the command line set none. Counted from the data of the chart once it is built, before it is drawn.
     """
 
     def __init__(self, points: int, max_points: int) -> None:

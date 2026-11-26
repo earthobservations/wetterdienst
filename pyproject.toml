@@ -212,9 +212,9 @@ pdf = [
 plotting = [
     # 6.3 keeps the offset of a timezone-aware timestamp when it takes a polars frame (through narwhals, no pandas)
     "altair>=6.3,<7",
-    # 1.9.0.post1 is the release the charts are tested with; 2.0 releases the GIL while it draws, and the cap goes
-    # up to it then (GH-4095)
-    "vl-convert-python>=1.9.0.post1,<2",
+    # a release candidate: Vega's label transform places the labels of the station map in 2.0 (1.9 cannot run it),
+    # and 2.0 renders in a worker and does not hold the GIL. The floor is 2.0.0 when it is out (GH-4095)
+    "vl-convert-python>=2.0.0rc7,<3",
 ]
 postgresql = [
     "pandas>=2.2.2,<4",

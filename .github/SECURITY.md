@@ -114,8 +114,8 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
 - **Timeout and concurrency:** 60 s (`WD_RESTAPI_TIMEOUT`, a 504), 32 requests at once (`WD_RESTAPI_MAX_CONCURRENT`, a
   503). A timed-out request's thread runs on but keeps its slot, so the cap bounds the threads. There is **no
   per-client rate limit**; that is the proxy's job (the app has one, `docs/usage/app.md`).
-- **No charts unless switched on.** A chart is drawn by vl-convert in the server's process, which it holds while it draws
-  (the server answers nothing else meanwhile), so the REST API refuses the
+- **No charts unless switched on.** A chart is drawn by vl-convert in the server's process, one at a time, and costs it time and memory
+  (about 11 s and 1.3 GB for 100,000 points), so the REST API refuses the
   chart formats (`html`, `png`, `jpg`, `svg`, `pdf`) of `stations`, `values`, `interpolate` and `summarize` with
   a 403 `charts-disabled`, before anything is read, unless `WD_RESTAPI_PLOTTING=true` (`docs/usage/restapi.md`,
   `tests/ui/test_restapi_plotting.py`). The MCP tools offer no chart.

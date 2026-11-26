@@ -57,13 +57,29 @@ MAP_WORLD_PIXELS = 512
 _MAP_PADDING = {"left": 10, "right": 10, "top": 10, "bottom": 10}
 
 
+def vl_convert(task: str = "Rendering an image") -> Any:  # noqa: ANN401 -- the module, optional
+    """Give vl-convert, or raise the `MissingDependencyError` that says to install the `plotting` extra.
+
+    No address is let through to it: a chart holds all its data, so none is needed. vl-convert 2 has no argument of a
+    call for it, the allowed addresses are its configuration, which is that of the whole process. It is set where a
+    chart is drawn, every time, so that whatever else configured it in the process does not open an address to a chart.
+    """
+    vlc = import_optional("vl_convert", task, extra="plotting")
+    vlc.configure(allowed_base_urls=[])
+    return vlc
+
+
 def altair() -> Any:  # noqa: ANN401 -- the module, optional
     """Give Altair, or raise the `MissingDependencyError` that says to install the `plotting` extra."""
     return import_optional("altair", "Plotting", extra="plotting")
 
 
-def _meta(width: int, height: int, rows: int | None = None, points: int | None = None) -> dict[str, dict[str, int]]:
+def _meta(
+    width: int, height: int, rows: int | None = None, points: int | None = None, *, station_map: bool = False
+) -> dict[str, dict[str, int]]:
     """Give the `usermeta` of a chart: the size it is drawn at, the rows of parameters it has and its points.
+
+    The station map says so (`map`): its labels are placed where it is drawn (`_with_placed_labels`).
 
     The points are the rows of its data, written down where the chart is built: a label of a row of parameters can
     hold a line break, so the lines of the CSV text are no count of them.
@@ -73,6 +89,8 @@ def _meta(width: int, height: int, rows: int | None = None, points: int | None =
         meta["rows"] = rows
     if points is not None:
         meta["points"] = points
+    if station_map:
+        meta["map"] = 1
     return {_META: meta}
 
 
@@ -249,22 +267,31 @@ def stations_chart(
         ),
         tooltip=[alt.Tooltip("name:N", title="station"), alt.Tooltip("dataset:N")],
     )
-    # a label is to the right of its station, to the left of those in the right half of the map, where it would leave
-    # the picture. Drawn twice, the first time as a white halo that keeps it readable over a border
+    # a station has one label, whatever the number of its datasets, and the stations are taken in the order of their
+    # names, which is the order the labels are placed in: the same stations give the same labels. The invisible points
+    # of these stations are what the labels are placed round (`_with_placed_labels`)
+    named = frame.sort("name", "longitude", "latitude").unique(subset=["name"], keep="first", maintain_order=True)
+    anchors = alt.Chart(
+        _inline_data(named, {"longitude": "number", "latitude": "number", "name": "string", "dataset": "string"})
+    )
+    invisible = anchors.mark_circle(size=1, opacity=0).encode(**position)
+    # as a chart alone, one that is saved with Altair, a label is to the right of its station, to the left of those in
+    # the right half of the map, where it would leave the picture. Drawn twice, the first time as a white halo that
+    # keeps it readable over a border
     middle = center["lon"]
     labels = []
     for keep, align, offset in (
         (alt.datum.longitude <= middle, "left", 7),
         (alt.datum.longitude > middle, "right", -7),
     ):
-        text = points.transform_filter(keep)
+        text = anchors.transform_filter(keep)
         halo = {"color": "white", "stroke": "white", "strokeWidth": 3, "strokeJoin": "round"}
         labels.append(text.mark_text(align=align, dx=offset, fontSize=10, **halo).encode(**position, text="name:N"))
         labels.append(
             text.mark_text(align=align, dx=offset, fontSize=10, color="#222").encode(**position, text="name:N")
         )
     chart = (
-        alt.layer(land, dots, *labels)
+        alt.layer(land, dots, invisible, *labels)
         .project(
             type="mercator",
             center=[center["lon"], center["lat"]],
@@ -275,7 +302,7 @@ def stations_chart(
             height=height,
             padding=_MAP_PADDING,
             autosize=alt.AutoSizeParams(type="fit", contains="padding"),
-            usermeta=_meta(width, height, points=frame.height),
+            usermeta=_meta(width, height, points=frame.height, station_map=True),
             view=alt.ViewConfig(fill="#e3edf4", stroke=None),
         )
     )
@@ -421,6 +448,8 @@ def drawn_size(chart: alt.TopLevelMixin, width: int | None = None, height: int |
 def _sized(chart: alt.TopLevelMixin, width: int | None, height: int | None) -> tuple[dict[str, Any], float, float]:
     """Give the specification of `sized_spec` and the size in pixels of the picture it draws."""
     spec = chart.to_dict()
+    # zoom and pan are the page's: a picture has no pointer, and vl-convert 2 writes to stderr that it has no window
+    spec.pop("params", None)
     meta = _spec_meta(spec)
     wide, high = width or meta.get("width", DEFAULT_WIDTH), height or meta.get("height", DEFAULT_HEIGHT)
     rows = meta.get("rows")
@@ -461,8 +490,7 @@ def _fit_rows(spec: dict[str, Any], width: int, height: int, rows: int) -> tuple
 
 def _measure(spec: dict[str, Any]) -> tuple[float, float]:
     """Draw a specification as SVG and read the size of the picture."""
-    vlc = import_optional("vl_convert", "Rendering an image", extra="plotting")
-    svg = vlc.vegalite_to_svg(spec, allowed_base_urls=[])
+    svg = vl_convert().vegalite_to_svg(spec)
     root = _SVG_ROOT.search(svg)
     if root is None:
         msg = "vl-convert wrote an SVG without a size"
@@ -516,14 +544,87 @@ class _HtmlSafeEncoder(json.JSONEncoder):
         return super().encode(o).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
 
 
+#: the marks of the station map that name its labels, in the order the Vega of the map has them: the circles are the
+#: dots (which the labels keep clear of) and the invisible points of the stations (which they are placed round)
+_LABEL_ANCHORS = ["right", "left", "top", "bottom", "top-right", "top-left", "bottom-right", "bottom-left"]
+_LABEL_OFFSET = 6
+
+
+def _with_placed_labels(vega: dict[str, Any]) -> dict[str, Any]:
+    """Give the Vega of the station map its labels placed by Vega's `label` transform.
+
+    A label is placed round the point of its station, on the first side of `_LABEL_ANCHORS` where it is clear of the
+    other labels and of every dot, and is hidden (`opacity` 0) where there is no such side: every dot stays, and the
+    page has the name of each in its tooltip. The text layers Vega-Lite wrote (a label on the right or the left, as
+    the chart is when it is not drawn here) give way to the two that are placed, the white halo and the text.
+    """
+    marks = vega["marks"]
+    symbols = [mark["name"] for mark in marks if mark["type"] == "symbol"]
+    dots, anchors = symbols[0], symbols[1]
+
+    def label(name: str, update: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "name": name,
+            "type": "text",
+            "from": {"data": anchors},
+            "encode": {
+                "update": {
+                    "font": {"value": FONT},
+                    "fontSize": {"value": 10},
+                    "text": {"signal": "datum.datum.name"},
+                    **update,
+                }
+            },
+            "transform": [
+                {
+                    "type": "label",
+                    "avoidMarks": [dots],
+                    "anchor": _LABEL_ANCHORS,
+                    "offset": [_LABEL_OFFSET],
+                    "size": {"signal": "[width, height]"},
+                }
+            ],
+        }
+
+    halo = {"fill": {"value": "white"}, "stroke": {"value": "white"}, "strokeWidth": {"value": 3}}
+    placed = [
+        label("label_halo", {**halo, "strokeJoin": {"value": "round"}}),
+        label("label_text", {"fill": {"value": "#222"}}),
+    ]
+    position = next(index for index, mark in enumerate(marks) if mark["type"] == "text")
+    kept = [mark for mark in marks if mark["type"] != "text"]
+    vega["marks"] = [*kept[:position], *placed, *kept[position:]]
+    return vega
+
+
+def _vega_of(spec: dict[str, Any]) -> dict[str, Any]:
+    """Compile a Vega-Lite specification of a chart of the library to Vega, with the labels of a map placed."""
+    vega = vl_convert().vegalite_to_vega(spec)
+    return _with_placed_labels(vega) if _spec_meta(spec).get("map") else vega
+
+
 def chart_to_html(chart: alt.TopLevelMixin, *, inline: bool = True) -> str:
     """Write a chart as an html page, with Vega inline, which works offline, or from the CDN (a few kilobytes).
 
-    Vega inline is bundled by vl-convert, so that is needed for it and not for the page that loads Vega.
+    Vega inline is bundled by vl-convert, so that is needed for it and not for the page that loads Vega. The page of
+    a station map is the Vega that is drawn as an image (`_vega_of`): its labels are placed in the browser as they are
+    in a picture.
     """
     if inline:
-        import_optional("vl_convert", "Rendering an html page", extra="plotting")
-    return chart.to_html(inline=inline, json_kwds={"cls": _HtmlSafeEncoder})
+        vl_convert("Rendering an html page")
+    spec = chart.to_dict()
+    if not _spec_meta(spec).get("map"):
+        return chart.to_html(inline=inline, json_kwds={"cls": _HtmlSafeEncoder})
+    from altair.vegalite.v6.api import VEGA_VERSION, VEGAEMBED_VERSION  # noqa: PLC0415
+
+    return altair().utils.spec_to_html(
+        _vega_of(sized_spec(chart)),
+        mode="vega",
+        vega_version=VEGA_VERSION,
+        vegaembed_version=VEGAEMBED_VERSION,
+        json_kwds={"cls": _HtmlSafeEncoder},
+        template="inline" if inline else "standard",
+    )
 
 
 def render(
@@ -547,18 +648,19 @@ def render(
             is that of the picture and not the size asked for, which a chart too small for its labels exceeds.
 
     """
-    vlc = import_optional("vl_convert", "Rendering an image", extra="plotting")
+    vlc = vl_convert()
     spec, drawn_width, drawn_height = _sized(chart, width, height)
     factor = 1.0 if scale is None else scale
     if max_side is not None and max(drawn_width, drawn_height) * factor > max_side:
         raise ImageTooLargeError(drawn_width * factor, drawn_height * factor, max_side)
-    # a specification holds all its data, so no address is needed: none is let through
-    options: dict[str, Any] = {"allowed_base_urls": []}
+    # a map is Vega with its labels placed, any other chart is Vega-Lite
+    station_map = bool(_spec_meta(spec).get("map"))
+    vega = _vega_of(spec) if station_map else None
     if fmt == "png":
-        return vlc.vegalite_to_png(spec, scale=factor, **options)
+        return vlc.vega_to_png(vega, scale=factor) if vega else vlc.vegalite_to_png(spec, scale=factor)
     if fmt == "jpg":
-        return vlc.vegalite_to_jpeg(spec, scale=factor, **options)
-    svg = vlc.vegalite_to_svg(spec, **options)
+        return vlc.vega_to_jpeg(vega, scale=factor) if vega else vlc.vegalite_to_jpeg(spec, scale=factor)
+    svg = vlc.vega_to_svg(vega) if vega else vlc.vegalite_to_svg(spec)
     if fmt == "pdf":
         # the page of a picture of 700 x 500 px is 525 x 375 pt, 96 px to the inch, as the browser that drew it before
         return vlc.svg_to_pdf(_scaled_svg(svg, _PDF_POINTS_PER_PIXEL * factor))
