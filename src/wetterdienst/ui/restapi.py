@@ -423,7 +423,7 @@ def _problem_response(
     errors: list[Any] | None = None,
     extra: Mapping[str, Any] | None = None,
     headers: Mapping[str, str] | None = None,
-) -> JSONResponse:
+) -> Response:
     """Answer a failure with the one error body of this API, an RFC 9457 problem (GH-2634, GH-3065).
 
     `{"type": "urn:wetterdienst:problem:<kind>", "title": <the status' phrase>, "status": <int>, "detail": <str>,
@@ -433,12 +433,12 @@ def _problem_response(
     `loc` of its parameter. `extra` holds the members a kind has beyond these, such as the `limit` of
     `limit-exceeded`. A 502, 503 or 504 carries `Retry-After`, and every problem `X-Request-ID`.
 
-    An MCP tool's request is answered with the text alone, as a JSON string (`problem_response`).
+    An MCP tool's request is answered with the text alone, as plain text (`problem_response`).
     """
     return problem_response(request.scope, status_code, detail, kind, errors=errors, extra=extra, headers=headers)
 
 
-def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse:
+def _problem_of(request: Request, error: StarletteHTTPException) -> Response:
     """Answer with the problem an `HTTPException` is, the kind and the members it was raised with.
 
     An MCP tool's request gets the `tool_detail` of the problem where it has one (`ProblemError`).
@@ -504,7 +504,7 @@ def _writable(value: Any, depth: int = _ERROR_INPUT_DEPTH) -> Any:  # noqa: ANN4
 
 
 @app.exception_handler(RequestValidationError)
-async def _validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def _validation_exception_handler(request: Request, exc: RequestValidationError) -> Response:
     """Answer a request that fails validation with a 422 problem, its entries under `errors`.
 
     `coverage` with no fault but a missing `provider` or `network` is the one request that is a 400: it listed
@@ -525,7 +525,7 @@ class _NoRequestModel(BaseModel):
 
 
 @app.exception_handler(WetterdienstError)
-async def _wetterdienst_error_handler(request: Request, exc: WetterdienstError) -> JSONResponse:
+async def _wetterdienst_error_handler(request: Request, exc: WetterdienstError) -> Response:
     """Answer an exception of the library that escaped an endpoint's own handling by its place in the hierarchy.
 
     The endpoints decide with `_failure` inside their handlers; this is for what is raised outside
@@ -536,7 +536,7 @@ async def _wetterdienst_error_handler(request: Request, exc: WetterdienstError) 
 
 
 @app.exception_handler(Exception)
-async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
     """Answer a failure no endpoint handled with the 500 problem of `_server_error`, the traceback in the log.
 
     Starlette sends this answer and then raises the exception again, so the server logs it as it
@@ -573,7 +573,7 @@ def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> H
 
 
 @app.exception_handler(MissingDependencyError)
-async def _missing_dependency_handler(request: Request, exc: MissingDependencyError) -> JSONResponse:
+async def _missing_dependency_handler(request: Request, exc: MissingDependencyError) -> Response:
     """Answer a dependency the deployment lacks with a 501 wherever it was reached.
 
     The endpoints turn it into one inside their own handlers (`_failure`); this is for the rest,
@@ -706,7 +706,7 @@ def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | Interpola
 
 
 @app.exception_handler(ImageTooLargeError)
-async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) -> JSONResponse:
+async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) -> Response:
     """Answer a chart whose own height makes the image too large with a 400, as `_refuse_oversized_image` does.
 
     Raised by `check_image_size` once the figure is built, since a chart of several parameters is
