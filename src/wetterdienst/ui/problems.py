@@ -68,6 +68,7 @@ class ProblemKind(StrEnum):
     REQUEST_REFUSED = "request-refused"
     LIMIT_EXCEEDED = "limit-exceeded"
     IMAGE_TOO_LARGE = "image-too-large"
+    CHARTS_DISABLED = "charts-disabled"
     HOST_NOT_ALLOWED = "host-not-allowed"
     ORIGIN_NOT_ALLOWED = "origin-not-allowed"
     NOT_FOUND = "not-found"
@@ -116,6 +117,12 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         "says how to narrow it.",
     ),
     ProblemKind.IMAGE_TOO_LARGE: ProblemSpec(400, "A chart would be longer than 8192 px on a side."),
+    ProblemKind.CHARTS_DISABLED: ProblemSpec(
+        403,
+        "The request asks for a chart (`html`, `png`, `jpg`, `webp`, `svg` or `pdf`) and this server draws none "
+        "(`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, "
+        "or ask whoever runs the server to switch charts on.",
+    ),
     ProblemKind.HOST_NOT_ALLOWED: ProblemSpec(
         400,
         "The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server "
@@ -324,8 +331,9 @@ def problem_response(
     """Answer a failure with the problem of this API, for the request whose ASGI `scope` this is.
 
     An MCP tool's request is answered with the text alone, as `text/plain`: FastMCP puts the body of a failed call
-    into the tool error. A dict would read as its repr, and a JSON string, which FastMCP 4.2 writes with `json.dumps`,
-    would read with quotes and escapes for its line breaks. A body that is no JSON is appended as it is.
+    into the tool error. Before 4.1.5 it wrote a body that is JSON as Python does (a dict as its repr); from 4.1.5 it
+    writes it with `json.dumps`, so a JSON string would read with quotes and escapes for its line breaks, and a body
+    that merely parses as JSON is rewritten (`1.50` comes out `1.5`). A body that is no JSON is appended as it is.
     """
     from wetterdienst.ui.mcp import is_tool_request  # noqa: PLC0415
 

@@ -394,8 +394,9 @@ _CHART_FORMATS = ("html", "png", "jpg", "webp", "svg", "pdf")
 #: the routes that offer a chart format)
 _CHART_TOOLS = frozenset({"stations", "values", "interpolate", "summarize"})
 
-#: the clause of a `format` description that offers a chart, which the tool no longer does
-_CHART_CLAUSE = re.compile(r" or a rendered chart \([^)]*\)")
+#: the clause of a `format` description that offers a chart, and the sentence that says a server must switch it on,
+#: which the tool no longer does
+_CHART_CLAUSE = re.compile(r" or a rendered chart \([^)]*\)| Charts are drawn only by a server[^.]*\.")
 
 
 @dataclass(frozen=True)
@@ -585,9 +586,31 @@ def _refused_formats(tool: str, arguments: dict[str, Any], taken: dict[str, Any]
         text = f"format={value} is not offered by the tool {tool}, which answers {join_names(offered, last='or')}."
         chart = value.strip().lower() if isinstance(value, str) else None
         if chart in _CHART_FORMATS and tool in _CHART_TOOLS:
-            text += f" Charts are drawn by the REST API: {path} takes format={chart}."
+            text += _where_charts_are_drawn(path, f"format={chart}")
         refused.append(text)
     return refused
+
+
+def _where_charts_are_drawn(path: str, option: str) -> str:
+    """Say where a chart is drawn for a tool that refuses one: the REST API route, if this server draws any (GH-4461).
+
+    A server that has `WD_RESTAPI_PLOTTING` off refuses the chart formats of the routes, so pointing at the route would
+    send the model to a refusal. Where a setting cannot be read (any `WD_*` variable that is malformed, this one
+    included) nothing is said of REST, only what the tool answers, which the refusal says before this: building the
+    settings must not turn the refusal into an error that drops it, and no value is echoed.
+    """
+    from pydantic import ValidationError  # noqa: PLC0415
+    from pydantic_settings import SettingsError  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+
+    try:
+        plotting = Settings().restapi_plotting
+    except (ValidationError, SettingsError):
+        return ""
+    if plotting:
+        return f" Charts are drawn by the REST API: {path} takes {option}."
+    return " This server draws no charts."
 
 
 def _refused_image_options(tool: str, arguments: dict[str, Any], taken: dict[str, Any], route: _Route) -> list[str]:
@@ -603,8 +626,8 @@ def _refused_image_options(tool: str, arguments: dict[str, Any], taken: dict[str
             continue
         text = (
             f"{name} is not an argument of {tool}: it was {_IMAGE_OPTIONS[name]} of a chart image, "
-            f"and the tool answers data only. Charts are drawn by the REST API: {route.path} takes {name}."
-        )
+            "and the tool answers data only."
+        ) + _where_charts_are_drawn(route.path, name)
         if name == "height" and "elevation" in taken:
             text += " The height of the point above sea level is the argument elevation."
         refused.append(text)

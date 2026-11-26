@@ -106,10 +106,12 @@ def test_a_tool_error_is_the_detail_of_the_rest_answer_in_the_frame_of_fastmcp(
     assert rest.status_code == status
     detail = rest.json()["detail"]
 
-    assert _tool_error("glossary", {}) == _frame("glossary", status, detail)
+    message = _tool_error("glossary", {})
+
+    assert message == _frame("glossary", status, detail)
     # not a JSON string: no quote around it, no escape in it
-    assert not detail.startswith('"')
-    assert "\\n" not in _tool_error("glossary", {})
+    assert not message.endswith('"')
+    assert "\\n" not in message
 
 
 @pytest.mark.parametrize(
@@ -154,12 +156,7 @@ def test_a_tool_refused_before_its_route_is_unframed_and_unchanged() -> None:
         == "foo is not an argument of glossary, which takes limit, parameter and unit_type"
     )
     assert _tool_error("no_such_tool", {}) == "Unknown tool: 'no_such_tool'"
-    assert _tool_error(
-        "values", {"provider": "dwd", "network": "observation", "parameters": "daily/kl", "format": "png"}
-    ) == (
-        "format=png is not offered by the tool values, which answers json, geojson, csv or ndjson. "
-        "Charts are drawn by the REST API: /api/v1/values takes format=png."
-    )
+    # the text of a refused chart format is held where charts are (`test_restapi_plotting.py`)
 
 
 @pytest.mark.parametrize("media_type", ["image/png", "application/pdf", "text/html", "image/svg+xml"])

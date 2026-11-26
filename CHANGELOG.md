@@ -18,6 +18,13 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
+  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `webp`, `svg` or
+  `pdf` on `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
+  `charts-disabled`, before anything is read, that names the formats the server answers. Every
+  image starts a Chrome on the server. On your own server set the variable to keep the charts, or
+  ask for `json`, `geojson` or `csv`. The library, the command line, the MCP tools and the web app
+  are unchanged (GH-4461)
 - The `mcp` extra needs `fastmcp>=4.2.4` (was 4.1.2), which the Docker image and an environment
   synced from `uv.lock` now hold. The text of a tool error is as before. FastMCP cuts the text of
   an upstream error at 1,000 characters (`… (truncated)`) from 4.1.5, so the list of available
@@ -26,7 +33,7 @@ Types of changes:
 
 ### Security
 
-- fastmcp 4.2.4 is the only release that fixes GHSA-78c8-3jhx-5mg7 (`OAuthProxy` redeemed an
+- fastmcp 4.2.4 is the first release that fixes GHSA-78c8-3jhx-5mg7 (`OAuthProxy` redeemed an
   authorization code twice under concurrent requests). The MCP server of `wetterdienst restapi`
   is open and does not use `OAuthProxy`, so it did not reach it (GH-4384)
 

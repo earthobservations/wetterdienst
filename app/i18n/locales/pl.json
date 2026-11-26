@@ -599,7 +599,6 @@
     "formatJson": "Format JSON (domyślny)",
     "formatCsv": "Format CSV",
     "formatGeojson": "Format GeoJSON do map",
-    "formatHtml": "Format tabeli HTML",
     "commonParamsTitle": "Wspólne parametry",
     "paramHeader": "Parametr",
     "descHeader": "Opis",
@@ -631,7 +630,7 @@
       "parameters": "Ścieżka parametru (np. daily/kl/temperature_air_mean_2m)",
       "stations": "Identyfikator(y) stacji, oddzielone przecinkami",
       "timestamp": "Data lub zakres dat (np. 2020-01-01/2020-12-31)",
-      "format": "Format wyjściowy (json, csv, geojson, html)"
+      "format": "Format wyjściowy (json, csv, geojson)"
     }
   },
   "glossary": {

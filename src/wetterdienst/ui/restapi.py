@@ -13,7 +13,7 @@ import os
 import re
 from dataclasses import replace
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast, get_type_hints
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast, get_args, get_type_hints
 
 import polars as pl
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
@@ -50,7 +50,7 @@ from wetterdienst.exceptions import (
     UpstreamError,
     WetterdienstError,
 )
-from wetterdienst.io.formats import renders_with_kaleido
+from wetterdienst.io.formats import FORMATS, renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.group_statistics import GroupsOverLimitError
 from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
@@ -131,6 +131,7 @@ from wetterdienst.ui.core import (
     get_statistics,
     get_summarize,
     get_values,
+    join_names,
     limit_stations_to_rank,
     limit_stations_to_window,
     overlay_options,
@@ -658,6 +659,44 @@ def _refuse_oversized_image(width: int | None, height: int | None, scale: float 
     if max(rendered) > _MAX_IMAGE_SIDE:
         error = ImageTooLargeError(rendered[0], rendered[1], _MAX_IMAGE_SIDE)
         raise ProblemError(400, f"{error} Lower width, height or scale.", ProblemKind.IMAGE_TOO_LARGE)
+
+
+#: what a refusal of a chart is sent with: whoever runs the server may switch charts on without a restart (a `.env` is
+#: read by every request), so no cache keeps the answer
+_CHARTS_DISABLED_HEADERS = {"Cache-Control": "no-store"}
+
+
+def _refuse_disabled_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
+    """Refuse a chart format with a 403 before anything is read, where the server draws no charts (GH-4461).
+
+    Every image starts a Chrome on the server, so `WD_RESTAPI_PLOTTING` is off by default (`Settings.restapi_plotting`).
+    This is the first thing a handler does: no station is looked up, nothing is downloaded, and the plotting libraries
+    are not imported. The request is validated by then, and `values` has refused a row option given twice (which reads
+    nothing), so a request that is malformed is the 422 first; a chart that is also too large is told that charts are
+    off, which is the answer that does not change by lowering `scale`. The data formats are never refused.
+    """
+    chart = FORMATS.get(request.format)
+    if chart is None or chart.kind != "chart" or Settings().restapi_plotting:
+        return
+    offered = [
+        name for name in get_args(type(request).model_fields["format"].annotation) if FORMATS[name].kind == "data"
+    ]
+    detail = (
+        f"This server draws no charts, so format={request.format} is refused. "
+        f"It answers {join_names(offered, last='or')}. "
+        "Ask for one of these, or ask whoever runs this instance to switch charts on "
+        "(WD_RESTAPI_PLOTTING=true)."
+    )
+    entry = {
+        "type": "charts_disabled",
+        "loc": ["query", "format"],
+        "msg": detail,
+        "input": request.format,
+        "ctx": {"formats": offered},
+    }
+    raise ProblemError(
+        403, detail, ProblemKind.CHARTS_DISABLED, extra={"errors": [entry]}, headers=_CHARTS_DISABLED_HEADERS
+    )
 
 
 def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
@@ -1295,6 +1334,8 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
 #: it refuses (a limit, a window, an image too large), a 404, a 501 for what this server lacks or does not implement
 #: and a 502 for a provider that failed
 _DATA_ANSWERS = (400, 404, 501, 502)
+#: the routes that draw a chart, which a server that has `WD_RESTAPI_PLOTTING` off refuses with a 403
+_CHART_ANSWERS = (*_DATA_ANSWERS, 403)
 _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "version": (),
     "settings": (400,),
@@ -1302,13 +1343,13 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "coverage": (400, 404, 501),
     "providers": (404,),
     "glossary": (),
-    "stations": _DATA_ANSWERS,
+    "stations": _CHART_ANSWERS,
     "issues": _DATA_ANSWERS,
     "history": _DATA_ANSWERS,
-    "values": _DATA_ANSWERS,
+    "values": _CHART_ANSWERS,
     "statistics": _DATA_ANSWERS,
-    "interpolate": _DATA_ANSWERS,
-    "summarize": _DATA_ANSWERS,
+    "interpolate": _CHART_ANSWERS,
+    "summarize": _CHART_ANSWERS,
     "alerts": _DATA_ANSWERS,
     "storm-cells": _DATA_ANSWERS,
     "kostra": _DATA_ANSWERS,
@@ -1326,6 +1367,7 @@ _HOST_CHECKED_ROUTES = ("/", "/robots.txt")
 #: document is the same on every Python. The 422 is not here: FastAPI adds it, `_declare_problem_schema` completes it
 _PROBLEM_COMPONENTS = {
     400: ("BadRequest", "Bad Request"),
+    403: ("Forbidden", "Forbidden"),
     404: ("NotFound", "Not Found"),
     500: ("InternalError", "Internal Server Error"),
     501: ("NotImplemented", "Not Implemented"),
@@ -1404,7 +1446,8 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             "errors": {
                 "type": "array",
                 "items": {"$ref": "#/components/schemas/ValidationError"},
-                "description": "The invalid parameters, each with the `loc` of its parameter, of a 422.",
+                "description": "The invalid parameters, each with the `loc` of its parameter, of a 422; the `format` "
+                "of a `charts-disabled`, with the `formats` the server answers in its `ctx`.",
             },
             "limit": {
                 "type": "string",
@@ -2255,6 +2298,7 @@ def stations(
     the network has no station for is left out of the list, which is then empty or shorter, and
     named in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.
     """
+    _refuse_disabled_chart(request)
     begin_response()
     _refuse_oversized_chart(request)
 
@@ -2446,9 +2490,11 @@ def values(
     (where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in
     either means the source does not state it.
     """
+    # a row option given twice is malformed whatever the format: refused first, and it reads nothing
+    _refuse_repeated_row_options(http_request)
+    _refuse_disabled_chart(request)
     begin_response()
     _refuse_oversized_chart(request)
-    _refuse_repeated_row_options(http_request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -3018,6 +3064,7 @@ def interpolate(
     station of its own, so the result is a modelled estimate, not a measurement. Requires provider,
     network, parameters and a `timestamp`.
     """
+    _refuse_disabled_chart(request)
     begin_response()
     _refuse_oversized_chart(request)
 
@@ -3070,6 +3117,7 @@ def summarize(
     result may stitch together different stations. Requires provider, network, parameters and a
     `timestamp`.
     """
+    _refuse_disabled_chart(request)
     begin_response()
     _refuse_oversized_chart(request)
 
