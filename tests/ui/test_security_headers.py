@@ -219,7 +219,7 @@ def test_no_policy_where_it_would_break_the_page_or_say_nothing(client: TestClie
 
 @pytest.mark.parametrize("fmt", ["json", "csv", "ndjson", "html"])
 def test_no_policy_on_data_and_the_html_chart(client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
-    """The html chart is a script by design (Plotly's, in the page), so no policy is claimed for it."""
+    """The html chart is a script by design (Vega-Embed's, in the page), so no policy is claimed for it."""
     _stub_result(monkeypatch, "/api/values")
 
     response = client.get("/api/values", params={**_VALUES, "format": fmt})
@@ -270,7 +270,7 @@ def test_the_index_has_a_policy_and_needs_nothing_it_forbids(client: TestClient)
 def test_a_chart_as_svg_has_the_policy(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every route that renders an image goes through the one answer: the SVG of it has the policy, the PNG none."""
     _stub_result(monkeypatch, "/api/values")
-    monkeypatch.setattr("wetterdienst.io.export._draw", lambda *_args, **_kwargs: b"<svg/>")
+    monkeypatch.setattr("wetterdienst.model.result.render_image", lambda *_args, **_kwargs: b"<svg/>")
 
     svg = client.get("/api/values", params={**_VALUES, "format": "svg"})
     png = client.get("/api/values", params={**_VALUES, "format": "png"})
@@ -285,11 +285,12 @@ def test_a_chart_as_svg_has_the_policy(client: TestClient, monkeypatch: pytest.M
 def test_a_real_chart_svg_needs_nothing_the_policy_forbids(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, chart: str
 ) -> None:
-    """Render the SVG with Kaleido and read what it needs: no script, request or font, images only inlined.
+    """Render the SVG with vl-convert and read what it needs: no script, request or font, images only inlined.
 
-    The line chart of values needs `style` (written as attributes) and nothing else; the map of the stations also
-    embeds its canvas as a `data:` image, which `img-src data:` is there for. Skipped where no Chrome renders it.
+    The charts need `style` (written as attributes) and nothing else: vl-convert writes paths and text, no canvas
+    image, and a clip path is a reference inside the document.
     """
+    pytest.importorskip("vl_convert")
     if chart == "values":
         _stub_result(monkeypatch, "/api/values")
         response = client.get("/api/values", params={**_VALUES, "format": "svg", "width": 400, "height": 300})
@@ -299,8 +300,7 @@ def test_a_real_chart_svg_needs_nothing_the_policy_forbids(
         response = client.get(
             "/api/stations", params={**_OBSERVATION, "all": "true", "format": "svg", "width": 400, "height": 300}
         )
-    if response.status_code != 200:
-        pytest.skip("Kaleido cannot render here (no Chrome)")
+    assert response.status_code == 200, response.text
 
     text = response.text
     root = ET.fromstring(text)  # noqa: S314

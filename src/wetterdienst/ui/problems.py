@@ -86,7 +86,6 @@ class ProblemKind(StrEnum):
     UPSTREAM_TIMEOUT = "upstream-timeout"
     UPSTREAM_QUOTA_EXHAUSTED = "upstream-quota-exhausted"
     REQUEST_TIMEOUT = "request-timeout"
-    IMAGE_TIMEOUT = "image-timeout"
     INTERNAL_ERROR = "internal-error"
 
 
@@ -113,13 +112,13 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
     ProblemKind.LIMIT_EXCEEDED: ProblemSpec(
         400,
         "The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, "
-        "`stream_rows`, `groups` or `series`), `maximum` its value and `requested` what the request comes to; `detail` "
-        "says how to narrow it.",
+        "`stream_rows`, `groups`, `series` or `image_points`), `maximum` its value and `requested` what the request "
+        "comes to; `detail` says how to narrow it.",
     ),
     ProblemKind.IMAGE_TOO_LARGE: ProblemSpec(400, "A chart would be longer than 8192 px on a side."),
     ProblemKind.CHARTS_DISABLED: ProblemSpec(
         403,
-        "The request asks for a chart (`html`, `png`, `jpg`, `webp`, `svg` or `pdf`) and this server draws none "
+        "The request asks for a chart (`html`, `png`, `jpg`, `svg` or `pdf`) and this server draws none "
         "(`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, "
         "or ask whoever runs the server to switch charts on.",
     ),
@@ -178,11 +177,6 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         504,
         "The server did not answer within its request timeout. Narrow the request, or retry it: what the server "
         "had fetched is cached.",
-    ),
-    ProblemKind.IMAGE_TIMEOUT: ProblemSpec(
-        504,
-        "The browser that draws a chart as an image did not finish in time and was closed. The request was valid; "
-        "retry it. Whoever runs the server should look at Chrome if it keeps happening.",
     ),
     ProblemKind.INTERNAL_ERROR: ProblemSpec(500, "The server's own error, a defect. The cause is in the server log."),
 }

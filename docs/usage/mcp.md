@@ -125,7 +125,7 @@ model the structured content alone. The default is `json`, which the assistant r
 
 A tool is its REST route without the options that only the REST API needs, which a model reading JSON cannot use and
 which were part of the tool list of every session: `pretty`, the `width`, `height` and `scale` of an image, and the
-formats of a chart (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`). Nothing else is dropped (the `left`, `right`, `top` and
+formats of a chart (`html`, `png`, `jpg`, `svg`, `pdf`). Nothing else is dropped (the `left`, `right`, `top` and
 `bottom` of a station box are arguments of the tools as they were). Charts are gone from the tools: a client that needs
 a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`, `/interpolate` and `/summarize` with
 `format=png` and the like where its operator has switched charts on (`WD_RESTAPI_PLOTTING=true`, off by default, see

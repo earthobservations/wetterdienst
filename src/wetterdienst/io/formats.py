@@ -34,12 +34,12 @@ class Format:
     #: the arguments some result's method takes, which `to_format` gives it where the one it is called on takes them:
     #: `to_json` takes `with_stations` of a values result and not of a stations result
     takes: frozenset[str]
-    #: rendered to an image by Kaleido, which is every chart but `html`: the size of what it renders is checked, and the
-    #: browser it starts is needed
-    kaleido: bool = False
+    #: rendered to an image by vl-convert, which is every chart but `html`: the size of what it renders is checked, and
+    #: the `plotting` extra is needed to draw it
+    image: bool = False
 
 
-_IMAGE_ARGUMENTS = frozenset({"width", "height", "scale", "max_side"})
+_IMAGE_ARGUMENTS = frozenset({"width", "height", "scale", "max_side", "max_points"})
 
 #: the formats of `to_format`, in the order the surfaces list them
 FORMATS: dict[str, Format] = {
@@ -52,12 +52,12 @@ FORMATS: dict[str, Format] = {
         # the rows and nothing else: the head and end lines of a stream are the surface's
         Format("ndjson", "data", "to_ndjson", frozenset()),
         Format("html", "chart", "to_image", _IMAGE_ARGUMENTS),
-        *(
-            Format(name, "chart", "to_image", _IMAGE_ARGUMENTS, kaleido=True)
-            for name in ("png", "jpg", "webp", "svg", "pdf")
-        ),
+        *(Format(name, "chart", "to_image", _IMAGE_ARGUMENTS, image=True) for name in ("png", "jpg", "svg", "pdf")),
     )
 }
+
+#: the chart formats that are drawn as an image: the page (`html`) is not
+IMAGE_FORMATS: tuple[str, ...] = tuple(name for name, format_ in FORMATS.items() if format_.image)
 
 #: every argument some format takes: the ones `to_format` accepts
 ARGUMENTS: frozenset[str] = frozenset().union(*(format_.takes for format_ in FORMATS.values()))
@@ -68,10 +68,10 @@ def names_of(kind: Literal["data", "chart"]) -> tuple[str, ...]:
     return tuple(name for name, format_ in FORMATS.items() if kind == format_.kind)
 
 
-def renders_with_kaleido(fmt: str) -> bool:
-    """Tell whether a chart format is rendered to an image by Kaleido: the registry says, not a list of names."""
+def is_image(fmt: str) -> bool:
+    """Tell whether a chart format is drawn as an image (not the html page): the registry says, not a list of names."""
     format_ = FORMATS.get(fmt)
-    return format_ is not None and format_.kaleido
+    return format_ is not None and format_.image
 
 
 def find_format(fmt: str, only: Sequence[str] | None = None) -> Format:

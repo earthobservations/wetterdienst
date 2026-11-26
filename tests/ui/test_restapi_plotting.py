@@ -2,11 +2,12 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The charts of the REST API are a setting, off by default: `WD_RESTAPI_PLOTTING` (GH-4461).
 
-Every image costs the server a Chrome (Kaleido), so a server draws none until its operator says so. A request for a
-chart format (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of `stations`, `values`, `interpolate` or `summarize` is a 403
-problem of the kind `charts-disabled` before anything is read; with the setting on, the answers are what they were.
+vl-convert draws a chart in the server's process, one at a time, so a server draws none until its
+operator says so. A request for a chart format (`html`, `png`, `jpg`, `svg`, `pdf`) of `stations`, `values`,
+`interpolate` or `summarize` is a 403 problem of the kind `charts-disabled` before anything is read; with the
+setting on, the answers are what they were.
 
-Offline: the data and the browser are stood in for. `tests/ui/conftest.py` switches the setting on for the other tests
+Offline: the data and the renderer are stood in for. `tests/ui/conftest.py` switches the setting on for the other tests
 of this directory, so each test here says which it holds.
 """
 
@@ -77,9 +78,9 @@ def _unreached(*_args: object, **_kwargs: object) -> None:
 
 
 def _nothing_is_reached(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make everything a request does after its refusals fail the test: the provider, the lookup, the answer, Chrome.
+    """Make everything a request does after its refusals fail the test: provider, lookup, answer, renderer.
 
-    Each is a name of the handlers' module (or of the browser's start), so a handler that went on past a refusal fails
+    Each is a name of the handlers' module (or of the renderer), so a handler that went on past a refusal fails
     on the first of them it reaches; `begin_response` is the first thing the handlers do after the refusal.
     """
     for name in (
@@ -100,12 +101,12 @@ def _nothing_is_reached(monkeypatch: pytest.MonkeyPatch) -> None:
         "render_stations",
     ):
         monkeypatch.setattr(restapi, name, _unreached)
-    monkeypatch.setattr("wetterdienst.io.export._draw", _unreached)
+    monkeypatch.setattr("wetterdienst.io.charts.render", _unreached)
 
 
 def _stub(monkeypatch: pytest.MonkeyPatch, endpoint: str) -> None:
     """Answer a route with a result of one station, and every image with `IMAGE_BYTES`."""
-    monkeypatch.setattr("wetterdienst.io.export._draw", lambda *_args, **_kwargs: IMAGE_BYTES)
+    monkeypatch.setattr("wetterdienst.io.charts.render", lambda *_args, **_kwargs: IMAGE_BYTES)
     if endpoint == "stations":
         stations = _values_result_of_shape("long").stations
         monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: stations)
@@ -201,7 +202,7 @@ def test_the_formats_a_refusal_names_are_those_of_the_route_without_its_charts(e
     assert ", ".join(name for name in formats if FORMATS[name].kind == "data") == DATA[endpoint].replace(" or ", ", ")
 
 
-def test_importing_the_server_and_refusing_a_chart_loads_neither_plotly_nor_kaleido() -> None:
+def test_importing_the_server_and_refusing_a_chart_loads_neither_altair_nor_vl_convert() -> None:
     """The refusal is before the plotting libraries: a fresh process that is refused has imported neither."""
     script = textwrap.dedent(
         """
@@ -216,7 +217,7 @@ def test_importing_the_server_and_refusing_a_chart_loads_neither_plotly_nor_kale
                     "format": "png"},
         )
         assert response.status_code == 403, response.text
-        loaded = [name for name in ("plotly", "kaleido", "choreographer") if name in sys.modules]
+        loaded = [name for name in ("altair", "vl_convert") if name in sys.modules]
         assert not loaded, loaded
         """
     )
@@ -360,6 +361,44 @@ def test_a_chart_too_large_is_told_that_charts_are_off_not_to_lower_the_scale(
     assert off.json()["type"] == "urn:wetterdienst:problem:charts-disabled"
     assert on.status_code == 400
     assert on.json()["type"] == "urn:wetterdienst:problem:image-too-large"
+
+
+@pytest.mark.parametrize("fmt", ["png", "html"])
+def test_the_cap_of_100000_points_holds_only_where_charts_are_on(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """Off, a chart is the 403 and its points are never counted; on, one of 100,001 is the 400 `image_points`.
+
+    The cap is the render's (seconds and gigabytes of the one worker), so it belongs to a server that draws charts:
+    the refusal of the setting is first, and with it the data is not even read.
+    """
+    from tests.ui.test_restapi import _chart_of_points  # noqa: PLC0415
+    from wetterdienst.model.result import ValuesResult  # noqa: PLC0415
+
+    query = dict(_IMAGE_ROUTES)["values"]
+    counted = []
+
+    def too_many(*_args: object, **_kwargs: object) -> object:
+        counted.append(True)
+        return _chart_of_points(100_001)
+
+    _stub_result(monkeypatch, "/api/values")
+    monkeypatch.setattr(ValuesResult, "to_plot", too_many)
+    monkeypatch.setattr("wetterdienst.model.result.render_image", _unreached)
+    monkeypatch.setattr("wetterdienst.model.result.chart_to_html", _unreached)
+
+    off = _get(client, "/api", "values", query, format=fmt)
+    assert off.status_code == 403
+    assert off.json()["type"] == "urn:wetterdienst:problem:charts-disabled"
+    assert counted == []
+
+    _on(monkeypatch)
+    on = _get(client, "/api", "values", query, format=fmt)
+    assert on.status_code == 400, on.text
+    problem = on.json()
+    assert problem["type"] == "urn:wetterdienst:problem:limit-exceeded"
+    assert (problem["limit"], problem["maximum"], problem["requested"]) == ("image_points", 100_000, 100_001)
+    assert counted == [True]
 
 
 @pytest.mark.parametrize("endpoint", ["values", "stations"])

@@ -487,30 +487,30 @@ def test_the_sentence_of_a_repeated_body_says_it_follows_and_does_not_send_a_rea
     )
 
 
-def test_the_tool_wrapper_sets_plotly_to_the_cdn_for_its_request_only() -> None:
+def test_the_tool_wrapper_sets_vega_to_the_cdn_for_its_request_only() -> None:
     """The handler sees the CDN, and the caller's context has the default again once the request is done."""
     import httpx2  # noqa: PLC0415
 
-    from wetterdienst.io.export import HTML_PLOTLYJS  # noqa: PLC0415
+    from wetterdienst.io.export import HTML_INLINE  # noqa: PLC0415
 
     app = FastAPI()
-    seen: list[bool | str] = []
+    seen: list[bool] = []
 
     @app.get("/page")
     def page() -> dict[str, str]:
-        seen.append(HTML_PLOTLYJS.get())
+        seen.append(HTML_INLINE.get())
         return {}
 
-    async def request() -> bool | str:
+    async def request() -> bool:
         async with httpx2.AsyncClient(
             transport=httpx2.ASGITransport(app=_mark_tool_requests(app)), base_url="http://t"
         ) as client:
             await client.get("/page")
-        return HTML_PLOTLYJS.get()
+        return HTML_INLINE.get()
 
     after = asyncio.run(request())
 
-    assert seen == ["cdn"]
+    assert seen == [False]
     assert after is True
 
 

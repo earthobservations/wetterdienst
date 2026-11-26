@@ -210,8 +210,11 @@ pdf = [
     "pypdf>=7.1.1,<8",
 ]
 plotting = [
-    "kaleido>=1.3.0",
-    "plotly>=6.3.1",
+    # 6.3 keeps the offset of a timezone-aware timestamp when it takes a polars frame (through narwhals, no pandas)
+    "altair>=6.3,<7",
+    # a release candidate: Vega's label transform places the labels of the station map in 2.0 (1.9 cannot run it),
+    # and 2.0 renders in a worker and does not hold the GIL. The floor is 2.0.0 when it is out (GH-4095)
+    "vl-convert-python>=2.0.0rc7,<3",
 ]
 postgresql = [
     "pandas>=2.2.2,<4",
@@ -482,6 +485,8 @@ scikit-learn = "sklearn"
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
+    # the `plotting` extra: imported by name through `util.extras.import_optional`, which deptry does not read as an import
+    "altair",
     # imported by name through `util.extras.import_optional`, which deptry does not read as an import
     "duckdb",
     # a floor only: eccodes imports it, and the floor is what keeps the abort at exit of GH-2441 out
@@ -492,16 +497,15 @@ DEP002 = [
     "influxdb",
     "influxdb-client",
     "influxdb3-python",
-    "kaleido",
     "msgpack",
     "mysqlclient",
     "pandas",
-    "plotly",
     "psycopg",
     "pypdf",
     "sqlalchemy-cratedb",
     "tzdata",
     "uvicorn",
+    "vl-convert-python",
     # self-referential extra: the `mcp` extra pulls in `wetterdienst[restapi]`, which is never imported
     "wetterdienst",
     "wradlib",
@@ -520,7 +524,7 @@ DEP001 = ["mcp_types", "tabula"]
 DEP003 = ["mcp_types"]
 
 [tool.pytest.ini_options]
-addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError --only-rerun ImageTimeoutError --rerun-except ^ProviderRateLimitError:"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError --rerun-except ^ProviderRateLimitError:"
 #log_cli = true
 #log_cli_level = "DEBUG"
 log_date_format = "%Y-%m-%dT%H:%M:%S"
@@ -541,8 +545,7 @@ testpaths = ["tests"]
 # xfail_strict = true
 
 # Retry flaky tests, thereby improving the consistency of the test suite results.
-# --only-rerun flags in addopts restrict retries to transient network errors, a hung test and a Kaleido image
-# that a loaded runner did not draw in time (GH-3918). A `ProviderRateLimitError` is never rerun (--rerun-except, anchored on the name, GH-4053):
+# --only-rerun flags in addopts restrict retries to transient network errors and a hung test. A `ProviderRateLimitError` is never rerun (--rerun-except, anchored on the name, GH-4053):
 # its cause is the 429's `ClientResponseError`, which --only-rerun matches along the cause chain, and a rerun would ask a
 # provider that limits how fast it is asked again, after 5 s.
 reruns = 2

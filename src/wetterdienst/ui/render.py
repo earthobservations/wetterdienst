@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
-from wetterdienst.io.formats import renders_with_kaleido
+from wetterdienst.io.formats import is_image
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.limits import Limit  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
@@ -248,6 +248,11 @@ def _applied_settings(model: type[_M], options: Options) -> _M:
     )
 
 
+#: the most points a chart of the REST API draws, an image or a page (GH-3238): 100,000 points took 11 s and 1.3 GB
+#: to draw, one chart after another. The library and the command line draw what they are given
+MAX_IMAGE_POINTS = 100_000
+
+
 def render_kwargs(
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
     *,
@@ -259,17 +264,21 @@ def render_kwargs(
     adds it (`render`).
 
     `max_side` is the largest side of a rendered chart that is let through, which the REST API sets
-    and the command line, whose caller is at the keyboard, does not.
+    and the command line, whose caller is at the keyboard, does not. Where it is set, a chart (an image or the
+    page) of more than `MAX_IMAGE_POINTS` points is refused as well: a render of that many takes seconds and
+    gigabytes of the one worker, and the page embeds every point.
     """
     kwargs: dict[str, Any] = {"fmt": request.format, "with_metadata": request.with_metadata}
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
-    if renders_with_kaleido(request.format):
+    if is_image(request.format):
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
         if max_side is not None:
             kwargs["max_side"] = max_side
+    if (is_image(request.format) or request.format == "html") and max_side is not None:
+        kwargs["max_points"] = MAX_IMAGE_POINTS
     return kwargs
 
 
