@@ -15,13 +15,13 @@ from abc import abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Literal, Self, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 
 import polars as pl
 
 from wetterdienst.exceptions import ImageTimeoutError, ImageTooLargeError
 from wetterdienst.io.file_metadata import require_block, write_sidecar
-from wetterdienst.io.formats import find_format, refuse_unknown_arguments
+from wetterdienst.io.formats import FORMATS, find_format, refuse_unknown_arguments
 from wetterdienst.io.sinks import join_list_columns, write_to_target
 from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.renamed import RefusesRenamedMembers
@@ -344,6 +344,10 @@ class ExportMixin(RefusesRenamedMembers):
 
     df: pl.DataFrame
 
+    #: the formats of `FORMATS` this result does not render, which `to_format` refuses as it refuses an unknown one:
+    #: the compact format is the values result's alone (GH-4445), and the other results add theirs as they get it
+    _FORMATS_NOT_RENDERED: ClassVar[frozenset[str]] = frozenset({"compact"})
+
     def filtered_by_sql(self, sql: str) -> Self:
         """Filter the frame with the WHERE clause of an SQL query and return a new result of it.
 
@@ -482,6 +486,7 @@ class ExportMixin(RefusesRenamedMembers):
         - `to_csv`
         - `to_geojson`
         - `to_ndjson`
+        - `to_compact`, of the results that have it (`ValuesResult`)
         - `to_image`
 
         The one set of arguments a caller builds for every format (`with_metadata`, `indent`,
@@ -498,11 +503,12 @@ class ExportMixin(RefusesRenamedMembers):
             Formatted data
 
         Raises:
-            UnknownFormatError: Nothing renders `fmt`. It is a `KeyError` and a `ValueError`.
+            UnknownFormatError: Nothing renders `fmt`, or this result does not (`compact` of a stations result). It is a
+                `KeyError` and a `ValueError`, and lists the formats this result renders.
             TypeError: An argument that is the name of none of the arguments any format takes.
 
         """
-        format_ = find_format(fmt)
+        format_ = find_format(fmt, tuple(name for name in FORMATS if name not in self._FORMATS_NOT_RENDERED))
         refuse_unknown_arguments(kwargs)
 
         if format_.kind == "chart":

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import functools
 import json
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
@@ -29,6 +29,7 @@ from wetterdienst.ui.response_metadata import (
     alerts_metadata,
     kostra_metadata,
     metadata_to_dict,
+    parameter_infos,
     response_metadata,
     station_ids_metadata,
     statistics_metadata,
@@ -389,6 +390,11 @@ def render(
         metadata = metadata or response_metadata(result, request)
         settings = _applied_settings(applied, options) if request.with_metadata else None
         return _render_ndjson(result.to_dict()["values"], result.df, metadata, settings)
+    if request.format == "compact":
+        metadata = metadata or response_metadata(result, request)
+        settings = _applied_settings(applied, options) if request.with_metadata else None
+        # the format is offered by `values` alone: the request that names it is one for values
+        return render_compact_values(cast("ValuesResult", result), metadata, settings)
     if request.format not in ("json", "geojson"):
         kwargs: dict[str, Any] = {**render_kwargs(request, max_side=max_side), "with_stations": request.with_stations}
         return result.to_format(**kwargs)
@@ -399,6 +405,32 @@ def render(
         data = dict(result.to_ogc_feature_collection())
     settings = _applied_settings(applied, options) if request.with_metadata else None
     return _json_answer(data, request, metadata, settings)
+
+
+def compact_values(result: ValuesResult, block: Mapping[str, Any], *, settings: _AppliedSettings | None = None) -> str:
+    """Write a values result as compact text, with the `metadata` block as its JSON has it (`metadata_to_dict`).
+
+    The units of the column lines are the block's `parameters` where `with_metadata` made it have them, else those of
+    the result's parameters (`parameter_infos`): the compact format always carries them. `settings` are what the
+    values were read with, written where `with_metadata` asks for them.
+    """
+    from wetterdienst.io.compact import values_text  # noqa: PLC0415
+
+    parameters = block.get("parameters") or [info.model_dump(mode="json") for info in parameter_infos(result.stations)]
+    return values_text(
+        block,
+        result._long_frame(),  # noqa: SLF001
+        result.df_stations.to_dicts(),
+        parameters,
+        settings=json.loads(settings.model_dump_json()) if settings is not None else None,
+    )
+
+
+def render_compact_values(
+    result: ValuesResult, metadata: ResponseMetadata, settings: _AppliedSettings | None = None
+) -> str:
+    """Write a values result as compact text, the header of it the `metadata` block of the answer."""
+    return compact_values(result, metadata_to_dict(metadata), settings=settings)
 
 
 def render_history(

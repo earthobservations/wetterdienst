@@ -50,7 +50,7 @@ from wetterdienst.exceptions import (
     UpstreamError,
     WetterdienstError,
 )
-from wetterdienst.io.formats import FORMATS, renders_with_kaleido
+from wetterdienst.io.formats import COMPACT_MEDIA_TYPE, FORMATS, renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.group_statistics import GroupsOverLimitError
 from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
@@ -725,6 +725,8 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
 # for jpg or svg, and a PDF was sent as `image/pdf` (GH-2063)
 _MEDIA_TYPES = {
     "csv": "text/csv",
+    # the compact format is one body: held to `rows`, not streamed (GH-4445)
+    "compact": COMPACT_MEDIA_TYPE,
     # only a tool's request is answered as one body in ndjson (`_is_streamed`); any other is streamed
     "ndjson": NDJSON_MEDIA_TYPE,
     "html": "text/html",
@@ -1990,6 +1992,20 @@ _STREAM_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
+#: the media types of `format=csv`, `format=ndjson` and `format=compact` of `values`: the first two are streamed
+_VALUES_RESPONSES: dict[int | str, dict[str, Any]] = {
+    200: {
+        "content": {
+            **_STREAM_RESPONSES[200]["content"],
+            COMPACT_MEDIA_TYPE: {
+                "schema": {"type": "string"},
+                "example": "# wetterdienst-compact/1 values\n# provider: ...\n\n## values daily/kl station=01048\n...",
+            },
+        }
+    }
+}
+
+
 def _check_values_limits(
     stations: StationsResult,
     limits: Limits,
@@ -2455,11 +2471,11 @@ def issues(
 # response models for the different formats are
 # - _ValuesWithSettingsDict for json
 # - _ValuesWithSettingsOgcFeatureCollection for geojson
-# - str for csv
+# - str for csv and compact
 @router.get(
     "/values",
     response_model=_ValuesWithSettingsDict | _ValuesWithSettingsOgcFeatureCollection | str,
-    responses=_STREAM_RESPONSES,
+    responses=_VALUES_RESPONSES,
     tags=[TAG_VALUES],
 )
 def values(

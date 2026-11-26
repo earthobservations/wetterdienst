@@ -643,7 +643,6 @@ def result_metadata(
     stations = result if isinstance(result, StationsResult) else result.stations
     frame = result.df if isinstance(result, StationsResult) else result.df_stations
     ids = _unique(frame.get_column("station_id")) if "station_id" in frame.columns else []
-    options = stations.options
     parameters = stations.parameters
     block = ResponseMetadata(
         api_version=API_VERSION,
@@ -675,22 +674,7 @@ def result_metadata(
     if searched is not None:
         block.search = Search.model_validate(searched.to_dict())
     if heavy:
-        converter = UnitConverter()
-        converter.update_targets(options.unit_targets)
-        block.parameters = [
-            ParameterInfo(
-                resolution=p.dataset.resolution.name,
-                dataset=p.dataset.name,
-                name=p.name,
-                name_original=p.name_original,
-                description=p.description,
-                quantity=p.unit_type,
-                unit=_unit_symbol(p, options, converter),
-                aggregation=p.effective_aggregation,
-                timestamp_position=p.effective_timestamp_position,
-            )
-            for p in parameters
-        ]
+        block.parameters = parameter_infos(stations)
         block.quality = Quality(
             legend=quality_legend(provider, network),
             source_flags=[
@@ -706,6 +690,31 @@ def result_metadata(
             ],
         )
     return block
+
+
+def parameter_infos(stations: StationsResult) -> list[ParameterInfo]:
+    """Describe the parameters of a result: the unit its values are in, what they are relative to, and the rest.
+
+    The `parameters` of a `with_metadata` block, and the units of the column lines of the compact format, which
+    always carries them.
+    """
+    options = stations.options
+    converter = UnitConverter()
+    converter.update_targets(options.unit_targets)
+    return [
+        ParameterInfo(
+            resolution=p.dataset.resolution.name,
+            dataset=p.dataset.name,
+            name=p.name,
+            name_original=p.name_original,
+            description=p.description,
+            quantity=p.unit_type,
+            unit=_unit_symbol(p, options, converter),
+            aggregation=p.effective_aggregation,
+            timestamp_position=p.effective_timestamp_position,
+        )
+        for p in stations.parameters
+    ]
 
 
 def statistics_metadata(result: StatisticsResult, *, provider: str, network: str) -> StatisticsMetadata:

@@ -648,9 +648,10 @@ def _or_list(names: Iterable[str]) -> str:
 
 
 # the formats of a command that answers in one body: `ndjson`, which `to_format` has, is the stream of `stations` and
-# `values` only, as `interpolate` and `summarize` name no stations to stream by (GH-3590)
-_BODY_FORMATS = [name for name in FORMATS if name != "ndjson"]
-_BODY_DATA_FORMATS = [name for name in names_of("data") if name != "ndjson"]
+# `values` only, as `interpolate` and `summarize` name no stations to stream by (GH-3590); nor do they have `compact`,
+# the text of `values` alone for now (GH-4445): a command lists no format it refuses
+_BODY_FORMATS = [name for name in FORMATS if name not in ("ndjson", "compact")]
+_BODY_DATA_FORMATS = [name for name in names_of("data") if name not in ("ndjson", "compact")]
 
 format_opt = click.option(
     "--format",
@@ -661,12 +662,24 @@ format_opt = click.option(
     "Default: json",
 )
 # of `stations` and `values`, whose csv is streamed by the REST API and which have ndjson (GH-3065)
+_STREAM_FORMATS = [name for name in FORMATS if name != "compact"]
+_STREAM_DATA_FORMATS = [name for name in names_of("data") if name != "compact"]
 stream_format_opt = click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(_STREAM_FORMATS, case_sensitive=False),
+    default="json",
+    help=f"Output format: {_or_list(_STREAM_DATA_FORMATS)} (the metadata, a line for each row, then the end) "
+    f"for data, {_or_list(names_of('chart'))} for a chart. Default: json",
+)
+# of `values`: those of `stations` and the compact text, a header and a table for each station and dataset (GH-4445)
+values_format_opt = click.option(
     "--format",
     "fmt",
     type=click.Choice(list(FORMATS), case_sensitive=False),
     default="json",
-    help=f"Output format: {_or_list(names_of('data'))} (the metadata, a line for each row, then the end) "
+    help=f"Output format: {_or_list(names_of('data'))} (ndjson: the metadata, a line for each row, then the end; "
+    f"compact: a header and a table for each station and dataset, one row a timestamp) "
     f"for data, {_or_list(names_of('chart'))} for a chart. Default: json",
 )
 # the size of a chart, for --format of html, png, jpg, webp, svg or pdf
@@ -1433,12 +1446,13 @@ def _collect_or_exit(
         sys.exit(1)
 
 
-def _echo(output: str | bytes) -> None:
+def _echo(output: str | bytes, *, newline: bool = True) -> None:
     """Write a rendered result to stdout: text as a line, a chart's image as the bytes it is.
 
-    `print` wrote the image as its `repr`, `b'<svg ...'`, where the REST API sends the bytes.
+    `print` wrote the image as its `repr`, `b'<svg ...'`, where the REST API sends the bytes. A compact text ends
+    with its own newline (`newline=False`): the bytes are those the REST API sends.
     """
-    click.echo(output, nl=isinstance(output, str))
+    click.echo(output, nl=isinstance(output, str) and newline)
 
 
 def _finish(
@@ -1472,7 +1486,7 @@ def _finish(
             return
         _export_or_exit(values_, target, if_exists, with_metadata=request.with_metadata)
         return
-    _echo(render(values_, request, applied, options))
+    _echo(render(values_, request, applied, options), newline=request.format != "compact")
 
 
 def _export_or_exit(result: Any, target: str, if_exists: str, *, with_metadata: bool = False) -> None:  # noqa: ANN401
@@ -2494,7 +2508,7 @@ def history(
 @plausibility_opts
 @limits_opt
 @_row_options_opts
-@stream_format_opt
+@values_format_opt
 @width_opt
 @height_opt
 @scale_opt

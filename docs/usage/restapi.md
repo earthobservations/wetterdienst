@@ -1832,6 +1832,16 @@ rows (`filter`, `first`) reads more than it sends and is told a narrower request
 refusal, in the order to try it (a narrower request, a stream, slices, the library, a server of your own), is on
 [Getting more than the limit](large-requests.md).
 
+## Compact
+
+`values` answers `format=compact`: [a text of a header and tables](compact.md), a tenth of the JSON or less, as
+`text/vnd.wetterdienst.compact; charset=utf-8`. The header carries what the `metadata` block carries (the provider, the
+licence and the credit line, the processing note, the warnings, what was searched), a table holds the readings of each
+station and dataset with the unit in its column line, and an empty cell is no value. It is one body, built whole and held
+to `rows` as `json` is, not streamed; `shape` and `with_stations` do not apply; `with_metadata` adds the settings, the
+parameters and the legend as tables. The headers of the other formats (`X-Wetterdienst-License`, `Link`, ...) are
+sent as well. No other route has it yet: they refuse it as an unknown `format`.
+
 ## Streaming
 
 `stations` and `values` answer `format=ndjson` and `format=csv` as the answer is built, station by station,

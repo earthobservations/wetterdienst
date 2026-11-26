@@ -18,7 +18,7 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   cost every session part of its tool list (GH-4318),
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
-- an answer in a format that is not JSON (csv, ndjson) as content of the tool result: FastMCP answers a text body
+- an answer in a format that is not JSON (csv, ndjson, compact) as content of the tool result: FastMCP answers a text
   without structured content, which the output schema of the tool refuses (GH-3464). No tool offers a chart (GH-4318)
   and a call cannot ask a route for one (GH-4453), so no answer is an image, a pdf or markup: a 2xx of any other
   media type is an error of the tool, never content (GH-4450),
@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
 from wetterdienst import __version__
+from wetterdienst.io.formats import COMPACT_MEDIA_TYPE
 
 if TYPE_CHECKING:
     from collections.abc import MutableMapping
@@ -342,7 +343,7 @@ warning that names the next `timestamp`. A date covers everything it names: time
 hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \
 (timestamp="2026-07-25T12") for one reading. A station's latest day is its `end_timestamp` from `stations` \
 where it has one; null means no end given, not data up to today. For a long series, \
-format="csv" with shape="wide" is 5-6x smaller.
+format="compact" is 5-10x smaller.
 - An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
 matches, or ids in the `stations` argument the network has no station for (left out of the list; the \
 rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or try another \
@@ -503,10 +504,11 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
 
 
 # The sentence that ends the description of the `values` tool, which only the tool has: the answer of a tool is cut to
-# `ui.budget.ANSWER_BUDGET` characters.
+# `ui.budget.ANSWER_BUDGET` characters, and the compact format holds several times more of a series in them (GH-4445).
 _VALUES_WINDOW_ADVICE = (
-    "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv with "
-    "shape=wide (not with `value` in `filter` or `sort`)."
+    "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=compact, a text "
+    "with a table for each station and dataset (a row for each timestamp, the unit in the column line, an empty cell "
+    "for no value, flags as the table's default and the periods that differ)."
 )
 
 # The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same
@@ -823,12 +825,9 @@ _REPORTING_HEADERS = (
 )
 
 
-# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
-_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
-
-
-# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
-_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
+# The media types of the answers that are not JSON and that a tool carries: csv, ndjson and the compact text (GH-4445),
+# the data formats.
+_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson", COMPACT_MEDIA_TYPE})
 
 
 def _is_json(media_type: str) -> bool:
@@ -852,7 +851,7 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
     `_return_bodies_as_content` takes apart again into the content block of the result (GH-3464). A failure (not a
     2xx) is left as it is.
 
-    What it carries is text: csv and ndjson, the data formats of a tool that are not JSON. A 2xx of any other media
+    What it carries is text: csv, ndjson and compact, the data formats of a tool that are not JSON. A 2xx of another
     type is no answer of a tool (a chart, or what a route answered to an argument it should not have been given): it is
     an error, a 502 that names the media type, and its body is not decoded, not copied and not passed on (GH-4453; the
     in-process transport holds it whole, nothing here uses it). That is the last line, not the first: a chart format
@@ -875,7 +874,7 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
                 await response.aclose()
                 text = (
                     f"The REST API answered {media_type}, which a tool does not carry: "
-                    "a tool answers json, geojson, csv or ndjson."
+                    "a tool answers json, geojson, csv, ndjson or compact."
                 )
                 # plain text, as the REST app answers a tool's failures: FastMCP quotes a JSON string
                 return httpx2.Response(
@@ -975,7 +974,12 @@ def structured_size(media_type: str, body: str, headers: dict[str, str]) -> int:
     app sent), a blank line and the body. It reaches the client as JSON, where every newline and quote of the text is
     an escape of two characters, so that is what is counted: compact, with each character that is not ASCII as it is,
     as the client reads it. It is what `ui.budget` holds to its budget (GH-4022, GH-4029).
+
+    The compact text has no sentence in front: its header carries the licence, the credit line, the processing note and
+    the warnings, so the structured content is the body itself (GH-4445).
     """
+    if media_type == COMPACT_MEDIA_TYPE:
+        return len(json.dumps({"result": body}, separators=(",", ":"), ensure_ascii=False))
     size = len(body.encode("utf-8"))
     sentence = _sentence_of(media_type, size, _report_of(headers))
     return len(json.dumps({"result": f"{sentence}\n\n{body}"}, separators=(",", ":"), ensure_ascii=False))
@@ -1027,7 +1031,12 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
                 # A client may hand the model the structured content and not the content blocks (Claude Code does:
                 # a result with both reaches the model as the structured content alone, so the rows of a csv were
                 # lost behind the sentence, GH-4017). The schema admits a string, so the data is repeated in it.
-                structured = {"result": f"{_sentence_of(media_type, size, report)}\n\n{body}"}
+                # the compact text says it all itself, in its header: no sentence in front of it
+                structured = {
+                    "result": body
+                    if media_type == COMPACT_MEDIA_TYPE
+                    else f"{_sentence_of(media_type, size, report)}\n\n{body}"
+                }
             # also where the tool has no output schema to put the sentence in
             return ToolResult(
                 content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None

@@ -1,0 +1,36 @@
+# wetterdienst-compact/1 values
+# provider: German Weather Service (dwd/observation)
+# license: CC-BY-4.0 https://creativecommons.org/licenses/by/4.0/
+# attribution: Source: Deutscher Wetterdienst
+# source: https://opendata.dwd.de/climate_environment/CDC/
+# processing: Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ.
+# window: 2026-10-22T00:00Z/2026-10-30T23:59:59Z
+# time: UTC
+# retrieved: 2026-11-25T22:50Z (source updated 2026-11-25T09:05Z)
+# producer: wetterdienst 0.199.0, doi 10.5281/zenodo.3960624
+# warning missing-value-marker: 25 readings of the source were a marker for a missing value and are null, at 01975 Hamburg-Fuhlsbüttel (25); with drop_nulls they are not in the answer, without it the text the source wrote is the `raw:` token of their quality_flags.
+
+## stations
+station_id,name,latitude,longitude,elevation_m,region,wmo_id
+01975,Hamburg-Fuhlsbüttel,53.6332,9.9881,11,Hamburg,10147
+
+## values daily/climate_summary station=01975
+# flags: 1 (periods that differ are listed after the table)
+timestamp,cloud_cover_total_mean(%),humidity_relative_mean(%),precipitation_amount(mm),precipitation_form(-),pressure_air_site_mean(hPa),pressure_vapor_mean(hPa),snow_depth(cm),sunshine_duration(h),temperature_air_max_2m(°C),temperature_air_mean_2m(°C),temperature_air_min_0_05m(°C),temperature_air_min_2m(°C),wind_gust_max(m/s),wind_speed_mean(m/s)
+2026-10-22,60,83,0,6,1009.1,10.2,0,5.667,13.1,10,4.5,6.8,12.5,5.3
+2026-10-23,83.75,91.5,3.6,6,1004.71,10.6,0,0,11.8,9,2.6,5.5,12.7,5.1
+2026-10-24,95,84.83,11.8,6,1001.43,10.4,0,0,11.5,9.8,7.2,8.3,16.6,7.6
+2026-10-25,,,,,,,0,2.833,12.8,10.5,7.1,8.1,,
+2026-10-26,,,0.7,4,,,0,2.3,13,9.8,6.3,7.8,,
+2026-10-27,,,1.5,4,,,0,0.1,15.5,12.6,9,9.4,,
+2026-10-28,,,0,4,,,0,3.2,13.7,10.6,4.6,8.1,7.2,
+2026-10-29,80,92.75,0.1,6,1027.47,12.1,0,3.1,14.5,11,5.7,8.1,5.9,2.4
+2026-10-30,100,99.46,0,4,1031.06,11.4,0,0,9.9,9,7.7,7.5,4.8,1.8
+
+## flags daily/climate_summary station=01975 (exceptions)
+columns,from,to,flags
+cloud_cover_total_mean|humidity_relative_mean|pressure_air_site_mean|pressure_vapor_mean|wind_speed_mean,2026-10-25,2026-10-28,"1,raw:-999"
+precipitation_amount|precipitation_form,2026-10-25,2026-10-25,"1,raw:-999"
+wind_gust_max,2026-10-25,2026-10-27,"1,raw:-999"
+
+# end rows=126

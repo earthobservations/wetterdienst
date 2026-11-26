@@ -70,6 +70,10 @@ wetterdienst values --provider=dwd --network=observation --parameters=daily/clim
     --stations=01975 --timestamp=1900/2024 --filter='value<=-20' --sort=-timestamp
 ```
 
+`wetterdienst values --format=compact` writes the values as [a text of a header and tables](compact.md) (a tenth of the
+JSON): the provider, the licence, the credit line, the warnings, the stations and a table for each station and dataset
+with the unit in its column line; no other command has it yet.
+
 `wetterdienst statistics` counts, averages, adds up or takes the extremes of each station's values per year, month, day
 or hour (`--aggregate`, `--by`, `--filter`, `--year-start`, `--max-missing`, `--having`, `--sort`, `--first`, `--per`,
 `--max-rows`), on the words of [Statistics](restapi.md#statistics), where the rules of the completeness are written: a

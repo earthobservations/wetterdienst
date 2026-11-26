@@ -2949,6 +2949,7 @@
                 "geojson",
                 "csv",
                 "ndjson",
+                "compact",
                 "html",
                 "png",
                 "jpg",
@@ -2957,11 +2958,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson, compact) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. `compact` is a text with a header and a table for each station and dataset, a row for each timestamp and the unit in the column line, about a tenth of the JSON. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; `compact`, and an MCP tool in every format, is one body capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson, compact) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. `compact` is a text with a header and a table for each station and dataset, a row for each timestamp and the unit in the column line, about a tenth of the JSON. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; `compact`, and an MCP tool in every format, is one body capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -3522,6 +3523,12 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "text/vnd.wetterdienst.compact": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "# wetterdienst-compact/1 values\n# provider: ...\n\n## values daily/kl station=01048\n..."
               }
             }
           },

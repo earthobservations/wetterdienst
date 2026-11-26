@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- `format=compact` of `values`: a text of a header and tables that holds what the JSON holds in a tenth of
+  the characters or less (licence, credit line, warnings and stations in the header, a table for each
+  station and dataset with the unit in its column line, flags as a default and the periods that differ).
+  REST (one body, `text/vnd.wetterdienst.compact`), command line, MCP tool, `ValuesResult.to_compact`. A
+  tool's compact answer is cut after whole timestamps, and its instructions recommend it for a long series
+  in place of `csv` with `shape=wide`; the tool's default stays `json`. Not frozen (the first line is
+  `# wetterdienst-compact/1 values`), see `docs/usage/compact.md`; the other tools follow (GH-4445)
 - `GET /api/version` (and `/api/v1/version`) has `plotting`, whether the server draws charts
   (`WD_RESTAPI_PLOTTING`, read per request), so a client learns it before it asks for one and gets
   the 403 `charts-disabled` (GH-4467)

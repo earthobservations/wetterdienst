@@ -114,12 +114,15 @@ does not take is refused with the name of the one it takes where the tool had th
 
 Every `format` a tool offers is answered, as one body held to the `rows` limit. `json` and `geojson` are the
 structured content of the result. `csv` is a text content block, as the REST API sends it, and so is `ndjson`, which
-only `values` and `stations` offer. The structured content that the output schema of the tool
+only `values` and `stations` offer, and `compact`, which only `values` offers ([Compact format](compact.md)). The structured content that the output schema of the tool
 requires is then one sentence about the answer: its media type and size in bytes, and the licence, the attribution,
 the note on what wetterdienst did to the data and the warnings that the REST API sends in headers for these formats
 (the same in the `_meta` of the result, under `wetterdienst`), followed by the body itself, since a client may hand the
 model the structured content alone. The default is `json`, which the assistant reads without further ado, and a long
-`csv` goes through the context of the assistant.
+`csv` goes through the context of the assistant. The structured content of a `compact` answer is the text alone, with
+no sentence in front: its header carries the licence, the credit line, the processing note and the warnings
+(the `_meta` of the result has them too). It is about a tenth of the JSON, so `format=compact` is what to ask for
+a long series; the default of the tool stays `json`.
 
 ### What a tool does not take
 
@@ -191,9 +194,10 @@ before now, answers no row and says so. The REST API, the command line and Pytho
 An assistant reads the answer of a tool in its context, and Claude Code saves a result of more than 50,000 characters to
 a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
 `interpolate`, `summarize`, `coverage` and `alerts` is held to **40,000 characters** of what the client receives, in
-`json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
+`json`, `geojson`, `csv`, `ndjson` and `compact`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
 included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the
-licence and the note below, and the body, each newline and quote of it written as the escape it is there. The budget is
+licence and the note below, and the body, each newline and quote of it written as the escape it is there; for
+`compact` the structured content `{"result": <text>}` as JSON, the text being all of it. The budget is
 a constant of the server and applies to the tools alone: the REST API, the command line and Python answer everything the
 [limits](restapi.md#limits) allow, so an app that lists every station of a network is unaffected.
 
@@ -202,7 +206,9 @@ An answer over the budget is cut, not refused, and says so:
 - **`values`** keeps whole timestamps, at least one. Without a `timestamp` it keeps the end nearest to now: the start of
   a forecast (which [starts at now](#a-forecast-starts-at-now)), the latest part of a `recent` or `historical` record.
   With a `timestamp` it keeps the start of the window, so the next window continues it. Only where one timestamp alone is more than the budget are its rows cut, and no
-  window can split a timestamp: ask for fewer parameters or stations.
+  window can split a timestamp: ask for fewer parameters or stations. A `compact` answer is cut the same way, every
+  table to the same whole timestamp, and where one timestamp alone is more than the budget after whole stations, never
+  through the readings of one; its note does not offer `csv` with `shape=wide`, which is larger.
 - **`values`** with `filter`, `sort`, `first` or `by` (see [Choose the rows](restapi.md#choose-the-rows)) has the rows of
   its own order (`max_rows` has cut it already if it was given, and the `rows-capped` warning says so) and is cut in it: the first rows are kept, so with `sort=-value` the highest, and the
   `answer-truncated` note says how many of how many rows matched and how many values were searched. `metadata.search`

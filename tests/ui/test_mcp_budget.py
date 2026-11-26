@@ -936,7 +936,7 @@ def test_one_row_is_told_in_the_singular() -> None:
 
 
 def test_the_instructions_window_their_values_examples_and_say_of_the_budget() -> None:
-    """No example of `values` reads a whole record, and the instructions tell the cut, its warning and csv with wide."""
+    """No example of `values` reads a whole record; the instructions tell the cut, its warning and the compact text."""
     from wetterdienst.ui.mcp import INSTRUCTIONS  # noqa: PLC0415
 
     calls = re.findall(r"values\((.*?)\)", INSTRUCTIONS, flags=re.DOTALL)
@@ -947,7 +947,8 @@ def test_the_instructions_window_their_values_examples_and_say_of_the_budget() -
     flat = " ".join(INSTRUCTIONS.split())
     assert "cut to 40,000 characters" in flat
     assert "`answer-truncated`" in flat
-    assert 'format="csv" with shape="wide"' in flat
+    assert 'format="compact" is 5-10x smaller' in flat
+    assert "shape=" not in flat.replace('(shape="long" unless', "")
     assert len(INSTRUCTIONS) < 7800
 
 
@@ -963,8 +964,8 @@ def test_the_values_tool_recommends_a_window_and_the_rest_document_does_not() ->
             return {tool.name: tool.description or "" for tool in await client.list_tools()}
 
     descriptions = asyncio.run(listed())
-    advice = "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv"
-    assert descriptions["values"].rstrip().endswith("shape=wide (not with `value` in `filter` or `sort`).")
+    advice = "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=compact"
+    assert descriptions["values"].rstrip().endswith("flags as the table's default and the periods that differ).")
     assert advice in descriptions["values"]
     assert advice not in descriptions["stations"]
     paths = restapi.app.openapi()["paths"]

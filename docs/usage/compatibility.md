@@ -105,7 +105,11 @@ These may change in a minor or a patch release, with a changelog entry where a c
 - which parameters a provider offers in a dataset: a provider can gain one, and one whose upstream source has ended is
   removed in a minor release, announced as **Breaking** (see [Which release a break takes](#which-release-a-break-takes));
   any other removal is a break;
-- the values: a reading is what the provider published; a provider that revises its data revises the answer.
+- the values: a reading is what the provider published; a provider that revises its data revises the answer;
+- the compact format (`format=compact`, `to_compact`, see [Compact format](compact.md)): its keys, its columns and
+  the text of its notes. The first line names `wetterdienst-compact/1`; a key or a column that is renamed raises the
+  version, one that is added does not, and a reader ignores what it does not know. The `format` value `compact`
+  itself, and that `values` answers it, are promised.
 
 ## Python API
 

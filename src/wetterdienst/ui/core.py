@@ -315,6 +315,20 @@ _StreamFormatField = Annotated[
         "limits of the server."
     ),
 ]
+# of the values request alone, which has the compact format beside the stations' formats (GH-4445): the compact text of
+# the other tools is added to their own field as they get it, so that no route lists a format it refuses
+_ValuesFormatField = Annotated[
+    Literal["json", "geojson", "csv", "ndjson", "compact", "html", "png", "jpg", "webp", "svg", "pdf"],
+    Field(
+        description="Output format: data (json, geojson, csv, ndjson, compact) or a rendered chart (html, png, jpg, "
+        "webp, svg, pdf)."
+        + _CHARTS_NEED_THE_SETTING
+        + " `compact` is a text with a header and a table for each station and dataset, a row for each timestamp and "
+        "the unit in the column line, about a tenth of the JSON. Over the REST API, ndjson and csv are streamed "
+        "station by station, so they are allowed up to the higher `stream_rows` limit; `compact`, and an MCP tool in "
+        "every format, is one body capped at `rows`: see the limits of the server."
+    ),
+]
 _PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
 _WidthField = Annotated[int | None, Field(gt=0, description="Width of the rendered chart image in pixels.")]
 _HeightField = Annotated[int | None, Field(gt=0, description="Height of the rendered chart image in pixels.")]
@@ -1437,7 +1451,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithValueStationsField = False
 
-    format: _StreamFormatField = "json"
+    format: _ValuesFormatField = "json"
     pretty: _PrettyField = False
 
     # plot settings

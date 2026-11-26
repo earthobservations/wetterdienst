@@ -35,6 +35,7 @@ from mcp_types import TextContent
 
 from tests.ui.test_operations import _VALUES, _no_ambient_settings, _selection_of  # noqa: F401
 from tests.ui.test_restapi import _stub_stream, _values_result_of_shape
+from wetterdienst.io.formats import COMPACT_MEDIA_TYPE
 from wetterdienst.model.processing_note import PROCESSING_NOTE
 from wetterdienst.ui import restapi
 from wetterdienst.ui.mcp import _TOOL_NAMES, _mark_tool_requests, _report_of, _sentence_of, build_mcp_server
@@ -53,6 +54,7 @@ _BLOCK_OF_FORMAT: dict[str, type] = {
     "geojson": TextContent,
     "csv": TextContent,
     "ndjson": TextContent,
+    "compact": TextContent,
 }
 
 
@@ -124,9 +126,9 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
 
     answers, schema = _every_format(tool, arguments)
 
-    # every format the tool offers is answered (`answers` is read from its schema), and these four are all it offers:
-    # the formats of a chart are REST's alone (GH-4318), so what a tool offers is data
-    assert {"json", "geojson", "csv", "ndjson"} == set(answers)
+    # every format the tool offers is answered (`answers` is read from its schema), and these are all it offers: the
+    # formats of a chart are REST's alone (GH-4318), so what a tool offers is data; `values` has the compact text too
+    assert {"json", "geojson", "csv", "ndjson", *({"compact"} if tool == "values" else set())} == set(answers)
     for fmt, result in answers.items():
         assert not result.is_error, (fmt, result.content)
         assert isinstance(result.content[0], _BLOCK_OF_FORMAT[fmt]), fmt
@@ -136,7 +138,16 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
         assert "CC-BY-4.0" in told, fmt
         if tool == "values":
             assert "station-skipped" in told, fmt
-        if fmt not in ("json", "geojson"):
+        if fmt == "compact":
+            # the licence, the credit line, the processing note and the warnings are the header of the text itself
+            assert "# attribution: Source: Deutscher Wetterdienst" in told, fmt
+            assert "# license: CC-BY-4.0 https://creativecommons.org/licenses/by/4.0/" in told, fmt
+            assert f"# processing: {PROCESSING_NOTE}" in told, fmt
+            assert "# warning station-skipped: station 00002 is skipped" in told, fmt
+            assert "The answer is" not in told, fmt
+            assert result.structured_content["result"] == result.content[0].text, fmt
+            assert result.meta["wetterdienst"]["license"] == "CC-BY-4.0", fmt
+        elif fmt not in ("json", "geojson"):
             assert "Attribution: " in told, fmt
             assert result.meta["wetterdienst"]["license"] == "CC-BY-4.0", fmt
             # the `Link` header of the answer is carried, and the sentence names the terms
@@ -252,8 +263,8 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
 
 
 #: the formats a tool answers, and the media types the REST API answers them in: what the transport carries
-_DATA_FORMATS = {"json", "geojson", "csv", "ndjson"}
-_DATA_MEDIA_TYPES = {"application/json", "text/csv", "application/x-ndjson"}
+_DATA_FORMATS = {"json", "geojson", "csv", "ndjson", "compact"}
+_DATA_MEDIA_TYPES = {"application/json", "text/csv", "application/x-ndjson", COMPACT_MEDIA_TYPE}
 
 
 def _formats_of(schema: dict[str, Any]) -> set[str]:

@@ -177,7 +177,7 @@ def test_an_answer_the_tool_does_not_carry_is_told_in_plain_words(media_type: st
         "values",
         502,
         f"The REST API answered {media_type}, which a tool does not carry: "
-        "a tool answers json, geojson, csv or ndjson.",
+        "a tool answers json, geojson, csv, ndjson or compact.",
     )
 
 

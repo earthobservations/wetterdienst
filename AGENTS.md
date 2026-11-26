@@ -121,6 +121,7 @@ The processes that share a cache directory take turns on its metadata file and i
 ### Export / interpolation
 
 - `ExportMixin` (`io/export.py`): export to CSV/JSON/Excel/Zarr files, SQLite/PostgreSQL/CrateDB/InfluxDB, and DuckDB SQL (`[export]` extra).
+- the compact format (`io/compact.py`, `docs/usage/compact.md`, GH-4445): a text of a header and tables that holds what the JSON of an answer holds in a tenth of the characters. One writer for every tool (a tool adds a builder, never a second grammar), `values` first: `format=compact` of the route (one body, `COMPACT_MEDIA_TYPE`, not streamed), `--format`, `ValuesResult.to_compact`, the tool. A result renders it only where `_FORMATS_NOT_RENDERED` does not list it, and a route has its own `format` type that lists it, so none offers a format it refuses. The MCP budget counts `{"result": text}` (no sentence in front) and cuts after whole timestamps. Text of the provider that could be read as a line is a JSON string (`quote`, `cell`): `tests/test_compact.py` fuzzes it against `tests/compact_reader.py`, a reader that shares no code with the writer. Not frozen (`docs/usage/compatibility.md`): the first line names the version.
 - `core/interpolate.py` and `core/summarize.py`: spatial interpolation and weighted summarization for a target point (`interpolate()` needs the `[interpolation]` extra: scipy, shapely, utm; `summarize()` needs no extra).
 
 Optional dependency groups include `export`, `interpolation`, `restapi`, `sql`, `mcp`, `bufr`.

@@ -39,6 +39,20 @@ DOCS = Path(__file__).parent.parent / "docs" / "usage" / "export.md"
 #: the results that have the formats, which the history result does not
 _WITH_FORMATS = ("stations", "values", "interpolated", "summarized")
 
+#: the results that render the compact text, which the others refuse as they refuse an unknown format (GH-4445)
+_COMPACT = ("values",)
+
+
+def _renders(name: str, format_name: str) -> bool:
+    """Tell whether a result of `_WITH_FORMATS` renders a format: all but the compact text, which `_COMPACT` do."""
+    return format_name != "compact" or name in _COMPACT
+
+
+def _formats_of(name: str) -> tuple[str, ...]:
+    """Give the formats a result of `_WITH_FORMATS` renders, in the order of the registry."""
+    return tuple(format_name for format_name in FORMATS if _renders(name, format_name))
+
+
 #: what "all" in the table stands for: the commands, routes and tools that return a result
 _ALL = ("stations", "values", "interpolate", "summarize")
 
@@ -65,8 +79,8 @@ def _formatter(result: object, format_name: str) -> Callable[..., object]:
 
 def test_the_formats_are_the_ones_the_docs_listed_before_the_registry() -> None:
     """The formats of `to_format`, in the order the surfaces list them, are the data formats, then the charts."""
-    assert list(FORMATS) == ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"]
-    assert names_of("data") == ("json", "geojson", "csv", "ndjson")
+    assert list(FORMATS) == ["json", "geojson", "csv", "ndjson", "compact", "html", "png", "jpg", "webp", "svg", "pdf"]
+    assert names_of("data") == ("json", "geojson", "csv", "ndjson", "compact")
     assert names_of("chart") == ("html", "png", "jpg", "webp", "svg", "pdf")
 
 
@@ -74,7 +88,9 @@ def test_the_formats_are_the_ones_the_docs_listed_before_the_registry() -> None:
 def test_a_format_takes_every_argument_one_of_the_results_gives_it(format_name: str) -> None:
     """Across the results the formatter takes `takes` and no less: `with_stations` is of the values results only."""
     results = _every_result()
-    taken = set().union(*(_keywords(_formatter(results[name], format_name)) for name in _WITH_FORMATS))
+    taken = set().union(
+        *(_keywords(_formatter(results[name], format_name)) for name in _WITH_FORMATS if _renders(name, format_name))
+    )
     if format_name == "csv":
         assert FORMATS[format_name].takes == set()
     else:
@@ -91,6 +107,12 @@ def test_the_arguments_are_what_the_formats_take() -> None:
 def test_to_format_takes_every_argument_for_every_data_format(name: str, format_name: str) -> None:
     """One set of every argument is accepted for a data format, and each formatter is given the ones it takes."""
     result: Any = _every_result()[name]
+    if not _renders(name, format_name):
+        # refused as an unknown format, listing the ones this result has
+        with pytest.raises(UnknownFormatError) as refused:
+            result.to_format(format_name)
+        assert refused.value.supported == _formats_of(name)
+        return
     everything = dict.fromkeys(ARGUMENTS, 2)
     everything.update(with_metadata=True, with_stations=True)
     written = result.to_format(format_name, **everything)
@@ -135,8 +157,8 @@ def test_an_unknown_format_is_an_unknown_format_error_naming_it_and_the_ones_the
     with pytest.raises(UnknownFormatError) as error:
         result.to_format("xlsx")
     assert error.value.fmt == "xlsx"
-    assert error.value.supported == tuple(FORMATS)
-    assert str(error.value) == f"Unknown output format 'xlsx': use one of {', '.join(FORMATS)}"
+    assert error.value.supported == _formats_of(name)
+    assert str(error.value) == f"Unknown output format 'xlsx': use one of {', '.join(_formats_of(name))}"
     assert isinstance(error.value, RequestError)
     for kind in (KeyError, ValueError):
         with pytest.raises(kind):
