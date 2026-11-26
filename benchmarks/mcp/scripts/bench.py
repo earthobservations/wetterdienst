@@ -100,10 +100,23 @@ UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a 
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
 #: a tool answer the server itself cut to its size budget names it in a warning of its `metadata`: `{"code":
 #: "answer-truncated", "message": "The answer was cut to stay within 40,000 characters: 49 of 57 rows ..."}`
-TRUNCATED_RE = re.compile(r'"code"\s*:\s*"answer-truncated"|The answer was cut to stay within [\d,]+ characters')
+TRUNCATED_RE = re.compile(
+    r'"code"\s*:\s*"answer-truncated"|The answer was cut to stay within [\d,]+ characters'
+    # the note of an answer that is still over the budget where it cannot be cut further (`budget._head(honest=True)`),
+    # and the one that says the `with_metadata` block was left out (`budget._block_left_out`)
+    r"|The answer was cut as far as it goes and is still over [\d,]+ characters"
+    r"|was left out to stay within [\d,]+ characters"
+)
+#: the same warning in the header of a compact answer, a line of its own (matched on the text of the answer, not on its
+#: JSON string, where the lines are `\n`)
+TRUNCATED_COMPACT_RE = re.compile(r"^# warning answer-truncated: ", re.MULTILINE)
 #: the note of a cut answer: a JSON string that starts with this sentence (in a warning with rows, or at the head of the
 #: first resolution's `description` of a `coverage` answer), up to the closing quote
-TRUNCATED_NOTE_RE = re.compile(r'The answer was cut to stay within [\d,]+ characters(?:[^"\\\n]|\\.)*')
+TRUNCATED_NOTE_RE = re.compile(
+    r"(?:The answer was cut (?:to stay within|as far as it goes and is still over) [\d,]+ characters"
+    r"|The `with_metadata` block \([\d,]+ characters\) was left out to stay within [\d,]+ characters)"
+    r'(?:[^"\\\n]|\\.)*'
+)
 #: a forecast answer that starts at the current hour says so: a warning `forecast-from-now` in the JSON, or the sentence
 #: `Forecast: ...` before the rows of a CSV
 FORECAST_JSON_RE = re.compile(r'"code"\s*:\s*"forecast-from-now"\s*,\s*"message"\s*:\s*"((?:[^"\\]|\\.)*)"')
@@ -313,8 +326,6 @@ COMPACT_FIRST = "# wetterdienst-compact/"
 _COMPACT_RETRIEVED_RE = re.compile(r"^(\S+)(?: \(source updated (\S+)\))?$")
 #: `producer: wetterdienst 0.199.0, doi 10.5281/zenodo.3960624`
 _COMPACT_PRODUCER_RE = re.compile(r"^(\S+) (\S+?),")
-#: a table of values: `values hourly/temperature_air station=01975`
-_COMPACT_VALUES_RE = re.compile(r"^values (\S+)/(\S+) station=(.*)$")
 
 
 def compact_text(text: str) -> str | None:
@@ -365,6 +376,47 @@ def _compact_cells(line: str) -> list[str]:
             return cells
 
 
+def _compact_word(text: str, i: int) -> tuple[str, int]:
+    """Read a word of a heading at `i`: a JSON string, or the text up to the next space."""
+    if text.startswith('"', i):
+        j = i + 1
+        while text[j] != '"':
+            j += 2 if text[j] == "\\" else 1
+        return json.loads(text[i : j + 1]), j + 1
+    j = text.find(" ", i)
+    j = len(text) if j < 0 else j
+    return text[i:j], j
+
+
+def _compact_values_heading(heading: str) -> tuple[str, str, str | None, str | None] | None:
+    """Read `values <resolution>/<dataset> station=<id> parameter=<name>`: the last two words are optional.
+
+    Gives (resolution, dataset, station, parameter), None for a heading that is no table of values. A station is not
+    in the heading of a table that has a `station_id` column (a sorted answer of several stations); the parameter is
+    only where a sorted answer has a table for each.
+    """
+    if not heading.startswith("values "):
+        return None
+    try:
+        if heading.startswith('"', 7):
+            resolution, i = _compact_word(heading, 7)
+            if not heading.startswith("/", i):
+                return None
+            i += 1
+        else:
+            i = heading.index("/", 7)
+            resolution, i = heading[7:i], i + 1
+        dataset, i = _compact_word(heading, i)
+        station = parameter = None
+        if heading.startswith(" station=", i):
+            station, i = _compact_word(heading, i + len(" station="))
+        if heading.startswith(" parameter=", i):
+            parameter, i = _compact_word(heading, i + len(" parameter="))
+        return (resolution, dataset, station, parameter) if i == len(heading) else None
+    except (ValueError, IndexError):
+        return None
+
+
 def _compact_value(raw: str) -> str:
     """Read the value of a header line: the text itself, or the JSON string it is written as where it has to be."""
     return json.loads(raw) if raw.startswith('"') else raw
@@ -381,6 +433,15 @@ def parse_compact(text: str) -> dict[str, Any] | None:
     body = compact_text(text)
     if body is None:
         return None
+    try:
+        return _parse_compact_body(body)
+    except (ValueError, IndexError):
+        # a text that is cut or malformed (a quote that is never closed) is no answer to read
+        return None
+
+
+def _parse_compact_body(body: str) -> dict[str, Any] | None:
+    """Read the text of `parse_compact`, which turns what it raises into None."""
     lines = body.split("\n")
     first = lines[0].removeprefix(COMPACT_FIRST).split(" ", 1)
     if len(first) != 2 or not first[0].isdigit():
@@ -448,19 +509,22 @@ def compact_rows(doc: dict[str, Any]) -> list[dict[str, Any]]:
     """Give the values of a compact answer as the rows of the JSON of `values`, in long shape.
 
     A row is `station_id`, `resolution`, `dataset`, `parameter`, `timestamp` (as the table writes it: UTC, a date for a
-    table of whole days), `value` (a number) for each cell that has one. The unit of a column is dropped from its name;
-    the quality flags are not read: no consumer here asks for them.
+    table of whole days), `value` (a number) for each cell that has one. The parameter is the text of its column before
+    the first `(`, which is where the unit begins. The station is the one of the heading, or the `station_id` column of
+    a table of a sorted answer that lists several. The quality flags are not read: no consumer here asks for them.
     """
     rows: list[dict[str, Any]] = []
     for table in doc["tables"]:
-        found = _COMPACT_VALUES_RE.match(table["heading"])
+        found = _compact_values_heading(table["heading"])
         if not found or not table["columns"]:
             continue
-        resolution, dataset, station = found.groups()
-        station = _compact_value(station)
-        names = [c.rpartition("(")[0] if c.endswith(")") and "(" in c else c for c in table["columns"][1:]]
+        resolution, dataset, station, _ = found
+        columns = table["columns"]
+        offset = 1 if columns[0] == "station_id" else 0
+        names = [c.partition("(")[0] for c in columns[offset + 1 :]]
         for row in table["rows"]:
-            for name, cell in zip(names, row[1:]):  # noqa: B905 - python 3.9 has no `strict`
+            who = row[0] if offset else station
+            for name, cell in zip(names, row[offset + 1 :]):  # noqa: B905 - python 3.9 has no `strict`
                 if cell == "":
                     continue
                 try:
@@ -469,11 +533,11 @@ def compact_rows(doc: dict[str, Any]) -> list[dict[str, Any]]:
                     continue
                 rows.append(
                     {
-                        "station_id": station,
+                        "station_id": who,
                         "resolution": resolution,
                         "dataset": dataset,
                         "parameter": name,
-                        "timestamp": row[0],
+                        "timestamp": row[offset],
                         "value": value,
                     }
                 )
@@ -651,7 +715,7 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                         # a compact answer reaches the model as it is or in the JSON string of the structured content:
                         # its header lines are read as they are written
                         body = compact_text(text) or text
-                        if TRUNCATED_RE.search(text):
+                        if TRUNCATED_RE.search(text) or TRUNCATED_COMPACT_RE.search(body):
                             call["truncated"] = True
                             note = TRUNCATED_NOTE_RE.search(body)
                             call["truncated_note"] = note.group(0).replace('\\"', '"')[:700] if note else None

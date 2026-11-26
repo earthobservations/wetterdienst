@@ -6316,3 +6316,158 @@ def test_every_new_case_has_a_truth_with_its_source_and_a_judge_call_for_every_n
     for case_id in by_the_day:
         assert "judge" in json.dumps(cases[case_id]["facts"]), case_id
     assert "$subject_snapshot" in json.dumps(cases["storm-cells-munich"]["facts"])
+
+
+def _compact_with_warning(message: str) -> str:
+    """Give a compact answer whose only warning is `message`, as the writer writes it."""
+    return COMPACT_VALUES.replace(
+        "# warning missing-value-marker: 25 readings of the source were a marker for a missing value and are null.",
+        f"# warning answer-truncated: {message}",
+    )
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("which", ["honest", "block", "block-and-cut"])
+def test_every_note_the_budget_writes_marks_a_compact_answer_as_cut(
+    tmp_path: Path, *, wrapped: bool, which: str
+) -> None:
+    """The honest note and the note of a `with_metadata` block left out say it as the budget words them (GH-4022)."""
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui import budget  # noqa: PLC0415
+
+    notes = {
+        "honest": f"{budget._head(honest=True)}one timestamp alone holds 700 rows.",  # noqa: SLF001
+        "block": budget._block_left_out(41_234),  # noqa: SLF001
+        "block-and-cut": f"{budget._block_left_out(41_234)} {budget._head(honest=False)}49 of 57 rows are returned.",  # noqa: SLF001
+    }
+    answer = _compact_with_warning(notes[which])
+    text = json.dumps({"result": answer}) if wrapped else answer
+    run = bench.parse_transcript(
+        _stream(tmp_path, _use("values", "a", provider="dwd"), _result("a", text)),
+        PREFIX,
+    )
+
+    (call,) = run["calls"]
+    assert call["truncated"] is True
+    assert call["truncated_note"] == notes[which]
+    assert run["truncated_calls"] == 1
+
+
+def test_the_warning_line_of_a_compact_answer_marks_it_cut_whatever_the_words_and_only_at_the_start_of_a_line(
+    tmp_path: Path,
+) -> None:
+    """`# warning answer-truncated:` anchored to its line: a text that only mentions it in a line is not a cut."""
+    cut = _compact_with_warning("Left out some rows.")
+    mention = COMPACT_VALUES.replace("are null.", "are null, as in x # warning answer-truncated: y.")
+    run = bench.parse_transcript(
+        _stream(
+            tmp_path,
+            _use("values", "a", provider="dwd"),
+            _result("a", cut),
+            _use("values", "b", provider="dwd"),
+            _result("b", mention),
+        ),
+        PREFIX,
+    )
+
+    first, second = run["calls"]
+    assert first["truncated"] is True
+    assert "truncated" not in second
+
+
+@pytest.mark.parametrize(
+    ("heading", "found"),
+    [
+        ("values daily/climate_summary station=01975", ("daily", "climate_summary", "01975", None)),
+        (
+            "values daily/climate_summary station=01975 parameter=temperature_air_min_2m",
+            ("daily", "climate_summary", "01975", "temperature_air_min_2m"),
+        ),
+        (
+            'values daily/climate_summary station="a b" parameter="x y"',
+            ("daily", "climate_summary", "a b", "x y"),
+        ),
+        ('values daily/climate_summary station="a \\"b\\"" parameter=p', ("daily", "climate_summary", 'a "b"', "p")),
+        ("values daily/climate_summary parameter=p", ("daily", "climate_summary", None, "p")),
+        ('values "a/b"/climate station=1', ("a/b", "climate", "1", None)),
+        ("values daily/climate_summary station=1 extra", None),
+        ("flags daily/climate_summary station=1 (exceptions)", None),
+        ("stations", None),
+        ('values daily/climate_summary station="unterminated', None),
+    ],
+)
+def test_the_heading_of_a_table_of_values_names_its_station_and_parameter_where_it_has_them(
+    heading: str, found: tuple[str, str, str | None, str | None] | None
+) -> None:
+    """The station is a JSON string or a word; a sorted answer adds `parameter=`; a heading that is none is None."""
+    assert bench._compact_values_heading(heading) == found  # noqa: SLF001
+
+
+def test_a_sorted_answer_of_several_stations_has_a_station_column_which_the_rows_carry() -> None:
+    """A table of the rows of a ranking has the station in each row and the parameter in its heading."""
+    text = COMPACT_VALUES.replace(
+        "## values daily/climate_summary station=01975\n# flags: 1 (periods that differ are listed after the table)\n"
+        "timestamp,humidity_relative_mean(%),precipitation_amount(mm),temperature_air_mean_2m(°C)\n"
+        "2026-10-22,83,0,10\n2026-10-23,91.5,3.6,9\n2026-10-24,,,9.8\n2026-10-25,,0.7,",
+        "## values daily/climate_summary parameter=temperature_air_mean_2m\n"
+        "station_id,timestamp,temperature_air_mean_2m(°C)\n01975,2026-10-22,-3\n04411,2026-10-23,-4.5",
+    )
+
+    rows = bench._rows_of_text(text)  # noqa: SLF001
+
+    assert [(r["station_id"], r["timestamp"], r["parameter"], r["value"]) for r in rows] == [
+        ("01975", "2026-10-22", "temperature_air_mean_2m", -3.0),
+        ("04411", "2026-10-23", "temperature_air_mean_2m", -4.5),
+    ]
+
+
+def test_the_parameter_of_a_column_is_the_text_before_the_first_bracket() -> None:
+    """The unit begins at the first `(`, whatever it holds after: a unit with a bracket does not move the name."""
+    text = COMPACT_VALUES.replace("temperature_air_mean_2m(°C)", "temperature_air_mean_2m(m s-1 (x))")
+
+    assert {r["parameter"] for r in bench._rows_of_text(text)} == {  # noqa: SLF001
+        "humidity_relative_mean",
+        "precipitation_amount",
+        "temperature_air_mean_2m",
+    }
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        COMPACT_VALUES.replace('01975,"Hamburg-Fuhlsbüttel, Flughafen"', '01975,"Hamburg-Fuhlsbüttel'),
+        COMPACT_VALUES.replace("# provider: German", '# provider: "German'),
+    ],
+)
+def test_a_compact_answer_that_is_malformed_is_no_answer_and_raises_nothing(tmp_path: Path, broken: str) -> None:
+    """An unterminated quote makes the text unreadable: `parse_compact` says None, and a transcript is still parsed."""
+    assert bench.parse_compact(broken) is None
+    assert bench.result_metadata(broken) == {}
+    assert bench.listed_stations(broken) == []
+    run = bench.parse_transcript(
+        _stream(tmp_path, _use("stations", "a"), _result("a", broken), _use("values", "b"), _result("b", broken)),
+        PREFIX,
+    )
+    assert [c["answered"] for c in run["calls"]] == [True, True]
+
+
+@pytest.mark.parametrize("which", ["honest", "block"])
+def test_the_notes_the_budget_writes_are_found_in_a_csv_sentence_which_has_no_code_to_find(
+    tmp_path: Path, which: str
+) -> None:
+    """A csv answer says the cut in a sentence of the tool (`Truncated: ...`): the words are all there is to match."""
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui import budget  # noqa: PLC0415
+
+    note = {
+        "honest": f"{budget._head(honest=True)}one timestamp alone holds 700 rows.",  # noqa: SLF001
+        "block": budget._block_left_out(41_234),  # noqa: SLF001
+    }[which]
+    csv = f"The answer is text/csv (1 bytes). Truncated: {note}\n\nstation_id,value\n1,2"
+    run = bench.parse_transcript(
+        _stream(tmp_path, _use("values", "a", provider="dwd", format="csv"), _result("a", csv)), PREFIX
+    )
+
+    (call,) = run["calls"]
+    assert call["truncated"] is True
+    assert call["truncated_note"] == note
