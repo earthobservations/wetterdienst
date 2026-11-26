@@ -1,13 +1,14 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The input schemas of the MCP tools lack the options that only the REST API needs (GH-4318).
+"""The input schemas of the MCP tools lack the options that only the REST API needs (GH-4318, GH-4471).
 
 The size and scale of a chart image, `pretty` and the formats of a chart (html, png, jpg, webp, svg, pdf) are of no use
 to a model that reads JSON, and were in the schema of every session. The REST API, the command line and Python keep
 them. A call that still sends one is answered or refused as `ui.mcp._refuse_unknown_arguments` says: `pretty` at any
 value and `width`, `height` and `scale` as `null` (the default they had) are let go, by a tool whose route took them; a
 `width`, `height` or `scale` with a value, and a `format` the tool does not offer, are refused, with every other
-refusal of the call in the same error.
+refusal of the call in the same error. `skip_empty`, `skip_threshold` and `skip_criteria` (`values`, GH-4471) are let
+go as `null` or at their default and refused at any other value.
 
 Offline: the REST app is stood in for by one that answers every route with a csv and records the request it got, so
 that what is held is what the tool sends.
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -97,7 +99,7 @@ _VALUES_CALL = {
 
 
 def test_no_tool_takes_an_option_that_only_rest_needs() -> None:
-    """The input schema of no tool has `pretty` or the size and scale of an image, nor offers a chart as a format."""
+    """The input schema of no tool has `pretty`, the size of an image or a skip option, nor offers a chart."""
     tools = _tools()
 
     assert set(tools) == set(_TOOL_NAMES.values())
@@ -161,7 +163,7 @@ def test_the_tools_that_the_refusal_points_to_rest_for_are_those_whose_route_dra
 #: read what the option means
 _OLD_OPTIONS_OF_TOOL: dict[str, set[str]] = {
     "stations": {"pretty", "width", "height", "scale"},
-    "values": {"pretty", "width", "height", "scale"},
+    "values": {"pretty", "width", "height", "scale", "skip_empty", "skip_threshold", "skip_criteria"},
     "interpolate": {"pretty", "width", "height", "scale"},
     "summarize": {"pretty", "width", "height", "scale"},
     "coverage": {"pretty"},
@@ -183,6 +185,18 @@ _MEANING = {
     "width": "Width of the rendered chart image in pixels.",
     "height": "Height of the rendered chart image in pixels.",
     "scale": "Scale factor of the rendered chart image.",
+    "skip_empty": (
+        "Skip stations whose coverage falls below `skip_threshold`. "
+        "Default: the server's WD_TS_SKIP_EMPTY if set, else false."
+    ),
+    "skip_threshold": (
+        "Coverage fraction below which a station is skipped (requires `skip_empty`). "
+        "Default: the server's WD_TS_SKIP_THRESHOLD if set, else 0.95."
+    ),
+    "skip_criteria": (
+        "Aggregation over the requested parameters' coverage: min, mean or max. "
+        "Default: the server's WD_TS_SKIP_CRITERIA if set, else min."
+    ),
 }
 
 
@@ -476,3 +490,147 @@ def test_a_tool_that_never_took_a_format_still_refuses_it() -> None:
     assert result.is_error
     assert result.content[0].text.startswith("format is not an argument of glossary, which takes ")
     assert seen == []
+
+
+# --- the options that leave a station out (GH-4471) ------------------------------------------------------------------
+
+_SKIP_OPTIONS = ("skip_empty", "skip_threshold", "skip_criteria")
+#: the default each had, which a call may still send
+_SKIP_DEFAULTS = {"skip_empty": False, "skip_threshold": 0.95, "skip_criteria": "min"}
+
+
+def test_no_tool_schema_instruction_or_description_names_a_skip_option() -> None:
+    """The three options are in the input schema of no tool, and no text the server hands a client names them."""
+    server = build_mcp_server(restapi.app)
+
+    for name, tool in _tools().items():
+        assert not set(_SKIP_OPTIONS) & set(tool.input_schema.get("properties", {})), name
+        for option in _SKIP_OPTIONS:
+            assert option not in json.dumps(tool.input_schema), (name, option)
+            assert option not in (tool.description or ""), (name, option)
+    for option in _SKIP_OPTIONS:
+        assert option not in (server.instructions or ""), option
+
+
+def test_only_values_had_the_skip_options_and_rest_still_takes_them_with_the_defaults_the_tool_lets_go() -> None:
+    """One route has them: the REST API documents them still, with the defaults a client may send."""
+    holders = {name for name in _TOOL_NAMES.values() if set(_SKIP_OPTIONS) & set(_query_parameters(name))}
+    assert holders == {"values"}
+    route = _query_parameters("values")
+    assert {name: route[name]["schema"]["default"] for name in _SKIP_OPTIONS} == _SKIP_DEFAULTS
+
+
+def test_a_skip_option_at_its_default_or_null_is_answered_as_a_call_without_and_is_not_sent() -> None:
+    """A client that fills in the old schema's defaults is not refused for it, and the route never sees them."""
+    app, seen = _stand_in()
+    calls = [
+        ("values", _VALUES_CALL),
+        ("values", {**_VALUES_CALL, **_SKIP_DEFAULTS}),
+        ("values", {**_VALUES_CALL, "skip_empty": None, "skip_threshold": None, "skip_criteria": None}),
+        ("values", {**_VALUES_CALL, "skip_empty": False}),
+        ("values", {**_VALUES_CALL, "skip_empty": "false", "skip_threshold": "0.95", "skip_criteria": "min"}),
+    ]
+
+    answers = _calls(app, calls)
+
+    for result, _ in answers:
+        assert not result.is_error, result.content
+        assert result.content[0].text == answers[0][0].content[0].text
+    assert len(seen) == len(calls)
+    assert all(request == seen[0] for request in seen)
+    assert not set(_SKIP_OPTIONS) & set(seen[0])
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("skip_empty", True),
+        ("skip_empty", 0),
+        ("skip_empty", "true"),
+        ("skip_empty", "maybe"),
+        ("skip_threshold", "0.5"),
+        ("skip_threshold", "x"),
+        ("skip_threshold", 0.5),
+        ("skip_threshold", 1),
+        ("skip_criteria", "mean"),
+        ("skip_criteria", "max"),
+        ("skip_criteria", ""),
+    ],
+)
+def test_a_skip_option_with_another_value_is_refused_saying_how_to_get_the_same(
+    option: str,
+    value: Any,  # noqa: ANN401
+) -> None:
+    """The call is a tool error that names the option, what to do instead and the route; nothing is requested."""
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [("values", {**_VALUES_CALL, option: value})])
+
+    assert result.is_error
+    text = result.content[0].text
+    assert text.startswith(f"{option} is not an argument of values: it was ")
+    assert "the tool answers every station it is asked for" in text
+    assert "Leave the stations without rows in `values` out of the answer yourself" in text
+    assert text.endswith(f"or call the REST API: /api/v1/values takes {option}.")
+    assert text.count("is not an argument") == 1
+    assert seen == []
+
+
+def test_every_skip_option_with_a_value_is_told_in_one_error() -> None:
+    """The three are named together, with the other refusals of the call, not one after the next."""
+    app, seen = _stand_in()
+    arguments = {**_VALUES_CALL, "skip_empty": True, "skip_threshold": 0.5, "skip_criteria": "max", "bogus": 1}
+
+    ((result, _),) = _calls(app, [("values", arguments)])
+
+    assert result.is_error
+    parts = result.content[0].text.split("; ")
+    assert [part.split(" ")[0] for part in parts[:3]] == ["skip_criteria", "skip_empty", "skip_threshold"]
+    assert parts[3].startswith("bogus is not an argument of values, which takes ")
+    assert seen == []
+
+
+@pytest.mark.parametrize("tool", ["interpolate", "summarize", "stations"])
+def test_a_tool_whose_route_never_took_a_skip_option_refuses_it_as_unknown(tool: str) -> None:
+    """`interpolate` never had them: `skip_empty` is an argument it does not take, as before."""
+    app, seen = _stand_in()
+
+    ((result, _),) = _calls(app, [(tool, {**_required(tool), "skip_empty": True})])
+
+    assert result.is_error
+    assert result.content[0].text.startswith(f"skip_empty is not an argument of {tool}, which takes ")
+    assert seen == []
+
+
+def test_rest_still_takes_the_skip_options() -> None:
+    """The REST route reads them: `skip_threshold=2` is its 422, which only a route that takes the option says."""
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    response = TestClient(restapi.app).get(
+        "/api/v1/values",
+        params={**_VALUES_CALL, "format": "json", "skip_threshold": 2},
+    )
+
+    assert response.status_code == 422
+    assert "skip_threshold" in response.text
+
+
+def test_the_command_line_still_takes_the_skip_options() -> None:
+    """`wetterdienst values --help` lists them."""
+    from click.testing import CliRunner  # noqa: PLC0415
+
+    from wetterdienst.ui.cli import cli  # noqa: PLC0415
+
+    help_text = CliRunner().invoke(cli, ["values", "--help"]).output
+
+    for option in ("--skip-empty", "--skip-threshold", "--skip-criteria"):
+        assert option in help_text
+
+
+def test_python_still_takes_the_skip_options() -> None:
+    """`Options` holds them."""
+    from wetterdienst import Options  # noqa: PLC0415
+
+    options = Options(skip_empty=True, skip_threshold=0.5, skip_criteria="max")
+
+    assert (options.skip_empty, options.skip_threshold, options.skip_criteria) == (True, 0.5, "max")

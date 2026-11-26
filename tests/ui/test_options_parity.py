@@ -299,7 +299,7 @@ def mcp_server() -> object:
     return build_mcp_server(restapi.app)
 
 
-def _mcp(monkeypatch: pytest.MonkeyPatch, server: object, tool: str, params: dict[str, str]) -> Options:
+def _mcp(monkeypatch: pytest.MonkeyPatch, server: object, tool: str, params: dict[str, Any]) -> Options:
     """Call an MCP tool up to the REST API's fetch, and return the options it would fetch with."""
     from fastmcp import Client  # noqa: PLC0415
 
@@ -360,13 +360,44 @@ def test_cli_environment_sets_the_option(monkeypatch: pytest.MonkeyPatch, case: 
     assert _is_set(options, case)
 
 
-@pytest.mark.parametrize(("case", "endpoint"), _rest_cases())
+#: the options of a route that its tool does not take (GH-4471): the three that leave a station out, which a model never
+#: used. The tool lets them go at their default and refuses any other value (`test_mcp_slim_schemas.py`); the server's
+#: `WD_TS_*` variable still sets them for a call that gives none, which `test_mcp_environment_sets_the_option` holds
+_NOT_MCP_ARGUMENTS = frozenset({("skip_empty", "values"), ("skip_threshold", "values"), ("skip_criteria", "values")})
+
+
+@pytest.mark.parametrize(
+    ("case", "endpoint"),
+    [param for param in _rest_cases() if (param.values[0].option, param.values[1]) not in _NOT_MCP_ARGUMENTS],
+)
 def test_mcp_tool_argument_sets_the_option(
     monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str
 ) -> None:
     """Test an argument of an MCP tool gives the request the option."""
     options = _mcp(monkeypatch, mcp_server, endpoint, case.rest[endpoint])
     assert _is_set(options, case)
+
+
+def test_the_options_no_mcp_tool_takes_are_in_no_schema(mcp_server: object) -> None:
+    """Test an option left out of the tools is no argument of its tool."""
+    from fastmcp import Client  # noqa: PLC0415
+
+    async def tools() -> dict[str, set[str]]:
+        async with Client(mcp_server) as client:
+            return {tool.name: set(tool.input_schema.get("properties", {})) for tool in await client.list_tools()}
+
+    listed = asyncio.run(tools())
+    for option, tool in _NOT_MCP_ARGUMENTS:
+        assert option not in listed[tool], (option, tool)
+
+
+def test_a_call_that_sends_the_default_of_an_option_no_mcp_tool_takes_sets_nothing(
+    monkeypatch: pytest.MonkeyPatch, mcp_server: object
+) -> None:
+    """Test the default is let go: the request has the options of the server, which are the defaults here."""
+    defaults = {"skip_empty": False, "skip_threshold": 0.95, "skip_criteria": "min"}
+    options = _mcp(monkeypatch, mcp_server, "values", defaults)
+    assert (options.skip_empty, options.skip_threshold, options.skip_criteria) == (False, 0.95, "min")
 
 
 def _object_cases() -> list[Any]:

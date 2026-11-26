@@ -124,7 +124,7 @@ model the structured content alone. The default is `json`, which the assistant r
 ### What a tool does not take
 
 A tool is its REST route without the options that only the REST API needs, which a model reading JSON cannot use and
-which were part of the tool list of every session: `pretty`, the `width`, `height` and `scale` of an image, and the
+which were part of the tool list of every session (the skip options of `values` are named below): `pretty`, the `width`, `height` and `scale` of an image, and the
 formats of a chart (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`). Nothing else is dropped (the `left`, `right`, `top` and
 `bottom` of a station box are arguments of the tools as they were). Charts are gone from the tools: a client that needs
 a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`, `/interpolate` and `/summarize` with
@@ -153,6 +153,14 @@ keeps working where it can. Where the tool's route took the option:
 
 The option is an unknown argument, refused as above, for a tool whose route never took it (`pretty` for `glossary`).
 All the refusals of a call are one error.
+
+`values` does not take `skip_empty`, `skip_threshold` and `skip_criteria` either: a model never used them (asked to
+leave out the stations without a temperature, it left them out itself), and they were part of the tool list of every
+session. The tool answers every station it is asked for. A call that sends one as `null` or at its default
+(`skip_empty=false`, `skip_threshold=0.95`, `skip_criteria="min"`) is answered as one without it; any other value is a
+tool error that says to leave the stations without rows in `values` out of the answer, or to call the REST API, which
+takes the options (`/api/v1/values?skip_empty=true`), as do the command line and Python, which are unchanged. A server
+whose operator set `WD_TS_SKIP_EMPTY` still skips, as it did.
 
 ## A forecast starts at now
 

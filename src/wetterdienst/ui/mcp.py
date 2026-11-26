@@ -372,19 +372,31 @@ _EXCLUDE_PATTERNS = (
 )
 
 #: the query parameters of the REST routes that no tool takes (GH-4318): the size and scale of a chart image, which a
-#: model that reads JSON has no use for, and `pretty`, which is whitespace. A call that sends one is let go only
+#: model that reads JSON has no use for, and `pretty`, which is whitespace; and the three options of `skip_empty`
+#: (GH-4471), which a model never used (it left the empty stations out itself). A call that sends one is let go only
 #: where it means nothing (`pretty` at any value, the others as `null`, the default they had) and only by a tool whose
 #: route took it (`_Route.rest_only`); a `width`, `height` or `scale` with a value is refused, since it may mean
-#: something else to the model (`height` for `elevation`), and a chart format is refused too (`_CHART_FORMATS`). The
-#: set is only a list of names to look for: what a tool drops is what its route has of them, and
-#: `tests/ui/test_mcp_slim_schemas.py` holds the routes that have them, and what they mean, to a table.
-_REST_ONLY_ARGUMENTS = frozenset({"pretty", "width", "height", "scale"})
+#: something else to the model (`height` for `elevation`), and a chart format is refused too (`_CHART_FORMATS`), and
+#: so is a skip option that is not its default. The set is only a list of names to look for: what a tool drops is what
+#: its route has of them, and `tests/ui/test_mcp_slim_schemas.py` holds the routes that have them, and what they mean,
+#: to a table.
+_REST_ONLY_ARGUMENTS = frozenset(
+    {"pretty", "width", "height", "scale", "skip_empty", "skip_threshold", "skip_criteria"}
+)
 
 #: what the three size options of a chart image are, to say what a refused one was
 _IMAGE_OPTIONS = {
     "width": "the width in pixels",
     "height": "the height in pixels",
     "scale": "the scale factor",
+}
+
+#: the options that leave a station out for too few readings (GH-4471), with the default each had, which a call may
+#: still send, and what each was, to say what a refused one did
+_SKIP_OPTIONS: dict[str, tuple[Any, str]] = {
+    "skip_empty": (False, "which left out the stations whose readings cover too little of the window"),
+    "skip_threshold": (0.95, "the share of the window a station's readings had to cover to stay in"),
+    "skip_criteria": ("min", "how the coverage of the parameters was judged: by the min, mean or max of them"),
 }
 
 #: the formats of a rendered chart, which only the REST API answers (GH-4318): a tool answers data
@@ -634,6 +646,42 @@ def _refused_image_options(tool: str, arguments: dict[str, Any], taken: dict[str
     return refused
 
 
+def _is_default(given: Any, default: Any) -> bool:  # noqa: ANN401
+    """Tell whether a value is the default of a skip option, as the old schema read it.
+
+    The type counts (`0` is not `false`), but a string that spells the default is it, since the schema's own
+    validation took `"false"` for `false` and `"0.95"` for `0.95`.
+    """
+    if isinstance(given, str) and not isinstance(default, str):
+        try:
+            return (given.strip().lower() == "false") if isinstance(default, bool) else float(given) == default
+        except ValueError:
+            return False
+    return type(given) is type(default) and given == default
+
+
+def _refused_skip_options(tool: str, arguments: dict[str, Any], route: _Route) -> list[str]:
+    """Name each option that leaves a station out that a call gives a value other than its default (GH-4471).
+
+    The default (and `null`) means nothing: the tool answers every station it is asked for, so a call that sends
+    `skip_empty=false` is answered as one without. Any other value is refused, since the call would be answered with
+    stations it asked to have left out. The reader can drop those: they have no row in the answer's `values`.
+    The type counts (`0` is not `false`).
+    """
+    refused = []
+    for name in sorted(route.rest_only & _SKIP_OPTIONS.keys()):
+        given = arguments.get(name)
+        default, meaning = _SKIP_OPTIONS[name]
+        if given is None or _is_default(given, default):
+            continue
+        refused.append(
+            f"{name} is not an argument of {tool}: it was {meaning}, and the tool answers every station it is asked "
+            f"for. Leave the stations without rows in `values` out of the answer yourself, or call the REST API: "
+            f"{route.path} takes {name}."
+        )
+    return refused
+
+
 def _holds_object(value: Any) -> bool:  # noqa: ANN401
     """Tell whether a value of an argument is an object, or a list that holds one at any depth."""
     if isinstance(value, dict):
@@ -659,6 +707,9 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Rout
     every option with its default does). A `width`, `height` or `scale` with a value is refused, since a model may
     mean something else by it (`height` for `elevation`), and so is a `format` the tool does not offer (a chart,
     `html`, `png`, ..., with where the charts are, instead of the REST answer the call would otherwise get).
+
+    GH-4471 took `skip_empty`, `skip_threshold` and `skip_criteria` out of `values` the same way: let go as `null` or
+    at their default, refused at any other value, with what to do instead (`_refused_skip_options`).
 
     So is an object (or a list that holds one) for an argument that is no object (GH-4453): FastMCP sends it as one
     query parameter for each key, so `shape={"format": "png"}` asked the route for `format=png`, past the refusal of
@@ -691,6 +742,8 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Rout
                 refused = _refused_formats(tool.name, arguments, taken, route.path)
                 # the options of GH-4318 are let go as given where the tool's route took them and they mean nothing
                 refused += _refused_image_options(tool.name, arguments, taken, route)
+                # and those of GH-4471, where they are their default
+                refused += _refused_skip_options(tool.name, arguments, route)
                 # `format` has its refusal; an argument that is an object is sent as its JSON (`_send_objects_as_json`)
                 objects = _object_arguments(tool.parameters)
                 refused += [
