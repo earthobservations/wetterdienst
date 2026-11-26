@@ -10,12 +10,14 @@ This file is the runbook. A fresh Claude Code session that is told only *"follow
 run"* or *"... for the baseline"* has everything it needs here: do **Parts 1 to 6** in order, and **Part 7** whenever
 something is unclear or breaks. Told *"run a comparison of branch X against baseline file Y"*, do the same with **Part 8**. **Current reference** (the file Y of
 Part 8 unless you are given another): **none yet.** The cases changed with the re-baseline of #4318 (a case dropped a forbidden
-rule, the judging of a forecast figure at the current hour changed, and a case was added: 28 cases that need no key, hash of
-`cases.json` changed), so a file of the old cases is no baseline for a run of these (`compare` leaves the changed cases out and the new one has no counterpart). The last
+rule, the judging of a forecast figure at the current hour changed, and a case was added) and again with the cases of
+#4445 (nine cases for the tools nobody asked about, and the prompt names all 15 tools: 37 cases that need no key, hash of
+`cases.json` and of the prompt changed), so a file of the old cases is no baseline for a run of these: `compare` refuses a file made with the old prompt (exit 4, the prompt hash differs), and for a file with the same prompt it leaves out the cases whose hash changed (the new ones have no counterpart in an old file). The last
 reference of the **old** cases is the strategy-4 comparison run of #4030, a secret gist,
 <https://gist.github.com/gutzbenj/c1e6f5f10d6716da4355230204a0cae3>, made with the server at label `11d3c1419` (it stays as the
-record of strategies 1 to 4, not as a baseline). **A new baseline of `main` after the PR of the re-baseline (#4318) is the
-reference for the schema work (#4318) and the descriptions (#4319); it is not run yet.** Put its gist here when it is run, and
+record of strategies 1 to 4, not as a baseline). **A new baseline of `main` after the PR of the cases of #4445 is the
+reference for the schema work (#4318), the descriptions (#4319) and the table format (#4445); it is not run yet, and the
+cases and the prompt do not change after it.** Put its gist here when it is run, and
 **update this line when a strategy lands** (the new comparison becomes the reference). Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
 writes nothing into the repository. The benchmark is on `main` (pull request #3544 was merged on 2026-11-19); Part 2.1 makes
 the copy you run.
@@ -33,16 +35,19 @@ the copy you run.
 | | smoke | baseline |
 | --- | --- | --- |
 | what it is for | does the machinery work, end to end, and is the result worth 5 repeats | the numbers a later change is compared with |
-| cases | all 28 that need no key (`--cases all`) | the same |
+| cases | all 37 that need no key (`--cases all`) | the same |
 | tiers | `small` (Haiku) and `large` (Sonnet) | the same, `large` is `sonnet` unless you were told `opus` |
 | repeats | 1 | 5 |
-| runs | 56 | 280 |
+| runs | 74 | 370 |
 | results file | `$BENCH/mcpbench-results-smoke.json` | `$BENCH/mcpbench-results-baseline.json` |
 
 A tested model is stopped after 300 s and after 0.50 USD (`MCPBENCH_TIMEOUT`, `MCPBENCH_MAX_USD`), so a run costs at most
-0.50 USD and the smoke run at most 28 USD, the baseline at most 140 USD. The real cost is far lower: a Haiku run costs about
+0.50 USD and the smoke run at most 37 USD, the baseline at most 185 USD. The real cost is far lower: a Haiku run costs about
 0.005 USD, a Sonnet run about 0.06 USD on average (0.03 to 0.24), and the whole baseline of 270 runs (the 27 cases before the re-baseline of #4318) cost about 8.3 USD for the
-tested models (measured on 2026-11-12; the judge's own tokens are not included). The report prints the cost. Do **not** start the baseline after a smoke run, or the smoke run
+tested models (measured on 2026-11-12; the judge's own tokens are not included): 0.031 USD a run. The 370 runs of
+37 cases are **estimated at 11 to 13 USD** (11.4 by the number of runs alone; the cases of #4445 read larger answers,
+a `kostra` table, a list of 28 stations, the lists of `station_ids`), not measured: the first baseline sets the figure.
+The report prints the cost. Do **not** start the baseline after a smoke run, or the smoke run
 after a baseline, unless your instruction asked for it: report and stop.
 
 ## Rules for the whole run
@@ -174,7 +179,7 @@ python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" tools-size --server "$URL"
 ```
 
 `/health` answers `{"status":"OK"}`, `/api/version` the version of the checkout (for example `0.186.0` for `main`), `probe` says
-`"tools": 14`, and `server.pid` holds the one PID that listens: **that PID, and no other, is what you stop at the end**.
+`"tools": 15`, and `server.pid` holds the one PID that listens: **that PID, and no other, is what you stop at the end**.
 Note the SHA (`$LABEL`), the version (`$SERVER_VERSION`), and the `tools-size` table (it is the cost of `tools/list` on the wire, which the tested model's
 context does not show: see "What the benchmark cannot see"). A server that does not answer ends the run here, before a model
 is paid for.
@@ -196,7 +201,8 @@ in the judge. Two choices:
 
   | MCP tool | command of the reference |
   | --- | --- |
-  | `glossary`, `providers`, `coverage`, `stations`, `values`, `interpolate`, `summarize`, `history`, `alerts`, `issues`, `auth` | the command of the same name |
+  | `glossary`, `providers`, `coverage`, `stations`, `values`, `interpolate`, `summarize`, `history`, `alerts`, `issues`, `auth`, `kostra`, `statistics` | the command of the same name |
+  | `station_ids`, `storm_cells` | `station-ids`, `storm-cells` |
 
   **CSV output ends with an empty line** (the last line of `... --format csv | tail -1` is empty, which is not the "empty output"
   above): the examples drop it with `grep -v '^$'`, so the header and every row show, and `| tail -n 2` shows the last row.
@@ -221,6 +227,20 @@ in the judge. Two choices:
   (the `python` next to `$REFCLI`, `-I -c "from wetterdienst import Wetterdienst; ..."`, with
   `Wetterdienst.resolve(provider, network)(parameters=..., periods=...).filter_by_station_id(...).values().all().df`). The
   `python` reference is independent of the MCP layer, not of the library.
+
+  The commands of the tools of the cases of #4445 (the truth of those cases is computed outside wetterdienst, from the
+  providers' own files, and written into each case's `notes`; these are the judge's calls):
+
+  ```bash
+  "$REFCLI" kostra --latitude 53.55 --longitude 10.0 --duration 60 --return-period 100 --format csv 2>>"$BENCH/ref.err" | grep -v '^$'
+  "$REFCLI" station-ids --icao-id EDDH 2>>"$BENCH/ref.err"
+  "$REFCLI" storm-cells --latitude 48.14 --longitude 11.58 --distance 30 --track false --geometry centroid 2>>"$BENCH/ref.err"
+  "$REFCLI" issues --provider dwd --network mosmix --station 10147 --dataset large 2>>"$BENCH/ref.err"
+  "$REFCLI" stations --provider dwd --network observation --parameters daily/climate_summary --region Thüringen --timestamp 2025 --format csv 2>>"$BENCH/ref.err" | grep -v '^$'
+  "$REFCLI" statistics --provider dwd --network observation --parameters daily/climate_summary/temperature_air_min_2m --stations 03987 --timestamp 2015/2024 --aggregate count --by year --filter 'value<0' --format csv \
+    2>>"$BENCH/ref.err" | grep -v '^$'
+  "$REFCLI" statistics --provider dwd --network observation --parameters daily/climate_summary/precipitation_amount --stations 01975 --timestamp 2023 --aggregate sum --by year --max-missing 9 --format csv 2>>"$BENCH/ref.err" | grep -v '^$'
+  ```
 - **The hosted connector** (the tools `mcp__claude_ai_wetterdienst__*` of the released server): only if your instruction
   names it **and** your session lists those tools (a fresh session on this machine has none unless one is configured). The
   hosted server is the released version, which may name or return things differently from `main`; say so in the report.
@@ -239,13 +259,13 @@ python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" init --results "$BENCH/mcpben
 
 For the **baseline**: the same with `--results "$BENCH/mcpbench-results-baseline.json"` and `--repeats 5`. For a **comparison**
 `init --like "$BASELINE"` takes the selection from the baseline (Part 8.4). `--large opus` only if
-told. The command prints the number of runs (56 or 280); `bench.py todo --results FILE` lists them
+told. The command prints the number of runs (74 or 370); `bench.py todo --results FILE` lists them
 (`case tier repeat model`), and what it still lists is what is still to do. `init` never overwrites a file. The date it
 records (`--today`) is the date of the prompts, and **the judge's "yesterday" is that date minus one day**, even if the run
 goes on past midnight UTC.
 
 **2.5 The initial comment** on the issue you were given (Part 5 has the posting commands and the shape): the server SHA and version, the
-`claude` version, the models, the cases (`all`: 28), the repeats, the reference, the results file name. Post it **before the
+`claude` version, the models, the cases (`all`: 37), the repeats, the reference, the results file name. Post it **before the
 first tested model runs**.
 
 ## Part 3. Run the cases
@@ -276,8 +296,8 @@ cat "$BENCH/batch.out"
 
 Use `--limit 9` (three waves of three) for the smoke run and the baseline alike, so that you judge in small batches and
 post progress as you go. **The order of the runs is fixed: the whole `small` tier first, then the whole `large` tier** (each
-tier by case, a case by repeat), so a tier is done after 28 runs of the smoke run and after 140 of the baseline, and the
-"after each tier" comments of Part 5 land there (the baseline: at 140 and at 280). `batch` first prints the order it starts the
+tier by case, a case by repeat), so a tier is done after 37 runs of the smoke run and after 185 of the baseline, and the
+"after each tier" comments of Part 5 land there (the baseline: at 185 and at 370). `batch` first prints the order it starts the
 runs in; the three that run at once finish in any order, so each prints under its own header,
 `=== [k/N] <case> | <tier> | repeat <n> | <model> ===` (k is the order of finishing), and the same header starts its
 `<case>-<tier>-<repeat>.trial.txt`. For each run the command does the following, so you need not:
@@ -364,14 +384,14 @@ gh issue comment <issue> -R earthobservations/wetterdienst --body-file "$BENCH/c
 
 1. **Initial comment** (2.5), before the first tested model runs: title `MCP benchmark, <smoke|baseline> run: start`; the server
    SHA and version (and that it is a local server of `main` on 127.0.0.1:7891 with its own cache); the `claude` version; the
-   models (`small` = haiku, `large` = sonnet or opus; the resolved ids come with the report); the cases (`all`: 28, no key
+   models (`small` = haiku, `large` = sonnet or opus; the resolved ids come with the report); the cases (`all`: 37, no key
    case) and the repeats; the number of runs; the reference; the judge model (you); the results file name. Link the
    runbook at the SHA of your checkout.
 2. **Intermediate comments** as the run progresses: **after each tier is done**, posted **once the last run of the tier is
    judged** (the whole `small` tier first, then the whole `large` tier: Part 3 says why the order is fixed). `large` is the last
    tier, so its comment **is the final comment** (3): post one, not two. In between, **whenever a batch brought something that has to be told**
    (a failed, invalid or spilled run, a server restart, a case that fails on every repeat, a refused `judge`). Batches of nine do
-   not land on multiples of 28, so do not promise a fixed cadence. Each has: how many runs are judged of the total; the table of
+   not land on multiples of 37, so do not promise a fixed cadence. Each has: how many runs are judged of the total; the table of
    `bench.py report` so far (paste it as is); the failed runs (timeouts), the **invalid** runs (no server) and the **spilled**
    calls, with the case and tier of each; the runs you judged `drift` or could not judge; anything surprising (a case
    that every repeat of a tier fails, a sudden rise in steps or cost, a server restart, a violation by a tool that is not
@@ -515,7 +535,7 @@ last run of the `small` tier is judged** (`bench.py report` of the new file so f
 is surprising); **whenever something has to be told** in between (a server restart, a refused `judge`, a case that fails on every
 repeat); and **at the end with the `compare` verdict** (8.7). `large` is the last tier, so there is no separate comment for it:
 the comment at the end, with the `compare` verdict, is also the comment of the `large` tier. Do not promise a cadence of runs:
-batches of nine do not land on multiples of 28.
+batches of nine do not land on multiples of 37.
 
 **A change that depends on the time of day** (a forecast: the hour an answer starts at, the model run it reads, a window that ends at
 the run) is only compared fairly if both sides read the same hours, and the two files are made hours apart. **Record and compare the
@@ -564,18 +584,11 @@ runs it touched), and **do not edit the case**. The rules whose removal the main
 
 ## Pending case changes
 
-None decided and waiting. The three that the maintainer decided on 2026-11-12 were **applied with the PR of the re-baseline of
-#4318** (the cases hash changed, so a baseline made after it is the reference of #4318 and #4319; "Current reference"):
-
-- **`observation-paris-last-week`: the forbidden rule `wide-long-window` is dropped** (a change that keeps a wide answer small makes
-  it obsolete). The other cases keep their `wide-long-window`.
-- **Forecast timing: a figure stamped at the current hour of the call counts as valid.** Since #4030 an MCP forecast answer starts
-  at the current hour on purpose. The window of `span` (`future_only`) now starts at the hour the reference call is in, and its
-  `timing` is `past_only` only when every row a figure equals is stamped **before the hour of the subject's call** (the 11:00 row of a
-  call made at 11:30 is `after`: valid; the 10:00 row is `past_only`).
-- **A case in which `interpolate` grows large: `interpolate-year-of-daily-values`**, a year of daily values (365 rows, about 100,000
-  characters, so the MCP answer is cut to its budget and the model must read the year in windows), so that a strategy that budgets
-  those answers is measured.
+None decided and waiting. The cases and the prompt are frozen with the first baseline made on them; until then they may
+change, and after it **a change to a case or to the prompt is a new baseline** (a changed case leaves every comparison).
+What was decided before is applied (checked against `cases.json` on 2026-11-25): `observation-paris-last-week` has no
+`wide-long-window` (the other cases keep theirs), a forecast figure stamped at the current hour of the call counts as
+valid (`LOGIC_VERSION` 18), and `interpolate-year-of-daily-values` makes `interpolate` grow.
 
 Not decided (a candidate, no change before the maintainer decides): **`observation-vienna-yesterday`**, whose `find-station`
 checkpoint accepts only `stations` calls (see "Known false failures").
@@ -601,7 +614,7 @@ and `scripts/run_subject.sh`) runs `claude -p` in a **new empty directory outsid
 `--mcp-config` holding only the server under test, `--tools ""` (no built-in tool: no Bash, Read, WebFetch, Agent),
 `--setting-sources ""`, `--disable-slash-commands`, `--no-session-persistence`, `--max-budget-usd`, and
 `--output-format stream-json --verbose`, whose output is the transcript. What the transcript's init record shows
-(checked with 2.1.311, 2026-11-12): the 14 tools of the server and nothing else, no skill and no slash command, the
+(checked with 2.1.311, 2026-11-12): the 15 tools of the server and nothing else, no skill and no slash command, the
 server `connected`. So the model sees the tools **directly (not deferred)**, no CLAUDE.md or AGENTS.md, no memory index, no
 git status. What remains: Claude Code's own system prompt and, injected by the harness, a block with the user's email address
 and the note about an empty auto-memory directory of the temporary directory. It talks to the server by URL, not through
@@ -758,7 +771,8 @@ read from the stations the subject itself got listed, not from a call of yours).
 **Placeholders** in `ground_truth` arguments: `$answer_station` the station id the answer's value came from;
 `$yesterday` yesterday's UTC date; `$last_7_days` the 7 UTC days up to and including yesterday as `A/B`;
 `$subject` the argument as the subject sent it (so that the same source is read); `$subject_snapshot` the
-`data_updated_at` of the subject's result of the same tool (so that warnings are read from the snapshot the subject
+`data_updated_at` of the subject's result of the same tool (so that warnings (`alerts`) or the radar cells (`storm_cells`: the
+newest scan at or before that time is the subject's scan) are read from the snapshot the subject
 read, not a later one; checked 2026-10-28: `alerts` with `timestamp` set to the `data_updated_at` of a snapshot returned that snapshot's warnings). A source that publishes with a delay may hold fewer days than asked: take the span over
 what your own call returns. When the tool's default answer is shallower than the pick needs (a depth option),
 ask for the deepest level the tool offers.
@@ -950,8 +964,8 @@ when either file has no run of a case that asks for the format.
 10 points (40 runs a side cannot at a pass rate of 80 %), and the power note prints how many would. `compare` says it next to the
 verdict, `(unchanged: k/n on both sides; ... too few to show a margin of 10%)`; **say so plainly in the comment**: unchanged, not
 proven equal. Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of
-10 points (`required_runs`, printed for each rate, the largest decides), and the default full run is 28 cases, 140 runs a side per tier at 5 repeats, 280 in all
-(`needs_key` cases are skipped by default, so London is not in it), about enough at 90 % and not enough at 80 %. Steps, tool-result characters, context
+10 points (`required_runs`, printed for each rate, the largest decides), and the default full run is 37 cases, 185 runs a side per tier at 5 repeats, 370 in all
+(`needs_key` cases are skipped by default, so London is not in it), enough at 90 % and not enough at 80 %. Steps, tool-result characters, context
 tokens at the first request, total and output tokens, and the calls whose result was saved to a file are printed as the
 median per case before and after and the paired difference. A token-efficiency change is "no worse and smaller" when
 all four rates are `no worse` and the sizes fell; the model, server, reference and Claude Code versions that differ
@@ -965,7 +979,7 @@ are told first.
 | --- | --- |
 | `id` | unique, `kebab-case` |
 | `question` | exactly what the tested agent is asked; relative dates are UTC |
-| `kind` | `forecast`, `observation`, `discovery`, `glossary`, `licence`, `interpolate`, `summarize`, `alerts`, `history`, `coverage`, `unanswerable`, `units` |
+| `kind` | `forecast`, `observation`, `discovery`, `glossary`, `licence`, `interpolate`, `summarize`, `alerts`, `history`, `coverage`, `unanswerable`, `units`, `kostra`, `station-ids`, `storm-cells`, `issues`, `stations`, `statistics` |
 | `max_steps` | most calls of the server's tools; generous but meaningful (6 for a forecast by place, 4 for a glossary or licence question) |
 | `checkpoints` | ordered `{id, description, match: [alternative, ...], any_order?}`; the first is required to pass; `any_order` is met by any call of the run |
 | `forbidden` | `{id, description, kind: call, match, window_days_over?}`, `{kind: repeat, tool, max_identical}`, `{kind: answer, regex}` |
@@ -984,6 +998,17 @@ the question, a name or a point, a window that holds the day), because a case th
 that answers well.
 
 ## Adding a case
+
+**The `expected` value of a case is computed outside wetterdienst**, from the provider's own files or table (a script of
+the standard library, or the one projection library a grid needs), never through the MCP server or the library's answer,
+so that the judge's reference call can be checked against it once, when the case is written: a case whose only truth is
+the library's own output cannot tell a change that moves the output. (The judge still reads the truth of a run with a
+call of the reference, as Part 4 says; `expected` only shows a drift.) Write the source, the rule and the numbers into the
+case's `notes` (file name, the column, what the missing-value marker was, the date computed) and prefer closed past data
+(a year that is over, a day in the historical files) so that it does not move. Where the answer depends on the day (the
+radar's cells, the model runs, the warnings) the fact says how the judge verifies it at run time, with a call of the
+reference, and an honest `none right now` is accepted.
+A question is what a person would ask: it names no tool and no option (a test holds the questions to that).
 
 Append to `cases.json`, run `uv run pytest tests/ui/test_mcp_benchmark_cases.py`, then run the case with both tiers
 and 3 repeats (`init --cases <id> --repeats 3`, then Parts 3 and 4) and read the transcripts before trusting the `tiers` you gave it. A change to a case changes its hash
