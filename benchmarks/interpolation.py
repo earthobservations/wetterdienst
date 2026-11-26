@@ -2,18 +2,29 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Interpolate weather data from DWD weather stations."""
 
+from __future__ import annotations
+
 import datetime as dt
-import os
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import utm
 from scipy import interpolate
 
+from wetterdienst.io.charts import FONT, altair
+from wetterdienst.io.export import render_image
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
 )
+
+if TYPE_CHECKING:
+    import altair as alt
+
+#: where the picture is written: the folder of the benchmarks that git ignores
+CACHE_DIR = Path(__file__).parent / ".cache"
 
 pl.Config.set_tbl_width_chars(400)
 
@@ -112,40 +123,39 @@ def interpolate_data(latitude: float, longitude: float, data: Data) -> None:
     data.colors.append("red")
 
 
-def visualize_points(data: Data) -> None:
-    """Visualize the weather stations and the interpolated point."""
-    try:
-        import plotly.graph_objects as go  # noqa: PLC0415
-    except ImportError as e:
-        msg = "The picture of this benchmark is drawn with Plotly, which no extra installs: pip install plotly"
-        raise ImportError(msg) from e
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=data.utm_y,
-            y=data.utm_x,
-            mode="markers",
-            marker={"color": data.colors},
-            text=[
-                f"id:{station}\nval:{value: .2f}\n"
-                for station, value in zip(data.station_ids, data.values, strict=True)
-            ],
-        ),
+def draw_points(data: Data) -> alt.LayerChart:
+    """Draw the weather stations and the interpolated point: easting across, northing up, each with its value."""
+    alt = altair()
+    values = [float(value) for value in data.values]
+    df = pl.DataFrame(
+        {
+            "easting": data.utm_x,
+            "northing": data.utm_y,
+            "color": data.colors,
+            "id_label": [f"id:{station}" for station in data.station_ids],
+            "value_label": [f"val: {value:.2f}" for value in values],
+        },
     )
-    for i, (station, value) in enumerate(zip(data.station_ids, data.values, strict=False)):
-        fig.add_trace(
-            go.Scatter(
-                x=[data.utm_y[i]],
-                y=[data.utm_x[i]],
-                mode="markers+text",
-                marker={"color": data.colors[i]},
-                text=f"id:{station}\nval:{value: .2f}\n",
-                textposition="top center",
-            ),
-        )
-    fig.update_layout(showlegend=False)
-    if "PYTEST_CURRENT_TEST" not in os.environ:
-        fig.show()
+    scale = alt.Scale(zero=False, padding=30)
+    axis = alt.Axis(format=",.0f", tickCount=6, grid=False)
+    base = alt.Chart(df).encode(
+        x=alt.X("easting:Q", title="easting [m]", scale=scale, axis=axis),
+        y=alt.Y("northing:Q", title="northing [m]", scale=scale, axis=axis),
+    )
+    points = base.mark_circle(size=70, opacity=1).encode(color=alt.Color("color:N", scale=None))
+    # the id above the value, each a line of its own above the point
+    ids = base.mark_text(dy=-26, baseline="bottom", fontSize=12).encode(text="id_label:N")
+    labels = base.mark_text(dy=-10, baseline="bottom", fontSize=12).encode(text="value_label:N")
+    return alt.layer(points, ids, labels).configure(font=FONT, background="white").configure_view(stroke="#888")
+
+
+def visualize_points(data: Data) -> Path:
+    """Draw the weather stations and the interpolated point and write the picture."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = CACHE_DIR / "interpolation.png"
+    path.write_bytes(render_image(draw_points(data), "png", width=640, height=480))
+    print(f"picture: {path}")
+    return path
 
 
 def main() -> None:
