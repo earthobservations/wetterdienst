@@ -120,6 +120,10 @@ class ValueStub:
     # the `raw:` tokens that have to arrive, as (canonical parameter, the text the source wrote, the value it was mapped
     # to: None for null). The text is verbatim: `-999`, not `-999.0`, wherever the source writes it so
     tokens: tuple[tuple[str, str, float | None], ...] = ()
+    # the rows whose `quality_flags` the source's own flag leads, as (canonical parameter, value, the whole of
+    # `quality_flags`: the flag as the source writes it, then `raw:` where a sentinel was mapped), served with the rows
+    # that have no value kept: the flag of a reading comes next to its value, and a reading without one has none
+    flagged: tuple[tuple[str, float | None, str | None], ...] = ()
     # the numbers a plausibility check rejects (mode `hard`) and keeps as `rejected:<checks>,raw:<text>`, as (canonical
     # parameter, the text the source wrote, the checks that rejected it joined with `+`): `tokens` names the same texts
     # for the `raw:` token, this the verdict before it (GH-3676). A reader that rejects a number the stub does not
@@ -838,8 +842,16 @@ _GEOSPHERE_STATIONS = (
 def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     stations = _GEOSPHERE_STATIONS.encode()
     # klima-v2-1d: "-1=kein Niederschlag, 0=weniger als 1/10 mm" for rr, "-1=kein Schnee" for sh_manu
-    # (checked on the live API for station 5904: rr is written -1.0, the whole-number sh_manu -1)
-    series = {"rr": [0.3, -1.0, 0.0], "sh_manu": [4, -1, 2]}
+    # (checked on the live API for station 5904: rr is written -1.0, the whole-number sh_manu -1). Each parameter is
+    # asked for with its `<parameter>_flag` (code list q21), which the source answers as a parameter of its own: the
+    # 20 (manuell geprüft (unbekannt)) is what station 5904 has for its days of 2024-01 (read 2026-11-26); the null on
+    # the third day of `sh_manu_flag` is made up, to show a reading without a flag
+    series = {
+        "rr": [0.3, -1.0, 0.0],
+        "rr_flag": [20, 20, 20],
+        "sh_manu": [4, -1, 2],
+        "sh_manu_flag": [20, 20, None],
+    }
 
     def data(url: str) -> bytes:
         names = parse_qs(urlparse(url).query)["parameters"][0].split(",")
@@ -859,11 +871,46 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
     return request.filter_by_station_id("1").values().all().df
 
 
+def _geosphere_10min(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    stations = _GEOSPHERE_STATIONS.encode()
+    # klima-v2-10min for station 5904, 2024-01-04 07:10 to 07:40 (read 2026-11-26): the precipitation `rr` is 0.0 at
+    # each of them, and its flag `rr_flag` is 12 (automatisch geprüft (original)), 21 (manuell geprüft (verändert)), 22
+    # (manuell geprüft (original)) and 12 again: a flag of its own for every reading
+    series = {"rr": [0.0, 0.0, 0.0, 0.0], "rr_flag": [12, 21, 22, 12]}
+
+    def data(url: str) -> bytes:
+        names = parse_qs(urlparse(url).query)["parameters"][0].split(",")
+        timestamps = [f"2024-01-04T07:{minute}+00:00" for minute in ("10", "20", "30", "40")]
+        parameters = {name: {"data": series[name]} for name in sorted(names)}
+        body = {"timestamps": timestamps, "features": [{"properties": {"parameters": parameters}}]}
+        return json.dumps(body).encode()
+
+    serve(monkeypatch, geosphere_api, {"/metadata/stations": stations, "klima-v2-10min": data})
+    request = GeosphereObservationRequest(
+        parameters=[("10_minutes", "data", "precipitation_amount")],
+        start=_day(2024, 1, 4, 7),
+        end=_day(2024, 1, 4, 8),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return request.filter_by_station_id("1").values().all().df
+
+
 def _geosphere_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     stations = _GEOSPHERE_STATIONS.encode()
     # klima-v2-1h for Aflenz, 2024-01-02 18:00 to 20:00 (read 2026-10-12): "Windrichtung [360°]" dd is [9, 0, 38] beside
-    # the speed ff [0.3, 0.0, 0.5], the calm at 19:00 written 0; north is 360 (GH-2794)
-    series = {"dd": [9, 0, 38], "ff": [0.3, 0.0, 0.5]}
+    # the speed ff [0.3, 0.0, 0.5], the calm at 19:00 written 0; north is 360 (GH-2794). Their flags are 10 (automatisch
+    # geprüft), as in the response (read 2026-11-26). The reduced pressure `pred` of that station is null all day and so
+    # is its flag: a reading without a value has no flag to carry. The flag of `pred` is the one flag the metadata gives
+    # no code list (every other flag is q21); the source gives it as it gives the others, and it is read the same way
+    series = {
+        "dd": [9, 0, 38],
+        "dd_flag": [10, 10, 10],
+        "ff": [0.3, 0.0, 0.5],
+        "ff_flag": [10, 10, 10],
+        "pred": [None, None, None],
+        "pred_flag": [None, None, None],
+    }
 
     def data(url: str) -> bytes:
         names = parse_qs(urlparse(url).query)["parameters"][0].split(",")
@@ -874,7 +921,11 @@ def _geosphere_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
 
     serve(monkeypatch, geosphere_api, {"/metadata/stations": stations, "klima-v2-1h": data})
     request = GeosphereObservationRequest(
-        parameters=[("hourly", "data", "wind_direction_mean"), ("hourly", "data", "wind_speed_mean")],
+        parameters=[
+            ("hourly", "data", "wind_direction_mean"),
+            ("hourly", "data", "wind_speed_mean"),
+            ("hourly", "data", "pressure_air_sea_level"),
+        ],
         start=_day(2024, 1, 2, 18),
         end=_day(2024, 1, 2, 20),
         settings=_settings(),
@@ -3195,6 +3246,26 @@ STUBS = [
         sentinels=(("precipitation_amount", -1.0), ("snow_depth_manual", -1.0)),
         # a day without precipitation or snow reads 0.0, and the code stays beside it as the source writes it
         tokens=(("precipitation_amount", "-1.0", 0.0), ("snow_depth_manual", "-1", 0.0)),
+        # the flag is the first token, the code of the sentinel the last
+        flagged=(
+            ("precipitation_amount", 0.3, "20"),
+            ("precipitation_amount", 0.0, "20,raw:-1.0"),
+            ("precipitation_amount", 0.0, "20"),
+            ("snow_depth_manual", 4.0, "20"),
+            ("snow_depth_manual", 0.0, "20,raw:-1"),
+            ("snow_depth_manual", 2.0, None),
+        ),
+    ),
+    ValueStub(
+        "geosphere/observation 10_minutes/data",
+        _geosphere_10min,
+        reading=("precipitation_amount", 0.0),
+        # the source writes no sentinel in this window: the stub holds the flags of real readings, one code each
+        flagged=(
+            ("precipitation_amount", 0.0, "12"),
+            ("precipitation_amount", 0.0, "21"),
+            ("precipitation_amount", 0.0, "22"),
+        ),
     ),
     ValueStub(
         "geosphere/observation hourly/data",
@@ -3202,6 +3273,13 @@ STUBS = [
         reading=("wind_direction_mean", 38.0),
         sentinels=(("wind_direction_mean", 0.0),),
         tokens=(("wind_direction_mean", "0", None),),
+        # the calm keeps its flag too; `pred` is null all day, flag and value
+        flagged=(
+            ("wind_direction_mean", 9.0, "10"),
+            ("wind_direction_mean", None, "10,raw:0"),
+            ("wind_speed_mean", 0.0, "10"),
+            ("pressure_air_sea_level", None, None),
+        ),
     ),
     ValueStub(
         "noaa/ghcn hourly/data",
