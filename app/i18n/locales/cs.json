@@ -599,7 +599,6 @@
     "formatJson": "Formát JSON (výchozí)",
     "formatCsv": "Formát CSV",
     "formatGeojson": "Formát GeoJSON pro mapy",
-    "formatHtml": "Formát tabulky HTML",
     "commonParamsTitle": "Běžné parametry",
     "paramHeader": "Parametr",
     "descHeader": "Popis",
@@ -631,7 +630,7 @@
       "parameters": "Cesta parametru (např. daily/kl/temperature_air_mean_2m)",
       "stations": "ID stanice (oddělená čárkami)",
       "timestamp": "Datum nebo rozsah dat (např. 2020-01-01/2020-12-31)",
-      "format": "Výstupní formát (json, csv, geojson, html)"
+      "format": "Výstupní formát (json, csv, geojson)"
     }
   },
   "glossary": {

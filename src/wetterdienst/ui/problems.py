@@ -68,6 +68,7 @@ class ProblemKind(StrEnum):
     REQUEST_REFUSED = "request-refused"
     LIMIT_EXCEEDED = "limit-exceeded"
     IMAGE_TOO_LARGE = "image-too-large"
+    CHARTS_DISABLED = "charts-disabled"
     HOST_NOT_ALLOWED = "host-not-allowed"
     ORIGIN_NOT_ALLOWED = "origin-not-allowed"
     NOT_FOUND = "not-found"
@@ -116,6 +117,12 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         "says how to narrow it.",
     ),
     ProblemKind.IMAGE_TOO_LARGE: ProblemSpec(400, "A chart would be longer than 8192 px on a side."),
+    ProblemKind.CHARTS_DISABLED: ProblemSpec(
+        403,
+        "The request asks for a chart (`html`, `png`, `jpg`, `webp`, `svg` or `pdf`) and this server draws none "
+        "(`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, "
+        "or ask whoever runs the server to switch charts on.",
+    ),
     ProblemKind.HOST_NOT_ALLOWED: ProblemSpec(
         400,
         "The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server "

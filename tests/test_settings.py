@@ -2007,3 +2007,55 @@ def test_removed_settings_reads_the_variable_in_any_case_and_from_the_env_file(
     monkeypatch.setenv("wd_restapi_sql", "true")
     env_file.write_text("")
     assert len(removed_settings(env_file)) == 1
+
+
+# --- restapi_plotting (GH-4461) ---------------------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_plotting_is_off_by_default_and_the_argument_overrules_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The REST API draws no charts unless it is told to: default, `WD_RESTAPI_PLOTTING`, and the argument over it."""
+    assert Settings().restapi_plotting is False
+    assert Settings.model_fields["restapi_plotting"].default is False
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "true")
+    assert Settings().restapi_plotting is True
+    assert Settings(restapi_plotting=False).restapi_plotting is False  # argument overrules the environment
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "false")
+    assert Settings().restapi_plotting is False
+    assert Settings(restapi_plotting=True).restapi_plotting is True
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(("text", "expected"), [("1", True), ("on", True), ("TRUE", True), ("0", False), ("no", False)])
+def test_restapi_plotting_reads_the_spellings_of_a_boolean(
+    monkeypatch: pytest.MonkeyPatch, text: str, *, expected: bool
+) -> None:
+    """The variable is a boolean as every other: any spelling pydantic reads, in any case."""
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", text)
+    assert Settings().restapi_plotting is expected
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_plotting_is_read_from_the_env_file_and_the_environment_wins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`.env` switches it on, as for every setting, and a variable of the process overrules the file."""
+    (tmp_path / ".env").write_text("WD_RESTAPI_PLOTTING=true\n")
+    assert Settings().restapi_plotting is True
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "false")
+    assert Settings().restapi_plotting is False
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_restapi_plotting_is_in_the_repr_and_a_malformed_value_is_named_without_being_repeated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The repr says whether charts are on, and `check_settings` names the variable of a value that is no boolean."""
+    assert json.loads(repr(Settings()))["restapi_plotting"] is False
+    assert json.loads(repr(Settings(restapi_plotting=True)))["restapi_plotting"] is True
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "secret-ish")
+    assert check_settings() == [
+        "WD_RESTAPI_PLOTTING is invalid: Input should be a valid boolean, unable to interpret input"
+    ]

@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
+  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `webp`, `svg` or
+  `pdf` on `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
+  `charts-disabled`, before anything is read, that names the formats the server answers. Every
+  image starts a Chrome on the server. On your own server set the variable to keep the charts, or
+  ask for `json`, `geojson` or `csv`. The library, the command line, the MCP tools and the web app
+  are unchanged (GH-4461)
+
 ## [0.200.0] - 2026-11-25
 
 ### Added
