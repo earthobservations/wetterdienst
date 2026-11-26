@@ -206,7 +206,7 @@ def test_a_stations_answer_has_the_block(client: TestClient, monkeypatch: pytest
     metadata = response.json()["metadata"]
     assert set(metadata) == ALWAYS
     assert metadata["request"]["stations"] == {"filter": "all", "count": 1, "ids": ["01048"]}
-    assert metadata["counts"] == {"stations": 1, "rows": 2}
+    assert metadata["counts"] == {"stations": 1, "stations_matched": 1, "rows": 2}
 
 
 def test_a_history_answer_has_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

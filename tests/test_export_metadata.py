@@ -23,12 +23,14 @@ from wetterdienst.io.export import ExportMixin
 from wetterdienst.io.file_metadata import BLOCK_KEY, SIDECAR_SUFFIX, block_attributes
 from wetterdienst.io.sinks import FILE_WRITERS, SELF_DESCRIBING
 from wetterdienst.model.processing_note import DERIVED_NOTE, PROCESSING_NOTE
+from wetterdienst.model.result import StationsResult
+from wetterdienst.ui.core import StationsRequest
 from wetterdienst.ui.response_metadata import metadata_to_dict, response_metadata
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from wetterdienst.model.result import StationsResult, ValuesResult
+    from wetterdienst.model.result import ValuesResult
 
 #: the results that are written to a file: a stations result and the three that hold values
 _RESULTS = ("stations", "values", "interpolated", "summarized")
@@ -43,7 +45,10 @@ def _result(name: str) -> Any:  # noqa: ANN401
 
 def _rest_block(result: Any, *, heavy: bool) -> dict[str, Any]:  # noqa: ANN401
     """Build the block as the REST API does for the request of a result, with the builder it calls."""
-    request = SimpleNamespace(provider="dwd", network="observation", with_metadata=heavy)
+    request: Any = SimpleNamespace(provider="dwd", network="observation", with_metadata=heavy)
+    if isinstance(result, StationsResult):
+        # the answer of `stations` says how many stations matched, and so does a file of stations (GH-4472)
+        request = StationsRequest.model_construct(provider="dwd", network="observation", with_metadata=heavy)
     return metadata_to_dict(response_metadata(result, request, heavy=heavy))  # ty: ignore[invalid-argument-type]
 
 

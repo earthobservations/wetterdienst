@@ -18,6 +18,10 @@ Types of changes:
 
 ### Added
 
+- The `counts` of a `stations` answer has `stations_matched`, the number of stations that match
+  (also in the `end` line of NDJSON and the header `X-Wetterdienst-Stations-Matched`; of
+  `station-ids` as well): `stations` is fewer where a `rank` or an MCP tool's budget cut the
+  list, and equal where nothing was cut (GH-4472)
 - `GET /api/version` (and `/api/v1/version`) has `plotting`, whether the server draws charts
   (`WD_RESTAPI_PLOTTING`, read per request), so a client learns it before it asks for one and gets
   the 403 `charts-disabled` (GH-4467)

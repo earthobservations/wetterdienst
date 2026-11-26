@@ -3240,8 +3240,11 @@ def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
 
     if stations._stations_filter is StationsFilter.BY_RANK and stations._rank:  # noqa: SLF001
         df = stations.df
-        closest = df.get_column("station_id").unique(maintain_order=True).head(stations._rank)  # noqa: SLF001
-        return replace(stations, df=df.filter(pl.col("station_id").is_in(closest.to_list())))
+        located = df.get_column("station_id").unique(maintain_order=True)
+        closest = located.head(stations._rank).to_list()  # noqa: SLF001
+        kept = df.filter(pl.col("station_id").is_in(closest))
+        # the stations answer says how many matched: every station that could be ranked (GH-4472)
+        return replace(stations, df=kept, _matched=located.len())
     return stations
 
 
