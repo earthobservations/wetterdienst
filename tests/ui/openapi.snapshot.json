@@ -181,7 +181,7 @@
           "Server"
         ],
         "summary": "Version",
-        "description": "Get version information, what this instance serves, and the limits it holds requests to.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.\n\n`limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`\nand `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or\n`csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a\n400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.",
+        "description": "Get version information, what this instance serves, and the limits it holds requests to.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.\n\n`plotting` says whether the instance draws charts: `WD_RESTAPI_PLOTTING` (`Settings.restapi_plotting`, off by\ndefault) is read for every request, as the refusal reads it, so a client learns before it asks for a chart\n(`format=html`, `png`, `jpg`, `webp`, `svg` or `pdf`) whether it would get the 403 `charts-disabled`.\n\n`limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`\nand `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or\n`csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a\n400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.",
         "operationId": "version_api_version_get",
         "responses": {
           "200": {
@@ -9790,6 +9790,11 @@
             "title": "Mcp Alias Path",
             "description": "The MCP endpoint that follows the current version (`/mcp`); null without MCP."
           },
+          "plotting": {
+            "type": "boolean",
+            "title": "Plotting",
+            "description": "Whether this instance draws charts (`WD_RESTAPI_PLOTTING`, off by default): false means a chart format of `stations`, `values`, `interpolate` or `summarize` is a 403 `charts-disabled`."
+          },
           "limits": {
             "$ref": "#/components/schemas/Limits",
             "description": "The limits and the timeout this instance holds requests to."
@@ -9803,10 +9808,11 @@
           "mcp_enabled",
           "mcp_path",
           "mcp_alias_path",
+          "plotting",
           "limits"
         ],
         "title": "VersionAnswer",
-        "description": "What an instance is: the versions it serves, whether it serves MCP, and the limits it holds requests to.",
+        "description": "What an instance is: the versions it serves, whether it serves MCP and draws charts, and its limits.",
         "examples": [
           {
             "api_version": "1",
@@ -9821,6 +9827,7 @@
             "mcp_alias_path": "/mcp",
             "mcp_enabled": true,
             "mcp_path": "/mcp/v1",
+            "plotting": false,
             "version": "0.159.0"
           }
         ]

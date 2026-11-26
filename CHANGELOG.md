@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `GET /api/version` (and `/api/v1/version`) has `plotting`, whether the server draws charts
+  (`WD_RESTAPI_PLOTTING`, read per request), so a client learns it before it asks for one and gets
+  the 403 `charts-disabled` (GH-4467)
+
 ### Changed
 
 - **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
