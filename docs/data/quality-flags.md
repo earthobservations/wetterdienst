@@ -48,15 +48,16 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 
 | Provider | codes in `quality_flags` |
 | --- | --- |
-| DWD observation | `QN`, the quality control level of the file's row, as DWD writes it and words it: [the levels below](#dwds-quality-levels-qn) (`with_metadata` lists those of the datasets read). Hourly, daily and monthly station data list `1` to `3`, `5`, `7`, `8`, `9` and `10` (data up to and including 1980 reach `5` at best); the 1, 5 and 10 minute data `1` to `3`; the hourly urban data `1` and `2`; for other datasets DWD describes none. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). Hourly `temperature_air` adds `zone:mez` for a stamp that was MEZ, UTC+1, in a period DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" and is returned shifted to UTC (`3,zone:mez`), `zone:mez-1973-75` for the batch of 1973 to 1975 whose analog recorder still lags by about 0.4 h, and `zone:mez-local-mean-time` for the East German months (1952 to 1961, Potsdam 1973 to 1975-05) whose stamps were in mean local time and are still 0.2 to 0.5 h early after the shift. `DwdObservationRequest.describe_fields` prints the table of a dataset |
+| DWD observation | `QN`, the quality control level of the file's row, as DWD writes it and words it: [the levels below](#dwds-quality-levels-qn) (`with_metadata` lists those of the datasets read). Hourly, daily and monthly station data list `1` to `3`, `5`, `7`, `8`, `9` and `10` (data up to and including 1980 reach `5` at best); the 1, 5 and 10 minute data `1` to `3`; the description of the hourly urban data lists `1` and `2`, and their data carry `3` as well; for other datasets DWD describes none. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). Hourly `temperature_air` adds `zone:mez` for a stamp that was MEZ, UTC+1, in a period DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" and is returned shifted to UTC (`3,zone:mez`), `zone:mez-1973-75` for the batch of 1973 to 1975 whose analog recorder still lags by about 0.4 h, and `zone:mez-local-mean-time` for the East German months (1952 to 1961, Potsdam 1973 to 1975-05) whose stamps were in mean local time and are still 0.2 to 0.5 h early after the shift. `DwdObservationRequest.describe_fields` prints the table of a dataset |
 | DWD derived | hourly `radiation_global` and `sunshine_duration` (DUETT, `QN_952`): the scope of the input data used for merging, `500` DUETT data without station and satellite data, `501` DUETT data based on station data only, `502` DUETT data based on satellite data only, `503` DUETT data based on (max 42) station and satellite data ([DWD's description](https://opendata.dwd.de/climate_environment/CDC/derived_germany/climate/hourly/duett/DESCRIPTION_derived_germany-climate-hourly-duett_en.pdf)); the other derived datasets: null |
-| DWD phenology | `Qualitaetsniveau`: `1` only formal control, `7` second control done, before correction, `10` quality control finished, all corrections finished (DWD's English description; its German one words `7` as "geprüft, nicht korrigiert") |
+| DWD phenology | `Qualitaetsniveau`: `1` only formal control, `7` second control done, before correction, `10` quality control finished, all corrections finished (DWD's English description; its German one words `7` as "geprüft, nicht korrigiert", and DWD's [German table of the phenology levels](https://opendata.dwd.de/climate_environment/CDC/help/PH_Beschreibung_Phaenologie_Qualitaetsniveau.txt) as "in ROUTINE geprüft, aber keine Korrekturen (z.B. RR_UN vor Korrektur)") |
 | DWD road | the station's own verdict, from `qualityInformationAwsData`: `1` suspect, `0` checked and not found suspect, null unknown ([details](provider/dwd/road/15_minutes.md)); the 198.15 K a stopped sensor writes is null with `raw:198.15`, and a sensor that holds any other value is the check `stuck`, `suspect:stuck` |
 | DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null (apart from the `suspect:`/`rejected:` and `raw:` tokens) |
 | Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code, written by the file as an integer so that its leading zeros are missing (`2576` is `02576`; `str.zfill(5)` restores them) (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
 | RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
 | IMGW meteorology | the status column beside the value: `8` no measurement (value null), `9` the phenomenon did not occur (value 0), `Z` a collective total (`o_d` only); `11` is this library's own, for a day absent from a month that is present (`daily/precipitation`, value 0). Blank status is null |
-| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Geosphere, Météo-France synop | null (apart from the `suspect:`/`rejected:` and `raw:` tokens) |
+| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Météo-France synop | null (apart from the `suspect:`/`rejected:` and `raw:` tokens) |
+| Geosphere | null (apart from the `suspect:`/`rejected:` and `raw:` tokens): the source's `<parameter>_flag` (code list q21) is not read yet, GH-4480 |
 | DMI | `qcStatus`: `manual` quality controlled by DMI's climatologists, `none` not controlled; then `validity:true` or `validity:false`, whether the climatologists consider the value valid ("Invalid data is generally not correct"; mostly Greenland); then `n:<count>`, the number of readings the value was computed from (`noValuesInCalculation`; a daily value of fewer than 4, a monthly of fewer than 14 and a yearly of fewer than 183 is `suspect:source`, unless the period had not ended); then `completeness:Incomplete` for a monthly or annual value of the month or year still running (the readings so far; DMI marks none); a daily value of a day that has not ended is not returned |
 | Hubeau (Eaufrance) | `code_qualification_obs`: `0` neutre, `4` faible, `8` forte, `12` douteuse, `16` non qualifiée, `20` bonne, `30` estimée (the seven values of the [Hub'Eau API documentation](https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs)) |
 | MET Norway Frost | `qualityCode`: `0` controlled and found O.K., `1` controlled and corrected or interpolated, `2` slightly uncertain, not controlled, `4` slightly uncertain, not corrected, `5` very uncertain, not corrected, `6` very uncertain, model data, `7` erroneous, not corrected; then `completeness:Incomplete` on a monthly value whose window had not closed when it was served (the month so far, partial: the calendar month closes at its end, the `PT6H` sum at 06 UTC and the `PT18H` extremes at 18 UTC of its last day, [details](provider/metno/frost/index.md#windows-that-have-not-closed)). Frost marks no such value, so this library does; a closed window has no token, and a daily value of an open window is not returned |
@@ -97,10 +98,16 @@ Which levels a product lists differs, and a level is never carried over from ano
   `monthly/climate_summary`, `monthly/precipitation_more`): all eight.
 - 1 minute, 5 minutes and 10 minutes station data (`10_minutes/*` but the urban datasets): `1`, `2` and `3`.
   DWD adds that data of the level `1` may contain significant errors.
-- Hourly urban data (`hourly/urban_*`): `1` and `2`.
+- Hourly urban data (`hourly/urban_*`): the description lists `1` and `2` only, but the data carry `3` as well (read
+  2026-11-26: every row of the air temperature and sun files of station 13667 has `QN` 3, the wind files `2`). The
+  legend tells `3` in the wording of the station network's descriptions and says that the urban description lists
+  no such level; `{1, 2}` are the levels described, not the levels in use.
 - DWD publishes no description of the levels of the 10 minutes urban datasets, the sub-daily datasets, the daily
   `weather_phenomena` and `weather_phenomena_more`, the monthly `climate_indices`, `precipitation_indices` and
   `weather_phenomena`, and the annual datasets. The legend says so for them and tells no level.
+
+In an answer of datasets that list different levels the legend says which dataset lists which, and the sentence on
+1980 stands only for the datasets that list `5` and `10`.
 
 The German descriptions word `7` differently: "geprüft, gepflegt, nicht korrigiert" (checked, maintained, not
 corrected; daily `kl` and hourly air temperature), where the English ones say "second control done, before
@@ -120,10 +127,17 @@ and the Met Office the legend says whose codes they are (for MIDAS it names the 
 is no scale) and lists no closed set, since the meaning depends on the element or the source, or is the five digits
 of a compound code.
 
-These networks have no quality flag of the source, so the first token of their `quality_flags` is never one of its
-codes, and `metadata.quality.source_flag_note` says so: `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `dwd/pollen`,
-`dwd/swsmos`, `dwd/uvi`, AEMET, FMI, Geosphere, IMGW hydrology, IPMA, KNMI, LHMT, MeteoSwiss, Météo-France synop and
-WSV (`tests/model/test_dwd_qn_levels.py` holds the note to the networks whose legend has no flag of the source).
+These networks have no quality flag of the source in this library, so the first token of their `quality_flags` is never
+one of its codes, and `metadata.quality.source_flag_note` says so, as a fact about the library: `dwd/mosmix`, `dwd/dmo`,
+`dwd/poi`, `dwd/pollen`, `dwd/swsmos`, `dwd/uvi`, AEMET, FMI, Geosphere, IMGW hydrology, IPMA, KNMI, LHMT, MeteoSwiss,
+Météo-France synop and WSV. Whether the source publishes a flag is checked separately. Read on 2026-11-26 and found
+without one: FMI's WFS `timevaluepair` (time and value only), IMGW's daily hydrology files (stage, discharge and
+temperature, with `9999`/`NULL` for no data), IPMA's observation JSON, LHMT's observation JSON, Météo-France's `synop`
+CSV and WSV's PEGELONLINE measurements; MeteoSwiss OGD has none. **Geosphere is the exception**: its klima-v2 datasets
+have a `<parameter>_flag` (code list q21) that the library does not read yet (GH-4480), and its note says so. AEMET and
+KNMI need a key and were not read again, and the DWD forecast, report and warning-like products (`mosmix`, `dmo`, `poi`,
+`pollen`, `swsmos`, `uvi`) were not read again either; for them the note says only what the library carries.
+(`tests/model/test_dwd_qn_levels.py` holds the note to the networks whose legend has no flag of the source.)
 
 ## Sentinels in `quality_flags`
 

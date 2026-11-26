@@ -289,7 +289,8 @@ of `with_metadata` carry it as `metadata.quality.legend`, and `tests/model/test_
 the kinds the reader passes to `join_quality_flags` are the kinds listed there. Give `codes` only for a set the
 source documents, in its words, with the document in `documentation`; for the others say in the `meaning` where
 the source tells them. A network with no flag of the source has only the tokens of the core in its legend, and its
-answers say in `metadata.quality.source_flag_note` that the source publishes none.
+answers say in `metadata.quality.source_flag_note` that the library carries none (`SOURCE_FLAG_NOTES` names a source
+that publishes one that is not read yet).
 
 A source that writes a number or a text for a value it does not have (`-999`, `99.9`, `NaN`, `---`, a wind
 direction `0`) is mapped to null in the reader, before the unit conversion, and its text is not lost: map it

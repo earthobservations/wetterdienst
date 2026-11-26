@@ -198,8 +198,9 @@ class Quality(BaseModel):
     )
     source_flag_note: str | None = Field(
         default=None,
-        description="Said where the provider publishes no quality flag with its readings, so that `quality_flags` "
-        "holds only this library's tokens; null where it does.",
+        description="Said where this library carries no quality flag of the source, so that `quality_flags` holds "
+        "only its own tokens (a source may still publish one that is not read yet, which the note says); null "
+        "where it carries one.",
     )
 
 

@@ -24,9 +24,12 @@ Types of changes:
 - The `quality` legend of `with_metadata` lists DWD's QN levels of the datasets read in DWD's own
   words, with the description they are from (`1` only formal control ... `9` not all parameters
   corrected ... `10` quality control finished; the 10 minute data list `1` to `3`), and says where
-  DWD describes none (sub-daily, annual). It lists the DUETT, Hub'Eau and Frost codes too, and
-  `source_flag_note` says where the source publishes no flag. About 550 more characters per
-  hourly or daily DWD answer. The phenology levels are DWD's wording now (GH-4474)
+  DWD describes none (sub-daily, annual); where datasets list different levels it says which
+  lists which, and for the urban hourly data it says that the description lists 1 and 2 while the
+  data carry 3. The DUETT, Hub'Eau (`code_qualification_obs`) and Frost (`qualityCode`) legends
+  list their codes with the document too, and `source_flag_note` says where this library carries
+  no quality flag of the source (GeoSphere's `<parameter>_flag` is not read yet, GH-4480). About
+  600 more characters per hourly or daily DWD answer (GH-4474)
 
 ### Changed
 

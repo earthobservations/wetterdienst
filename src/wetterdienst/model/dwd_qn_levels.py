@@ -10,7 +10,9 @@ copied. The documents agree where they list a level, and differ in how many they
 * the 1-, 5- and 10-minute products list 1 to 3;
 * the hourly, daily and monthly products of the station network list 1, 2, 3, 5, 7, 8, 9 and 10, and say that data
   up to and including 1980 reach 5 at best and later data 10;
-* the six hourly products of the urban stations list 1 and 2 only.
+* the six hourly products of the urban stations list 1 and 2 only, though their data carry 3 as well (read in the
+  air temperature and sun files of station 13667, 2026-11-26: QN 3 on every row); the station network's wording of
+  3 is the one told for it, and marked as such.
 
 For the other products (the sub-daily, the annual, the 10-minute urban, the daily `weather_phenomena` and
 `weather_phenomena_more`, the monthly and annual indices and weather phenomena) DWD publishes no description at all, so
@@ -61,6 +63,8 @@ class QnDocument(NamedTuple):
 
     levels: tuple[str, ...]
     url: str
+    #: levels the product's data carry that its description does not list (told in the wording of the station network)
+    carried: tuple[str, ...] = ()
 
 
 def _station(path: str, name: str, levels: tuple[str, ...]) -> QnDocument:
@@ -79,6 +83,7 @@ def _urban(directory: str, name: str) -> QnDocument:
     return QnDocument(
         _URBAN_LEVELS,
         f"{_URBAN}hourly/{directory}/recent/DESCRIPTION_obsgermany_climate_urban_hourly_{name}_recent_en.pdf",
+        carried=("3",),
     )
 
 
@@ -153,10 +158,20 @@ UNDOCUMENTED: tuple[str, ...] = (
 )
 
 
+class QnGroup(NamedTuple):
+    """The datasets of an answer whose descriptions list the same levels."""
+
+    levels: tuple[str, ...]
+    carried: tuple[str, ...]
+    datasets: list[str]
+    urls: list[str]
+
+
 class QnLevels(NamedTuple):
     """The levels of the datasets an answer reads: those DWD lists, where, and the datasets it lists none for."""
 
     levels: list[str]
+    groups: list[QnGroup]
     urls: list[str]
     undocumented: list[str]
 
@@ -164,15 +179,25 @@ class QnLevels(NamedTuple):
 def qn_levels(datasets: Iterable[str]) -> QnLevels:
     """Give the levels DWD lists for the datasets (`resolution/dataset`), in DWD's order, once each.
 
-    A level two products both list has the same wording in both (the test holds the table to that), so it is told once.
-    The datasets DWD publishes no description for are named in `undocumented`; a dataset the table does not know is
-    left out of all three (a dataset without a quality column, which a test keeps the table complete against).
+    `levels` is every level an answer's data can carry, those the descriptions list and those the data carry besides
+    (`QnDocument.carried`); `groups` says which datasets list which, so that a level is never told for a dataset whose
+    description does not list it. A level two products both list has the same wording in both (the test holds the table
+    to that). The datasets DWD publishes no description for are named in `undocumented`; a dataset the table does not
+    know is left out of all of them (a dataset without a quality column, which a test keeps the table complete against).
     """
     wanted = list(dict.fromkeys(datasets))
-    documents = [DOCUMENTS[dataset] for dataset in wanted if dataset in DOCUMENTS]
-    levels = {level for document in documents for level in document.levels}
+    documents = {dataset: DOCUMENTS[dataset] for dataset in wanted if dataset in DOCUMENTS}
+    grouped: dict[tuple[tuple[str, ...], tuple[str, ...]], QnGroup] = {}
+    for dataset, document in documents.items():
+        key = (document.levels, document.carried)
+        group = grouped.setdefault(key, QnGroup(document.levels, document.carried, [], []))
+        group.datasets.append(dataset)
+        if document.url not in group.urls:
+            group.urls.append(document.url)
+    levels = {level for document in documents.values() for level in (*document.levels, *document.carried)}
     return QnLevels(
         levels=[level for level in LEVELS if level in levels],
-        urls=sorted({document.url for document in documents}),
+        groups=list(grouped.values()),
+        urls=sorted({document.url for document in documents.values()}),
         undocumented=[dataset for dataset in wanted if dataset in UNDOCUMENTED],
     )

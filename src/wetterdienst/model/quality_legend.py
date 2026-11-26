@@ -24,11 +24,13 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from wetterdienst.model.dwd_qn_levels import DOCUMENTS, NOTE_1980, qn_levels
 from wetterdienst.model.dwd_qn_levels import LEVELS as _DWD_QN_LEVELS
-from wetterdienst.model.dwd_qn_levels import NOTE_1980, qn_levels
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from wetterdienst.model.dwd_qn_levels import QnLevels
 
 
 class QualityCode(BaseModel):
@@ -136,8 +138,8 @@ _DWD_QN = _plain(
 )
 
 _DWD_DOCUMENTS = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
-#: how many documents a legend names by URL; for more it names the directory they are in
-_MOST_URLS = 2
+#: how many datasets or documents a legend names; for more it counts them, or names the directory they are in
+_MOST_NAMED = 3
 
 #: DWD's description of the annual reporters' crops (read 2026-11-26), which lists the levels 1, 7 and 10
 _DWD_PHENOLOGY = (
@@ -163,34 +165,85 @@ _DWD_DERIVED_QN = _plain(
 )
 
 
+def _levels_told(levels: Iterable[str]) -> str:
+    """Write levels as DWD's lists do: `1, 2, 3` (the list is short and a range would hide the gaps)."""
+    return ", ".join(levels)
+
+
+def _datasets_told(datasets: list[str]) -> str:
+    """Name up to three datasets, and count the rest."""
+    named = ", ".join(datasets[:_MOST_NAMED])
+    return named if len(datasets) <= _MOST_NAMED else f"{named} and {len(datasets) - _MOST_NAMED} more"
+
+
+def _per_dataset(found: QnLevels) -> str:
+    """Say which datasets list which levels, and the 1980 sentence for the ones that list 5 and 10."""
+    told = []
+    for group in found.groups:
+        text = f"{_datasets_told(group.datasets)} list {_levels_told(group.levels)}"
+        if {"5", "10"} & set(group.levels):
+            text += " (data up to and including 1980 reach 5 at best, later data 10)"
+        if group.carried:
+            text += (
+                f"; their data carry {_levels_told(group.carried)} as well, which the description does not list "
+                "(its wording is that of the station network's descriptions)"
+            )
+        told.append(text)
+    return " " + "; ".join(told) + "."
+
+
+def _documents_of(found: QnLevels) -> tuple[str | None, str]:
+    """Give the `documentation` URL of an answer's levels and what the meaning adds about the documents.
+
+    One description is the URL; two or three are named in the meaning (`documentation` is one URL or null); for more
+    the directory of the descriptions is the URL.
+    """
+    if len(found.urls) == 1:
+        return found.urls[0], ""
+    if 1 < len(found.urls) <= _MOST_NAMED:
+        named = "; ".join(f"{dataset} {DOCUMENTS[dataset].url}" for group in found.groups for dataset in group.datasets)
+        return None, f" Descriptions: {named}."
+    if found.urls:
+        return _DWD_DOCUMENTS, " Each dataset's description is the DESCRIPTION_*_en.pdf of its directory there."
+    return None, ""
+
+
 def dwd_observation_qn(datasets: Iterable[str]) -> QualityKind:
     """Describe the QN of the datasets read (`resolution/dataset`): the levels DWD lists for them, and where.
 
-    Where DWD lists no level for a dataset (it publishes no description of it) the kind says so; the levels of
-    another product are never told for it.
+    Each level is told for the datasets whose description lists it: where the datasets differ, the meaning says which
+    dataset lists which. Where DWD lists no level for a dataset (it publishes no description of it) the kind says so;
+    the levels of another product are never told for it. `documentation` is the one description of an answer that reads
+    one product, else null (the URLs are in the meaning), or the directory of the descriptions for many.
     """
     found = qn_levels(datasets)
-    if not (found.urls or found.undocumented):
+    if not (found.groups or found.undocumented):
         return _DWD_QN
-    meaning = (
-        "DWD's quality level (QN) of the row, as DWD writes it ('3'): the quality control the values went through, "
-        "worded as in the product's English description."
-    )
-    if {"5", "10"} & set(found.levels):
-        meaning += " " + NOTE_1980
+    meaning = "DWD's quality level (QN) of the row, as DWD writes it ('3'): the quality control the values went through"
+    # an answer of undescribed datasets only tells no wording, so it does not say whose wording it is
+    meaning += ", worded as in the product's English description." if found.groups else "."
+    if len(found.groups) == 1 and not found.groups[0].carried:
+        meaning += " " + NOTE_1980 if {"5", "10"} & set(found.levels) else ""
+    elif found.groups:
+        meaning += _per_dataset(found)
     if found.undocumented:
         meaning += " DWD publishes no description of the levels of " + ", ".join(found.undocumented) + "."
-    documentation = (
-        " ".join(found.urls)
-        if len(found.urls) <= _MOST_URLS
-        else f"{_DWD_DOCUMENTS} (the DESCRIPTION_*_en.pdf of each product's directory)"
-    )
+    documentation, about_documents = _documents_of(found)
+    listed = {level for group in found.groups for level in group.levels}
+    codes = [
+        QualityCode(
+            code=level,
+            meaning=_DWD_QN_LEVELS[level]
+            + ("" if level in listed else " (the station network's wording; the description lists no such level)"),
+        )
+        for level in found.levels
+    ]
     return QualityKind(
         kind=None,
         written="<code>",
-        meaning=meaning,
-        codes=[QualityCode(code=level, meaning=_DWD_QN_LEVELS[level]) for level in found.levels] or None,
-        documentation=documentation or None,
+        meaning=meaning + about_documents,
+        codes=codes or None,
+        documentation=documentation,
     )
 
 
@@ -560,14 +613,30 @@ def quality_legend(provider: str, network: str, datasets: Iterable[str] | None =
     return legend
 
 
-#: what a network with no flag of its own says in `metadata.quality.source_flag_note`
+#: what a network with no flag of the source in its legend says in `metadata.quality.source_flag_note`: a fact about
+#: this library, which the source may or may not contradict (`SOURCE_FLAG_NOTES`)
 NO_SOURCE_FLAG = (
-    "The source publishes no quality flag with these readings: `quality_flags` holds only this library's tokens "
-    "(`suspect`, `rejected`, `raw`)."
+    "This library carries no quality flag of the source for these readings: `quality_flags` holds only its own "
+    "tokens (`suspect`, `rejected`, `raw`)."
 )
+
+#: the networks whose source does publish a flag that the library does not read, and what to say of it
+SOURCE_FLAG_NOTES: dict[str, str] = {
+    "geosphere/observation": (
+        "This library carries no quality flag of the source for these readings: `quality_flags` holds only its own "
+        "tokens (`suspect`, `rejected`, `raw`). The source has a `<parameter>_flag` (code list q21) that is not read "
+        "yet (GH-4480)."
+    ),
+}
 
 
 def source_flag_note(provider: str, network: str) -> str | None:
-    """Say so where the network's source states no quality flag: its legend has no plain kind, the source's own flag."""
-    legend = LEGENDS[f"{provider.lower()}/{network.lower()}"]
-    return None if any(kind.kind is None for kind in legend) else NO_SOURCE_FLAG
+    """Say so where the library carries no flag of the network's source: its legend has no plain kind.
+
+    This is a fact about the library, not about the source: a source that publishes a flag the library does not read
+    yet says so (`SOURCE_FLAG_NOTES`), and a test keeps those two apart.
+    """
+    key = f"{provider.lower()}/{network.lower()}"
+    if any(kind.kind is None for kind in LEGENDS[key]):
+        return None
+    return SOURCE_FLAG_NOTES.get(key, NO_SOURCE_FLAG)

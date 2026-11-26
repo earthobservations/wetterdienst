@@ -652,9 +652,10 @@ the terms are those of each provider it lists.
   MADIS flags of the NWS, Hub'Eau's and Frost's codes; for DWD's observation network the QN levels of the
   datasets read, in DWD's words with the description they are from, and for a dataset DWD describes no levels
   of, a `meaning` that says so and `codes` `null`). Where the source tells the codes itself (GHCN's
-  flags) the `meaning` names whose they are, and `codes` is `null`. A provider that publishes no quality
-  flag with its readings has `source_flag_note`, which says so (`null` for one that does); the first
-  token of its `quality_flags` is then none of the source's codes.
+  flags) the `meaning` names whose they are, and `codes` is `null`. A network whose legend has no flag of the
+  source has `source_flag_note`, which says that this library carries none (`null` where it does), so
+  the first token of its `quality_flags` is none of the source's codes; for a source that does publish
+  one that is not read yet (GeoSphere's `<parameter>_flag`) it says so.
 
 A format with no body to put the block in carries the same in headers, and so does every JSON answer:
 
