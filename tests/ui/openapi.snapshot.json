@@ -181,7 +181,7 @@
           "Server"
         ],
         "summary": "Version",
-        "description": "Get version information, what this instance serves, and the limits it holds requests to.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.\n\n`plotting` says whether the instance draws charts: `WD_RESTAPI_PLOTTING` (`Settings.restapi_plotting`, off by\ndefault) is read for every request, as the refusal reads it, so a client learns before it asks for a chart\n(`format=html`, `png`, `jpg`, `webp`, `svg` or `pdf`) whether it would get the 403 `charts-disabled`.\n\n`limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`\nand `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or\n`csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a\n400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.",
+        "description": "Get version information, what this instance serves, and the limits it holds requests to.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.\n\n`plotting` says whether the instance draws charts: `WD_RESTAPI_PLOTTING` (`Settings.restapi_plotting`, off by\ndefault) is read for every request, as the refusal reads it, so a client learns before it asks for a chart\n(`format=html`, `png`, `jpg`, `svg` or `pdf`) whether it would get the 403 `charts-disabled`.\n\n`limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`\nand `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or\n`csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a\n400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.",
         "operationId": "version_api_version_get",
         "responses": {
           "200": {
@@ -1877,16 +1877,15 @@
                 "html",
                 "png",
                 "jpg",
-                "webp",
                 "svg",
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -2952,16 +2951,15 @@
                 "html",
                 "png",
                 "jpg",
-                "webp",
                 "svg",
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403. Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -4613,16 +4611,15 @@
                 "html",
                 "png",
                 "jpg",
-                "webp",
                 "svg",
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403.",
+              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403."
+            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403."
           },
           {
             "name": "with_metadata",
@@ -5147,16 +5144,15 @@
                 "html",
                 "png",
                 "jpg",
-                "webp",
                 "svg",
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403.",
+              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403."
+            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf). Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other answers a chart format with a 403."
           },
           {
             "name": "with_metadata",
@@ -12683,7 +12679,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `charts-disabled`, `host-not-allowed`, `origin-not-allowed`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-quota-exhausted`, `upstream-timeout`, `request-timeout`, `image-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `charts-disabled`, `host-not-allowed`, `origin-not-allowed`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-quota-exhausted`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -12719,7 +12715,8 @@
               "rows",
               "stream_rows",
               "groups",
-              "series"
+              "series",
+              "image_points"
             ],
             "description": "Of `limit-exceeded`: the limit the request passes."
           },
@@ -12765,7 +12762,7 @@
     },
     "responses": {
       "BadRequest": {
-        "description": "Bad Request. The body is a problem (`Problem`) of one of the kinds:\n\n- `request-refused`: The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range.\n- `limit-exceeded`: The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows`, `groups` or `series`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it.\n- `image-too-large`: A chart would be longer than 8192 px on a side.\n- `host-not-allowed`: The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists.\n- `origin-not-allowed`: The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
+        "description": "Bad Request. The body is a problem (`Problem`) of one of the kinds:\n\n- `request-refused`: The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range.\n- `limit-exceeded`: The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows`, `groups`, `series` or `image_points`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it.\n- `image-too-large`: A chart would be longer than 8192 px on a side.\n- `host-not-allowed`: The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists.\n- `origin-not-allowed`: The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
         "content": {
           "application/problem+json": {
             "schema": {
@@ -12775,7 +12772,7 @@
         }
       },
       "Forbidden": {
-        "description": "Forbidden. The body is a problem (`Problem`) of one of the kinds:\n\n- `charts-disabled`: The request asks for a chart (`html`, `png`, `jpg`, `webp`, `svg` or `pdf`) and this server draws none (`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, or ask whoever runs the server to switch charts on.",
+        "description": "Forbidden. The body is a problem (`Problem`) of one of the kinds:\n\n- `charts-disabled`: The request asks for a chart (`html`, `png`, `jpg`, `svg` or `pdf`) and this server draws none (`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, or ask whoever runs the server to switch charts on.",
         "content": {
           "application/problem+json": {
             "schema": {
@@ -12851,7 +12848,7 @@
         }
       },
       "GatewayTimeout": {
-        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.\n- `image-timeout`: The browser that draws a chart as an image did not finish in time and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening.",
+        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.",
         "content": {
           "application/problem+json": {
             "schema": {

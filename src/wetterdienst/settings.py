@@ -534,10 +534,10 @@ class Settings(BaseSettings):
     # is a 400. Empty: any, which is what a server behind a proxy wants. `wetterdienst restapi` with a loopback
     # `--listen` sets it to the loopback names for its own process unless it is given
     restapi_allowed_hosts: Annotated[tuple[str, ...], NoDecode] = Field(default=())
-    # whether the REST API answers the chart formats (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of `stations`,
+    # whether the REST API answers the chart formats (`html`, `png`, `jpg`, `svg`, `pdf`) of `stations`,
     # `values`, `interpolate` and `summarize` (GH-4461). Off: such a request is a 403 before anything is read, since
-    # every image starts a Chrome (Kaleido) on the server. The library, the command line and the app, which draws its
-    # own, are not affected, and the MCP tools offer no chart
+    # a chart takes the server's time and memory: vl-convert draws one at a time (GH-3238). The library, the command
+    # line and the app, which draws its own, are not affected, and the MCP tools offer no chart
     restapi_plotting: bool = Field(default=False)
 
     # whether the settings were given a key of KNMI's Open Data API, which is dropped (`note_the_open_data_key`)

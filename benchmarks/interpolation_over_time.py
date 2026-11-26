@@ -74,7 +74,7 @@ def visualize(
     try:
         import plotly.graph_objects as go  # noqa: PLC0415
     except ImportError as e:
-        msg = "Please install extra `plotting` with wetterdienst[plotting]"
+        msg = "The picture of this benchmark is drawn with Plotly, which no extra installs: pip install plotly"
         raise ImportError(msg) from e
 
     rmse = get_rmse(regular_df.get_column("value"), interpolated_df.get_column("value"))

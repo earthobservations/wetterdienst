@@ -72,7 +72,7 @@ log = logging.getLogger(__name__)
 ANSWER_BUDGET = 40_000
 
 #: the formats whose body a model reads as data, which the budget holds: the formats of a tool. A chart (html, svg,
-#: png, jpg, webp, pdf) is none of them, and is refused before the route is called (`ui.mcp`, GH-4318)
+#: png, jpg, pdf) is none of them, and is refused before the route is called (`ui.mcp`, GH-4318)
 BUDGETED_FORMATS = frozenset({"json", "geojson", "csv", "ndjson"})
 
 #: the media types of the formats that have a sentence in front of their body (`ui.mcp.structured_size`)

@@ -53,7 +53,6 @@ if TYPE_CHECKING:
 _IMAGE_MEDIA_TYPES = {
     "png": "image/png",
     "jpg": "image/jpeg",
-    "webp": "image/webp",
     "svg": "image/svg+xml",
     "pdf": "application/pdf",
 }
@@ -618,7 +617,7 @@ def test_stations_wrong_format(client: TestClient) -> None:
     assert response.status_code == 422
     assert (
         response.json()["errors"][0]["msg"]
-        == "Input should be 'json', 'geojson', 'csv', 'ndjson', 'html', 'png', 'jpg', 'webp', 'svg' or 'pdf'"
+        == "Input should be 'json', 'geojson', 'csv', 'ndjson', 'html', 'png', 'jpg', 'svg' or 'pdf'"
     )
 
 
@@ -695,7 +694,6 @@ def test_stations_dwd_geo(client: TestClient) -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -1125,7 +1123,6 @@ def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -1334,7 +1331,6 @@ def test_summarize_dwd_custom_unit(client: TestClient) -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -1743,7 +1739,6 @@ def test_values_dwd_observation_climate_summary_custom_units(client: TestClient)
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -1813,21 +1808,6 @@ def test_every_image_format_has_its_media_type(fmt: str) -> None:
     A format added to a model without a media type would otherwise go out under a guessed one.
     """
     assert restapi._MEDIA_TYPES[fmt] == _IMAGE_MEDIA_TYPES[fmt]  # noqa: SLF001
-
-
-def _without_plotly(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make plotly not installed: its import raises what a missing package raises, imported before or not."""
-    import importlib  # noqa: PLC0415
-
-    real = importlib.import_module
-
-    def import_module(name: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        if name.split(".", maxsplit=1)[0] == "plotly":
-            msg = "No module named 'plotly'"
-            raise ModuleNotFoundError(msg, name="plotly")
-        return real(name, *args, **kwargs)
-
-    monkeypatch.setattr(importlib, "import_module", import_module)
 
 
 @pytest.mark.remote
@@ -7939,7 +7919,7 @@ def test_an_optional_dependency_missing_on_the_server_is_a_501(
     """
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
 
-    msg = "Plotting requires plotly, which is not installed. Install it with: pip install wetterdienst[plotting]"
+    msg = "Plotting requires altair, which is not installed. Install it with: pip install wetterdienst[plotting]"
 
     def refuse(**_kwargs: object) -> None:
         raise MissingDependencyError(msg)
@@ -7959,14 +7939,14 @@ def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_t
     client: TestClient,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Rendering an image without plotly is a 501 as well, though no endpoint handler wraps it (GH-2637).
+    """Rendering an image without altair is a 501 as well, though no endpoint handler wraps it (GH-2637).
 
     `to_format` runs after the values were collected, outside the `try` that `_failure` serves, and
     answered a bare 500. The app's own handler for `MissingDependencyError` covers every such place.
     """
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
 
-    msg = "Plotting requires plotly, which is not installed. Install it with: pip install wetterdienst[plotting]"
+    msg = "Plotting requires altair, which is not installed. Install it with: pip install wetterdienst[plotting]"
 
     def render() -> None:
         raise MissingDependencyError(msg)
@@ -8266,7 +8246,7 @@ def test_image_routes_cover_every_route_rendering_an_image() -> None:
         {"width": 100_000},
         {"height": 8_193},
         {"width": 1_000, "height": 1_000, "scale": 9},
-        # no size at all, scaled: plotly's 700 x 500 times 12 is 8400 x 6000
+        # no size at all, scaled: the default 700 x 500 times 12 is 8400 x 6000
         {"scale": 12},
     ],
     ids=["width", "height", "scaled", "default-size-scaled"],
@@ -8289,7 +8269,7 @@ def test_oversized_image_is_refused_before_anything_is_fetched(
     assert "Lower width, height or scale" in detail
 
 
-@pytest.mark.parametrize("fmt", ["png", "jpg", "webp", "svg", "pdf"])
+@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
 def test_oversized_image_is_refused_in_every_image_format(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
     """Each format the browser renders is measured."""
     monkeypatch.setattr(restapi, "Wetterdienst", _unreached)
@@ -8333,10 +8313,10 @@ def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch
     """A chart is 300 px tall for each parameter, which the request cannot know: it is measured once drawn.
 
     Three parameters make the chart 900 px tall, so a `scale` of 10 passes the check of the request
-    (7000 x 5000) and not that of the figure (7000 x 9000). The refusal comes before the browser is
-    started, which `export._draw` (what starts it) is stubbed to fail on.
+    (7000 x 5000) and not that of the chart (7000 x 9000). The refusal comes before the chart is
+    drawn, which `render_image` is stubbed to fail on.
     """
-    monkeypatch.setattr("wetterdienst.io.export._draw", _unreached)
+    monkeypatch.setattr("wetterdienst.model.result.render_image", _unreached)
     response = client.get(
         "/api/values",
         params={
@@ -8355,24 +8335,28 @@ def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch
     )
 
 
-def test_check_image_size_measures_the_figure_then_the_default() -> None:
-    """The caller's size wins over the figure's, which wins over plotly's 700 x 500; no limit, no check."""
-    import plotly.graph_objects as go  # noqa: PLC0415
+def _chart_of_height(height: int | None) -> object:
+    """Stand in for a chart that says its own default height, as the charts of the library do in their `usermeta`."""
+    meta = {} if height is None else {"height": height}
+    return SimpleNamespace(to_dict=lambda: {"usermeta": {"wetterdienst": meta}})
 
+
+def test_check_image_size_measures_the_chart_then_the_default() -> None:
+    """The caller's size wins over the chart's, which wins over the default 700 x 500; no limit, no check."""
     from wetterdienst.exceptions import ImageTooLargeError  # noqa: PLC0415
     from wetterdienst.io.export import check_image_size  # noqa: PLC0415
 
-    figure = go.Figure(layout={"height": 9_000})
+    chart: Any = _chart_of_height(9_000)
     with pytest.raises(ImageTooLargeError, match=r"7000 x 90000 px.*no side longer than 8192 px"):
-        check_image_size(figure, None, None, 10, 8_192)
-    # the caller's height replaces the figure's
-    check_image_size(figure, None, 800, 10, 8_192)
-    # a figure of its own size is measured at plotly's default without it
-    check_image_size(go.Figure(), None, None, 11, 8_192)
+        check_image_size(chart, None, None, 10, 8_192)
+    # the caller's height replaces the chart's
+    check_image_size(chart, None, 800, 10, 8_192)
+    # a chart of no size of its own is measured at the default without it
+    check_image_size(_chart_of_height(None), None, None, 11, 8_192)  # ty: ignore[invalid-argument-type]
     with pytest.raises(ImageTooLargeError):
-        check_image_size(go.Figure(), None, None, 12, 8_192)
+        check_image_size(_chart_of_height(None), None, None, 12, 8_192)  # ty: ignore[invalid-argument-type]
     # the library and the CLI set no limit
-    check_image_size(figure, 100_000, 100_000, 100, None)
+    check_image_size(chart, 100_000, 100_000, 100, None)
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -8381,8 +8365,6 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str
 ) -> None:
     """Each endpoint hands the limit to the chart it draws: a chart 900 px tall is refused at `scale=10`."""
-    import plotly.graph_objects as go  # noqa: PLC0415
-
     from wetterdienst.model.result import (  # noqa: PLC0415
         InterpolatedValuesResult,
         SummarizedValuesResult,
@@ -8391,8 +8373,8 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
 
     _stub_result(monkeypatch, endpoint)
     for result_class in (ValuesResult, InterpolatedValuesResult, SummarizedValuesResult):
-        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: go.Figure(layout={"height": 900}))
-    monkeypatch.setattr("wetterdienst.io.export._draw", _unreached)
+        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: _chart_of_height(900))
+    monkeypatch.setattr("wetterdienst.model.result.render_image", _unreached)
     response = client.get(
         endpoint,
         params={
@@ -8407,6 +8389,84 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
     )
     assert response.status_code == 400, response.text
     assert "The image would be 7000 x 9000 px" in response.json()["detail"]
+
+
+def _chart_of_points(points: int) -> object:
+    """Stand in for a chart whose data has `points` rows, as the CSV text the charts of the library hold it as."""
+    csv = "x\n" + "1\n" * points
+    return SimpleNamespace(to_dict=lambda: {"datasets": {"data": csv}})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf", "html"])
+@pytest.mark.parametrize("endpoint", ["/api/values", "/api/interpolate", "/api/summarize"])
+def test_a_chart_of_more_than_100000_points_is_refused_in_every_format_and_route(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str, fmt: str
+) -> None:
+    """The page embeds the points and an image draws them, holding the interpreter: both are refused above 100,000."""
+    from wetterdienst.model.result import (  # noqa: PLC0415
+        InterpolatedValuesResult,
+        SummarizedValuesResult,
+        ValuesResult,
+    )
+
+    _stub_result(monkeypatch, endpoint)
+    for result_class in (ValuesResult, InterpolatedValuesResult, SummarizedValuesResult):
+        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: _chart_of_points(100_001))
+    monkeypatch.setattr("wetterdienst.model.result.render_image", _unreached)
+    monkeypatch.setattr("wetterdienst.model.result.chart_to_html", _unreached)
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            _station_of(endpoint): "01048",
+            "timestamp": "2020-06-30",
+            "format": fmt,
+        },
+    )
+    assert response.status_code == 400, response.text
+    problem = response.json()
+    assert problem["type"] == "urn:wetterdienst:problem:limit-exceeded"
+    assert (problem["limit"], problem["maximum"], problem["requested"]) == ("image_points", 100_000, 100_001)
+    assert "100,001 points" in problem["detail"]
+    assert "fewer stations or parameters, or a shorter `timestamp` window" in problem["detail"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_a_chart_of_100000_points_is_drawn_and_the_data_formats_have_no_such_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The limit is on the chart: 100,000 points pass, and the rows of a csv are the limits of the rows."""
+    from wetterdienst.model.result import ValuesResult  # noqa: PLC0415
+
+    _stub_result(monkeypatch, "/api/values")
+    monkeypatch.setattr(ValuesResult, "to_plot", lambda *_args, **_kwargs: _chart_of_points(100_000))
+    monkeypatch.setattr("wetterdienst.model.result.require_vl_convert", lambda: None)
+    monkeypatch.setattr("wetterdienst.model.result.render_image", lambda *_args, **_kwargs: b"drawn")
+    params = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        "stations": "01048",
+        "timestamp": "2020-06-30",
+    }
+    assert client.get("/api/values", params={**params, "format": "png"}).content == b"drawn"
+    monkeypatch.setattr(ValuesResult, "to_plot", lambda *_args, **_kwargs: _chart_of_points(10**6))
+    assert client.get("/api/values", params={**params, "format": "csv"}).status_code == 200
+
+
+def test_the_python_api_and_the_command_line_draw_any_number_of_points() -> None:
+    """The limit is the REST API's: `render_kwargs` hands it to a result only where `max_side` is set (the server)."""
+    from wetterdienst.ui.render import MAX_IMAGE_POINTS, render_kwargs  # noqa: PLC0415
+
+    request = SimpleNamespace(format="png", with_metadata=False, pretty=False, width=None, height=None, scale=None)
+    assert "max_points" not in render_kwargs(request)  # ty: ignore[invalid-argument-type]
+    assert render_kwargs(request, max_side=8192)["max_points"] == MAX_IMAGE_POINTS  # ty: ignore[invalid-argument-type]
+    assert MAX_IMAGE_POINTS == 100_000
+    html = SimpleNamespace(format="html", with_metadata=False, pretty=False, width=None, height=None, scale=None)
+    assert render_kwargs(html, max_side=8192)["max_points"] == MAX_IMAGE_POINTS  # ty: ignore[invalid-argument-type]
 
 
 # ---------------------------------------------------------------------------------------------

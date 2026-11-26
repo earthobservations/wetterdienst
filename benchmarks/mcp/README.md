@@ -719,7 +719,7 @@ read from the stations the subject itself got listed, not from a call of yours).
      hour of the subject's call (an observation, an hour already past) fails.
      **`bench.py span` computes the span**: save your `values` call as JSON (`"$REFCLI" values ... --format json 2>>"$BENCH/ref.err" > "$BENCH/v.json"`)
      and run `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" span --analysis "$BENCH/runs-smoke/<stem>.analysis.json" --values "$BENCH/v.json"`
-     (`--values -` reads standard input; `--hours 48`, `--now <ISO time of your call>` and `--window all` are options). It takes the rows
+     (`--values` takes the JSON of the call or the text of an answer in the compact format of the tools (GH-4445); `--values -` reads standard input; `--hours 48`, `--now <ISO time of your call>` and `--window all` are options). It takes the rows
      after your call and up to 48 hours later for a forecast, all rows for an observation fact, widens the min and max by the fact's margin,
      keeps them in `sanity`, and says for each `RESULT:` figure of the answer (converted to °C from °F or K) whether it is in the span;
      a figure in another unit is `null`, not judged. **It also checks the timing of a forecast figure:** it looks the figure up among
@@ -732,8 +732,8 @@ read from the stations the subject itself got listed, not from a call of yours).
      (`periods=future` does for a forecast), or a figure has no row to match. A call with several parameters is fine: `span` keeps
      the air temperatures (`temperature_air*`) for the span, **leaves the others out** (a wind speed cannot widen it; see
      `parameters_left_out`; `--parameters a,b` picks the series by hand), and says for each figure in `matched_parameters` which
-     series it equals. The call time is the `retrieved_at` of the subject's last `values` result; **an answer without a metadata block (CSV, a compact
-     answer) has none, and `span` then takes the time the transcript stamped on the result of that call** (`answered_at`, a moment
+     series it equals. The call time is the `retrieved_at` of the subject's last `values` result; **an answer without a metadata block (CSV) has none (a compact
+     answer states it in its `# retrieved:` line), and `span` then takes the time the transcript stamped on the result of that call** (`answered_at`, a moment
      later; `called_at_from` in the output says which it used). Only when neither is there is there no `timing`, and `timing_note`
      says so: pass `--called-at <ISO time>`, the timestamp of that tool call in the transcript (`<stem>.jsonl`, the `timestamp` of the
      `user` record that holds the result). What a figure without a stated hour

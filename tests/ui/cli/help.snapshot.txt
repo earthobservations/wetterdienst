@@ -370,9 +370,9 @@ Options:
                                   {"temperature":"degree_fahrenheit"}
   --humanize BOOLEAN              Use canonical parameter names instead of the provider's own codes.
                                   Default: WD_TS_HUMANIZE if set, else true
-  --format [json|geojson|csv|html|png|jpg|webp|svg|pdf]
-                                  Output format: json, geojson or csv for data, html, png, jpg,
-                                  webp, svg or pdf for a chart. Default: json
+  --format [json|geojson|csv|html|png|jpg|svg|pdf]
+                                  Output format: json, geojson or csv for data, html, png, jpg, svg
+                                  or pdf for a chart. Default: json
   --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
   --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
   --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]
@@ -684,10 +684,10 @@ Options:
                                   compared exactly. Default: WD_TS_STATION_WINDOW_END_BUFFER if set,
                                   else two days up to daily, 62 for monthly and 732 for annual
                                   [0<=x<=3660]
-  --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
+  --format [json|geojson|csv|ndjson|html|png|jpg|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
-                                  for each row, then the end) for data, html, png, jpg, webp, svg or
-                                  pdf for a chart. Default: json
+                                  for each row, then the end) for data, html, png, jpg, svg or pdf
+                                  for a chart. Default: json
   --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
   --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
   --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]
@@ -1015,9 +1015,9 @@ Options:
                                   {"temperature":"degree_fahrenheit"}
   --humanize BOOLEAN              Use canonical parameter names instead of the provider's own codes.
                                   Default: WD_TS_HUMANIZE if set, else true
-  --format [json|geojson|csv|html|png|jpg|webp|svg|pdf]
-                                  Output format: json, geojson or csv for data, html, png, jpg,
-                                  webp, svg or pdf for a chart. Default: json
+  --format [json|geojson|csv|html|png|jpg|svg|pdf]
+                                  Output format: json, geojson or csv for data, html, png, jpg, svg
+                                  or pdf for a chart. Default: json
   --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
   --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
   --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]
@@ -1270,10 +1270,10 @@ Options:
                                   and parameters: for a short answer where many rows tie. What
                                   matched is still counted in metadata.search, and a rows-capped
                                   warning says how many are returned
-  --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
+  --format [json|geojson|csv|ndjson|html|png|jpg|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
-                                  for each row, then the end) for data, html, png, jpg, webp, svg or
-                                  pdf for a chart. Default: json
+                                  for each row, then the end) for data, html, png, jpg, svg or pdf
+                                  for a chart. Default: json
   --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
   --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
   --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]

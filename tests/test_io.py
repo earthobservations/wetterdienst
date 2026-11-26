@@ -6,6 +6,7 @@ import contextlib
 import dataclasses
 import datetime as dt
 import importlib.machinery
+import io
 import json
 import logging
 import math
@@ -850,9 +851,9 @@ def test_values_plot_labels_the_unit_the_values_carry(
             "value": [1.0],
         },
     )
-    pytest.importorskip("plotly")
-    figure = ValuesResult(stations=stations, df=df).to_plot()
-    assert [annotation.text for annotation in figure.layout.annotations] == [expected]
+    pytest.importorskip("altair")
+    chart = ValuesResult(stations=stations, df=df).to_plot()
+    assert chart.to_dict()["facet"]["row"]["sort"] == [expected]
 
 
 def test_values_plot_labels_one_name_published_in_two_units() -> None:
@@ -862,7 +863,7 @@ def test_values_plot_labels_one_name_published_in_two_units() -> None:
     the name alone, one of them labelled the other -- and left unconverted, that is a factor of 60
     between the number and its unit.
     """
-    pytest.importorskip("plotly")
+    pytest.importorskip("altair")
     request = DwdObservationRequest(
         parameters=["10_minutes/solar/sunshine_duration", "hourly/sun/sunshine_duration"],
         options=Options(convert_units=False),
@@ -883,10 +884,10 @@ def test_values_plot_labels_one_name_published_in_two_units() -> None:
             "value": [1.0, 2.0],
         },
     )
-    figure = ValuesResult(stations=stations, df=df).to_plot()
-    assert sorted(annotation.text for annotation in figure.layout.annotations) == [
-        "10_minutes<br>solar<br>sunshine_duration (h)",
-        "hourly<br>sun<br>sunshine_duration (min)",
+    chart = ValuesResult(stations=stations, df=df).to_plot()
+    assert sorted(chart.to_dict()["facet"]["row"]["sort"]) == [
+        "10_minutes\nsolar\nsunshine_duration (h)",
+        "hourly\nsun\nsunshine_duration (min)",
     ]
 
 
@@ -3834,22 +3835,18 @@ def test_to_target_gives_the_influxdb1_client_a_valid_base_url_for_an_ipv6_host(
     assert requests.Request("GET", f"{baseurl}/ping").prepare().url == f"{baseurl}/ping"
 
 
-def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
-    """Read what a values plot draws: its facets' labels, and each trace's points with its facet's.
+def _plot_of(result: ValuesResult) -> tuple[list, list, list[tuple]]:
+    """Read what a values plot draws: the labels of its rows, the stations as they are coloured, and its points.
 
-    Both in the order the figure holds them, which is the order they are laid out in.
+    Each point is its station, the label of its row, its time and its value, in the order the chart holds them.
     """
-    figure = result.to_plot()
-
-    def label(axis: str) -> str:
-        # a facet's label sits at the middle of its y axis, in paper coordinates
-        bottom, top = figure.layout[axis.replace("y", "yaxis")].domain
-        (text,) = (a.text for a in figure.layout.annotations if math.isclose(a.y, (bottom + top) / 2))
-        return text
-
+    spec = result.to_plot().to_dict()
+    (csv,) = spec["datasets"].values()
+    points = pl.read_csv(io.StringIO(csv), schema_overrides={"station_id": pl.String, "parameter": pl.String})
     return (
-        [annotation.text for annotation in figure.layout.annotations],
-        [(label(trace.yaxis), trace.name, tuple(trace.x), tuple(trace.y)) for trace in figure.data],
+        spec["facet"]["row"]["sort"],
+        spec["spec"]["encoding"]["color"]["scale"]["domain"],
+        points.rows(),
     )
 
 
@@ -3897,7 +3894,7 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
     The plot read the parameter name off a `parameter` column, which the wide shape has none of,
     so every image format of a wide result raised `ColumnNotFoundError` (GH-2330).
     """
-    pytest.importorskip("plotly")
+    pytest.importorskip("altair")
     request = DwdObservationRequest(parameters=parameters, options=options_kwargs)
     stations = StationsResult(
         request=request,
@@ -3952,9 +3949,9 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
     assert _plot_of(wide) == _plot_of(long)
 
 
-def test_values_plot_of_an_empty_wide_frame_is_an_empty_figure() -> None:
-    """A wide result with no rows plots as an empty long one does, as a figure with nothing drawn."""
-    pytest.importorskip("plotly")
+def test_values_plot_of_an_empty_wide_frame_is_an_empty_chart() -> None:
+    """A wide result with no rows plots as an empty long one does, as a chart with nothing drawn."""
+    pytest.importorskip("altair")
     request = DwdObservationRequest(parameters=["daily/kl/temperature_air_mean_2m"])
     stations = StationsResult(
         request=request,
@@ -3963,7 +3960,8 @@ def test_values_plot_of_an_empty_wide_frame_is_an_empty_figure() -> None:
         _stations_filter=StationsFilter.ALL,
     )
     df = stations.values()._widen_df(pl.DataFrame(schema=LONG_SCHEMA))  # noqa: SLF001
-    assert ValuesResult(stations=stations, df=df).to_plot().data == ()
+    spec = ValuesResult(stations=stations, df=df).to_plot().to_dict()
+    assert spec["datasets"][spec["data"]["name"]] == []
 
 
 def test_export_file_relative_target_with_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -4520,26 +4518,24 @@ def test_a_module_missing_inside_a_database_driver_keeps_its_traceback() -> None
     "result_class",
     [StationsResult, ValuesResult, InterpolatedValuesResult, SummarizedValuesResult],
 )
-def test_rendering_an_image_without_kaleido_is_a_missing_dependency(
+def test_rendering_an_image_without_vl_convert_is_a_missing_dependency(
     monkeypatch: pytest.MonkeyPatch,
     result_class: type,
 ) -> None:
-    """The images of every result type say what to install where plotly would raise a `RuntimeError` (GH-2667)."""
-    go = pytest.importorskip("plotly.graph_objects")
-    monkeypatch.setitem(sys.modules, "kaleido", None)
+    """The images of every result type say what to install where the renderer is not (GH-2667)."""
+    monkeypatch.setitem(sys.modules, "vl_convert", None)
 
     def draw(*_args: object, **_kwargs: object) -> None:
-        pytest.fail("rendered although Kaleido is missing")
+        pytest.fail("rendered although vl-convert is missing")
 
-    monkeypatch.setattr("wetterdienst.io.export._draw", draw)
+    monkeypatch.setattr("wetterdienst.model.result.render_image", draw)
     result = mock.MagicMock()
-    result.to_plot.return_value = go.Figure()
 
     with pytest.raises(MissingDependencyError) as excinfo:
         result_class._to_image(result, fmt="png")  # noqa: SLF001
 
     assert str(excinfo.value) == (
-        "Rendering an image requires kaleido, which is not installed. "
+        "Rendering an image requires vl_convert, which is not installed. "
         "Install it with: pip install wetterdienst[plotting]"
     )
 

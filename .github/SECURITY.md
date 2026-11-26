@@ -114,8 +114,9 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
 - **Timeout and concurrency:** 60 s (`WD_RESTAPI_TIMEOUT`, a 504), 32 requests at once (`WD_RESTAPI_MAX_CONCURRENT`, a
   503). A timed-out request's thread runs on but keeps its slot, so the cap bounds the threads. There is **no
   per-client rate limit**; that is the proxy's job (the app has one, `docs/usage/app.md`).
-- **No charts unless switched on.** Every image starts a Chrome (Kaleido) on the server, so the REST API refuses the
-  chart formats (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) of `stations`, `values`, `interpolate` and `summarize` with
+- **No charts unless switched on.** A chart is drawn by vl-convert in the server's process, one at a time, and costs it time and memory
+  (about 11 s and 1.3 GB for 100,000 points), so the REST API refuses the
+  chart formats (`html`, `png`, `jpg`, `svg`, `pdf`) of `stations`, `values`, `interpolate` and `summarize` with
   a 403 `charts-disabled`, before anything is read, unless `WD_RESTAPI_PLOTTING=true` (`docs/usage/restapi.md`,
   `tests/ui/test_restapi_plotting.py`). The MCP tools offer no chart.
 - **No SQL.** The REST API and the MCP tools take no `sql` or `sql_values`: a caller's text is never run in
@@ -139,10 +140,11 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   the index page (`default-src 'none'; style-src 'unsafe-inline'; ...`) and the `svg` answers (`default-src 'none';
   style-src 'unsafe-inline'; img-src data:`), the two whose bodies were read for what they need. It is not sent with
   the data answers, where it has nothing to guard, nor with `pdf` and the other images, nor with `/docs` and `/redoc`,
-  which load Swagger UI and ReDoc from a CDN, nor with `format=html`: that is a Plotly figure whose script is in the
+  which load Swagger UI and ReDoc from a CDN, nor with `format=html`: that is a Vega-Embed page whose script is in the
   page, so a policy that lets it run guards little and was not checked in a browser. The backend's origin holds no
-  cookie or credential, so this is hardening: Plotly escapes `<` in the JSON of a figure, and no free text of the
-  caller is drawn into one. HSTS, `Referrer-Policy` and a policy for the rest are for a reverse proxy.
+  cookie or credential, so this is hardening: Altair writes the JSON of a chart into the page as it is, so the
+  library writes it with `<`, `>` and `&` as `\u003c`, `\u003e` and `\u0026` (`_HtmlSafeEncoder` of `io/charts.py`; a
+  station named `</script><script>...` is data, `tests/test_charts.py`). HSTS, `Referrer-Policy` and a policy for the rest are for a reverse proxy.
 
 What it does not do:
 
@@ -186,10 +188,10 @@ XML is parsed with entities off, no network and no DTD, each option passed rathe
 (`util/xml.py`, the one parser of FMI, DWD alerts, MOSMIX and DMO; a test fails for a module that builds its own).
 Archives are read in memory. Apart from the cache directory (below) and what the host asks the library or the CLI to
 write (`--target`, `to_target`, an output path; no REST or MCP parameter reaches these), the files written are the BUFR
-message, in a private temporary directory that is removed afterwards (`util/eccodes.py`, `dwd/road`), and the temporary
-directory and browser profile of the headless Chromium that renders a chart to an image (`png`, `jpg`, `webp`, `svg`,
-`pdf`; kaleido), which a REST request can start where `WD_RESTAPI_PLOTTING=true` (it is off by default; the MCP tools
-draw no chart). Nothing is unpickled, evaluated or loaded from YAML that a
+message, in a private temporary directory that is removed afterwards (`util/eccodes.py`, `dwd/road`). A chart is drawn to
+an image (`png`, `jpg`, `svg`, `pdf`) by vl-convert in the process, with no browser and no file, and no address
+is let through to it (`allowed_base_urls=[]`: a chart holds all its data); a REST request can start one where
+`WD_RESTAPI_PLOTTING=true` (it is off by default; the MCP tools draw no chart). Nothing is unpickled, evaluated or loaded from YAML that a
 caller or provider sent. The native parsers (eccodes, lxml, polars) are dependencies with advisories of their own. Wrong
 numbers from a provider are a data-quality problem, not a vulnerability (`tests/provider/physical_ranges.py` catches the
 sentinels it can).

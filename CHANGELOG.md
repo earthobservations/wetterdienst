@@ -42,12 +42,43 @@ Types of changes:
 ### Changed
 
 - **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
-  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `webp`, `svg` or
-  `pdf` on `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
-  `charts-disabled`, before anything is read, that names the formats the server answers. Every
-  image starts a Chrome on the server. On your own server set the variable to keep the charts, or
-  ask for `json`, `geojson` or `csv`. The library, the command line, the MCP tools and the web app
-  are unchanged (GH-4461)
+  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `svg` or `pdf` on
+  `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
+  `charts-disabled`, before anything is read, that names the formats the server answers. Charts
+  take the server's time and memory: they render one after another (11 s and 1.3 GB for a chart of
+  100,000 points). On your own server set the variable to keep the charts, or ask for `json`,
+  `geojson` or `csv`. The library, the command line, the MCP tools and the web app are unchanged
+  (GH-4461)
+- **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for
+  values, a `LayerChart` for the station map), no longer a Plotly figure. The `plotting` extra is
+  `altair` and `vl-convert-python` now, with no Chrome. Where you called Plotly methods
+  on the figure (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image
+  exactly `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a
+  Vega-Embed page with zoom and pan along time. vl-convert has no wheel for musllinux, Windows
+  ARM64 or a free-threaded Python (GH-3238)
+- **Breaking**: `webp` is no longer an image format: REST `format=`, `--format` and `to_format`
+  take `html`, `png`, `jpg`, `svg` and `pdf`. Ask for `png` and convert it (GH-3238)
+- **Breaking**: `ImageTimeoutError`, the REST problem `image-timeout`, `render_image(timeout=)`
+  and `IMAGE_TIMEOUT` are removed: there is no browser that can hang. Drop the
+  `except ImageTimeoutError` and any match on `image-timeout`, and the `timeout=` of
+  `render_image`. `require_kaleido` is `require_vl_convert` (GH-3238)
+- Where REST charts are on, a chart of more than 100,000 points (an image or `html`, which embeds
+  them) is refused with a 400 `limit-exceeded`, `limit` `image_points`: a render of that many
+  takes 11 s and 1.3 GB of vl-convert's one worker. A chart too small for its labels is measured
+  as it is drawn, so `scale` cannot take an image past the 8192 px of `image-too-large`. The Python
+  API and the CLI have no limit (GH-3238)
+- Images are drawn in the process by vl-convert, in 0.1 to 1 s where Kaleido started a Chrome for
+  each: the Docker image installs none. They are exactly `width` x `height` pixels (times
+  `scale`). The look changes: Liberation Sans for all text, and the station map draws the country
+  borders of Natural Earth 1:50m (shipped, nothing fetched) where it drew OpenStreetMap tiles, and
+  its labels are placed by Vega, the most crowded station first, on 8 sides at up to 24 px from the
+  dot (a label that fits nowhere is left out of a picture; the page keeps every name in its
+  tooltip) (GH-3238)
+- The `plotting` extra needs `vl-convert-python>=2.0.0rc7,<3`, a release candidate (pip and uv
+  take it from the specifier): vl-convert 2 renders in a worker and does not hold the interpreter,
+  so the server answers while a chart renders, and Vega's label transform works in it. Its
+  settings are the process's: a theme or locale of your own changes our images, and the allowed
+  addresses are none for a render and yours again after. The floor is 2.0.0 when it is out (GH-4095)
 - The `mcp` extra needs `fastmcp>=4.2.4` (was 4.1.2), which the Docker image and an environment
   synced from `uv.lock` now hold. The text of a tool error is as before. FastMCP cuts the text of
   an upstream error at 1,000 characters (`… (truncated)`) from 4.1.5, so the list of available
@@ -59,6 +90,11 @@ Types of changes:
   provider's form, an old name, or one written in the dataset's place gets the whole corrected
   string: `daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`, is
   `daily/data/temperature_air_mean_2m`. The "renamed to" texts are as before (GH-4466)
+
+### Fixed
+
+- A command that drew an image no longer hangs when it exits: the images are drawn without
+  Kaleido, so there is no Chrome to close (GH-3742)
 
 ### Security
 

@@ -124,12 +124,13 @@ model the structured content alone. The default is `json`, which the assistant r
 ### What a tool does not take
 
 A tool is its REST route without the options that only the REST API needs, which a model reading JSON cannot use and
-which were part of the tool list of every session (the skip options of `values` are named below): `pretty`, the
-`width`, `height` and `scale` of an image, and the formats of a chart (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`). Nothing else is dropped (the `left`, `right`, `top` and
-`bottom` of a station box are arguments of the tools as they were). Charts are gone from the tools: a client that needs
-a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`, `/interpolate` and `/summarize` with
-`format=png` and the like where its operator has switched charts on (`WD_RESTAPI_PLOTTING=true`, off by default, see
-[Charts](restapi.md#charts)), as do the command line and Python, which are unchanged.
+which were part of the tool list of every session (the skip options of `values` are named below): `pretty`, the `width`,
+`height` and `scale` of an image, and the formats of a chart (`html`, `png`, `jpg`, `svg`, `pdf`). Nothing else is
+dropped (the `left`, `right`, `top` and `bottom` of a station box are arguments of the tools as they were). Charts are
+gone from the tools: a client that needs a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`,
+`/interpolate` and `/summarize` with `format=png` and the like where its operator has switched charts on
+(`WD_RESTAPI_PLOTTING=true`, off by default, see [Charts](restapi.md#charts)), as do the command line and Python, which
+are unchanged.
 
 A call that still sends one of the options is answered like this, so that a client written for an earlier release
 keeps working where it can. Where the tool's route took the option:
