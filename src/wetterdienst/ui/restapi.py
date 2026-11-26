@@ -2107,15 +2107,21 @@ def _stream_response(
     )
 
 
-def _stream_end(stations: int, rows: int, search: Callable[[], dict[str, Any]] | None = None) -> dict[str, Any]:
+def _stream_end(
+    stations: int,
+    rows: int,
+    search: Callable[[], dict[str, Any]] | None = None,
+    *,
+    matched: int | None = None,
+) -> dict[str, Any]:
     """Give the `end` line of a stream: what was sent, and every warning raised while it was.
 
     `search` gives what the row options searched where the stream has them: it is known only at the end, so the line
-    that ends the stream carries it, as it carries the warnings.
+    that ends the stream carries it, as it carries the warnings. `matched` is the stations a listing found.
     """
     # the search first: it may say that `max_rows` cut the answer, a warning the line carries
     report = search() if search is not None else None
-    return ndjson_end(stations, rows, recorded_warnings(), report)
+    return ndjson_end(stations, rows, recorded_warnings(), report, matched=matched)
 
 
 def _stream_stations(
@@ -2128,7 +2134,7 @@ def _stream_stations(
             ndjson_head(metadata),
             frames,
             lambda df: cast("list[dict[str, Any]]", replace(stations, df=df).to_dict()["stations"]),
-            _stream_end,
+            lambda stations_, rows_: _stream_end(stations_, rows_, matched=metadata.counts.stations_matched),
             _stream_failure(request, "stream stations"),
         )
         return _stream_response(chunks, NDJSON_MEDIA_TYPE, metadata, ndjson=True)

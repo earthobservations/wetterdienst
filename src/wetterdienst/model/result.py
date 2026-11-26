@@ -483,6 +483,9 @@ class StationsResult(_EqualByFields, ExportMixin):
     _stations_filter: StationsFilter
     #: the number of stations a ranked selection asked for, which `values()` stops at
     _rank: int | None = None
+    #: how many stations the selection found before a `rank` (or a cut of the answer) left `df` with fewer: what a
+    #: stations answer reports as `counts.stations_matched`. None where nothing was cut, so that `df` is the count
+    _matched: int | None = None
 
     @property
     def settings(self) -> Settings:
