@@ -571,7 +571,8 @@ _TAKING_SQL_ONCE = {
 def test_the_routes_that_took_sql_refuse_it_as_removed(client: TestClient, route: str, name: str) -> None:
     """A request that sends `sql` or `sql_values` is a 422 that says it was removed and what to do, on every route.
 
-    No route declares the 403 of the kind `sql-disabled` any more, and the kind is gone from the document.
+    The kind `sql-disabled` is gone from the document. The 403 that some of these routes declare is the one of the
+    charts (`charts-disabled`, GH-4461), which names no SQL.
     """
     base, _ = _TAKING_SQL_ONCE[route]
     query = {key: value for key, value in base.items() if value is not None}
@@ -582,7 +583,6 @@ def test_the_routes_that_took_sql_refuse_it_as_removed(client: TestClient, route
         )
         assert f"{name}: {name} was removed: the REST API and the MCP tools no longer filter with SQL" in body["detail"]
         assert "filter the answer yourself" in body["detail"]
-    assert not _is_declared(client, route, 403)
     assert "sql-disabled" not in client.get("/openapi.json").text
 
 

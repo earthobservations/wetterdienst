@@ -290,16 +290,27 @@ _WithEstimateStationsField = Annotated[
         "`elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
     ),
 ]
+# what the description of `format` says of the charts, which the MCP tools leave out with the charts (`ui.mcp`): a
+# chart is the REST API's, and only a server whose operator switched it on (GH-4461)
+_CHARTS_NEED_THE_SETTING = (
+    " Charts are drawn only by a server whose operator switched them on (WD_RESTAPI_PLOTTING=true), any other "
+    "answers a chart format with a 403."
+)
 _FormatField = Annotated[
     Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
-    Field(description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."),
+    Field(
+        description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."
+        + _CHARTS_NEED_THE_SETTING
+    ),
 ]
 # of the stations and values requests, whose csv is streamed too, and which have a stream of their own (GH-3065)
 _StreamFormatField = Annotated[
     Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(
         description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
-        "svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
+        "svg, pdf)."
+        + _CHARTS_NEED_THE_SETTING
+        + " Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
         "the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the "
         "limits of the server."
     ),

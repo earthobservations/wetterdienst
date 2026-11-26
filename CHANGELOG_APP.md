@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[API]` The API page no longer lists `html` among the response formats: a chart of the backend's
+  is refused by a server that has not switched charts on, and the app draws its own (GH-4461).
+
 ### Fixed
 
 - `[Stripes]` Where NOAA's NCEI does not give a station's file and the backend reads GHCN daily

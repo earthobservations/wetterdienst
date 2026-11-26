@@ -403,6 +403,7 @@ def test_the_rest_api_answers_a_stuck_image_with_a_504_and_closes_the_browser(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """An image of `/api/stations` was held by a browser that never answered; now it is a 504 problem to retry."""
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "true")  # charts are off by default (GH-4461)
     events = _fake_kaleido(monkeypatch, stuck=("open",))
     monkeypatch.setattr(export, "IMAGE_TIMEOUT", _SHORT)
     stations = _stations_of(3)

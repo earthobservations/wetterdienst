@@ -43,6 +43,7 @@
     "fsspec_client_kwargs",
     "restapi_allowed_hosts",
     "restapi_max_concurrent",
+    "restapi_max_groups",
     "restapi_max_rows",
     "restapi_max_stations",
     "restapi_max_stream_rows",
@@ -223,5 +224,5 @@
   "point_lookup_exports": {
     "dwd/kostra": "wetterdienst.provider.dwd.kostra.DwdKostraRequest"
   },
-  "x-release": "0.199.0"
+  "x-release": "0.200.0"
 }
