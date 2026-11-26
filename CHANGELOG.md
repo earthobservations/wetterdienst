@@ -18,9 +18,26 @@ Types of changes:
 
 ### Added
 
+- The `counts` of a `stations` answer has `stations_matched`, the number of stations that match
+  (also in the `end` line of NDJSON and the header `X-Wetterdienst-Stations-Matched`; of
+  `station-ids` as well): `stations` is fewer where a `rank` or an MCP tool's budget cut the
+  list, and equal where nothing was cut (GH-4472)
 - `GET /api/version` (and `/api/v1/version`) has `plotting`, whether the server draws charts
   (`WD_RESTAPI_PLOTTING`, read per request), so a client learns it before it asks for one and gets
   the 403 `charts-disabled` (GH-4467)
+- The `metadata.request` block of `interpolate` and `summarize` has `elevation`, the elevation the
+  values were made at (null for none), and `elevation_corrected`, the parameters whose readings
+  were brought to it (empty where none was); the headers of a CSV and the block written beside a
+  file have them too. It tells that `elevation` was applied (GH-4473)
+- The `quality` legend of `with_metadata` lists DWD's QN levels of the datasets read in DWD's own
+  words, with the description they are from (`1` only formal control ... `9` not all parameters
+  corrected ... `10` quality control finished; the 10 minute data list `1` to `3`), and says where
+  DWD describes none (sub-daily, annual); where datasets list different levels it says which
+  lists which, and for the urban hourly data it says that the description lists 1 and 2 while the
+  data carry 3. The DUETT, Hub'Eau (`code_qualification_obs`) and Frost (`qualityCode`) legends
+  list their codes with the document too, and `source_flag_note` says where this library carries
+  no quality flag of the source (GeoSphere's `<parameter>_flag` is not read yet, GH-4480). About
+  600 more characters per hourly or daily DWD answer (GH-4474)
 
 ### Changed
 
@@ -67,6 +84,12 @@ Types of changes:
   an upstream error at 1,000 characters (`… (truncated)`) from 4.1.5, so the list of available
   parameters in the answer to a wrong parameter name is shortened for providers with many (`dwd`
   `mosmix`, `noaa` `ghcn`); `coverage` lists them all (GH-4384)
+- The error of an unknown resolution, dataset or parameter name names the closest names first,
+  then how many there are and that `coverage` lists them all, in under 1,000 characters (`noaa`
+  `ghcn` was 8,148), also for several unknown names in one request. A parameter in another
+  provider's form, an old name, or one written in the dataset's place gets the whole corrected
+  string: `daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`, is
+  `daily/data/temperature_air_mean_2m`. The "renamed to" texts are as before (GH-4466)
 
 ### Fixed
 

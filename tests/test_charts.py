@@ -443,10 +443,11 @@ def _bare_environment() -> dict[str, str]:
     """Give a fresh process the environment to import this repository's `tests` and `wetterdienst` and nothing else.
 
     The root is found as a path, not by cutting text, so it is right on Windows too, which also needs `SYSTEMROOT`
-    for a process to start its sockets and random numbers.
+    for a process to start its sockets and random numbers, and `USERPROFILE` for `Path.home()`, which Altair asks
+    at import (Linux and macOS find the home in the password database).
     """
     root = str(Path(pytest.importorskip("tests").__path__[0]).parent)
-    kept = {name: os.environ[name] for name in ("SYSTEMROOT", "TEMP", "TMP") if name in os.environ}
+    kept = {name: os.environ[name] for name in ("SYSTEMROOT", "TEMP", "TMP", "USERPROFILE") if name in os.environ}
     return {**kept, "PYTHONPATH": root, "PATH": ""}
 
 

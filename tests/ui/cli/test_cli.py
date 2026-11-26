@@ -349,7 +349,7 @@ def test_coverage_resolution_1_minute() -> None:
     ("option", "message"),
     [
         ("--resolutions=foo", "Resolution 'foo' not found in DwdObservationMetadata. Available resolutions: "),
-        ("--datasets=foo", "Dataset 'foo' not found in DwdObservationMetadata. Available datasets: "),
+        ("--datasets=foo", "Dataset 'foo' not found in DwdObservationMetadata. Closest datasets: "),
     ],
 )
 def test_coverage_of_a_resolution_or_dataset_that_does_not_exist_is_a_usage_error(option: str, message: str) -> None:

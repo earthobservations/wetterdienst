@@ -820,6 +820,9 @@ _REPORTING_HEADERS = (
     "x-wetterdienst-values-searched",
     "x-wetterdienst-values-expected",
     "x-wetterdienst-rows-matched",
+    "x-wetterdienst-stations-matched",
+    "x-wetterdienst-elevation",
+    "x-wetterdienst-elevation-corrected",
 )
 
 
@@ -926,6 +929,14 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:  # noqa: C901
         report["truncated"] = unquote(truncated)
     if started := headers.get("x-wetterdienst-forecast-from-now"):
         report["forecast_from_now"] = unquote(started)
+    # how many stations match a list of stations, which a CSV has no block to carry (`counts.stations_matched`)
+    if stations_matched := headers.get("x-wetterdienst-stations-matched"):
+        report["stations_matched"] = stations_matched
+    # the elevation an estimate was made at and what was corrected for it, which a CSV has no block to carry
+    if elevation := headers.get("x-wetterdienst-elevation"):
+        report["elevation"] = elevation
+    if corrected := headers.get("x-wetterdienst-elevation-corrected"):
+        report["elevation_corrected"] = [name for name in corrected.split(",") if name]
     # what the row options searched, which a CSV has no block to carry (`metadata.search` of the JSON answers)
     if searched := headers.get("x-wetterdienst-values-searched"):
         report["values_searched"] = searched
@@ -958,6 +969,18 @@ def _sentence_of(media_type: str, size: int, report: dict[str, Any]) -> str:
         sentence += f" Truncated: {report['truncated']}"
     if "forecast_from_now" in report:
         sentence += f" Forecast: {report['forecast_from_now']}"
+    return sentence + _findings_sentence(report)
+
+
+def _findings_sentence(report: dict[str, Any]) -> str:
+    """Tell what the answer found: the stations matched, the elevation of an estimate, what the row options searched."""
+    sentence = ""
+    if "stations_matched" in report:
+        sentence += f" Stations matched: {report['stations_matched']}."
+    if "elevation" in report:
+        sentence += f" Elevation: {report['elevation']} m."
+    if "elevation_corrected" in report:
+        sentence += f" Corrected for the elevation: {', '.join(report['elevation_corrected'])}."
     if "values_searched" in report:
         of = f" of {report['values_expected']} expected" if "values_expected" in report else ""
         sentence += (
