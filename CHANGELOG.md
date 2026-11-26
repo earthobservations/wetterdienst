@@ -21,6 +21,10 @@ Types of changes:
 - `GET /api/version` (and `/api/v1/version`) has `plotting`, whether the server draws charts
   (`WD_RESTAPI_PLOTTING`, read per request), so a client learns it before it asks for one and gets
   the 403 `charts-disabled` (GH-4467)
+- The `metadata.request` block of `interpolate` and `summarize` has `elevation`, the elevation the
+  values were made at (null for none), and `elevation_corrected`, the parameters whose readings
+  were brought to it (empty where none was); the headers of a CSV and the block written beside a
+  file have them too. It tells that `elevation` was applied (GH-4473)
 - The `quality` legend of `with_metadata` lists DWD's QN levels of the datasets read in DWD's own
   words, with the description they are from (`1` only formal control ... `9` not all parameters
   corrected ... `10` quality control finished; the 10 minute data list `1` to `3`), and says where

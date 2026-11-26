@@ -254,7 +254,13 @@ what the answer is missing:
   `by_distance`, `by_bbox` or `by_sql`), `count` the stations in the answer and `ids` their `station_id`, for an
   answer of up to 100 stations; for one of more `ids` is `null`, so a listing of a whole network does not carry
   its ids a second time, and `count` is how many there are. To have the ids of a large answer, read the
-  `station_id` column of its body.
+  `station_id` column of its body. The answers of `interpolate` and `summarize` have two members more:
+  `elevation`, the elevation in metres of the point the values were made for (the one given; a point named by a
+  `station` has that station's own, which is what the answer is made at unless another is given; `null` for none), and
+  `elevation_corrected`, the parameters (`resolution/dataset/parameter`) whose readings were brought from each
+  station's height to it, which are the quantities that fall with height (air temperature at 2 m, the dew point) and
+  only where there is an elevation. An empty list says the values are the stations' readings as they came, and a
+  parameter that is not in it was not corrected, whatever `elevation` says. No other answer has them.
 - **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
   is not told.
 - **`data_updated_at`** is when the source last updated the data of the answer, in UTC: the newest such date over the
@@ -673,6 +679,7 @@ A format with no body to put the block in carries the same in headers, and so do
 | `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
 | `X-Wetterdienst-Truncated` | the message of the `answer-truncated` warning of an MCP tool's answer; left out otherwise |
 | `X-Wetterdienst-Forecast-From-Now` | the message of the `forecast-from-now` warning of an MCP tool's forecast answer; left out otherwise |
+| `X-Wetterdienst-Elevation`, `X-Wetterdienst-Elevation-Corrected` | `request.elevation` and `request.elevation_corrected` (comma-separated) of `interpolate` and `summarize`; each left out where it is `null` or empty |
 
 A text with more than ASCII in it (a credit line such as "© Météo-France"), or a character a header cannot
 carry, is percent-encoded UTF-8;
