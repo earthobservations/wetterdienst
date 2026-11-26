@@ -380,16 +380,22 @@ def _fit_values(
     # each timestamp of a station and dataset, with a cell for each parameter, so it is cut after whole series: the
     # rows a series has at this timestamp are all kept or all left out, and no cell is empty for being cut
     rows = df.filter(pl.col("timestamp") == (stamps[0] if start else stamps[-1]))
-    if request.format == "compact":
-        ends = rows.group_by(["station_id", "resolution", "dataset"], maintain_order=True).len().get_column("len")
-        cuts = ends.cum_sum().to_list()
-        cuts = cuts[:-1] or cuts
-    else:
-        cuts = list(range(1, max(2, rows.height)))
+    # what a cut keeps for `n` of the `cuts`: the first n rows, or for a compact text the rows of the first n series (a
+    # station and a dataset), wherever they stand in the frame
+    keys = ["station_id", "resolution", "dataset"]
+    series = rows.select(keys).unique(maintain_order=True)
+    numbered = rows.with_row_index("_row")
+    compact = request.format == "compact"
+    cuts = list(range(1, max(2, series.height if compact else rows.height)))
     partial: dict[int, _Attempt] = {}
 
+    def kept_rows(n: int) -> pl.DataFrame:
+        if not compact:
+            return rows.head(n)
+        return numbered.join(series.head(n), on=keys, how="semi").sort("_row").drop("_row")
+
     def fits_rows(index: int) -> bool:
-        partial[index] = attempt(rows.head(cuts[index - 1]), 1, within=rows.height)
+        partial[index] = attempt(kept_rows(cuts[index - 1]), 1, within=rows.height)
         return partial[index].size <= ANSWER_BUDGET
 
     kept = _largest(1, len(cuts), fits_rows, max(1, len(cuts) * ANSWER_BUDGET // size))

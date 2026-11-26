@@ -1838,7 +1838,8 @@ refusal, in the order to try it (a narrower request, a stream, slices, the libra
 `text/vnd.wetterdienst.compact; charset=utf-8`. The header carries what the `metadata` block carries (the provider, the
 licence and the credit line, the processing note, the warnings, what was searched), a table holds the readings of each
 station and dataset with the unit in its column line, and an empty cell is no value. It is one body, built whole and held
-to `rows` as `json` is, not streamed; `shape` and `with_stations` do not apply; `with_metadata` adds the settings, the
+to `rows` as `json` is, not streamed; `# end rows=` counts the readings (the rows of the long form, whatever `shape` is);
+`shape` and `with_stations` do not apply; `with_metadata` adds the settings, the
 parameters and the legend as tables. The headers of the other formats (`X-Wetterdienst-License`, `Link`, ...) are
 sent as well. No other route has it yet: they refuse it as an unknown `format`.
 

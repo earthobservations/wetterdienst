@@ -61,7 +61,7 @@ wind_gust_max,2026-10-25,2026-10-27,"1,raw:-999"
 
 The answer says in its first lines whose data it is, under which licence and with which credit line (as the
 `metadata` block of the JSON does, and the headers of the other formats); the table says what each reading is, in the
-unit of its column. A blank line ends a block; the last line says how many rows the answer holds, so that a reader
+unit of its column. A blank line ends a block; the last line says how many readings the answer holds, so that a reader
 that stopped early knows it.
 
 ## The grammar
@@ -76,7 +76,7 @@ An answer is lines of UTF-8 text, each ended by a newline (no other character br
 | `## <heading>` | the heading of a table, after a blank line |
 | the line after the attributes | the columns of the table, separated by commas |
 | anything else up to a blank line | a row of the table, its cells separated by commas |
-| `# end rows=<n>` | the last line, after a blank line: how many rows the answer has (`metadata.counts.rows`) |
+| `# end rows=<n>` | the last line, after a blank line: how many readings the answer has: the rows of its long form, one for each non-empty cell and for each null reading the answer keeps (`drop_nulls=false`, which the wide shape always is), the same for either shape (`metadata.counts.rows` is the rows of the shape) |
 
 **The first line** names the version of the format, `1`, and the tool, `values`. A key that is renamed, or a column,
 raises the version. A reader ignores a key of the header and a column of a table it does not know: adding one is no
@@ -107,8 +107,9 @@ is written as a JSON string, so that no text of the provider or of a warning can
 | Heading | Table |
 | --- | --- |
 | `stations` | the stations of the answer, one row each: `station_id`, `name`, `latitude`, `longitude`, `elevation_m`, `region`, and `wmo_id`, `wigos_id`, `icao_id` where a station has one |
-| `values <resolution>/<dataset> station=<id>` | the readings of one station and dataset: `timestamp` and a column for each parameter, written `<parameter>(<unit>)` |
-| `flags <resolution>/<dataset> station=<id> (exceptions)` | the periods in which the readings of that table have other flags than its default |
+| `values <resolution>/<dataset> station=<id>` | the readings of one station and dataset: `timestamp` and a column for each parameter, written `<parameter>(<unit>)`: the parameter is the text before the first `(`, and a unit that is not known is `(?)` |
+| `values <resolution>/<dataset> parameter=<name>` | a sorted answer of several stations: the readings of one parameter in the order of the answer, `station_id`, `timestamp` and the parameter (`parameter=` only where the answer has several) |
+| `flags <resolution>/<dataset> station=<id> (exceptions)` | the periods in which the readings of that table have other flags than its default (with a `station_id` column in the table of a sorted answer of several stations) |
 | `search series` | with a row option: for each station and parameter, from when to when it was searched and how many values matched |
 | `parameters`, `quality_flags legend`, `source quality flags` | with `with_metadata`: what each parameter is, what the tokens of `quality_flags` mean, what the source's own flags mean (the long descriptions of the parameters are left out: see `coverage` and `glossary`) |
 
@@ -118,8 +119,9 @@ A word of a heading that has a space, a quote or anything a line cannot hold is 
 comma, a quote, a backslash or a character that is not printable, has an edge space or starts with `#`. **An empty
 cell is no value**: the reading is not there (the source has none or the request left it out). Numbers are written as
 short as they read back, `5` for `5.0`; the unit of the column is not repeated. A timestamp is in UTC, `2026-11-10T04:00Z`,
-with seconds only where there are some; a table whose timestamps are all midnight has dates (`2026-10-22`), so that
-a daily series is a date a row.
+with seconds only where there are some. A table of a daily or coarser resolution whose timestamps are all midnight has
+dates (`2026-10-22`), so that a daily series is a date a row; an hourly or finer table keeps its times, even where all
+its rows are at 00:00, which a date would read as a daily value.
 
 **The readings of `values`.** A row is a timestamp, in time order; a column is a parameter. Several stations are
 several tables, several datasets of a station too. The `quality_flags` of a reading (see
@@ -133,9 +135,11 @@ several tables, several datasets of a station too. The `quality_flags` of a read
   comma, `=` or a quote is a JSON string there); no attribute means the default is no flags (null).
 - a null reading that the source marked missing keeps its flags: `1,raw:-999` is the text the source wrote.
 
-An answer the request sorted (`sort`, `first`) is in the order of its rows: a series of several parameters then has a table for each, `values
-<resolution>/<dataset> station=<id> parameter=<name>`, whose rows are in the order of the answer (newest first for
-`sort=-timestamp`), and each period of the table of flags is one reading.
+An answer the request sorted (`sort`) is in the order of its rows, over all its stations, which a table for each
+station cannot keep: the ranking is the answer. It has a table for each parameter (`parameter=<name>` in the heading
+where there are several), whose rows are in the order of the answer (newest first for `sort=-timestamp`), with a
+`station_id` column first where it has several stations, and each period of the table of flags is one reading (with its
+`station_id`). A sorted answer of one station has the table of that station, `station=<id>` in its heading.
 
 `shape` does not apply: a table has a column for each parameter in either shape. `with_stations` does not either: the stations
 are always in the answer.
@@ -158,7 +162,8 @@ A reader needs the lines and the cells, and nothing else:
    JSON string);
 2. read each block after a blank line: `## heading`, the `# key: value` attributes, the column line, the rows; a cell
    that starts with a quote ends at its closing quote, so a comma inside is not a separator;
-3. read the `# end rows=` line and compare it to the rows you read;
+3. read the `# end rows=` line and compare it to the non-empty cells you read: it is that number where the answer
+   keeps no null readings (the default, `drop_nulls=true`), and more where it keeps some (their cells are empty);
 4. ignore every key and every column you do not know.
 
 `tests/compact_reader.py` is such a reader, written from this page and sharing no code with the writer, and

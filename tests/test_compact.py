@@ -19,6 +19,7 @@ from typing import Any
 import polars as pl
 import pytest
 
+from tests import compact_reader
 from tests.compact_reader import FormatError, differences, heading_of, parse, truth, values
 from wetterdienst.io import compact
 
@@ -856,3 +857,124 @@ def test_a_table_with_seconds_or_a_fraction_in_its_stamps_writes_them_and_none_i
 
         assert_round_trip(text, rows)
         assert [row[0] for row in parse(text).table("values").rows] == expected[name], name
+
+
+@pytest.mark.parametrize(
+    ("resolution", "written"),
+    [
+        ("daily", ["2026-11-10", "2026-11-11"]),
+        ("monthly", ["2026-11-10", "2026-11-11"]),
+        ("annual", ["2026-11-10", "2026-11-11"]),
+        ("hourly", ["2026-11-10T00:00Z", "2026-11-11T00:00Z"]),
+        ("minute_10", ["2026-11-10T00:00Z", "2026-11-11T00:00Z"]),
+        ("minute_1", ["2026-11-10T00:00Z", "2026-11-11T00:00Z"]),
+    ],
+)
+def test_midnight_is_a_date_only_where_the_resolution_is_whole_days(resolution: str, written: list[str]) -> None:
+    """An hourly table whose rows are all at 00:00 (`first=1`) keeps its times: a date would read as a daily value."""
+    rows = [("01975", resolution, "d", "a", day(9 + i), float(i), "1" if i else "2") for i in range(2)]
+    text = write(rows, [parameter("a", resolution, "d")])
+
+    parsed = assert_round_trip(text, rows)
+    assert [row[0] for row in parsed.table("values").rows] == written
+    # the table of flags writes its periods as the table writes its stamps
+    assert [row[1] for row in parsed.table("flags").rows] == [written[1]]
+
+
+def test_the_series_a_search_reports_have_dates_where_the_resolution_is_whole_days_and_times_where_it_is_not() -> None:
+    """`first` and `last` of the search table follow the rule of the tables: an hourly series starts at 00:00."""
+    block = copy.deepcopy(BLOCK)
+    series = {
+        "station_id": "01975",
+        "name": "x",
+        "dataset": "d",
+        "parameter": "a",
+        "searched": 2,
+        "expected": 2,
+        "gaps": 0,
+        "matched": 2,
+        "returned": 2,
+    }
+    block["search"] = {
+        "options": {"filter": None, "sort": None, "first": 1, "by": None, "max_rows": None},
+        "window": {"start": None, "end": None},
+        "series": [
+            {
+                **series,
+                "resolution": "daily",
+                "first": "2026-11-10T00:00:00+00:00",
+                "last": "2026-11-11T00:00:00+00:00",
+            },
+            {
+                **series,
+                "resolution": "hourly",
+                "first": "2026-11-10T00:00:00+00:00",
+                "last": "2026-11-11T05:00:00+00:00",
+            },
+            {**series, "resolution": "hourly", "first": None, "last": None},
+        ],
+        "series_omitted": 0,
+        "totals": {"searched": 6, "expected": 6, "gaps": 0, "matched": 6, "returned": 6},
+    }
+
+    parsed = parse(write([], [], block=block, stations=[]))
+
+    assert [row[2:4] for row in parsed.table("search series").rows] == [
+        ["2026-11-10", "2026-11-11"],
+        ["2026-11-10T00:00Z", "2026-11-11T05:00Z"],
+        [None, None],
+    ]
+
+
+def test_a_unit_the_lookup_does_not_find_is_a_question_mark_and_the_parameter_is_the_text_before_the_bracket() -> None:
+    """A column without a unit is `(?)`, and both readers split at the first bracket."""
+    rows = [("01975", "daily", "d", "a", day(0), 1.0, "1"), ("01975", "daily", "d", "b", day(0), 2.0, "1")]
+    text = write(rows, [parameter("a", dataset="d")])
+
+    parsed = assert_round_trip(text, rows)
+    assert parsed.table("values").columns == ["timestamp", "a(°C)", "b(?)"]
+    assert compact_reader.name_of("b(?)") == "b"
+    assert compact_reader.name_of("sunshine(m s-1 (x))") == "sunshine"
+    assert compact_reader.name_of("plain") == "plain"
+
+
+def test_a_ranking_of_several_stations_is_one_table_in_the_order_of_the_answer_with_flags_of_a_station() -> None:
+    """Readings of two stations ranked by value stay interleaved; a period of flags names its station."""
+    rows = [
+        ("00002", "daily", "d", "a", day(3), 9.0, "1"),
+        ("00001", "daily", "d", "a", day(5), 8.0, "1,suspect:range"),
+        ("00002", "daily", "d", "a", day(5), 7.0, "1"),
+        ("00001", "daily", "d", "a", day(3), 6.0, "1"),
+    ]
+    block = copy.deepcopy(BLOCK)
+    block["search"] = {
+        "options": {"filter": None, "sort": "-value", "first": 2, "by": "none", "max_rows": None},
+        "window": {"start": None, "end": None},
+        "series": [],
+        "series_omitted": 0,
+        "totals": {"searched": 4, "expected": None, "gaps": None, "matched": 4, "returned": 4},
+    }
+    text = write(rows, [parameter("a", dataset="d")], block=block)
+
+    parsed = assert_round_trip(text, rows)
+    assert [t.heading for t in parsed.tables if t.heading.startswith(("values", "flags"))] == [
+        "values daily/d",
+        "flags daily/d (exceptions)",
+    ]
+    table = parsed.table("values daily/d")
+    assert table.columns == ["station_id", "timestamp", "a(°C)"]
+    assert [row[:2] for row in table.rows] == [
+        ["00002", "2026-11-04"],
+        ["00001", "2026-11-06"],
+        ["00002", "2026-11-06"],
+        ["00001", "2026-11-04"],
+    ]
+    assert table.attribute("flags") == "1 (periods that differ are listed after the table)"
+    assert parsed.table("flags").columns == ["station_id", "columns", "from", "to", "flags"]
+    assert parsed.table("flags").rows == [["00001", "all", "2026-11-06", "2026-11-06", "1,suspect:range"]]
+    assert [(who, moment.day) for who, _, _, _, moment in compact_reader.readings_in_order(parsed)] == [
+        ("00002", 4),
+        ("00001", 6),
+        ("00002", 6),
+        ("00001", 4),
+    ]

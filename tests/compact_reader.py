@@ -186,20 +186,19 @@ def _word(text: str, i: int) -> tuple[str, int]:
     return text[i:j], j
 
 
-def heading_of(heading: str) -> tuple[str, str, str, str, str | None, str]:
-    """Read `values <resolution>/<dataset> station=<id>[ parameter=<name>][ (exceptions)]`.
+def heading_of(heading: str) -> tuple[str, str, str, str | None, str | None, str]:
+    """Read `values <resolution>/<dataset>[ station=<id>][ parameter=<name>][ (exceptions)]`.
 
-    Gives (kind, resolution, dataset, station, parameter or None, the text after the words).
+    Gives (kind, resolution, dataset, station or None, parameter or None, the text after the words). A table has its
+    station in its heading, or in a `station_id` column where it ranks the readings of several stations.
     """
     kind, i = _word(heading, 0)
     # the resolution and dataset are one word each, joined by a slash, and either may be quoted
     resolution, i = _slashed(heading, i + 1)
     dataset, i = _word(heading, i)
-    if not heading.startswith(" station=", i):
-        msg = f"no station in the heading: {heading!r}"
-        raise FormatError(msg)
-    station, i = _word(heading, i + len(" station="))
-    parameter = None
+    station = parameter = None
+    if heading.startswith(" station=", i):
+        station, i = _word(heading, i + len(" station="))
     if heading.startswith(" parameter=", i):
         parameter, i = _word(heading, i + len(" parameter="))
     return kind, resolution, dataset, station, parameter, heading[i:]
@@ -250,51 +249,86 @@ def _defaults(table: Table, parameters: list[str]) -> dict[str, str | None]:
     return out
 
 
-def values(parsed: Parsed) -> dict[tuple[str, str, str, str, dt.datetime], tuple[float | None, str | None]]:  # noqa: C901
-    """Read the tables of values back into what they stand for: a reading is (value or None, quality flags).
+def name_of(label: str) -> str:
+    """Read the parameter of a column: the text before the first bracket, where the unit begins."""
+    return label.partition("(")[0]
 
-    A cell that is empty is a reading with no value (None); a reading with no row is absent from the result. The
-    flags of a reading are the default of its column, or those of the period of the table of flags it is in.
-    """
-    out: dict[tuple[str, str, str, str, dt.datetime], tuple[float | None, str | None]] = {}
-    exceptions = {}
+
+def _tables_of_values(parsed: Parsed) -> list[tuple[Table, str, str, str | None, str | None, Table | None]]:
+    """Pair each table of values with its words and its table of flags (resolution, dataset, station, parameter)."""
+    flags_of = {}
     for table in parsed.tables:
         if table.heading.startswith("flags "):
             _, resolution, dataset, station, only, rest = heading_of(table.heading)
             if rest != " (exceptions)":
                 msg = f"the heading of a table of flags: {table.heading!r}"
                 raise FormatError(msg)
-            exceptions[(resolution, dataset, station, only)] = table
+            flags_of[(resolution, dataset, station, only)] = table
+    found = []
     for table in parsed.tables:
         if not table.heading.startswith("values "):
             continue
         _, resolution, dataset, station, only, rest = heading_of(table.heading)
         if rest:
-            msg = f"text after the station in {table.heading!r}"
+            msg = f"text after the words of {table.heading!r}"
             raise FormatError(msg)
-        if table.columns[0] != "timestamp":
-            msg = "the first column of a table of values is the timestamp"
+        found.append((table, resolution, dataset, station, only, flags_of.get((resolution, dataset, station, only))))
+    return found
+
+
+def readings_in_order(parsed: Parsed) -> list[tuple[str, str, str, str, dt.datetime]]:
+    """List the readings of the tables as the text has them: table by table, row by row, a cell that is not empty."""
+    out = []
+    for table, resolution, dataset, station, _, _ in _tables_of_values(parsed):
+        ranked = table.columns[0] == "station_id"
+        for row in table.rows:
+            who = row[0] if ranked else station
+            moment = stamp(row[1 if ranked else 0] or "")
+            for label, cell in zip(table.columns[2 if ranked else 1 :], row[2 if ranked else 1 :], strict=True):
+                if cell is not None:
+                    out.append((who or "", resolution, dataset, name_of(label), moment))
+    return out
+
+
+def values(parsed: Parsed) -> dict[tuple[str, str, str, str, dt.datetime], tuple[float | None, str | None]]:  # noqa: C901
+    """Read the tables of values back into what they stand for: a reading is (value or None, quality flags).
+
+    A cell that is empty is a reading with no value (None); a reading with no row is absent from the result. The
+    flags of a reading are the default of its column, or those of the period of the table of flags it is in (of its
+    station, in a table that has a `station_id` column).
+    """
+    out: dict[tuple[str, str, str, str, dt.datetime], tuple[float | None, str | None]] = {}
+    for table, resolution, dataset, station, only, flag_table in _tables_of_values(parsed):
+        ranked = table.columns[0] == "station_id"
+        if (station is None) != ranked:
+            msg = f"a station in the heading or a station_id column, and not both or none: {table.heading!r}"
             raise FormatError(msg)
-        names = [label[: label.rindex("(")] if "(" in label else label for label in table.columns[1:]]
+        first = 1 if ranked else 0
+        if table.columns[first] != "timestamp":
+            msg = "the timestamp is the first column of a table of values, after the station_id"
+            raise FormatError(msg)
+        names = [name_of(label) for label in table.columns[first + 1 :]]
         if only is not None and names != [only]:
             msg = f"a table of the parameter {only!r} with the columns {names!r}"
             raise FormatError(msg)
         defaults = _defaults(table, names)
-        mine: dict[tuple[str, dt.datetime], tuple[float | None, str | None]] = {}
+        mine: dict[tuple[str, str, dt.datetime], tuple[float | None, str | None]] = {}
         for row in table.rows:
-            moment = stamp(row[0] or "")
-            for name, cell in zip(names, row[1:], strict=True):
-                mine[(name, moment)] = (None if cell is None else float(cell), defaults[name])
-        flag_table = exceptions.get((resolution, dataset, station, only))
+            who = row[0] if ranked else station
+            moment = stamp(row[first] or "")
+            for name, cell in zip(names, row[first + 1 :], strict=True):
+                mine[(who or "", name, moment)] = (None if cell is None else float(cell), defaults[name])
         for row in flag_table.rows if flag_table else []:
-            label, first, last, flags = row
+            who, label, low_text, high_text, flags = row if ranked else (station, *row)
             applied = names if label == "all" else (label or "").split("|")
-            low, high = stamp(first or ""), stamp(last or "")
+            low, high = stamp(low_text or ""), stamp(high_text or "")
             for name in applied:
-                for (column, moment), (number, _) in list(mine.items()):
-                    if column == name and low <= moment <= high:
-                        mine[(column, moment)] = (number, flags)
-        out.update({(station, resolution, dataset, name, moment): reading for (name, moment), reading in mine.items()})
+                for (owner, column, moment), (number, _) in list(mine.items()):
+                    if owner == (who or "") and column == name and low <= moment <= high:
+                        mine[(owner, column, moment)] = (number, flags)
+        out.update(
+            {(owner, resolution, dataset, name, moment): reading for (owner, name, moment), reading in mine.items()}
+        )
     return out
 
 

@@ -281,13 +281,30 @@ def _units_of(parameters: Iterable[Mapping[str, Any]]) -> dict[tuple[str, str, s
     return units
 
 
-def _stamp_texts(series: pl.Series) -> tuple[list[str], bool]:
-    """Write the timestamps of a column in UTC, and say whether they are all dates (midnight): then dates only."""
+#: the resolutions whose readings are of whole days: only there is a stamp at midnight a date
+WHOLE_DAYS = frozenset({"daily", "monthly", "annual"})
+
+
+def whole_days(resolution: str) -> bool:
+    """Tell whether a resolution is one of whole days (daily or coarser), whose midnight stamps are written as dates."""
+    return resolution.lower() in WHOLE_DAYS
+
+
+def _midnight(value: dt.datetime) -> bool:
+    return value.hour == 0 and value.minute == 0 and value.second == 0 and value.microsecond == 0
+
+
+def _stamp_texts(series: pl.Series, *, days: bool) -> tuple[list[str], bool]:
+    """Write the timestamps of a column in UTC, and say whether they are dates.
+
+    They are where the resolution is one of whole days (`days`) and every stamp is at midnight: then dates only. An
+    hourly table whose rows are all at 00:00 keeps its times, which a date would read as a daily value.
+    """
     # a stamp without a zone is read as UTC, as everywhere in the library
     zone = getattr(series.dtype, "time_zone", None)
     zoned = series.dt.convert_time_zone("UTC") if zone else series.dt.replace_time_zone("UTC")
     values = zoned.to_list()
-    date_only = all(v.hour == 0 and v.minute == 0 and v.second == 0 and v.microsecond == 0 for v in values)
+    date_only = days and all(_midnight(v) for v in values)
     if date_only:
         return zoned.dt.strftime("%Y-%m-%d").to_list(), True
     if all(v.second == 0 and v.microsecond == 0 for v in values):
@@ -296,9 +313,12 @@ def _stamp_texts(series: pl.Series) -> tuple[list[str], bool]:
 
 
 def _label(parameter: str, resolution: str, dataset: str, units: Mapping[tuple[str, str, str], str]) -> str:
-    """Write the heading of a column: the parameter and, in brackets, the unit its values are in."""
+    """Write the heading of a column: the parameter and, in brackets, the unit its values are in (`?` if none is known).
+
+    The parameter is the text before the first bracket, which is where the unit begins.
+    """
     unit = units.get((resolution, dataset, parameter))
-    return cell(f"{parameter}({unit})" if unit is not None else parameter)
+    return cell(f"{parameter}({'?' if unit is None else unit})")
 
 
 def _flags_default(counts: list[tuple[str | None, int]]) -> str | None:
@@ -341,25 +361,78 @@ def _values_tables(
     A row is a timestamp, in time order, and a reading that is not there is an empty cell. The quality flags are the
     default of each parameter, said under the heading, and the periods that differ, in a table of their own after it.
 
-    An answer the request sorted (`sort`, `first`) is in the order of its rows, which a table of several parameters
-    cannot keep (the rows of each parameter are in order, the rows of the table are not), so a series of several has a
-    table for each parameter, with `parameter=` in its heading.
+    An answer the request sorted (`sort`) is in the order of its rows, over all its stations, which a table for each
+    station cannot keep (the ranking of the stations is the answer). It has a table for each parameter, in the order of
+    the answer, with a `station_id` column where it has several stations (`_ranked_tables`).
     """
     tables: list[Table] = []
     has_flags = "quality_flags" in frame.columns
-    for key, group in frame.group_by(["station_id", "resolution", "dataset"], maintain_order=True):
-        station, resolution, dataset = (str(part) for part in key)
-        group = group.with_columns(pl.col("value").cast(pl.Float64, strict=False))
-        if chronological or group.get_column("parameter").n_unique() == 1:
-            parts = [("", group)]
-        else:
-            parts = [
-                (f" parameter={token(str(name[0]))}", part)
-                for name, part in group.group_by("parameter", maintain_order=True)
-            ]
-        for tail, part in parts:
+    if chronological:
+        for key, group in frame.group_by(["station_id", "resolution", "dataset"], maintain_order=True):
+            station, resolution, dataset = (str(part) for part in key)
+            group = group.with_columns(pl.col("value").cast(pl.Float64, strict=False))
             tables += _series_tables(
-                part, (station, resolution, dataset), tail, units, chronological=chronological, has_flags=has_flags
+                group, (station, resolution, dataset), "", units, chronological=True, has_flags=has_flags
+            )
+        return tables
+    for key, group in frame.group_by(["resolution", "dataset"], maintain_order=True):
+        resolution, dataset = (str(part) for part in key)
+        group = group.with_columns(pl.col("value").cast(pl.Float64, strict=False))
+        several = group.get_column("parameter").n_unique() > 1
+        for name, part in group.group_by("parameter", maintain_order=True) if several else [((None,), group)]:
+            tail = f" parameter={token(str(name[0]))}" if several else ""
+            if part.get_column("station_id").n_unique() == 1:
+                station = str(part.get_column("station_id")[0])
+                tables += _series_tables(
+                    part, (station, resolution, dataset), tail, units, chronological=False, has_flags=has_flags
+                )
+            else:
+                tables += _ranked_tables(part, (resolution, dataset), tail, units, has_flags=has_flags)
+    return tables
+
+
+def _ranked_tables(
+    group: pl.DataFrame,
+    series: tuple[str, str],
+    tail: str,
+    units: Mapping[tuple[str, str, str], str],
+    *,
+    has_flags: bool,
+) -> list[Table]:
+    """Write the readings of one parameter of several stations, in the order of the answer, one row each.
+
+    The columns are `station_id`, `timestamp` and the parameter. The flags are the default of the table, and every
+    reading that has other flags is a period of its own, in a table of flags with its station.
+    """
+    resolution, dataset = series
+    parameter = str(group.get_column("parameter")[0])
+    texts, _ = _stamp_texts(group.get_column("timestamp"), days=whole_days(resolution))
+    numbers = group.get_column("value").cast(pl.String).str.replace(r"\.0$", "").fill_null("").to_list()
+    stations = [cell(station) for station in group.get_column("station_id").to_list()]
+    where = f"{token(resolution)}/{token(dataset)}{tail}"
+    table = Table(
+        f"values {where}",
+        ["station_id", "timestamp", _label(parameter, resolution, dataset, units)],
+        [[station, text, number] for station, text, number in zip(stations, texts, numbers, strict=True)],
+    )
+    tables = [table]
+    if has_flags:
+        flags = group.get_column("quality_flags").to_list()
+        counts: dict[str | None, int] = {}
+        for item in flags:
+            counts[item] = counts.get(item, 0) + 1
+        default = _flags_default(list(counts.items()))
+        exceptions = [
+            [station, "all", text, text, cell(item)]
+            for station, text, item in zip(stations, texts, flags, strict=True)
+            if item != default
+        ]
+        if default is not None:
+            note = FLAGS_DIFFER if exceptions else FLAGS_ALL_ROWS
+            table.attributes.append(("flags", text_value(f"{default} ({note})")))
+        if exceptions:
+            tables.append(
+                Table(f"flags {where} (exceptions)", ["station_id", "columns", "from", "to", "flags"], exceptions)
             )
     return tables
 
@@ -381,7 +454,7 @@ def _series_tables(
     )
     if chronological:
         wide = wide.sort("timestamp")
-    texts, date_only = _stamp_texts(wide.get_column("timestamp"))
+    texts, date_only = _stamp_texts(wide.get_column("timestamp"), days=whole_days(resolution))
     columns = [pl.Series("timestamp", texts)]
     columns += [
         wide.get_column(name).cast(pl.String).str.replace(r"\.0$", "").fill_null("").alias(name) for name in parameters
@@ -474,6 +547,15 @@ def _flags_tables(
 # ------------------------------------------------------------------------------------------------- search, settings
 
 
+def _search_stamp(text: str | None, resolution: str) -> str:
+    """Write the first or last timestamp of a series searched as a table of that resolution writes its stamps."""
+    if not text:
+        return ""
+    moment = _parse(text)
+    utc = moment.replace(tzinfo=dt.UTC) if moment.tzinfo is None else moment.astimezone(dt.UTC)
+    return stamp(moment, date_only=whole_days(resolution) and _midnight(utc))
+
+
 def _search_header(search: Mapping[str, Any] | None) -> tuple[list[tuple[str, str]], Table | None]:
     """Write what the row options (`filter`, `sort`, `first`, `by`, `max_rows`) searched: header lines, a table."""
     if not search:
@@ -499,8 +581,8 @@ def _search_header(search: Mapping[str, Any] | None) -> tuple[list[tuple[str, st
             [
                 cell(series["station_id"]),
                 cell(f"{series['resolution']}/{series['dataset']}/{series['parameter']}"),
-                stamp(_parse(first), date_only=True) if first else "",
-                stamp(_parse(last), date_only=True) if last else "",
+                _search_stamp(first, series["resolution"]),
+                _search_stamp(last, series["resolution"]),
                 *(cell(series.get(name)) for name in columns[4:]),
             ]
         )
@@ -611,7 +693,8 @@ def values_document(
         tables.append(search_table)
     tables += _metadata_tables(block)
     header = [*header_of(block), *search_lines, *_settings_header(settings)]
-    return Document(tool, header, tables, int(block["counts"]["rows"]))
+    # the readings of the answer: a row of the long frame each, whatever the shape it was asked in
+    return Document(tool, header, tables, frame.height)
 
 
 def values_text(

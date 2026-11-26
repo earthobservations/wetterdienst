@@ -21,7 +21,7 @@ import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
-from tests.compact_reader import differences, parse, values
+from tests.compact_reader import differences, parse, readings_in_order, values
 from tests.ui.row_options_stub import GUST, TMAX, TMIN, serve
 from wetterdienst.io.formats import COMPACT_MEDIA_TYPE
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -179,22 +179,88 @@ def test_row_options_are_searched_and_reported_and_the_rows_stay_in_the_order_of
     assert [row[0] for row in series.rows] == ["00001", "00001", "00002", "00002"]
     assert series.columns[:4] == ["station_id", "parameter", "first", "last"]
     tables = [t for t in parsed.tables if t.heading.startswith("values ")]
-    # a sorted answer of several parameters has a table for each, its rows in the order of the answer, newest first
-    assert sorted(t.heading.split(" ", 2)[2] for t in tables) == [
-        f"station={station} parameter={parameter}"
-        for station in ("00001", "00002")
-        for parameter in ("temperature_air_max_2m", "temperature_air_min_2m")
+    # a sorted answer of several stations has a table for each parameter, with a station column: the order of the answer
+    # over the stations is the ranking
+    assert [t.heading for t in tables] == [
+        "values daily/climate_summary parameter=temperature_air_max_2m",
+        "values daily/climate_summary parameter=temperature_air_min_2m",
     ]
     for table in tables:
-        stamps = [row[0] for row in table.rows]
-        assert len(table.columns) == 2
-        assert stamps == sorted(stamps, reverse=True)
-    # one parameter needs no word for it
+        assert table.columns[:2] == ["station_id", "timestamp"]
+        assert len(table.columns) == 3
+    # one parameter needs no word for it, and one station is in the heading
     one = parse(_rest(**{**params, "parameters": TMIN}).text)
-    assert [t.heading for t in one.tables if t.heading.startswith("values ")] == [
-        "values daily/climate_summary station=00001",
-        "values daily/climate_summary station=00002",
+    assert [t.heading for t in one.tables if t.heading.startswith("values ")] == ["values daily/climate_summary"]
+    alone = parse(_rest(**{**params, "parameters": TMIN, "stations": "00001"}).text)
+    assert [t.heading for t in alone.tables if t.heading.startswith("values ")] == [
+        "values daily/climate_summary station=00001"
     ]
+
+
+def _json_order(answer: dict[str, Any], parameter: str) -> list[tuple[str, dt.datetime]]:
+    """Give the (station, timestamp) of the rows of one parameter in the order of the JSON answer."""
+    return [
+        (r["station_id"], dt.datetime.fromisoformat(r["timestamp"]))
+        for r in answer["values"]
+        if r["parameter"] == parameter
+    ]
+
+
+@pytest.mark.parametrize("parameters", [TMIN, f"{TMIN},{TMAX}"])
+def test_a_ranking_over_stations_keeps_its_order_in_the_text(parameters: str) -> None:
+    """`sort=-value&first=3&by=none`: the three highest of all stations are in the order the JSON has them."""
+    params = {"parameters": parameters, "timestamp": "2018/2020", "sort": "-value", "first": 3, "by": "none"}
+    text = _rest(**params).text
+    answer = _rest("json", **params).json()
+
+    parsed = _held_to_json(text, **params)
+
+    readings = readings_in_order(parsed)
+    assert len({station for station, *_ in readings}) == 2 or parameters == TMIN
+    for parameter in parameters.split(","):
+        name = parameter.rsplit("/", 1)[1]
+        expected = _json_order(answer, name)
+        assert expected
+        assert [(who, moment) for who, _, _, column, moment in readings if column == name] == expected
+
+
+def test_the_ranking_of_two_stations_is_not_one_table_a_station() -> None:
+    """The rows of the two stations are interleaved by their value in one table, which a table each would split."""
+    params = {"timestamp": "2018/2020", "sort": "-value", "first": 3, "by": "none", "parameters": TMIN}
+    answer = _rest("json", **params).json()
+    parsed = parse(_rest(**params).text)
+
+    (table,) = [t for t in parsed.tables if t.heading.startswith("values ")]
+    assert table.heading == "values daily/climate_summary"
+    assert {row[0] for row in table.rows} == {"00001", "00002"}
+    assert len(table.rows) == len(answer["values"])
+    # the values are in descending order down the table, over both stations, as the answer ranks them
+    numbers = [float(row[2] or "nan") for row in table.rows]
+    assert numbers == sorted(numbers, reverse=True)
+
+
+def test_the_readings_of_the_end_line_are_those_of_the_long_form_in_either_shape() -> None:
+    """`# end rows=` counts readings, the rows of the long form: a null reading kept is one, its cell empty."""
+    kept = _rest(drop_nulls="false")
+    wide = _rest(shape="wide")
+    counted = _rest("json", drop_nulls="false").json()["metadata"]["counts"]["rows"]
+
+    def end(response: Any) -> str:  # noqa: ANN401
+        return response.text.rsplit("\n", 2)[-2]
+
+    assert counted == 80
+    # the wide shape keeps the nulls as `drop_nulls=false` does, and counts the same readings
+    assert end(kept) == end(wide) == "# end rows=80"
+    assert end(_rest()) == "# end rows=76"
+    cells = [
+        cell for t in parse(_rest().text).tables if t.heading.startswith("values ") for r in t.rows for cell in r[1:]
+    ]
+    assert sum(cell is not None for cell in cells) == 76
+    # the nulls of the kept answer are empty cells too: more readings than cells
+    kept_cells = [
+        cell for t in parse(kept.text).tables if t.heading.startswith("values ") for r in t.rows for cell in r[1:]
+    ]
+    assert sum(cell is not None for cell in kept_cells) == 76
 
 
 def test_the_wide_shape_is_the_same_table_and_the_values_are_those_of_the_long_one() -> None:
@@ -203,6 +269,8 @@ def test_the_wide_shape_is_the_same_table_and_the_values_are_those_of_the_long_o
     wide = parse(_rest(shape="wide").text)
 
     assert [t.heading for t in wide.tables] == [t.heading for t in long_.tables]
+    # the wide shape keeps the null readings (it has no `drop_nulls`), which the long shape drops: 4 of the 80 here
+    assert (long_.end, wide.end) == ("rows=76", "rows=80")
     got = {k: v for k, v in values(wide).items() if v[0] is not None}
     want = {k: v for k, v in values(long_).items() if v[0] is not None}
     assert got == want
@@ -424,8 +492,8 @@ def test_no_budget_cuts_a_timestamp_through_the_cells_of_a_station(monkeypatch: 
             "quality_flags": None,
         }
         for day in range(2)
-        for i in range(60)
         for name in names
+        for i in range(60)
     ]
     base = _values_result_of_shape("long")
     frame = pl.DataFrame(rows, schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")}, orient="row")
