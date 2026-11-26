@@ -44,7 +44,12 @@ def _altair(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: AN
 
 def _stations_drawn(chart: Any) -> list[str]:  # noqa: ANN401
     """Give the labels of the stations a map holds: the data of its points, which is the text of a CSV file."""
-    (text,) = (data for data in chart.to_dict()["datasets"].values() if isinstance(data, str))
+    # the dots are the data without `crowd`: the other is the stations the labels are placed round
+    (text,) = (
+        data
+        for data in chart.to_dict()["datasets"].values()
+        if isinstance(data, str) and "crowd" not in data.splitlines()[0]
+    )
     header, *lines = text.splitlines()
     column = header.split(",").index("name")
     return sorted(line.split(",")[column] for line in lines)
