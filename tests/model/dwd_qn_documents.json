@@ -1,0 +1,958 @@
+{
+ "read": "2026-11-26",
+ "about": "The 'Quality Information' lists of QN in DWD's English product descriptions (DESCRIPTION_*_en.pdf), as [level, wording], a trailing ';' or '.' dropped. tests/model/test_dwd_qn_levels.py holds model/dwd_qn_levels.py and model/quality_legend.py to it.",
+ "documents": {
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/1_minute/precipitation/DESCRIPTION_obsgermany-climate-1min-rr_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/DESCRIPTION_obsgermany-climate-5min-rr_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/precipitation/DESCRIPTION_obsgermany-climate-10min-precipitation_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/solar/DESCRIPTION_obsgermany_climate_10min_solar_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/DESCRIPTION_obsgermany_climate_10min_air_temperature_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_temperature/DESCRIPTION_obsgermany_climate_10min_extreme_temperature_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/wind/DESCRIPTION_obsgermany_climate_10min_wind_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/extreme_wind/DESCRIPTION_obsgermany_climate_10min_extreme_wind_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloud_type/DESCRIPTION_obsgermany_climate_hourly_cloud_type_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloudiness/DESCRIPTION_obsgermany_climate_hourly_cloudiness_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/dew_point/DESCRIPTION_obsgermany_climate_hourly_dew_point_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/moisture/DESCRIPTION_obsgermany_climate_hourly_moisture_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/precipitation/DESCRIPTION_obsgermany_climate_hourly_precipitation_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/pressure/DESCRIPTION_obsgermany_climate_hourly_pressure_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/solar/DESCRIPTION_obsgermany_climate_hourly_solar_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/sun/DESCRIPTION_obsgermany_climate_hourly_sun_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/DESCRIPTION_obsgermany_climate_hourly_air_temperature_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/soil_temperature/DESCRIPTION_obsgermany_climate_hourly_soil_temperature_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/visibility/DESCRIPTION_obsgermany_climate_hourly_visibility_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/DESCRIPTION_obsgermany_climate_hourly_weather_phenomena_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/wind/DESCRIPTION_obsgermany_climate_hourly_wind_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/extreme_wind/DESCRIPTION_obsgermany_climate_hourly_extreme_wind_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/wind_synop/DESCRIPTION_obsgermany_climate_hourly_wind_synop_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/air_temperature/recent/DESCRIPTION_obsgermany_climate_urban_hourly_tu_recent_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/precipitation/recent/DESCRIPTION_obsgermany_climate_urban_hourly_precipitation_recent_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/pressure/recent/DESCRIPTION_obsgermany_climate_urban_hourly_pressure_recent_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/soil_temperature/recent/DESCRIPTION_obsgermany_climate_urban_hourly_soil_temperature_recent_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/sun/recent/DESCRIPTION_obsgermany_climate_urban_hourly_sun_recent_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/wind/recent/DESCRIPTION_obsgermany_climate_urban_hourly_wind_recent_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/DESCRIPTION_obsgermany-climate-daily-kl_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/more_precip/DESCRIPTION_obsgermany-climate-daily-more_precip_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/solar/DESCRIPTION_obsgermany-climate-daily-solar_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/soil_temperature/DESCRIPTION_obsgermany-climate-daily-soil_temperature_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/water_equiv/DESCRIPTION_f62e277b-00f5-4be8-95a4-0c598d869e5a_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/kl/DESCRIPTION_obsgermany-climate-monthly-kl_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/more_precip/DESCRIPTION_obsgermany-climate-monthly-more_precip_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "2",
+    "controlled with individually defined criteria"
+   ],
+   [
+    "3",
+    "automatic control and correction"
+   ],
+   [
+    "5",
+    "historic, subjective procedures"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "8",
+    "quality control outside ROUTINE"
+   ],
+   [
+    "9",
+    "not all parameters corrected"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/derived_germany/climate/hourly/duett/DESCRIPTION_derived_germany-climate-hourly-duett_en.pdf": [
+   [
+    "500",
+    "DUETT data without station and satellite data"
+   ],
+   [
+    "501",
+    "DUETT data based on station data only"
+   ],
+   [
+    "502",
+    "DUETT data based on satellite data only"
+   ],
+   [
+    "503",
+    "DUETT data based on (max 42) station and satellite data"
+   ]
+  ],
+  "https://opendata.dwd.de/climate_environment/CDC/observations_germany/phenology/annual_reporters/crops/recent/DESCRIPTION_obsgermany-phenology-annual_reporters-crops-recent_en.pdf": [
+   [
+    "1",
+    "only formal control"
+   ],
+   [
+    "7",
+    "second control done, before correction"
+   ],
+   [
+    "10",
+    "quality control finished, all corrections finished"
+   ]
+  ]
+ }
+}

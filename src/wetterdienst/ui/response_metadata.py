@@ -23,13 +23,15 @@ from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by pydantic
+from wetterdienst.metadata.parameter_table import PARAMETERS, Aggregation
 from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
 from wetterdienst.model.processing_note import STATION_IDS_NOTE, processing_note
-from wetterdienst.model.quality_legend import QualityKind, quality_legend
+from wetterdienst.model.quality_legend import QualityKind, quality_legend, source_flag_note
 from wetterdienst.model.result import (
+    InterpolatedValuesResult,
     StationsFilter,
     StationsResult,
+    SummarizedValuesResult,
     _License,
     _metadata_of,
     _Producer,
@@ -117,6 +119,24 @@ class ResolvedRequest(BaseModel):
     )
 
 
+class EstimateRequest(ResolvedRequest):
+    """What `interpolate` and `summarize` were asked for: the request as resolved, and the elevation of the point."""
+
+    elevation: float | None = Field(
+        description="The elevation of the point the values were made for, in metres above mean sea level: the "
+        "`elevation` the request gave; where it gave none and named the point by a `station`, that station's own "
+        "elevation, which is what the answer is made at unless another is given. Null where there is none: the "
+        "readings are those of the stations as they came.",
+    )
+    elevation_corrected: list[str] = Field(
+        description="The parameters (`resolution/dataset/parameter`) whose readings were brought from each station's "
+        "elevation to `elevation` before they were used: the quantities that fall with height (air temperature at 2 m "
+        "and the dew point), and only where `elevation` is not null. Empty where there are none, which says that the "
+        "values are the stations' readings as they came. The other parameters are not corrected whatever `elevation` "
+        "says.",
+    )
+
+
 class Counts(BaseModel):
     """How much the answer holds."""
 
@@ -192,7 +212,15 @@ class Quality(BaseModel):
     )
     legend: list[QualityKind] = Field(
         description="What the tokens of `quality_flags` mean for this network, in the order of the column: the "
-        "source's own flag, its further kinds, and `raw` last. Empty for a network whose readings carry no flag.",
+        "source's own flag, its further kinds, and `raw` last. For DWD's observation network the source's own flag "
+        "(the quality level QN) lists the levels of the datasets read, with DWD's words and the documents they are "
+        "from.",
+    )
+    source_flag_note: str | None = Field(
+        default=None,
+        description="Said where this library carries no quality flag of the source, so that `quality_flags` holds "
+        "only its own tokens (a source may still publish one that is not read yet, which the note says); null "
+        "where it carries one.",
     )
 
 
@@ -575,6 +603,12 @@ class ResponseMetadata(BaseModel):
     quality: Quality | None = Field(default=None, description="With `with_metadata` only.")
 
 
+class EstimateMetadata(ResponseMetadata):
+    """The `metadata` block of the answer of `interpolate` and `summarize`: that of `values`, with the elevation."""
+
+    request: EstimateRequest
+
+
 class StatisticsMetadata(ResponseMetadata):
     """The `metadata` block of the answer of `statistics`: that of `values`, with the search of the groups."""
 
@@ -628,6 +662,25 @@ def response_metadata(
     )
 
 
+def _with_elevation(
+    block: ResponseMetadata, result: InterpolatedValuesResult | SummarizedValuesResult
+) -> EstimateMetadata:
+    """Give the block of an estimate the elevation it was made at, and what of it was corrected for (GH-4473).
+
+    The elevation is the one the result was made at, which a point named by a station has without being given one.
+    What is corrected is the parameter's own: the table declares a `lapse_rate` for the quantities that fall with
+    height, and the correction is made where there is an elevation.
+    """
+    elevation = result.elevation
+    corrected = _unique(
+        f"{p.dataset.resolution.name}/{p.dataset.name}/{p.name}"
+        for p in result.stations.parameters
+        if elevation is not None and PARAMETERS[p.name].lapse_rate
+    )
+    request = EstimateRequest(**block.request.model_dump(), elevation=elevation, elevation_corrected=corrected)
+    return EstimateMetadata.model_validate({**dict(block), "request": request})
+
+
 def result_metadata(
     result: StationsResult | _ValuesResult[Any, Any],
     *,
@@ -671,6 +724,8 @@ def result_metadata(
         crs=Crs(),
         warnings=recorded_warnings(),
     )
+    if isinstance(result, InterpolatedValuesResult | SummarizedValuesResult):
+        block = _with_elevation(block, result)
     searched = None if isinstance(result, StationsResult) else getattr(result, "search", None)
     if searched is not None:
         block.search = Search.model_validate(searched.to_dict())
@@ -691,8 +746,10 @@ def result_metadata(
             )
             for p in parameters
         ]
+        read_datasets = list({id(p.dataset): p.dataset for p in parameters}.values())
         block.quality = Quality(
-            legend=quality_legend(provider, network),
+            legend=quality_legend(provider, network, [f"{d.resolution.name}/{d.name}" for d in read_datasets]),
+            source_flag_note=source_flag_note(provider, network),
             source_flags=[
                 SourceQualityFlag(
                     resolution=dataset.resolution.name,
@@ -700,7 +757,7 @@ def result_metadata(
                     name_original=flag.name_original,
                     description=flag.description,
                 )
-                for dataset in {id(p.dataset): p.dataset for p in parameters}.values()
+                for dataset in read_datasets
                 for flag in dataset.parameters
                 if is_quality_flag(flag)
             ],
@@ -996,6 +1053,19 @@ def _header_text(value: str) -> str:
     return quote(value, safe=" ,.:;/()-_@=+'!*&")
 
 
+def _elevation_headers(metadata: ResponseMetadata) -> dict[str, str]:
+    """Write the elevation of an estimate (`interpolate`, `summarize`) as headers, as a CSV has no block (GH-4473)."""
+    request = metadata.request
+    if not isinstance(request, EstimateRequest):
+        return {}
+    headers = {}
+    if request.elevation is not None:
+        headers["X-Wetterdienst-Elevation"] = str(request.elevation)
+    if request.elevation_corrected:
+        headers["X-Wetterdienst-Elevation-Corrected"] = ",".join(request.elevation_corrected)
+    return headers
+
+
 def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
     """Give the headers that say the same as the block, for the formats that have no body to put it in.
 
@@ -1038,7 +1108,7 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
     # the same for a forecast answer that starts at now (GH-4025)
     if started := next((w["message"] for w in metadata.warnings if w["code"] == FORECAST_FROM_NOW), None):
         headers["X-Wetterdienst-Forecast-From-Now"] = _header_text(started)
-    return headers
+    return headers | _elevation_headers(metadata)
 
 
 def catalogue_headers(metadata: CatalogueMetadata) -> Mapping[str, str]:
