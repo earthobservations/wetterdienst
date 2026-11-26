@@ -48,8 +48,9 @@ Types of changes:
   each: the Docker image installs none. They are exactly `width` x `height` pixels (times
   `scale`). The look changes: Liberation Sans for all text, and the station map draws the country
   borders of Natural Earth 1:50m (shipped, nothing fetched) where it drew OpenStreetMap tiles, and
-  its labels are placed by Vega where they fit (a label that would sit on another or on a dot is
-  left out of a picture; the page keeps every name in its tooltip) (GH-3238)
+  its labels are placed by Vega, the most crowded station first, on 8 sides at up to 24 px from the
+  dot (a label that fits nowhere is left out of a picture; the page keeps every name in its
+  tooltip) (GH-3238)
 - The `plotting` extra needs `vl-convert-python>=2.0.0rc7,<3`, a release candidate (pip and uv
   take it from the specifier): vl-convert 2 renders in a worker and does not hold the interpreter,
   so the server answers while a chart renders, and Vega's label transform works in it. The floor

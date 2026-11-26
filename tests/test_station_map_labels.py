@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import itertools
 import json
+import math
 import random
 import re
 from typing import Any
@@ -101,7 +102,10 @@ def _dots(chart: Any) -> list[dict[str, Any]]:  # noqa: ANN401
     return _scenegraph(chart)[name]["items"]
 
 
-def _boxes(chart: Any) -> tuple[list[tuple[str, tuple[float, float, float, float]]], list[tuple[float, float]]]:  # noqa: ANN401
+def _boxes(
+    chart: Any,  # noqa: ANN401
+    per_character: float = 4.4,
+) -> tuple[list[tuple[str, tuple[float, float, float, float]]], list[tuple[float, float]]]:
     """Give the boxes of the visible labels, as small as the text can be, and the centres of the dots.
 
     The box is a little narrower and lower than the text (4.4 pixels a character, 8 high), placed as the align and the
@@ -111,7 +115,7 @@ def _boxes(chart: Any) -> tuple[list[tuple[str, tuple[float, float, float, float
     for item in _scenegraph(chart)["label_text"]["items"]:
         if item["opacity"] == 0:
             continue
-        width = 4.4 * len(item["text"])
+        width = per_character * len(item["text"])
         left = {"left": item["x"], "right": item["x"] - width}.get(item["align"], item["x"] - width / 2)
         top = {"top": item["y"], "bottom": item["y"] - 8}.get(item["baseline"], item["y"] - 4)
         labels.append((item["text"], (left, top, left + width, top + 8)))
@@ -238,3 +242,109 @@ def test_a_name_on_two_spots_is_labelled_at_the_same_one_in_whatever_order() -> 
     first, second = (_placed(charts.stations_chart(frame, center=center, zoom=6)) for frame in frames)
 
     assert first == second
+
+
+COAST = [
+    ("Kiel", 54.38, 10.14), ("Schleswig", 54.53, 9.55), ("Buesum", 54.13, 8.86), ("Cuxhaven", 53.87, 8.71),
+    ("Hamburg", 53.63, 9.99), ("Fehmarn", 54.53, 11.06), ("Eckernfoerde", 54.47, 9.84), ("Bremerhaven", 53.54, 8.58),
+    ("Luebeck", 53.80, 10.72), ("Husum", 54.48, 9.05), ("Heide", 54.20, 9.10), ("Itzehoe", 53.92, 9.52),
+    ("Neumuenster", 54.07, 9.98), ("Rendsburg", 54.30, 9.66), ("Flensburg", 54.78, 9.44), ("Sylt", 54.92, 8.35),
+    ("Brunsbuettel", 53.89, 9.14), ("Stade", 53.60, 9.48), ("Gluecksstadt", 53.79, 9.43), ("Eutin", 54.14, 10.61),
+    ("Ploen", 54.16, 10.42), ("Meldorf", 54.09, 9.07), ("Toenning", 54.32, 8.94), ("Schlei", 54.56, 9.90),
+]  # fmt: skip
+
+
+def _crowded(extra: int) -> list[tuple[str, float, float]]:
+    """Give the stations of Germany and `extra` more, each near one of them: too many for every label to fit."""
+    rng = random.Random(11)  # noqa: S311
+    points = list(GERMANY)
+    for index in range(extra):
+        name, lat, lon = GERMANY[rng.randrange(len(GERMANY))]
+        points.append((f"Near{name}{index}", lat + rng.uniform(-0.25, 0.25), lon + rng.uniform(-0.35, 0.35)))
+    return points
+
+
+def _candidates(anchor: tuple[float, float], text: str) -> list[tuple[float, float, float, float]]:
+    """Give the boxes a label of `text` can be put in round `anchor`, as the transform tries them: 8 sides, 3 distances.
+
+    The box is as large as the text can be (5.6 pixels a character and 2 more, 12 high), where the boxes it has to be
+    clear of are 5.3 pixels a character and 3 more all round (`_blocked`): a place that is free of them is free
+    whatever the font makes of the text, so a label with such a place left should not have been hidden.
+    """
+    x, y = anchor
+    width = 5.6 * len(text) + 2
+    boxes = []
+    for offset in (6, 14, 24):
+        near = offset + 0.5
+        diagonal = offset / math.sqrt(2) + 0.5
+        for dx, dy in (
+            (near, 0), (-near, 0), (0, -near), (0, near),
+            (diagonal, -diagonal), (-diagonal, -diagonal), (diagonal, diagonal), (-diagonal, diagonal),
+        ):  # fmt: skip
+            left = x + dx if dx > 0 else x + dx - width if dx < 0 else x - width / 2
+            top = y - 6 if dy == 0 else y + dy if dy > 0 else y + dy - 12
+            boxes.append((left, top, left + width, top + 12))
+    return boxes
+
+
+def _blocked(chart: Any) -> tuple[list[str], list[str]]:  # noqa: ANN401
+    """Give the labels that are hidden and, of them, the ones that had a box free: those should not be hidden."""
+    drawn = _scenegraph(chart)
+    labels, dots = _boxes(chart, per_character=5.3)
+    # what a label has to be clear of, with the 3 pixels the font and the pixels the transform works in take
+    taken = [(b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3) for _, b in labels]
+    taken += [(x - 7.4, y - 7.4, x + 7.4, y + 7.4) for x, y in dots]
+    hidden, free = [], []
+    view = (0.0, 0.0, 680.0, 433.0)
+    for item, anchor in zip(drawn["label_text"]["items"], drawn["layer_2_marks"]["items"], strict=True):
+        if item["opacity"] != 0:
+            continue
+        hidden.append(item["text"])
+        for box in _candidates((anchor["x"], anchor["y"]), item["text"]):
+            inside = box[0] >= view[0] and box[1] >= view[1] and box[2] <= view[2] and box[3] <= view[3]
+            if inside and not any(_overlap(box, other) for other in taken):
+                free.append(item["text"])
+                break
+    return hidden, free
+
+
+@pytest.mark.parametrize(
+    ("points", "datasets"),
+    [
+        pytest.param(GERMANY, ("temperature_air", "precipitation"), id="germany-40"),
+        pytest.param(COAST, ("temperature_air",), id="coast-24"),
+        pytest.param(GERMANY[:5], ("temperature_air",), id="small-5"),
+    ],
+)
+def test_the_maps_of_the_pictures_hide_no_label(
+    points: list[tuple[str, float, float]], datasets: tuple[str, ...]
+) -> None:
+    """Forty stations of two datasets, the coast and a small map: every dot has its label."""
+    hidden, _ = _blocked(_stations(points, datasets).to_plot())
+
+    assert hidden == []
+
+
+@pytest.mark.parametrize("extra", [30, 60, 100])
+def test_a_dot_has_no_label_only_where_every_place_for_it_is_taken(extra: int) -> None:
+    """On a map with too many stations, a label that is hidden has none of its 24 places free (side and distance)."""
+    hidden, free = _blocked(_stations(_crowded(extra)).to_plot())
+
+    assert hidden
+    assert free == []
+
+
+def test_the_most_crowded_stations_are_placed_first_which_hides_fewer_labels() -> None:
+    """Seventy stations, 30 of them beside another: in the order of the names 15 labels were hidden, crowded first 8."""
+    hidden, _ = _blocked(_stations(_crowded(30)).to_plot())
+
+    assert len(hidden) <= 10
+
+
+def test_the_candidates_of_the_transform_are_the_8_sides_at_3_distances() -> None:
+    """The places the test above works out are the ones the transform is given: 24 of them."""
+    spec = _vega(_stations(GERMANY[:3]).to_plot())
+    transform = next(m["transform"][0] for m in spec["marks"] if m["name"] == "label_text")
+
+    assert transform["anchor"] == charts._SIDES * 3  # noqa: SLF001
+    assert transform["offset"] == [6] * 8 + [14] * 8 + [24] * 8

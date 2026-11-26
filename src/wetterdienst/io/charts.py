@@ -224,6 +224,37 @@ def _cell(width: int, height: int, rows: int) -> tuple[int, int]:
     return max(10, width - 90), max(10, (height - 70) // rows - 45)
 
 
+#: the distance in pixels within which a dot crowds a station, and the most dots a map counts it for: above that the
+#: stations are placed in the order of their names, as counting them is the work of a pair of dots
+_CROWD_RADIUS = 45
+_CROWD_MAX_DOTS = 1_500
+
+
+def _crowding(stations: pl.DataFrame, dots: pl.DataFrame, center: dict[str, float], scale: float) -> pl.Series:
+    """Count the other dots within `_CROWD_RADIUS` pixels of each station of a map of `scale` pixels to the radian.
+
+    The labels are placed the most crowded station first (`_with_placed_labels`): the ones with few neighbours find a
+    side that is free late as well, and the ones in a crowd do not.
+    """
+    if dots.height > _CROWD_MAX_DOTS:
+        return pl.Series("crowd", [0] * stations.height, dtype=pl.Int64)
+
+    def pixels(frame: pl.DataFrame) -> pl.DataFrame:
+        return frame.select(
+            (scale * (pl.col("longitude") - center["lon"]).radians()).alias("x"),
+            (scale * (pl.col("latitude").radians() / 2 + math.pi / 4).tan().log()).alias("y"),
+        )
+
+    own = pixels(stations).with_row_index("row")
+    other = pixels(dots).rename({"x": "x2", "y": "y2"})
+    near = own.join(other, how="cross").filter(
+        ((pl.col("x") - pl.col("x2")) ** 2 + (pl.col("y") - pl.col("y2")) ** 2) < _CROWD_RADIUS**2
+    )
+    # every station is within reach of its own dot, which is no neighbour
+    counts = own.select("row").join(near.group_by("row").len(), on="row", how="left").sort("row")
+    return (counts.get_column("len").cast(pl.Int64).fill_null(1) - 1).alias("crowd")
+
+
 def stations_chart(
     df: pl.DataFrame,
     *,
@@ -271,8 +302,13 @@ def stations_chart(
     # names, which is the order the labels are placed in: the same stations give the same labels. The invisible points
     # of these stations are what the labels are placed round (`_with_placed_labels`)
     named = frame.sort("name", "longitude", "latitude").unique(subset=["name"], keep="first", maintain_order=True)
+    named = named.with_columns(_crowding(named, frame, center, scale))
+    named = named.sort(["crowd", "name"], descending=[True, False])
     anchors = alt.Chart(
-        _inline_data(named, {"longitude": "number", "latitude": "number", "name": "string", "dataset": "string"})
+        _inline_data(
+            named,
+            {"longitude": "number", "latitude": "number", "name": "string", "dataset": "string", "crowd": "number"},
+        )
     )
     invisible = anchors.mark_circle(size=1, opacity=0).encode(**position)
     # as a chart alone, one that is saved with Altair, a label is to the right of its station, to the left of those in
@@ -546,17 +582,23 @@ class _HtmlSafeEncoder(json.JSONEncoder):
 
 #: the marks of the station map that name its labels, in the order the Vega of the map has them: the circles are the
 #: dots (which the labels keep clear of) and the invisible points of the stations (which they are placed round)
-_LABEL_ANCHORS = ["right", "left", "top", "bottom", "top-right", "top-left", "bottom-right", "bottom-left"]
-_LABEL_OFFSET = 6
+_SIDES = ["right", "left", "top", "bottom", "top-right", "top-left", "bottom-right", "bottom-left"]
+#: the distances in pixels from the point of a station at which a label is tried, on each of the `_SIDES` in turn: the
+#: first side and distance where it is clear is where it is put, so a label is as near to its dot as there is room
+_LABEL_OFFSETS = (6, 14, 24)
+_LABEL_ANCHORS = _SIDES * len(_LABEL_OFFSETS)
+_LABEL_DISTANCES = [offset for offset in _LABEL_OFFSETS for _ in _SIDES]
 
 
 def _with_placed_labels(vega: dict[str, Any]) -> dict[str, Any]:
     """Give the Vega of the station map its labels placed by Vega's `label` transform.
 
-    A label is placed round the point of its station, on the first side of `_LABEL_ANCHORS` where it is clear of the
-    other labels and of every dot, and is hidden (`opacity` 0) where there is no such side: every dot stays, and the
-    page has the name of each in its tooltip. The text layers Vega-Lite wrote (a label on the right or the left, as
-    the chart is when it is not drawn here) give way to the two that are placed, the white halo and the text.
+    A label is placed round the point of its station, on the first side and at the first distance of `_LABEL_ANCHORS`
+    where it is clear of the other labels and of every dot, and is hidden (`opacity` 0) where there is none: every dot
+    stays, and the page has the name of each in its tooltip. The stations come in the order of the data, the most
+    crowded first (`_crowding`), and the same stations are placed the same. The text layers Vega-Lite wrote (a label
+    on the right or the left, as the chart is when it is not drawn here) give way to the two that are placed, the white
+    halo and the text.
     """
     marks = vega["marks"]
     symbols = [mark["name"] for mark in marks if mark["type"] == "symbol"]
@@ -580,7 +622,7 @@ def _with_placed_labels(vega: dict[str, Any]) -> dict[str, Any]:
                     "type": "label",
                     "avoidMarks": [dots],
                     "anchor": _LABEL_ANCHORS,
-                    "offset": [_LABEL_OFFSET],
+                    "offset": _LABEL_DISTANCES,
                     "size": {"signal": "[width, height]"},
                 }
             ],
