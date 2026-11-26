@@ -51,6 +51,15 @@ _NONE_IS_MINUS_ONE = {
 # so it is null (GH-2794).
 _CALM_WIND = Sentinel("0", where=pl.col("parameter") == "dd")
 
+# The quality flag of a parameter is the parameter's name and this suffix (`tl` and `tl_flag`), in the four klima-v2
+# datasets alike, and the API serves it as a parameter of its own: asked for beside the value, so that both come in
+# the one response (GH-4480). Its code list is q21 (`code_lists` of the dataset's `/metadata`): null undefiniert,
+# 0 ungeprüfte Daten, 10 to 12 automatisch geprüft, 20 to 22 manuell geprüft. It is the plain code of `quality_flags`.
+# One exception: the flag of the reduced air pressure (`pred`) of the hourly dataset has no `code_list_ref` in the
+# metadata, so it is not documented with a code list; it is read like the others, and its value is written as the
+# source gives it.
+_FLAG_SUFFIX = "_flag"
+
 # the year of the end date the station list gives to a station that still reports (2100-12-31)
 _OPEN_END_YEAR = 2100
 
@@ -101,6 +110,9 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
     # (790,000), 4.4 s for 21,000 hourly timestamps with 19. The budget keeps a request near 4 s and the
     # cap keeps a few parameters at the 10 s of one. It allows 240 requests an hour, so windows are not
     # smaller: a whole 10-minute dataset is about 105 requests, hourly about 62, daily 4 and monthly 1.
+    # The flags are asked for beside the values and count as points too, so a request holds twice the points the
+    # budget was made for: at most 800,000, still under the limit (measured 2026-11: 24 parameters and their 24 flags
+    # for 16,666 timestamps at 10 minutes, 800,000 points, answered in 6.9 s), and the windows stay as many.
     _window_points = 400_000
     _window_timestamps: ClassVar = {
         Resolution.MINUTE_10: 2 * 365 * 144,  # two years
@@ -162,9 +174,11 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
         start_date: datetime,
         end_date: datetime,
     ) -> pl.DataFrame:
+        # the flag of each parameter, in the one request that holds the values
+        asked = [*parameters, *(f"{parameter}{_FLAG_SUFFIX}" for parameter in parameters)]
         url = self._endpoint.format(
             station_id=station_id,
-            parameter=",".join(parameters),
+            parameter=",".join(asked),
             dataset=dataset.name_original,
             start_date=start_date.strftime("%Y-%m-%dT%H:%M"),
             end_date=end_date.strftime("%Y-%m-%dT%H:%M"),
@@ -192,8 +206,10 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
                                 {
                                     "parameters": pl.Struct(
                                         {
+                                            # a flag is a whole number, but the source writes a column that
+                                            # has a gap with decimals (`10.0`), as it does a value
                                             parameter: pl.Struct({"data": pl.List(pl.Float64)})
-                                            for parameter in parameters
+                                            for parameter in asked
                                         },
                                     ),
                                 },
@@ -218,7 +234,18 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
             pl.col("value").struct.field("data").alias("value"),
             pl.lit(timestamps, dtype=pl.List(pl.String)).alias("timestamp"),
         )
+        # a flag the response leaves out is a list of gaps, not a list that is not there
+        no_flags = pl.lit(pl.Series([[None] * len(timestamps)], dtype=pl.List(pl.Float64)))
+        is_flag = pl.col("parameter").str.ends_with(_FLAG_SUFFIX)
+        df = df.with_columns(pl.when(is_flag).then(pl.col("value").fill_null(no_flags)).otherwise(pl.col("value")))
         df = df.explode(["value", "timestamp"], empty_as_null=True)
+        # each flag goes beside its value: the code as the whole number the source means, null where it has none
+        flags = df.filter(is_flag).select(
+            pl.col("parameter").str.strip_suffix(_FLAG_SUFFIX),
+            "timestamp",
+            pl.col("value").cast(pl.Int64, strict=False).alias("flag"),
+        )
+        df = df.filter(~is_flag).join(flags, on=["parameter", "timestamp"], how="left", maintain_order="left")
         # before the unit conversion, which would take the -1 for an amount of one unit
         none_coded = [
             Sentinel(text, where=pl.col("parameter") == parameter, to=0.0)
@@ -230,8 +257,8 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
             pl.col("parameter").str.to_lowercase(),
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z"),
             value.alias("value"),
-            # the -1 the 0.0 was made from, as the source writes it
-            join_quality_flags(None, raw=raw),
+            # the source's flag first, as it writes it (`10`), then the -1 the 0.0 was made from, as it writes that
+            join_quality_flags(pl.col("flag"), raw=raw),
         )
 
 

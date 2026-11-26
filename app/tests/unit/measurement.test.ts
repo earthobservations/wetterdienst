@@ -592,9 +592,12 @@ describe('what the texts say about which provider has which parameter', () => {
       const lines = flags.split('\n')
       const row = lines.find(line => line.startsWith('| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Météo-France synop |'))
       expect(row).toContain('| null (apart from the `suspect:`/`rejected:` and `raw:` tokens)')
-      // Geosphere has a flag of its own (q21) that this library does not read yet (GH-4480): its answers have none either
+      // Geosphere has a flag of its own (q21), the first token of its `quality_flags` (GH-4480), which the entry says
       const geosphere = lines.find(line => line.startsWith('| Geosphere |'))
-      expect(geosphere).toContain('| null (apart from the `suspect:`/`rejected:` and `raw:` tokens)')
+      expect(geosphere).toContain('q21')
+      expect(geosphere).not.toContain('| null')
+      expect(row).not.toContain('Geosphere')
+      expect(JSON.stringify(en['data-quality'].parts)).toContain('Geosphere')
       expect(flags).toContain('| DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null')
       expect(flags).toMatch(/\| DWD observation \| `QN`, the quality control level/)
     })
