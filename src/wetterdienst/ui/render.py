@@ -317,9 +317,10 @@ def ndjson_end(
     `search` is what the row options searched, where a stream has them and could not say before its end. `matched`
     is the stations the selection found, for the answer of `stations`, whose counts say so (GH-4472).
     """
-    counts = {"stations": stations, "rows": rows}
+    counts = {"stations": stations}
     if matched is not None:
         counts["stations_matched"] = matched
+    counts["rows"] = rows
     end: dict[str, Any] = {"counts": counts, "warnings": list(warnings)}
     if search is not None:
         end["search"] = dict(search)

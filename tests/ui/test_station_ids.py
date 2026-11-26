@@ -673,6 +673,23 @@ def test_the_mcp_tool_says_how_many_stations_were_found_when_it_cuts_the_answer(
     assert counts["stations_matched"] == len(MANY)
 
 
+def test_the_mcp_tool_says_how_many_stations_were_found_in_the_sentence_of_a_csv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A CSV has no block: the sentence and the `_meta` carry the number, for a cut answer and a whole one."""
+    _many(monkeypatch)
+    cut = _tool_call({"wmo_id": ",".join(MANY), "format": "csv"})
+    serve(monkeypatch, HAMBURG)
+    whole = _tool_call({"wmo_id": "10147", "format": "csv"})
+
+    assert cut.structured_content is not None
+    assert f" Stations matched: {len(MANY)}." in cut.structured_content["result"]
+    assert whole.structured_content is not None
+    assert " Stations matched: 3." in whole.structured_content["result"]
+    assert whole.meta is not None
+    assert whole.meta["wetterdienst"]["stations_matched"] == "3"
+
+
 def test_a_cut_csv_says_how_many_stations_were_found_in_its_headers(monkeypatch: pytest.MonkeyPatch) -> None:
     """A CSV has no block: the headers carry the stations returned and the stations found."""
     from wetterdienst.ui.mcp import _mark_tool_requests  # noqa: PLC0415

@@ -101,6 +101,40 @@ def test_a_mcp_client_receives_how_many_stations_match(monkeypatch: pytest.Monke
     assert counts["stations_matched"] == 700
 
 
+def test_a_mcp_csv_says_how_many_stations_match_in_its_sentence_and_meta(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A CSV has no block: the sentence of the tool and the `_meta` of the result carry the number, cut or not."""
+    _stub_stations(monkeypatch, _stations_of(700, with_umlaut=True))
+
+    result = _client_sees("stations", {**_STATIONS, "format": "csv"})
+
+    assert not result.is_error, result.content
+    assert " Stations matched: 700." in result.structured_content["result"]  # ty: ignore[not-subscriptable]
+    assert result.meta["wetterdienst"]["stations_matched"] == "700"  # ty: ignore[not-subscriptable]
+    assert "answer-truncated" in result.meta["wetterdienst"]["warnings"]  # ty: ignore[not-subscriptable]
+
+
+def test_a_mcp_csv_of_a_rank_says_how_many_stations_match_without_a_cut_note(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`rank=5` of 900 fits the budget: no note is told, and the number is still in the sentence."""
+    _stub_stations(monkeypatch, _stations_by_rank(900, 5))
+
+    result = _client_sees("stations", {**_A_RANK, "rank": 5, "format": "csv"})
+
+    assert not result.is_error, result.content
+    sentence = result.structured_content["result"]  # ty: ignore[not-subscriptable]
+    assert " Stations matched: 900." in sentence
+    assert "Truncated" not in sentence
+    assert result.meta["wetterdienst"]["stations_matched"] == "900"  # ty: ignore[not-subscriptable]
+
+
+def test_a_mcp_csv_of_a_list_that_is_not_cut_says_the_stations_it_has(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing is cut: 20 are listed and the sentence says 20 match."""
+    _stub_stations(monkeypatch, _stations_of(20))
+
+    result = _client_sees("stations", {**_STATIONS, "format": "csv"})
+
+    assert " Stations matched: 20." in result.structured_content["result"]  # ty: ignore[not-subscriptable]
+
+
 def test_an_answer_that_fits_says_the_stations_it_has(monkeypatch: pytest.MonkeyPatch) -> None:
     """Nothing is cut: `stations_matched` equals `stations`, as a tool and as any other caller."""
     _stub_stations(monkeypatch, _stations_of(20))
@@ -134,6 +168,15 @@ def test_a_rank_says_how_many_stations_could_be_ranked(monkeypatch: pytest.Monke
     assert body["metadata"]["counts"] == {"stations": 5, "stations_matched": 900, "rows": 5}
 
 
+def test_a_rank_larger_than_the_stations_says_the_stations_there_are(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`rank=10` over 3 stations with a position lists 3, and 3 match."""
+    _stub_stations(monkeypatch, _stations_by_rank(3, 10))
+
+    response = _rest_client().get("/api/stations", params={**_A_RANK, "rank": 10})
+
+    assert response.json()["metadata"]["counts"] == {"stations": 3, "stations_matched": 3, "rows": 3}
+
+
 def test_a_rank_cut_again_to_the_budget_keeps_the_number_that_could_be_ranked(monkeypatch: pytest.MonkeyPatch) -> None:
     """The rank of 700 is cut to the budget: 900 still match, not the 700 the rank kept and not what fits."""
     _stub_stations(monkeypatch, _stations_by_rank(900, 700, with_umlaut=True))
@@ -152,7 +195,9 @@ def test_a_rank_streamed_as_ndjson_says_it_in_both_lines(monkeypatch: pytest.Mon
 
     lines = [json.loads(line) for line in response.text.splitlines()]
     assert lines[0]["metadata"]["counts"]["stations_matched"] == 300
-    assert lines[-1]["end"]["counts"] == {"stations": 4, "rows": 4, "stations_matched": 300}
+    assert lines[-1]["end"]["counts"] == {"stations": 4, "stations_matched": 300, "rows": 4}
+    # in the order of the block
+    assert list(lines[-1]["end"]["counts"]) == list(lines[0]["metadata"]["counts"])
 
 
 def test_a_rank_of_a_csv_has_the_number_in_a_header(monkeypatch: pytest.MonkeyPatch) -> None:

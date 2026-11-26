@@ -257,10 +257,11 @@ rows returned of the total, the range kept, the `timestamp` window to ask for th
 ending where the caller's window did) and the ways to ask for less: a narrower `timestamp`, fewer parameters, and
 `format=csv` with `shape=wide`, which is five to six times smaller than the long JSON. For `csv`, which has no block, it
 is the `X-Wetterdienst-Truncated` header too and a sentence of the tool that tells it in words, never a row of the body.
-`metadata.counts.rows` is the number of rows returned, not of those that were cut. A cut list of `stations` (and of
-`station_ids`) says how many stations match as a number, `metadata.counts.stations_matched` (the
-`X-Wetterdienst-Stations-Matched` header of a `csv`), next to `counts.stations`, the ones returned. The block that `with_metadata` adds
-(the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
+`metadata.counts.rows` is the number of rows returned, not of those that were cut. A list of `stations` (and of
+`station_ids`) says how many stations match as a number, `metadata.counts.stations_matched`, next to
+`counts.stations`, the ones returned. A `csv` has no block, so there it is the `X-Wetterdienst-Stations-Matched` header,
+the sentence of the tool ("Stations matched: 700.") and `wetterdienst.stations_matched` in the `_meta` of the result,
+whether the list was cut or not. The block that `with_metadata` adds (the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
 parameters. It counts toward the budget and is kept: the rows (timestamps, or the stations of a `rank`, a `distance`
 or a listing) are cut to make room for it. Only where not even one timestamp or station fits with it, and one fits
 without it, is it left out, the always-present `metadata` stays, and the note says how many characters it was and that

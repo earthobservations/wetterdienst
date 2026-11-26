@@ -319,7 +319,7 @@ what the answer is missing:
   stations that match the request: `stations` is fewer where a `rank` kept the nearest (or best) of them or, for an
   MCP tool, the 40,000-character budget cut the list (`answer-truncated`), and equal to it where nothing was cut, so
   that "how many stations are there" is a number, not a sentence of the note. It is in the `end` line of
-  `format=ndjson` as well; no other answer has it.
+  `format=ndjson` as well; the answer of [`station-ids`](station_ids.md) has it, no other.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
   a GeoJSON position, the elevation in metres above mean sea level.
 - **`warnings`** is what the answer is missing but did not fail on, so that a partial answer can be told
