@@ -90,6 +90,10 @@ Types of changes:
   provider's form, an old name, or one written in the dataset's place gets the whole corrected
   string: `daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`, is
   `daily/data/temperature_air_mean_2m`. The "renamed to" texts are as before (GH-4466)
+- The error of a dataset that exists only at another resolution says so: `daily/air_temperature`
+  at `dwd/observation` is "`air_temperature` is a dataset of 10_minutes, hourly and subdaily",
+  with the whole string of it (`hourly/temperature_air/temperature_air_2m`) where it has the
+  parameter, after those of the resolution asked for, still in under 1,000 characters (GH-4481)
 
 ### Fixed
 

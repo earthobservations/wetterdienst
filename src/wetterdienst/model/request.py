@@ -879,7 +879,10 @@ class TimeseriesRequest:
                     if resolution_strings
                     else cls.metadata.name
                 )
-                msg = unknown_name_message("datasets", name, where, list(one_of_each.values()))
+                left_out = [
+                    resolution for resolution in cls.metadata if all(resolution is not each for each in selected)
+                ]
+                msg = unknown_name_message("datasets", name, where, list(one_of_each.values()), elsewhere=left_out)
                 raise MetadataNotFoundError(msg)
         # the unit the values come back in for a caller who passes no options: the converter `values` and `glossary`
         # build, with the targets of the environment, so that the three cannot differ. With `convert_units` off the

@@ -487,6 +487,23 @@ def _whole_strings(item: str, datasets: Iterable[DatasetModel], parameter: str) 
     ]
 
 
+def _of_other_resolutions(
+    item: str, parameter: str | None, elsewhere: Iterable[ResolutionModel]
+) -> tuple[str, list[tuple[DatasetModel, str]]]:
+    """Say which of the resolutions `elsewhere` have a dataset named `item`, and write its strings for `parameter`.
+
+    The sentence is empty where none has it; the strings are those of the datasets that have the parameter (GH-4481).
+    """
+    found = [(resolution, _find(resolution.datasets, item)) for resolution in elsewhere]
+    of_other = [(resolution, dataset) for resolution, dataset in found if isinstance(dataset, DatasetModel)]
+    if not of_other:
+        return "", []
+    names = [resolution.name for resolution, _ in of_other]
+    listed = f"{', '.join(names[:-1])} and {names[-1]}" if len(names) > 1 else names[0]
+    whole = _whole_strings(item, [dataset for _, dataset in of_other], parameter.strip().lower()) if parameter else []
+    return f" '{item}' is a dataset of {listed}.", whole
+
+
 def _hint_and_names(
     kind: str,
     item: str,
@@ -495,6 +512,7 @@ def _hint_and_names(
     parameter: str | None = None,
     budget: int = _NAMES_BUDGET,
     hints: int = _HINTS_SHOWN,
+    elsewhere: Iterable[ResolutionModel] = (),
 ) -> tuple[str, str]:
     """Write what follows the name in the message of a name that no model matched: a hint, and the names.
 
@@ -510,6 +528,12 @@ def _hint_and_names(
        for a parameter that is not found, the parameter itself (`daily/data/temperature_air_mean_2m`, GH-4466);
     3. the closest name by spelling. A parameter's or a dataset's has to be of the same quantity (see
        `_keeps_the_quantity`); where it is not, nothing is guessed.
+
+    A dataset that is not found but is one of another resolution (`daily/air_temperature`, a dataset of `hourly` and
+    `10_minutes`) is said to be that (`_of_other_resolutions`), in front of the whole strings: those of the datasets of
+    this resolution, then, where there is room, those of the dataset of that name where it has the `parameter`
+    (GH-4481). `elsewhere` are the resolutions it was not asked in; the metadata is not reached from a resolution, so
+    the caller that has it passes them.
 
     The names follow closest first: what the hint names, then the datasets that have the parameter, then the names of
     the same quantity (`_keeps_the_quantity`, strict), then the others, each by spelling. `budget` is the characters
@@ -527,6 +551,9 @@ def _hint_and_names(
     named_by_rename = re.search(r"'([^']+)'", renamed)
     hinted = {named_by_rename.group(1)} if named_by_rename else set()
     holders: set[str] = set()
+    where_it_is, whole_there = (
+        _of_other_resolutions(item_search, parameter, elsewhere) if kind == "datasets" else ("", [])
+    )
     wanted = parameter.strip().lower() if parameter else item_search if kind != "resolutions" else None
     if not suggestion and wanted:
         # the datasets of the resolution that have the name: the dataset that was not found is not among them
@@ -537,8 +564,11 @@ def _hint_and_names(
         )
         whole = _whole_strings(item_search, [other for other in siblings if other is not dataset], wanted)
         holders = {holder.name for holder, _ in whole}
+        # the resolution that was asked for first: another resolution reads other values, and the sentence names it
+        whole = [*whole, *whole_there]
         if whole:
             suggestion = " Did you mean " + " or ".join(f"'{text}'" for _, text in whole[:hints]) + "?"
+    suggestion = where_it_is + suggestion
     if not suggestion:
         if kind != "resolutions":
             # a near spelling of another quantity is no hint, the list of available names is the answer then
@@ -567,21 +597,31 @@ def _not_found(
     parameter: str | None = None,
     budget: int = _NAMES_BUDGET,
     hints: int = _HINTS_SHOWN,
+    elsewhere: Iterable[ResolutionModel] = (),
 ) -> str:
     """Build the message for a name that no model matched: the name, a hint, and the names closest to it.
 
     See `_hint_and_names`; `parameter` is the parameter that was asked for with a dataset that is not found, `budget`
-    the characters the names may take and `hints` how many whole strings the hint offers.
+    the characters the names may take, `hints` how many whole strings the hint offers and `elsewhere` the resolutions
+    a dataset that is not found may be one of.
     """
-    suggestion, names = _hint_and_names(kind, item, models, dataset, parameter, budget, hints)
+    suggestion, names = _hint_and_names(kind, item, models, dataset, parameter, budget, hints, elsewhere)
     return f"'{item}'.{suggestion}{names}"
 
 
 def unknown_name_message(
-    kind: str, item: str, where: str, models: Iterable[_NamedModel], budget: int = _NAMES_BUDGET
+    kind: str,
+    item: str,
+    where: str,
+    models: Iterable[_NamedModel],
+    budget: int = _NAMES_BUDGET,
+    elsewhere: Iterable[ResolutionModel] = (),
 ) -> str:
-    """Build the message of a resolution or a dataset that a network does not have, as `discover()` raises it."""
-    suggestion, names = _hint_and_names(kind, item, models, budget=budget)
+    """Build the message of a resolution or a dataset that a network does not have, as `discover()` raises it.
+
+    `elsewhere` are the resolutions of the network that were left out of the search, one of which may have the dataset.
+    """
+    suggestion, names = _hint_and_names(kind, item, models, budget=budget, elsewhere=elsewhere)
     noun = "Resolution" if kind == "resolutions" else "Dataset"
     return f"{noun} '{item}' not found in {where}.{suggestion}{names}"
 
@@ -1208,6 +1248,7 @@ class MetadataModel(BaseModel):
                     parameter=parameter_search.parameter,
                     budget=budget,
                     hints=hints,
+                    elsewhere=[other for other in self.resolutions if other is not resolution],
                 )
             )
         if not parameter_search.parameter:
