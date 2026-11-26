@@ -89,8 +89,12 @@ MAX_TIMEOUT = 540
 #: `future_only` facts although the cases keep their hashes):
 #: two results files of another logic version are not compared
 LOGIC_VERSION = 18
-#: the tools the prompt names (`tests/ui/test_mcp_benchmark_cases.py` holds them to the server's)
-PROMPT_TOOLS = "alerts, auth, coverage, glossary, history, interpolate, issues, providers, stations, summarize, values"
+#: the tools the prompt names, all 15 the server lists, in alphabetical order, with no word about what any is for
+#: (`tests/ui/test_mcp_benchmark_cases.py` holds them to the server's, and the prompt hash includes them)
+PROMPT_TOOLS = (
+    "alerts, auth, coverage, glossary, history, interpolate, issues, kostra, providers, station_ids, stations, "
+    "statistics, storm_cells, summarize, values"
+)
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
@@ -132,8 +136,8 @@ def digest(value: Any) -> str:  # noqa: ANN401
 
 
 def prompt_version() -> str:
-    """Hash the prompt template: a changed prompt makes two runs incomparable."""
-    return hashlib.sha256(PROMPT_PATH.read_bytes()).hexdigest()[:8]
+    """Hash the prompt template and the tool names it lists: a changed prompt makes two runs incomparable."""
+    return hashlib.sha256(PROMPT_PATH.read_bytes() + PROMPT_TOOLS.encode()).hexdigest()[:8]
 
 
 def hashes(data: dict[str, Any]) -> dict[str, Any]:
