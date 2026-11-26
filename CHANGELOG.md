@@ -91,9 +91,11 @@ Types of changes:
   string: `daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`, is
   `daily/data/temperature_air_mean_2m`. The "renamed to" texts are as before (GH-4466)
 - The error of a dataset that exists only at another resolution says so: `daily/air_temperature`
-  at `dwd/observation` is "`air_temperature` is a dataset of 10_minutes, hourly and subdaily",
-  with the whole string of it (`hourly/temperature_air/temperature_air_2m`) where it has the
-  parameter, after those of the resolution asked for, still in under 1,000 characters (GH-4481)
+  at `dwd/observation` is "`temperature_air` (written `air_temperature`) is a dataset of
+  10_minutes, hourly and subdaily", after the hint of the resolution asked for, which stays. Where
+  the parameter is given, the whole strings of it there follow (`10_minutes/temperature_air/
+  temperature_air_2m`, resolutions in the order of the metadata), still under 1,000 characters
+  (GH-4481)
 
 ### Fixed
 

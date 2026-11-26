@@ -492,7 +492,9 @@ def _of_other_resolutions(
 ) -> tuple[str, list[tuple[DatasetModel, str]]]:
     """Say which of the resolutions `elsewhere` have a dataset named `item`, and write its strings for `parameter`.
 
-    The sentence is empty where none has it; the strings are those of the datasets that have the parameter (GH-4481).
+    The sentence is empty where none has it, and names the dataset as the metadata does, with what was written where
+    that is another name (the source's: `air_temperature` is `temperature_air`), so that it agrees with the strings and
+    the list of names; the strings are those of the datasets that have the parameter (GH-4481).
     """
     found = [(resolution, _find(resolution.datasets, item)) for resolution in elsewhere]
     of_other = [(resolution, dataset) for resolution, dataset in found if isinstance(dataset, DatasetModel)]
@@ -501,7 +503,23 @@ def _of_other_resolutions(
     names = [resolution.name for resolution, _ in of_other]
     listed = f"{', '.join(names[:-1])} and {names[-1]}" if len(names) > 1 else names[0]
     whole = _whole_strings(item, [dataset for _, dataset in of_other], parameter.strip().lower()) if parameter else []
-    return f" '{item}' is a dataset of {listed}.", whole
+    name = of_other[0][1].name
+    written = f" (written '{item}')" if item != name.lower() else ""
+    return f" '{name}'{written} is a dataset of {listed}.", whole
+
+
+def _said_of_other_resolutions(
+    sentence: str, strings: list[tuple[DatasetModel, str]], room: int, *, has_hint: bool = False
+) -> str:
+    """Write the sentence of `_of_other_resolutions` and, in the `room` the hint has left, the strings of the dataset.
+
+    They follow a hint that is already there (the spelling of this resolution, or its whole strings) as what is
+    written in the other resolutions; where there is none they are the hint.
+    """
+    offered = " or ".join(f"'{text}'" for _, text in strings[: max(room, 0)])
+    if not sentence or not offered:
+        return sentence
+    return f"{sentence} There: {offered}." if has_hint else f"{sentence} Did you mean {offered}?"
 
 
 def _hint_and_names(
@@ -530,10 +548,10 @@ def _hint_and_names(
        `_keeps_the_quantity`); where it is not, nothing is guessed.
 
     A dataset that is not found but is one of another resolution (`daily/air_temperature`, a dataset of `hourly` and
-    `10_minutes`) is said to be that (`_of_other_resolutions`), in front of the whole strings: those of the datasets of
-    this resolution, then, where there is room, those of the dataset of that name where it has the `parameter`
-    (GH-4481). `elsewhere` are the resolutions it was not asked in; the metadata is not reached from a resolution, so
-    the caller that has it passes them.
+    `10_minutes`) is said to be that (`_of_other_resolutions`), after the hint of this resolution (its whole strings or
+    the spelling), and with the whole strings of the dataset of that name where it has the `parameter` and the hint
+    has room (`_said_of_other_resolutions`, GH-4481). `elsewhere` are the resolutions it was not asked in; the
+    metadata is not reached from a resolution, so the caller that has it passes them.
 
     The names follow closest first: what the hint names, then the datasets that have the parameter, then the names of
     the same quantity (`_keeps_the_quantity`, strict), then the others, each by spelling. `budget` is the characters
@@ -551,6 +569,7 @@ def _hint_and_names(
     named_by_rename = re.search(r"'([^']+)'", renamed)
     hinted = {named_by_rename.group(1)} if named_by_rename else set()
     holders: set[str] = set()
+    offered_here = 0
     where_it_is, whole_there = (
         _of_other_resolutions(item_search, parameter, elsewhere) if kind == "datasets" else ("", [])
     )
@@ -564,11 +583,10 @@ def _hint_and_names(
         )
         whole = _whole_strings(item_search, [other for other in siblings if other is not dataset], wanted)
         holders = {holder.name for holder, _ in whole}
-        # the resolution that was asked for first: another resolution reads other values, and the sentence names it
-        whole = [*whole, *whole_there]
         if whole:
+            # the resolution that was asked for first: another resolution reads other values
             suggestion = " Did you mean " + " or ".join(f"'{text}'" for _, text in whole[:hints]) + "?"
-    suggestion = where_it_is + suggestion
+            offered_here = min(len(whole), hints)
     if not suggestion:
         if kind != "resolutions":
             # a near spelling of another quantity is no hint, the list of available names is the answer then
@@ -576,6 +594,7 @@ def _hint_and_names(
         close = difflib.get_close_matches(item_search, candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
         suggestion = f" Did you mean '{close[0]}'?" if close else ""
         hinted = set(close)
+    suggestion += _said_of_other_resolutions(where_it_is, whole_there, hints - offered_here, has_hint=bool(suggestion))
 
     def bucket(model: _NamedModel) -> int:
         if hinted & set(_names(model)):

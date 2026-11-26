@@ -353,7 +353,8 @@ def test_coverage_resolution_1_minute() -> None:
         (
             "--datasets=air_temperature --resolutions=daily",
             "Dataset 'air_temperature' not found in DwdObservationMetadata for resolutions daily. "
-            "'air_temperature' is a dataset of 10_minutes, hourly and subdaily. Available datasets: ",
+            "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily. "
+            "Available datasets: ",
         ),
     ],
 )
