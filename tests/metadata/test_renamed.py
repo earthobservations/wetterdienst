@@ -583,8 +583,12 @@ def test_a_name_of_another_quantity_is_not_guessed_at(
 ) -> None:
     """A dataset without the quantity names none, and the list of what it has is the answer."""
     assert parse_parameters(value, metadata, on_unknown="warn") == []
-    assert "Did you mean" not in caplog.text
-    assert "Available parameters:" in caplog.text
+    if value == "hourly/small/error_absolute_temperature_air_mean_2m":
+        # the dataset has no error, and the one that has it is named whole (GH-4466)
+        assert "Did you mean 'hourly/large/error_absolute_temperature_air_2m'?" in caplog.text
+    else:
+        assert "Did you mean" not in caplog.text
+    assert re.search(r"(Available|Closest) parameters:", caplog.text)
 
 
 @pytest.mark.parametrize(

@@ -194,6 +194,7 @@ from wetterdienst.ui.render import (
 )
 from wetterdienst.ui.response_metadata import (
     API_VERSION,
+    EstimateMetadata,
     ResponseMetadata,
     Search,
     StationIdsMetadata,
@@ -795,22 +796,22 @@ class _ValuesWithSettingsOgcFeatureCollection(_ValuesOgcFeatureCollectionBody):
 
 
 class _InterpolatedValuesWithSettingsDict(_InterpolatedValuesDictBody):
-    metadata: ResponseMetadata
+    metadata: EstimateMetadata
     settings: NotRequired[InterpolationSettings]
 
 
 class _InterpolatedValuesWithSettingsOgcFeatureCollection(_InterpolatedValuesOgcFeatureCollectionBody):
-    metadata: ResponseMetadata
+    metadata: EstimateMetadata
     settings: NotRequired[InterpolationSettings]
 
 
 class _SummarizedValuesWithSettingsDict(_SummarizedValuesDictBody):
-    metadata: ResponseMetadata
+    metadata: EstimateMetadata
     settings: NotRequired[SummarySettings]
 
 
 class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectionBody):
-    metadata: ResponseMetadata
+    metadata: EstimateMetadata
     settings: NotRequired[SummarySettings]
 
 

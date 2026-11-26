@@ -40,8 +40,9 @@ file layout:
 - **timestamp** — the 1st of January of the reference year, not the date of the phase. The entry date
   (`Eintrittsdatum`) that DWD also publishes is not carried; it can mostly, but not always, be worked out from
   the stamp and `Jultag`.
-- **quality_flags** — `Qualitaetsniveau`, as DWD writes it: `1` formal check only, `7` checked in routine
-  but uncorrected, `10` checked and corrected.
+- **quality_flags** — `Qualitaetsniveau`, as DWD writes it: `1` only formal control, `7` second control done,
+  before correction, `10` quality control finished, all corrections finished (DWD's English description; the
+  German one words `7` as "geprüft, nicht korrigiert").
 
 ```python
 from wetterdienst.provider.dwd.phenology import DwdPhenologyRequest
