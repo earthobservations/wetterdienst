@@ -36,11 +36,22 @@ Types of changes:
   lists which, and for the urban hourly data it says that the description lists 1 and 2 while the
   data carry 3. The DUETT, Hub'Eau (`code_qualification_obs`) and Frost (`qualityCode`) legends
   list their codes with the document too, and `source_flag_note` says where this library carries
-  no quality flag of the source (GeoSphere's `<parameter>_flag` is not read yet, GH-4480). About
-  600 more characters per hourly or daily DWD answer (GH-4474)
+  no quality flag of the source. About 600 more characters per hourly or daily DWD answer
+  (GH-4474)
+- GeoSphere's quality flag of each parameter (`<parameter>_flag` of `klima-v2-10min`, `-1h`,
+  `-1d` and `-1m`, code list q21) is the first token of `quality_flags` (`12`, `20,raw:-1.0`),
+  null where the source has none. The `quality` legend of `with_metadata` lists the codes in
+  GeoSphere's words (`0` ungeprüfte Daten, `10` automatisch geprüft ... `22` manuell geprüft
+  (original)) with the metadata that defines them, and its `source_flag_note` is null now. The
+  flags come in the requests of the values, so a response from GeoSphere is about twice as large
+  (GH-4480)
 
 ### Changed
 
+- An MCP tool's error says more of what failed: the 502 for an answer a tool does not carry names
+  the formats of the tool that was called (`interpolate` and `summarize` answer `json`, `geojson`
+  or `csv`, no `ndjson`), and the text of a 500 ends with `Request id: <id>`, the one the server
+  log names (the REST problem has it as `request_id`), to quote to the operator (GH-4469)
 - **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
   (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `svg` or `pdf` on
   `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind

@@ -46,7 +46,7 @@ from urllib.parse import unquote
 from wetterdienst import __version__
 
 if TYPE_CHECKING:
-    from collections.abc import MutableMapping
+    from collections.abc import Mapping, MutableMapping
     from typing import Any
 
     from fastapi import FastAPI
@@ -425,6 +425,32 @@ def _routes_of_tools(spec: dict[str, Any]) -> dict[str, _Route]:
             }
             routes[name] = _Route(path, frozenset(taken))
     return routes
+
+
+def _answers_of_tools(spec: dict[str, Any]) -> dict[str, str]:
+    """Say what each tool answers, by the path of its route: `values answers json, geojson, csv or ndjson` (GH-4469).
+
+    From the document the tools are made from, so it is what the tool offers as its `format` (the data formats, no
+    chart) and nothing is listed twice; a tool that has no `format` answers json. Keyed by path, as the transport
+    knows the route a call went to and not the tool.
+    """
+    from wetterdienst.ui.core import join_names  # noqa: PLC0415
+
+    answers = {}
+    for path, item in spec.get("paths", {}).items():
+        for operation in item.values():
+            if not isinstance(operation, dict) or (name := _TOOL_NAMES.get(operation.get("operationId"))) is None:
+                continue
+            formats = next(
+                (
+                    parameter.get("schema", {}).get("enum")
+                    for parameter in operation.get("parameters", [])
+                    if parameter.get("in") == "query" and parameter.get("name") == "format"
+                ),
+                None,
+            )
+            answers[path] = f"{name} answers {join_names(formats or ['json'], last='or')}"
+    return answers
 
 
 def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
@@ -846,7 +872,7 @@ def _decode(body: bytes, charset: str | None) -> str:
         return body.decode("utf-8", errors="replace")
 
 
-def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
+def _carry_bodies_as_json(inner: AsyncBaseTransport, answers: Mapping[str, str] | None = None) -> AsyncBaseTransport:
     """Wrap the transport of the tools so that an answer that is not JSON reaches the tool as JSON that holds it.
 
     FastMCP's tool for a route reads the answer as JSON. A text body it passes on as text content without structured
@@ -876,10 +902,9 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
                 # the body is not decoded, not copied and not passed on: no tool answers it (a chart, or what an
                 # argument made the route answer)
                 await response.aclose()
-                text = (
-                    f"The REST API answered {media_type}, which a tool does not carry: "
-                    "a tool answers json, geojson, csv or ndjson."
-                )
+                # what the tool that was called answers: `interpolate` and `summarize` have no ndjson (GH-4469)
+                answers_of_tool = (answers or {}).get(request.url.path, "a tool answers json, geojson, csv or ndjson")
+                text = f"The REST API answered {media_type}, which a tool does not carry: {answers_of_tool}."
                 # plain text, as the REST app answers a tool's failures: FastMCP quotes a JSON string
                 return httpx2.Response(
                     502,
@@ -1085,15 +1110,17 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     # 500 problem, a fixed sentence, as it is over HTTP. The default raises it into FastMCP, whose
     # tool error then carries the exception's own text -- a path of the server, say -- which the
     # REST API deliberately hides (GH-2767, GH-2984)
+    spec = rest_app.openapi()
+    slim = _slim_for_tools(spec)
     client = httpx2.AsyncClient(
         transport=_carry_bodies_as_json(
-            httpx2.ASGITransport(app=_mark_tool_requests(rest_app), raise_app_exceptions=False)
+            httpx2.ASGITransport(app=_mark_tool_requests(rest_app), raise_app_exceptions=False),
+            _answers_of_tools(slim),
         ),
         base_url=_ASGI_BASE_URL,
     )
-    spec = rest_app.openapi()
     provider = OpenAPIProvider(
-        openapi_spec=_slim_for_tools(spec),
+        openapi_spec=slim,
         client=client,
         route_maps=route_maps,
         mcp_names=_TOOL_NAMES,

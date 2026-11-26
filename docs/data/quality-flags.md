@@ -57,7 +57,7 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 | RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
 | IMGW meteorology | the status column beside the value: `8` no measurement (value null), `9` the phenomenon did not occur (value 0), `Z` a collective total (`o_d` only); `11` is this library's own, for a day absent from a month that is present (`daily/precipitation`, value 0). Blank status is null |
 | IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Météo-France synop | null (apart from the `suspect:`/`rejected:` and `raw:` tokens) |
-| Geosphere | null (apart from the `suspect:`/`rejected:` and `raw:` tokens): the source's `<parameter>_flag` (code list q21) is not read yet, GH-4480 |
+| Geosphere | the `<parameter>_flag` of the klima-v2 datasets (10 minutes, hourly, daily, monthly), code list q21 in the [datasets' metadata](https://dataset.api.hub.geosphere.at/v1/station/historical/klima-v2-1d/metadata), written as a whole number (the source writes `20.0` in a column that has gaps): `0` ungeprüfte Daten, `10` automatisch geprüft, `11` automatisch geprüft (verändert), `12` automatisch geprüft (original), `20` manuell geprüft (unbekannt), `21` manuell geprüft (verändert), `22` manuell geprüft (original); null where the source's flag is empty ("undefiniert"), so a value without one has no such token. The flag of the reduced air pressure (`pred`) of the hourly dataset is not documented with a code list: its value is written as the source gives it. Not a scale |
 | DMI | `qcStatus`: `manual` quality controlled by DMI's climatologists, `none` not controlled; then `validity:true` or `validity:false`, whether the climatologists consider the value valid ("Invalid data is generally not correct"; mostly Greenland); then `n:<count>`, the number of readings the value was computed from (`noValuesInCalculation`; a daily value of fewer than 4, a monthly of fewer than 14 and a yearly of fewer than 183 is `suspect:source`, unless the period had not ended); then `completeness:Incomplete` for a monthly or annual value of the month or year still running (the readings so far; DMI marks none); a daily value of a day that has not ended is not returned |
 | Hubeau (Eaufrance) | `code_qualification_obs`: `0` neutre, `4` faible, `8` forte, `12` douteuse, `16` non qualifiée, `20` bonne, `30` estimée (the seven values of the [Hub'Eau API documentation](https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs)) |
 | MET Norway Frost | `qualityCode`: `0` controlled and found O.K., `1` controlled and corrected or interpolated, `2` slightly uncertain, not controlled, `4` slightly uncertain, not corrected, `5` very uncertain, not corrected, `6` very uncertain, model data, `7` erroneous, not corrected; then `completeness:Incomplete` on a monthly value whose window had not closed when it was served (the month so far, partial: the calendar month closes at its end, the `PT6H` sum at 06 UTC and the `PT18H` extremes at 18 UTC of its last day, [details](provider/metno/frost/index.md#windows-that-have-not-closed)). Frost marks no such value, so this library does; a closed window has no token, and a daily value of an open window is not returned |
@@ -129,14 +129,15 @@ of a compound code.
 
 These networks have no quality flag of the source in this library, so the first token of their `quality_flags` is never
 one of its codes, and `metadata.quality.source_flag_note` says so, as a fact about the library: `dwd/mosmix`, `dwd/dmo`,
-`dwd/poi`, `dwd/pollen`, `dwd/swsmos`, `dwd/uvi`, AEMET, FMI, Geosphere, IMGW hydrology, IPMA, KNMI, LHMT, MeteoSwiss,
+`dwd/poi`, `dwd/pollen`, `dwd/swsmos`, `dwd/uvi`, AEMET, FMI, IMGW hydrology, IPMA, KNMI, LHMT, MeteoSwiss,
 Météo-France synop and WSV. Whether the source publishes a flag is checked separately. Read on 2026-11-26 and found
 without one: FMI's WFS `timevaluepair` (time and value only), IMGW's daily hydrology files (stage, discharge and
 temperature, with `9999`/`NULL` for no data), IPMA's observation JSON, LHMT's observation JSON, Météo-France's `synop`
-CSV and WSV's PEGELONLINE measurements; MeteoSwiss OGD has none. **Geosphere is the exception**: its klima-v2 datasets
-have a `<parameter>_flag` (code list q21) that the library does not read yet (GH-4480), and its note says so. AEMET and
+CSV and WSV's PEGELONLINE measurements; MeteoSwiss OGD has none. AEMET and
 KNMI need a key and were not read again, and the DWD forecast, report and warning-like products (`mosmix`, `dmo`, `poi`,
-`pollen`, `swsmos`, `uvi`) were not read again either; for them the note says only what the library carries.
+`pollen`, `swsmos`, `uvi`) were not read again either; for them the note says only what the library carries. A source
+that publishes a flag the library does not read yet would be named in `SOURCE_FLAG_NOTES` of
+`wetterdienst.model.quality_legend`, and its note would say so; none is, since Geosphere's flag is read.
 (`tests/model/test_dwd_qn_levels.py` holds the note to the networks whose legend has no flag of the source.)
 
 ## Sentinels in `quality_flags`
