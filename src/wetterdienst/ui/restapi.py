@@ -1212,7 +1212,7 @@ def ready_head(request: Request) -> Response:
 
 
 class VersionAnswer(BaseModel):
-    """What an instance is: the versions it serves, whether it serves MCP, and the limits it holds requests to."""
+    """What an instance is: the versions it serves, whether it serves MCP and draws charts, and its limits."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -1224,6 +1224,7 @@ class VersionAnswer(BaseModel):
                     "mcp_enabled": True,
                     "mcp_path": "/mcp/v1",
                     "mcp_alias_path": "/mcp",
+                    "plotting": False,
                     "limits": {
                         "max_stations": 100,
                         "max_rows": 500000,
@@ -1244,6 +1245,10 @@ class VersionAnswer(BaseModel):
     mcp_alias_path: str | None = Field(
         description="The MCP endpoint that follows the current version (`/mcp`); null without MCP."
     )
+    plotting: bool = Field(
+        description="Whether this instance draws charts (`WD_RESTAPI_PLOTTING`, off by default): false means a chart "
+        "format of `stations`, `values`, `interpolate` or `summarize` is a 403 `charts-disabled`."
+    )
     limits: Limits = Field(description="The limits and the timeout this instance holds requests to.")
 
 
@@ -1263,18 +1268,24 @@ def version() -> VersionAnswer:
     `mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`
     otherwise.
 
+    `plotting` says whether the instance draws charts: `WD_RESTAPI_PLOTTING` (`Settings.restapi_plotting`, off by
+    default) is read for every request, as the refusal reads it, so a client learns before it asks for a chart
+    (`format=html`, `png`, `jpg`, `webp`, `svg` or `pdf`) whether it would get the 403 `charts-disabled`.
+
     `limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`
     and `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or
     `csv`, `max_groups` for the groups of `statistics`, and the `timeout` in seconds. A request that passes one is a
     400 problem of the kind `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
     """
+    settings = Settings()
     return VersionAnswer(
         version=__version__,
         api_version=API_VERSION,
         mcp_enabled=mcp_enabled,
         mcp_path=MCP_PREFIX if mcp_enabled else None,
         mcp_alias_path=MCP_ALIAS_PREFIX if mcp_enabled else None,
-        limits=limits_of(Settings()),
+        plotting=settings.restapi_plotting,
+        limits=limits_of(settings),
     )
 
 
