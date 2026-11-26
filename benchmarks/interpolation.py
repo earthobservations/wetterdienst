@@ -136,11 +136,12 @@ def draw_points(data: Data) -> alt.LayerChart:
             "value_label": [f"val: {value:.2f}" for value in values],
         },
     )
-    scale = alt.Scale(zero=False, padding=30)
+    # the labels reach 40 pixels above a point, so the northern one needs more room than the others
+    x_scale, y_scale = alt.Scale(zero=False, padding=30), alt.Scale(zero=False, padding=50)
     axis = alt.Axis(format=",.0f", tickCount=6, grid=False)
     base = alt.Chart(df).encode(
-        x=alt.X("easting:Q", title="easting [m]", scale=scale, axis=axis),
-        y=alt.Y("northing:Q", title="northing [m]", scale=scale, axis=axis),
+        x=alt.X("easting:Q", title="easting [m]", scale=x_scale, axis=axis),
+        y=alt.Y("northing:Q", title="northing [m]", scale=y_scale, axis=axis),
     )
     points = base.mark_circle(size=70, opacity=1).encode(color=alt.Color("color:N", scale=None))
     # the id above the value, each a line of its own above the point

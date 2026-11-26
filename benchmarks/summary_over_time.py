@@ -26,9 +26,9 @@ CACHE_DIR = Path(__file__).parent / ".cache"
 STATION_COLORS = {"01050": "gold", "01051": "blue", "01048": "green", "05282": "pink"}
 #: the panels from top to bottom: the summary, then each station
 PANELS = ["Summarized", *STATION_COLORS]
-#: the size of the picture in pixels, and the height of the plot area of a panel
-PICTURE_WIDTH, PICTURE_HEIGHT = 640, 480
-PANEL_HEIGHT = 51
+#: the size in pixels of the plot area of a panel: the picture is as large as the five panels, their titles, axes and
+#: the legend need, around 640 x 480 (a chart made of panels has no size of its own to ask for)
+PANEL_WIDTH, PANEL_HEIGHT = 602, 51
 
 
 def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat: float, lon: float) -> pl.DataFrame:
@@ -52,11 +52,17 @@ def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id: s
     return request.values().all().df
 
 
+def inline_data(df: pl.DataFrame) -> alt.InlineData:
+    """Give the rows of a frame as the text of a CSV file: Altair takes no more than 5000 rows of a frame itself."""
+    alt = altair()
+    frame = df.with_columns(pl.col("timestamp").dt.convert_time_zone("UTC").dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    parse = {"panel": "string", "station": "string", "timestamp": "date", "value": "number", "segment": "number"}
+    return alt.InlineData(values=frame.write_csv(), format=alt.CsvDataFormat(type="csv", parse=parse))
+
+
 def draw(summarized_df: pl.DataFrame, regular_dfs: dict[str, pl.DataFrame]) -> alt.VConcatChart:
     """Draw the summarized values and the values of each station, a panel each, one below the other in the same time."""
     alt = altair()
-    # 47 years of daily values of five series are far more than the 5000 rows Altair takes of a frame
-    alt.data_transformers.disable_max_rows()
     summarized = summarized_df.select(
         pl.lit("Summarized").alias("panel"),
         pl.col("taken_station_id").alias("station"),
@@ -69,9 +75,14 @@ def draw(summarized_df: pl.DataFrame, regular_dfs: dict[str, pl.DataFrame]) -> a
     ]
     # a line breaks where a station has no value for more than a day, instead of running straight across the gap
     df = pl.concat([summarized, *stations]).with_columns(
-        (pl.col("timestamp").diff().over("panel") > pl.duration(days=1)).cum_sum().over("panel").alias("segment"),
+        (pl.col("timestamp").diff().over("panel") > pl.duration(days=1))
+        .fill_null(value=False)
+        .cum_sum()
+        .over("panel")
+        .alias("segment"),
     )
-    domain = [df["timestamp"].min(), df["timestamp"].max()]
+    # the time in milliseconds, which is what the scale of a time takes as its domain
+    domain = [int(df["timestamp"].min().timestamp() * 1000), int(df["timestamp"].max().timestamp() * 1000)]
     color = alt.Color(
         "station:N",
         title="Stations",
@@ -81,7 +92,7 @@ def draw(summarized_df: pl.DataFrame, regular_dfs: dict[str, pl.DataFrame]) -> a
     panels = []
     for name in PANELS:
         last = name == PANELS[-1]
-        base = alt.Chart(df.filter(pl.col("panel") == name)).encode(
+        base = alt.Chart(inline_data(df.filter(pl.col("panel") == name))).encode(
             x=alt.X(
                 "timestamp:T",
                 scale=alt.Scale(type="utc", domain=domain, nice=False),
@@ -93,7 +104,7 @@ def draw(summarized_df: pl.DataFrame, regular_dfs: dict[str, pl.DataFrame]) -> a
         )
         mark = base.mark_circle(size=6, opacity=1) if name == "Summarized" else base.mark_line(strokeWidth=1)
         title = alt.TitleParams(name, anchor="start", fontSize=11, offset=2)
-        panels.append(mark.properties(width=PICTURE_WIDTH - 38, height=PANEL_HEIGHT, title=title))
+        panels.append(mark.properties(width=PANEL_WIDTH, height=PANEL_HEIGHT, title=title))
     return (
         alt.vconcat(*panels, spacing=9)
         .properties(title="Comparison of summarized values and single stations for temperature_air_mean_2m")
@@ -116,7 +127,7 @@ def main() -> None:
     chart = draw(summarized_df, regular_dfs)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = CACHE_DIR / "summary.png"
-    path.write_bytes(render_image(chart, "png", width=PICTURE_WIDTH, height=PICTURE_HEIGHT))
+    path.write_bytes(render_image(chart, "png"))
     print(f"picture: {path}")
 
 
