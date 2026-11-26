@@ -37,11 +37,11 @@ Types of changes:
   parameters in the answer to a wrong parameter name is shortened for providers with many (`dwd`
   `mosmix`, `noaa` `ghcn`); `coverage` lists them all (GH-4384)
 - The error of an unknown resolution, dataset or parameter name names the closest names first,
-  then how many there are and that `coverage` lists them all, in under 1,000 characters on every
-  provider and network (`noaa` `ghcn` was 8,148). A parameter in the form of another provider
-  (`daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`) is answered
-  with the whole corrected string, `daily/data/temperature_air_mean_2m`. The "renamed to" texts
-  and the exception types are as before (GH-4466)
+  then how many there are and that `coverage` lists them all, in under 1,000 characters (`noaa`
+  `ghcn` was 8,148), also for several unknown names in one request. A parameter in another
+  provider's form, an old name, or one written in the dataset's place gets the whole corrected
+  string: `daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`, is
+  `daily/data/temperature_air_mean_2m`. The "renamed to" texts are as before (GH-4466)
 
 ### Security
 

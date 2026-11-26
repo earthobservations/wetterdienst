@@ -152,7 +152,7 @@ def test_parameter_search_invalid(value: str | tuple, error: type[Exception], me
         ("daily/klx", "'klx'. Did you mean 'kl'? Available datasets:"),
         (
             "daily/kl/temperature_air_mean_200",
-            "'temperature_air_mean_200'. Did you mean 'temperature_air_mean_2m'? Closest parameters: temperature_",
+            "'temperature_air_mean_200'. Did you mean 'temperature_air_mean_2m'? Available parameters: temperature_",
         ),
         ("daily/kl/quality_wind", "'quality_wind' is a quality flag."),
         # renamed for 1.0 (GH-2032): the new name, not a guess at a near spelling
@@ -319,12 +319,9 @@ def test_a_dataset_lists_the_same_parameters_wherever_it_lists_them() -> None:
     for lookup in (lambda: dataset["klx"], lambda: dataset.klx):
         with pytest.raises((KeyError, AttributeError)) as raised:
             lookup()
-        # the closest of them, which the list of a dataset of 14 is cut to (GH-4466), and none is a flag
-        listed = str(raised.value).split("Closest parameters: ", 1)[1].split(" (", 1)[0]
-        names = [name.split("/")[0] for name in listed.split(", ")]
-        assert names
-        assert set(names) <= set(offered)
-        assert f"({len(offered)} in all; `coverage` lists them all)" in str(raised.value)
+        # the 14 that fit, closest first, and none is a flag
+        listed = str(raised.value).split("Available parameters: ", 1)[1].rstrip("'\"")
+        assert sorted(name.split("/")[0] for name in listed.split(", ")) == sorted(offered)
 
     # a flag asked for by name is still found, and answered as a flag where it is requested
     assert dataset["quality_wind"] is dataset.quality_wind
