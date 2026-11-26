@@ -655,9 +655,13 @@ the terms are those of each provider it lists.
   first), how it is `written` (`zone:<mez|mez-1973-75|mez-local-mean-time|woz>`, `raw:<text>`), its
   `meaning` and, where the source documents a closed set, its `codes` with their meanings (DMI's
   `validity:true` and `validity:false`, IMGW's `8`, `9`, `Z` and `11`, CHMI's quality `0` to `5`, the
-  MADIS flags of the NWS). Where the source tells the codes itself (DWD's QN levels, Frost's
-  `qualityCode`, GHCN's flags) the `meaning` names whose they are, and `codes` is `null`. The legend is
-  empty for a network whose readings carry no flag (LHMT, MeteoSwiss, WSV).
+  MADIS flags of the NWS, Hub'Eau's and Frost's codes; for DWD's observation network the QN levels of the
+  datasets read, in DWD's words with the description they are from, and for a dataset DWD describes no levels
+  of, a `meaning` that says so and `codes` `null`). Where the source tells the codes itself (GHCN's
+  flags) the `meaning` names whose they are, and `codes` is `null`. A network whose legend has no flag of the
+  source has `source_flag_note`, which says that this library carries none (`null` where it does), so
+  the first token of its `quality_flags` is none of the source's codes; for a source that does publish
+  one that is not read yet (GeoSphere's `<parameter>_flag`) it says so.
 
 A format with no body to put the block in carries the same in headers, and so does every JSON answer:
 
