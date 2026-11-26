@@ -213,6 +213,8 @@ An answer over the budget is cut, not refused, and says so:
 - **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
   required, so it is always the start of the window that is kept and the next window continues it. They have no
   `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
+  The `metadata.request` of their answers (cut ones too) says the `elevation` they were made at and which parameters
+  were corrected for it (`elevation_corrected`), so a value is told as corrected for the height or not.
 - **`stations`** with `name` is never cut: it asks for a few stations. Otherwise (`all`, a bounding
   box, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
   `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it. A `distance` is cut too, as a wide one lists

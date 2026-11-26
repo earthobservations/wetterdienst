@@ -174,7 +174,9 @@ when `elevation` is given, and when it is named by a station (`station`, `interp
 at the station's own elevation unless told another. Otherwise nothing was corrected and the difference is null, as it
 is for a station whose elevation is not known (a quantity that falls with height leaves such a station out) and for
 GHCN's 0.0, which is no elevation. The other quantities are not corrected whatever it says. The correction itself is not reported per row: it is the same for every row of a
-station, so it follows from the station's difference and the rate.
+station, so it follows from the station's difference and the rate. The answer says it once: its `metadata.request` has `elevation`, the elevation the
+values were made at (`null` for none), and `elevation_corrected`, the parameters that were brought to it (the headers
+`X-Wetterdienst-Elevation` and `X-Wetterdienst-Elevation-Corrected` of a CSV); a file written with `with_metadata=True` has them in its block.
 
 **Files.** A CSV, a spreadsheet or another file of the rows holds no list of records, so it holds what the rows
 have: a station id, or the ids of an interpolation joined by commas in one field (`00002,00003,00004,00005`), and

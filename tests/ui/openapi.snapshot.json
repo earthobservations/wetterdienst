@@ -6914,6 +6914,216 @@
         "title": "Crs",
         "description": "The reference system of the positions in the answer."
       },
+      "EstimateMetadata": {
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "title": "Api Version"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "title": "Retrieved At",
+            "description": "When this answer was made, in UTC."
+          },
+          "data_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Updated At",
+            "description": "When the source says the data of this answer was last updated, in UTC: the newest such date over what the answer was read from (a file without a date adds none), as the source states it, and not the time the answer was made (`retrieved_at`). Null where the source states none or the library does not read it for the network, as for a list of stations and a streamed answer (NDJSON, CSV), whose head goes out before the newest date is known. It is the date the source reported when the answer was made, with the copy of the listing or file it was read from: it may lag a file refreshed since by up to the time the listing is cached."
+          },
+          "provider": {
+            "$ref": "#/components/schemas/_Provider",
+            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line: `attribution` is the credit line to cite, `copyright` the rights holder's notice, shown for information."
+          },
+          "producer": {
+            "$ref": "#/components/schemas/_Producer"
+          },
+          "processing_note": {
+            "type": "string",
+            "title": "Processing Note",
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of `storm_cells` that the direction of a cell is calculated from its forecast track, and those of `kostra` that the values are DWD's statistics of the grid cell of the point. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+          },
+          "request": {
+            "$ref": "#/components/schemas/EstimateRequest"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/Counts"
+          },
+          "crs": {
+            "$ref": "#/components/schemas/Crs"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseWarning"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "What the answer is missing but did not fail on, each with a stable `code` and a `message`."
+          },
+          "search": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Search"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What `filter`, `sort`, `first`, `by` and `max_rows` searched, per station and parameter: present with one of them, also where no row matched. A streamed answer that chooses its rows station by station (a `filter` alone) has it in the `end` line of NDJSON and not in the first, which goes out before the search is done; one that chooses before it begins (`sort`, `first`) has it in the first line. A CSV has the totals of `searched`, `expected` and `matched` in headers where the rows were chosen before it began."
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ParameterInfo"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameters",
+            "description": "With `with_metadata` only."
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With `with_metadata` only."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "api_version",
+          "schema_version",
+          "retrieved_at",
+          "data_updated_at",
+          "provider",
+          "producer",
+          "processing_note",
+          "request",
+          "counts",
+          "crs",
+          "warnings"
+        ],
+        "title": "EstimateMetadata",
+        "description": "The `metadata` block of the answer of `interpolate` and `summarize`: that of `values`, with the elevation."
+      },
+      "EstimateRequest": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "network": {
+            "type": "string",
+            "title": "Network"
+          },
+          "parameters": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Parameters",
+            "description": "Every parameter read, as `resolution/dataset/parameter`: `daily/kl` is the list it means."
+          },
+          "periods": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Periods",
+            "description": "The periods read, oldest first."
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start",
+            "description": "Start of the window applied, in UTC; null for no window."
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End",
+            "description": "End of the window applied, in UTC; null for no window."
+          },
+          "stations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StationsSelected"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stations the answer is about; null for one that is not about stations, the warnings of `dwd/alerts` and the cells of `dwd/storm_cells`."
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation",
+            "description": "The elevation of the point the values were made for, in metres above mean sea level: the `elevation` the request gave; where it gave none and named the point by a `station`, that station's own elevation, which is what the answer is made at unless another is given. Null where there is none: the readings are those of the stations as they came."
+          },
+          "elevation_corrected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Elevation Corrected",
+            "description": "The parameters (`resolution/dataset/parameter`) whose readings were brought from each station's elevation to `elevation` before they were used: the quantities that fall with height (air temperature at 2 m and the dew point), and only where `elevation` is not null. Empty where there are none, which says that the values are the stations' readings as they came. The other parameters are not corrected whatever `elevation` says."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "network",
+          "parameters",
+          "periods",
+          "start",
+          "end",
+          "stations",
+          "elevation",
+          "elevation_corrected"
+        ],
+        "title": "EstimateRequest",
+        "description": "What `interpolate` and `summarize` were asked for: the request as resolved, and the elevation of the point."
+      },
       "Extent": {
         "properties": {
           "scope": {
@@ -10811,7 +11021,7 @@
             "title": "Values"
           },
           "metadata": {
-            "$ref": "#/components/schemas/ResponseMetadata"
+            "$ref": "#/components/schemas/EstimateMetadata"
           },
           "settings": {
             "$ref": "#/components/schemas/InterpolationSettings"
@@ -10830,7 +11040,7 @@
             "$ref": "#/components/schemas/_InterpolatedValuesOgcFeatureCollectionData"
           },
           "metadata": {
-            "$ref": "#/components/schemas/ResponseMetadata"
+            "$ref": "#/components/schemas/EstimateMetadata"
           },
           "settings": {
             "$ref": "#/components/schemas/InterpolationSettings"
@@ -12052,7 +12262,7 @@
             "title": "Values"
           },
           "metadata": {
-            "$ref": "#/components/schemas/ResponseMetadata"
+            "$ref": "#/components/schemas/EstimateMetadata"
           },
           "settings": {
             "$ref": "#/components/schemas/SummarySettings"
@@ -12071,7 +12281,7 @@
             "$ref": "#/components/schemas/_SummarizedValuesOgcFeatureCollectionData"
           },
           "metadata": {
-            "$ref": "#/components/schemas/ResponseMetadata"
+            "$ref": "#/components/schemas/EstimateMetadata"
           },
           "settings": {
             "$ref": "#/components/schemas/SummarySettings"
