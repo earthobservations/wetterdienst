@@ -119,7 +119,7 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
     The default drops the rows without a value, and with them their flags: a caller sees the text with
     `drop_nulls=False` or in the wide shape.
     """
-    assert stub.tokens or stub.suspects, (
+    assert stub.tokens or stub.suspects or stub.flagged, (
         f"{stub.provider}: a stub of a reader that maps a sentinel names the tokens it must carry"
     )
     df = stub.build(monkeypatch, drop_nulls=False)

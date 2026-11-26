@@ -157,10 +157,12 @@ _DWD_DUETT = (
 _GEOSPHERE_METADATA = "https://dataset.api.hub.geosphere.at/v1/station/historical/klima-v2-1d/metadata"
 
 _GEOSPHERE_FLAG = _plain(
-    "GeoSphere's quality flag of the value, the `<parameter>_flag` of the klima-v2 datasets (code list q21), as the "
-    "source writes it, a whole number ('12'): whether the value was checked, by a program or by a person, and whether "
-    "the check changed it. The words are GeoSphere's, German. A flag the source leaves empty ('undefiniert' in the "
-    "list) is left out, so that a reading without one has no such token.",
+    "GeoSphere's quality flag of the value, the `<parameter>_flag` of the klima-v2 datasets (code list q21): whether "
+    "the value was checked, by a program or by a person, and whether the check changed it. The library writes the "
+    "code as a whole number ('12'), also where the source writes a column that has gaps with a decimal ('20.0'). "
+    "The words are GeoSphere's, German. A flag the source leaves empty ('undefiniert' in the list) is left out, so "
+    "that a reading without one has no such token. The flag of the reduced air pressure (`pred`) of the hourly "
+    "dataset is not documented with a code list in the metadata; its value is written as the source gives it.",
     codes=_codes(
         c_0="ungeprüfte Daten",
         c_10="automatisch geprüft",

@@ -55,6 +55,9 @@ _CALM_WIND = Sentinel("0", where=pl.col("parameter") == "dd")
 # datasets alike, and the API serves it as a parameter of its own: asked for beside the value, so that both come in
 # the one response (GH-4480). Its code list is q21 (`code_lists` of the dataset's `/metadata`): null undefiniert,
 # 0 ungeprüfte Daten, 10 to 12 automatisch geprüft, 20 to 22 manuell geprüft. It is the plain code of `quality_flags`.
+# One exception: the flag of the reduced air pressure (`pred`) of the hourly dataset has no `code_list_ref` in the
+# metadata, so it is not documented with a code list; it is read like the others, and its value is written as the
+# source gives it.
 _FLAG_SUFFIX = "_flag"
 
 # the year of the end date the station list gives to a station that still reports (2100-12-31)
