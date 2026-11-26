@@ -724,7 +724,7 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
 
 
 @app.exception_handler(ImageTooManyPointsError)
-async def _refuse_too_many_points(request: Request, exc: ImageTooManyPointsError) -> JSONResponse:
+async def _refuse_too_many_points(request: Request, exc: ImageTooManyPointsError) -> Response:
     """Answer a chart of more points than the server draws with a 400 of the kind `limit-exceeded` (GH-3238).
 
     Raised once the chart is built, which is where its points are counted, and before it is drawn. The page is a
