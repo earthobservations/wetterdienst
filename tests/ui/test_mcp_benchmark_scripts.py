@@ -5780,3 +5780,203 @@ def test_an_inconclusive_rate_that_did_not_move_says_so() -> None:
     assert moved == "inconclusive"
     assert "unchanged" not in moved_text
     assert "unchanged" not in bench._non_inferiority("passed", 40, 40, 40, 40, 0.10)[1]  # noqa: SLF001
+
+
+# ------------------------------------------------ answers in the compact format (GH-4445)
+
+COMPACT_VALUES = """\
+# wetterdienst-compact/1 values
+# provider: German Weather Service (dwd/observation)
+# license: CC-BY-4.0 https://creativecommons.org/licenses/by/4.0/
+# attribution: Source: Deutscher Wetterdienst
+# source: https://opendata.dwd.de/climate_environment/CDC/
+# processing: Processed by wetterdienst: the provider's data was reshaped into a uniform table.
+# window: 2026-10-22T00:00Z/2026-10-30T23:59:59Z
+# time: UTC
+# retrieved: 2026-11-25T22:50Z (source updated 2026-11-25T09:05Z)
+# producer: wetterdienst 0.199.0, doi 10.5281/zenodo.3960624
+# warning missing-value-marker: 25 readings of the source were a marker for a missing value and are null.
+
+## stations
+station_id,name,latitude,longitude,elevation_m,region,wmo_id
+01975,"Hamburg-Fuhlsbüttel, Flughafen",53.6332,9.9881,11,Hamburg,10147
+
+## values daily/climate_summary station=01975
+# flags: 1 (periods that differ are listed after the table)
+timestamp,humidity_relative_mean(%),precipitation_amount(mm),temperature_air_mean_2m(°C)
+2026-10-22,83,0,10
+2026-10-23,91.5,3.6,9
+2026-10-24,,,9.8
+2026-10-25,,0.7,
+
+## flags daily/climate_summary station=01975 (exceptions)
+columns,from,to,flags
+humidity_relative_mean,2026-10-24,2026-10-25,"1,raw:-999"
+
+# end rows=10
+"""
+
+
+def test_a_compact_answer_is_read_into_its_header_and_tables() -> None:
+    """The first line names the tool; a header line is `# key: value`; a table has its attributes, columns and rows."""
+    doc = bench.parse_compact(COMPACT_VALUES)
+
+    assert doc is not None
+    assert (doc["version"], doc["tool"], doc["end"]) == ("1", "values", "rows=10")
+    assert doc["header"][0] == ("provider", "German Weather Service (dwd/observation)")
+    warning = "25 readings of the source were a marker for a missing value and are null."
+    assert ("warning missing-value-marker", warning) in doc["header"]
+    stations, values, flags = doc["tables"]
+    assert [stations["heading"], values["heading"], flags["heading"]] == [
+        "stations",
+        "values daily/climate_summary station=01975",
+        "flags daily/climate_summary station=01975 (exceptions)",
+    ]
+    # a quoted cell is the text it holds, with its comma
+    assert stations["rows"] == [
+        ["01975", "Hamburg-Fuhlsbüttel, Flughafen", "53.6332", "9.9881", "11", "Hamburg", "10147"]
+    ]
+    assert values["attrs"] == [("flags", "1 (periods that differ are listed after the table)")]
+    assert values["rows"][2] == ["2026-10-24", "", "", "9.8"]
+    assert flags["rows"] == [["humidity_relative_mean", "2026-10-24", "2026-10-25", "1,raw:-999"]]
+
+
+def test_a_text_that_is_not_a_compact_answer_is_none() -> None:
+    """JSON, a CSV and a first line of another format are not read as compact."""
+    for text in ('{"result": {"values": []}}', "station_id,value\n1,2\n", "# wetterdienst-compact/x values\n", ""):
+        assert bench.parse_compact(text) is None
+    assert bench.compact_text('{"result": "plain text"}') is None
+    assert bench.compact_text("{not json") is None
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_a_compact_answer_is_read_as_it_is_and_as_the_structured_content_of_the_result(*, wrapped: bool) -> None:
+    """A client may hand the model the body, or the JSON `{"result": body}`: both give the block's parts."""
+    text = json.dumps({"result": COMPACT_VALUES}) if wrapped else COMPACT_VALUES
+
+    assert bench.result_metadata(text) == {
+        "retrieved_at": "2026-11-25T22:50Z",
+        "data_updated_at": "2026-11-25T09:05Z",
+        "producer": {"name": "wetterdienst", "version": "0.199.0"},
+    }
+    assert bench.listed_stations(text) == [
+        {"id": "01975", "name": "Hamburg-Fuhlsbüttel, Flughafen", "lat": 53.6332, "lon": 9.9881}
+    ]
+    # the time is one `_timestamp` reads, which `_subject_call_time` asks for
+    assert bench._timestamp(bench.result_metadata(text)["retrieved_at"]) is not None  # noqa: SLF001
+
+
+def test_an_answer_without_a_date_of_its_data_has_none() -> None:
+    """`(source updated ...)` is only there where the source states a date."""
+    text = COMPACT_VALUES.replace(" (source updated 2026-11-25T09:05Z)", "")
+
+    assert bench.result_metadata(text)["data_updated_at"] is None
+    assert bench.result_metadata(text)["retrieved_at"] == "2026-11-25T22:50Z"
+
+
+def test_the_rows_of_a_compact_values_answer_are_those_of_the_long_json() -> None:
+    """A cell is a row; an empty cell is none; the unit is not in the name; a date or a timestamp is kept as written."""
+    rows = bench._rows_of_text(COMPACT_VALUES)  # noqa: SLF001
+
+    assert len(rows) == 3 + 3 + 1 + 2 - 1  # the readings of the four days: the empty cells are none
+    assert rows[0] == {
+        "station_id": "01975",
+        "resolution": "daily",
+        "dataset": "climate_summary",
+        "parameter": "humidity_relative_mean",
+        "timestamp": "2026-10-22",
+        "value": 83.0,
+    }
+    assert {r["parameter"] for r in rows} == {
+        "humidity_relative_mean",
+        "precipitation_amount",
+        "temperature_air_mean_2m",
+    }
+    assert [r["value"] for r in rows if r["parameter"] == "temperature_air_mean_2m"] == [10.0, 9.0, 9.8]
+    hourly = COMPACT_VALUES.replace("2026-10-22,", "2026-10-22T00:00Z,")
+    assert bench._rows_of_text(hourly)[0]["timestamp"] == "2026-10-22T00:00Z"  # noqa: SLF001
+    # JSON is still read as before
+    assert bench._rows_of_text('{"values": [{"value": 1}]}') == [{"value": 1}]  # noqa: SLF001
+
+
+def test_a_station_id_that_needs_quotes_is_read_back_in_the_heading() -> None:
+    """The station of a table heading is text, quoted by the writer where it has a space or a quote."""
+    text = COMPACT_VALUES.replace("station=01975", 'station="a b"')
+
+    assert {r["station_id"] for r in bench._rows_of_text(text)} == {"a b"}  # noqa: SLF001
+
+
+def test_the_span_command_reads_a_compact_values_call(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`span --values` takes the text of a compact answer as it takes the JSON of one."""
+    analysis = _analysis_file(tmp_path, "forecast-tokyo", "RESULT: 12 °C | tomorrow")
+    values = tmp_path / "v.txt"
+    values.write_text(
+        COMPACT_VALUES.replace("daily/climate_summary", "hourly/temperature_air")
+        .replace("2026-10-22,83,0,10", "2026-11-13T12:00Z,83,0,11")
+        .replace("2026-10-23,91.5,3.6,9", "2026-11-13T18:00Z,91.5,3.6,13")
+        .replace("2026-10-24,,,9.8", "2026-11-13T19:00Z,,,")
+        .replace("2026-10-25,,0.7,", "2026-11-13T20:00Z,,,"),
+        encoding="utf-8",
+    )
+
+    assert bench.main(["span", "--analysis", str(analysis), "--values", str(values), "--now", NOW]) == 0
+    out = json.loads(capsys.readouterr().out)
+
+    assert (out["span"], out["values_used"], out["figures"][0]["in_span"]) == ([7.0, 17.0], 2, True)
+
+
+COMPACT_CUT = COMPACT_VALUES.replace(
+    "# warning missing-value-marker: 25 readings of the source were a marker for a missing value and are null.",
+    "# warning forecast-from-now: The answer starts at the current hour (2026-11-12T19:00:00+00:00): the 3 earlier "
+    "timestamps (3 rows) of the model run are left out. For them, ask again with "
+    "`timestamp=2026-11-12T16:00:00+00:00/2026-11-12T18:00:00+00:00`.\n"
+    "# warning answer-truncated: The answer was cut to stay within 40,000 characters: 49 of 57 rows are returned, "
+    "from 2026-11-12T15:00:00+00:00 to 2026-11-14T15:00:00+00:00 (49 of 57 timestamps; the start of the window is "
+    "kept). For the rest, ask again with `timestamp=2026-11-14T16:00:00+00:00/2026-11-16`.",
+)
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_the_notes_of_a_compact_answer_are_kept_for_the_judge(tmp_path: Path, *, wrapped: bool) -> None:
+    """The cut note and the forecast note are header lines: each ends at its line, as written or as a JSON string."""
+    text = json.dumps({"result": COMPACT_CUT}) if wrapped else COMPACT_CUT
+    run = bench.parse_transcript(
+        _stream(
+            tmp_path,
+            _use("values", "a", provider="dwd"),
+            _stamped(_result("a", text), "2026-11-12T19:05:00.000Z"),
+            _use("stations", "b"),
+            _result("b", COMPACT_VALUES),
+        ),
+        PREFIX,
+    )
+
+    call, plain = run["calls"]
+    assert call["truncated"] is True
+    assert call["truncated_note"].startswith("The answer was cut to stay within 40,000 characters: 49 of 57 rows")
+    assert call["truncated_note"].endswith("`timestamp=2026-11-14T16:00:00+00:00/2026-11-16`.")
+    assert "\n" not in call["truncated_note"]
+    assert call["forecast_note"].startswith("The answer starts at the current hour (2026-11-12T19:00:00+00:00)")
+    assert call["forecast_note"].endswith("2026-11-12T18:00:00+00:00`.")
+    assert (call["retrieved_at"], call["data_updated_at"]) == ("2026-11-25T22:50Z", "2026-11-25T09:05Z")
+    assert "truncated" not in plain
+    assert run["truncated_calls"] == 1
+
+
+def test_a_note_that_is_a_json_string_still_ends_at_its_closing_quote() -> None:
+    """The cut note of a JSON answer is read to its closing quote as before; a real newline ends it as well."""
+    found = bench.TRUNCATED_NOTE_RE.search(CUT)
+
+    assert found is not None
+    assert found.group(0).endswith("2026-11-14T15:00:00+00:00.")
+    ended = bench.TRUNCATED_NOTE_RE.search("The answer was cut to stay within 40,000 characters: x.\nnext")
+    assert ended is not None
+    assert ended.group(0) == "The answer was cut to stay within 40,000 characters: x."
+
+
+def test_a_quoted_cell_holds_its_quotes_backslashes_and_newlines() -> None:
+    """A cell that is a JSON string ends at its own closing quote, whatever it holds, and a comma after it splits."""
+    line = r'01,"Say \"hi\", and\\leave","line one\n# end rows=0",,"\\",x'
+
+    assert bench._compact_cells(line) == ["01", 'Say "hi", and\\leave', "line one\n# end rows=0", "", "\\", "x"]  # noqa: SLF001
+    assert bench._compact_cells("a,") == ["a", ""]  # noqa: SLF001

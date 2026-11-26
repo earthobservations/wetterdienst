@@ -99,11 +99,13 @@ SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum a
 TRUNCATED_RE = re.compile(r'"code"\s*:\s*"answer-truncated"|The answer was cut to stay within [\d,]+ characters')
 #: the note of a cut answer: a JSON string that starts with this sentence (in a warning with rows, or at the head of the
 #: first resolution's `description` of a `coverage` answer), up to the closing quote
-TRUNCATED_NOTE_RE = re.compile(r'The answer was cut to stay within [\d,]+ characters(?:[^"\\]|\\.)*')
+TRUNCATED_NOTE_RE = re.compile(r'The answer was cut to stay within [\d,]+ characters(?:[^"\\\n]|\\.)*')
 #: a forecast answer that starts at the current hour says so: a warning `forecast-from-now` in the JSON, or the sentence
 #: `Forecast: ...` before the rows of a CSV
 FORECAST_JSON_RE = re.compile(r'"code"\s*:\s*"forecast-from-now"\s*,\s*"message"\s*:\s*"((?:[^"\\]|\\.)*)"')
 FORECAST_CSV_RE = re.compile(r"Forecast: ((?:(?!\\n|\n).)*)")
+#: ... or a line `# warning forecast-from-now: ...` in the header of a compact answer (GH-4445)
+FORECAST_COMPACT_RE = re.compile(r"^# warning forecast-from-now: (.*)$", re.MULTILINE)
 #: Claude Code 2.1.311 answers a large result of a tool with this notice and a preview of its first 2 KB, and no count
 #: of characters: `<persisted-output>\nOutput too large (57.2KB). Full output saved to: ...\n\nPreview (first 2KB):`
 SPILL_PERSISTED_RE = re.compile(r"^\s*<persisted-output>\s*Output too large \(([\d.,]+)\s*([KMG]?B)\)")
@@ -301,8 +303,187 @@ def _flatten(content: Any) -> str:  # noqa: ANN401
     return ""
 
 
+#: the first line of an answer in the compact format of the tools (GH-4445): `# wetterdienst-compact/1 values`
+COMPACT_FIRST = "# wetterdienst-compact/"
+#: `retrieved: 2026-11-25T22:48Z (source updated 2026-11-25T08:45Z)`, the second part only where the source states it
+_COMPACT_RETRIEVED_RE = re.compile(r"^(\S+)(?: \(source updated (\S+)\))?$")
+#: `producer: wetterdienst 0.199.0, doi 10.5281/zenodo.3960624`
+_COMPACT_PRODUCER_RE = re.compile(r"^(\S+) (\S+?),")
+#: a table of values: `values hourly/temperature_air station=01975`
+_COMPACT_VALUES_RE = re.compile(r"^values (\S+)/(\S+) station=(.*)$")
+
+
+def compact_text(text: str) -> str | None:
+    """Give the compact answer a tool result holds, or None where it holds none.
+
+    The text of the result is the answer itself, or the JSON `{"result": "<the answer>"}` a client hands over as the
+    structured content of the tool.
+    """
+    stripped = text.lstrip()
+    if stripped.startswith(COMPACT_FIRST):
+        return stripped
+    if stripped.startswith("{"):
+        try:
+            data = json.loads(stripped)
+        except ValueError:
+            return None
+        inner = data.get("result") if isinstance(data, dict) else None
+        if isinstance(inner, str) and inner.startswith(COMPACT_FIRST):
+            return inner
+    return None
+
+
+def _compact_cells(line: str) -> list[str]:
+    """Split a row of a table: a cell is a JSON string (it starts with a quote) or runs to the next comma.
+
+    A quoted cell is read as the text it holds, so an empty cell (a value that is not there) and a quoted empty text
+    are not told apart here, as they are not by a reader of the numbers.
+    """
+    cells: list[str] = []
+    i = 0
+    while True:
+        if line.startswith('"', i):
+            j = i + 1
+            while line[j] != '"':
+                j += 2 if line[j] == "\\" else 1
+            cells.append(json.loads(line[i : j + 1]))
+            i = j + 1
+        else:
+            j = line.find(",", i)
+            j = len(line) if j < 0 else j
+            cells.append(line[i:j])
+            i = j
+        if i >= len(line):
+            return cells
+        i += 1  # the comma
+        if i == len(line):
+            cells.append("")
+            return cells
+
+
+def _compact_value(raw: str) -> str:
+    """Read the value of a header line: the text itself, or the JSON string it is written as where it has to be."""
+    return json.loads(raw) if raw.startswith('"') else raw
+
+
+def parse_compact(text: str) -> dict[str, Any] | None:
+    """Read an answer in the compact format into its parts, or give None where the text is none.
+
+    `{"version", "tool", "header", "tables", "end"}`: `header` is a list of `(key, value)` (a warning is the key
+    `warning <code>`), a table is `{"heading", "attrs", "columns", "rows"}` with every cell text (an empty cell is
+    `""`: no value), `end` the text after `# end `. Standard library only, so that a benchmark run reads what the
+    server answered without the package: the grammar is that of `docs/usage/compact.md`.
+    """
+    body = compact_text(text)
+    if body is None:
+        return None
+    lines = body.split("\n")
+    first = lines[0].removeprefix(COMPACT_FIRST).split(" ", 1)
+    if len(first) != 2 or not first[0].isdigit():
+        return None
+    doc: dict[str, Any] = {"version": first[0], "tool": first[1].strip(), "header": [], "tables": [], "end": None}
+    blocks: list[list[str]] = [[]]
+    for line in lines[1:]:
+        if line == "":
+            blocks.append([])
+        else:
+            blocks[-1].append(line)
+    for index, block in enumerate(blocks):
+        if not block:
+            continue
+        if index == 0:
+            doc["header"] = [_compact_line(line) for line in block]
+        elif block[0].startswith("## "):
+            doc["tables"].append(_compact_table(block))
+        elif block[0].startswith("# end "):
+            doc["end"] = block[0].removeprefix("# end ")
+    return doc
+
+
+def _compact_line(line: str) -> tuple[str, str]:
+    """Read a line `# key: value` of a header or of a table's attributes."""
+    key, _, value = line.removeprefix("# ").partition(": ")
+    return key, _compact_value(value)
+
+
+def _compact_table(block: list[str]) -> dict[str, Any]:
+    """Read a table: its heading, the attributes under it, its column line and its rows."""
+    table: dict[str, Any] = {"heading": block[0][3:], "attrs": [], "columns": [], "rows": []}
+    rest = block[1:]
+    while rest and rest[0].startswith("# "):
+        table["attrs"].append(_compact_line(rest.pop(0)))
+    if rest:
+        table["columns"] = _compact_cells(rest[0])
+        table["rows"] = [_compact_cells(row) for row in rest[1:]]
+    return table
+
+
+def compact_metadata(doc: dict[str, Any]) -> dict[str, Any]:
+    """Give the parts of the `metadata` block a compact answer has: when it was made, the data's date, the version."""
+    header = dict(doc["header"])
+    meta: dict[str, Any] = {}
+    retrieved = _COMPACT_RETRIEVED_RE.match(header.get("retrieved", ""))
+    if retrieved:
+        meta["retrieved_at"] = retrieved.group(1)
+        meta["data_updated_at"] = retrieved.group(2)
+    producer = _COMPACT_PRODUCER_RE.match(header.get("producer", ""))
+    if producer:
+        meta["producer"] = {"name": producer.group(1), "version": producer.group(2)}
+    return meta
+
+
+def compact_stations(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    """Give the stations of the `stations` table of a compact answer, one dict of its columns for each."""
+    table = next((t for t in doc["tables"] if t["heading"] == "stations"), None)
+    if table is None:
+        return []
+    return [dict(zip(table["columns"], row)) for row in table["rows"]]  # noqa: B905 - python 3.9 has no `strict`
+
+
+def compact_rows(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    """Give the values of a compact answer as the rows of the JSON of `values`, in long shape.
+
+    A row is `station_id`, `resolution`, `dataset`, `parameter`, `timestamp` (as the table writes it: UTC, a date for a
+    table of whole days), `value` (a number) for each cell that has one. The unit of a column is dropped from its name;
+    the quality flags are not read: no consumer here asks for them.
+    """
+    rows: list[dict[str, Any]] = []
+    for table in doc["tables"]:
+        found = _COMPACT_VALUES_RE.match(table["heading"])
+        if not found or not table["columns"]:
+            continue
+        resolution, dataset, station = found.groups()
+        station = _compact_value(station)
+        names = [c.rpartition("(")[0] if c.endswith(")") and "(" in c else c for c in table["columns"][1:]]
+        for row in table["rows"]:
+            for name, cell in zip(names, row[1:]):  # noqa: B905 - python 3.9 has no `strict`
+                if cell == "":
+                    continue
+                try:
+                    value = float(cell)
+                except ValueError:
+                    continue
+                rows.append(
+                    {
+                        "station_id": station,
+                        "resolution": resolution,
+                        "dataset": dataset,
+                        "parameter": name,
+                        "timestamp": row[0],
+                        "value": value,
+                    }
+                )
+    return rows
+
+
 def result_metadata(text: str) -> dict[str, Any]:
-    """Parse a tool result and give its `metadata` block, whatever the layout of the JSON (compact, pretty, wrapped)."""
+    """Parse a tool result and give its `metadata` block, whatever the layout of the JSON (compact, pretty, wrapped).
+
+    An answer in the compact format has the parts of the block its header names (`compact_metadata`).
+    """
+    doc = parse_compact(text)
+    if doc is not None:
+        return compact_metadata(doc)
     try:
         data = json.loads(text)
     except ValueError:
@@ -316,6 +497,17 @@ def result_metadata(text: str) -> dict[str, Any]:
 
 def listed_stations(text: str) -> list[dict[str, Any]]:
     """Give the stations a `stations` result lists (id, name, position), at most 200 of them."""
+    doc = parse_compact(text)
+    if doc is not None:
+        return [
+            {
+                "id": s.get("station_id"),
+                "name": s.get("name"),
+                "lat": float(s["latitude"]) if s.get("latitude") else None,
+                "lon": float(s["longitude"]) if s.get("longitude") else None,
+            }
+            for s in compact_stations(doc)[:200]
+        ]
     try:
         data = json.loads(text)
     except ValueError:
@@ -452,14 +644,19 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                             call["result_chars"] = spill
                         elif len(text) < 2500 and SPILL_HINT.search(text) and SPILL_FILE.search(text):
                             call["spill_unrecognised"] = True
+                        # a compact answer reaches the model as it is or in the JSON string of the structured content:
+                        # its header lines are read as they are written
+                        body = compact_text(text) or text
                         if TRUNCATED_RE.search(text):
                             call["truncated"] = True
-                            note = TRUNCATED_NOTE_RE.search(text)
+                            note = TRUNCATED_NOTE_RE.search(body)
                             call["truncated_note"] = note.group(0).replace('\\"', '"')[:700] if note else None
                         if call["tool"] == "values":
                             found = FORECAST_JSON_RE.search(text)
                             if found:
                                 call["forecast_note"] = found.group(1).replace('\\"', '"')
+                            elif found := FORECAST_COMPACT_RE.search(body):
+                                call["forecast_note"] = _compact_value(found.group(1))
                             elif found := FORECAST_CSV_RE.search(text):
                                 call["forecast_note"] = found.group(1).strip()
                         meta = result_metadata(text)
@@ -3143,6 +3340,14 @@ def span_of_values(
     }
 
 
+def _rows_of_text(text: str) -> list[dict[str, Any]]:
+    """Take the rows out of the text of a `values` call: an answer in the compact format, else its JSON (`_rows_of`)."""
+    doc = parse_compact(text)
+    if doc is not None:
+        return compact_rows(doc)
+    return _rows_of(json.loads(text))
+
+
 def _rows_of(payload: Any) -> list[dict[str, Any]]:  # noqa: ANN401
     """Take the rows out of the JSON of a `values` call: a list, or an object with `values` (or `result.values`)."""
     if isinstance(payload, dict):
@@ -3191,7 +3396,7 @@ def span_for_run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError(msg)
     found = span_of_values(
         fact,
-        _rows_of(json.loads(text)),
+        _rows_of_text(text),
         answer=analysis["answer"],
         now=now,
         hours=args.hours,
