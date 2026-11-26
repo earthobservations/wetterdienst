@@ -638,6 +638,8 @@ def fit_stations(
         return content, metadata
     if result._stations_filter in _SMALL_SELECTIONS or result.df.get_column("station_id").n_unique() < 2:  # noqa: SLF001
         return _leave_block_out(result, request, render) or (content, metadata)
+    # the stations the selection found stay in the answer's counts when the stations are cut (GH-4472)
+    result = replace(result, _matched=metadata.counts.stations_matched)
     asked = request
     chosen = _fit_stations(result, asked, render, size, lead="", honest=False)
     if chosen.size > ANSWER_BUDGET and (
@@ -702,6 +704,7 @@ def fit_station_ids(
         cut = replace(
             result,
             df=result.df.head(count),
+            matched=total,
             warnings=[*result.warnings, {"code": ANSWER_TRUNCATED, "message": note}],
         )
         body, block = render(cut)
