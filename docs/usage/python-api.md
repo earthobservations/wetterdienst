@@ -1152,6 +1152,10 @@ chart.save("values.html")  # an interactive page; chart.to_dict() is the Vega-Li
 png = values.to_image(fmt="png", width=1000, height=600, scale=2)  # bytes: an image of 2000 x 1200 pixels
 ```
 
+`chart.save(...)`, `chart.to_html(...)` and `chart.to_dict()` are Altair's own: a station map saved with them is
+Vega-Lite with every label on the side of its dot, and places none. `result.to_image(...)` and `result.to_format("html")`
+draw and write the map as the REST API and the command line do, with its labels placed (see below).
+
 - **The formats** are `html`, `png`, `jpg`, `svg` and `pdf`. `webp` is gone with Plotly and Kaleido: write a PNG and
   convert it (with Pillow, say) where the format is needed.
 - **The size is the size asked for.** `width` and `height` are the pixels of the whole picture, the axes and the legend
@@ -1166,12 +1170,17 @@ png = values.to_image(fmt="png", width=1000, height=600, scale=2)  # bytes: an i
   the package ships (742 KB) and which nothing fetches while it draws. There are no map tiles, and at the scale of a
   town the borders are those of a map of the world at 1:50 million. Every station has its dot; Vega places a label round
   its dot where it is clear of the other labels and of the dots, and leaves it out of an image where it fits nowhere
-  (the page keeps every name in its tooltip). `chart.save("x.png")` is Altair's own and places none: use
-  `result.to_image(...)`.
+  (the page keeps every name in its tooltip). It does so in `result.to_image(...)` and `result.to_format("html")` only,
+  not in what `chart.save(...)` writes.
 - **The text** is set in Liberation Sans, which vl-convert carries, so that an image is the same on every system.
+- **vl-convert 2's settings are the process's.** A theme, a number or time locale or a font setting of your own process
+  (`vl_convert.configure(...)`, `load_config`) changes our images too. The one thing we set is the list of allowed
+  addresses, to none, for the time of a render, and it is put back as you had it; a chart of yours with data from an
+  address is not drawn here at all (a `ValueError`), as it holds none.
 - **A caller of the earlier releases** who took the Plotly figure that `to_plot()` returned (`to_plot().update_layout(...)`,
   `to_plot().write_image(...)`) takes the Altair chart now: `chart.properties(...)`, `chart.save("name.png")`
-  (vl-convert writes it) or `result.to_image(...)`. A Plotly figure is no longer made.
+  (vl-convert writes it, Altair's own way: a map's labels are not placed) or `result.to_image(...)`. A Plotly figure is
+  no longer made.
 
 The map's borders are Natural Earth data, public domain: "Made with Natural Earth. Free vector and raster map data at
 [naturalearthdata.com](https://www.naturalearthdata.com)".

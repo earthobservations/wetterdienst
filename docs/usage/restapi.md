@@ -1745,9 +1745,18 @@ a network that is not served, is told that charts are off, not to lower the `sca
 `width`, `height` and `scale` of a request in a data format are ignored, as they were. The OpenAPI document is the same
 for every server: `format` keeps its chart values, and its description says that a chart needs the setting.
 
-A chart is drawn by vl-convert in the process of the server, and a server that draws charts is one that spends time and memory on them, which is why a public server keeps them off. Measured (2026-11-26): vl-convert 2 draws in a worker thread of its own and does not hold the interpreter, so the server goes on answering while a chart renders: on a real `uvicorn` with one worker `/health` was answered in a median 1 ms during renders of a month of values, of the station map and of a chart of 100,000 points, and waited at most 0.1 s with one chart of 100,000 points rendering and 0.5 s with four, 1.2 s with sixteen. The charts render one after another in that one worker, so a chart waits for those before it: about 0.3 s for a month of values, 1.5 s for the station map and 11 s for a chart of 100,000 points (1.3 GB), and sixteen of the last took more than the default [request timeout](#timeout) of 60 seconds, which answered 11 of them `504` while the worker went on. A station map made some requests wait up to 0.6 s (four at once) and 3 s (sixteen), which was not traced to a cause. See [Image size](#image-size) for the limits. With `WD_RESTAPI_PLOTTING=true` the answers are what they were. The
-library, the command line (`--format=png`) and the web app, which draws its own charts in the browser, are not affected,
-and the MCP tools offer no chart. The index page and the web app link to none.
+A chart is drawn by vl-convert in the process of the server, one at a time, and a server that draws charts spends
+time and memory on them, which is why a public server keeps them off. Measured (2026-11-26): vl-convert 2 draws in a
+worker thread of its own and does not hold the interpreter, so the server goes on answering while a chart renders. On
+a real `uvicorn` with one worker `/health` was answered in a median 1 ms during renders of a month of values, of the
+station map and of a chart of 100,000 points, and waited at most 0.1 s with one chart of 100,000 points rendering, 0.5 s
+with four and 1.2 s with sixteen. The charts render one after another in that one worker, so a chart waits for those
+before it: about 0.3 s for a month of values, 1.5 s for the station map and 11 s for a chart of 100,000 points (1.3 GB).
+Sixteen of the last took more than the default [request timeout](#timeout) of 60 seconds, which answered 11 of them
+`504`. A station map made some requests wait up to 0.6 s (four at once) and 3 s (sixteen), which was not traced to a
+cause. See [Image size](#image-size) for the limits. With `WD_RESTAPI_PLOTTING=true` the answers are what they were.
+The library, the command line (`--format=png`) and the web app, which draws its own charts in the browser, are not
+affected, and the MCP tools offer no chart. The index page and the web app link to none.
 
 ```shell
 WD_RESTAPI_PLOTTING=true wetterdienst restapi --listen 0.0.0.0:7890
@@ -2016,8 +2025,9 @@ and what follows is for an instance that others can reach (the
   the `svg` answers only, which need no script or request: not with data answers, the `html` chart (a script by
   design), `pdf`, or `/docs` and `/redoc`, which load their own from a CDN. Other headers (HSTS, a
   `Referrer-Policy`, a policy for those answers) are for the reverse proxy to add.
-- **Charts.** A chart is drawn by vl-convert in the server's process, which it holds while it draws, so [charts](#charts)
-  are off until you set `WD_RESTAPI_PLOTTING=true`; a public server is better off without them.
+- **Charts.** A chart is drawn by vl-convert in the server's process, one at a time, and takes time and memory (11 s
+  and 1.3 GB at 100,000 points), so [charts](#charts) are off until you set `WD_RESTAPI_PLOTTING=true`; a public server
+  is better off without them.
 - **SQL.** The REST API and the MCP tools take no SQL any more, see [SQL filters](#sql-filters); a server started with
   `WD_RESTAPI_SQL=true` warns once and runs without it.
 - **Limits.** The [limits](#limits) are the ones you set. How to set them, and what raising one costs, is on

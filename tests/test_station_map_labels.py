@@ -10,6 +10,8 @@ station in its tooltip. The positions and the opacity are read off the scenegrap
 from __future__ import annotations
 
 import datetime as dt
+import functools
+import io
 import itertools
 import json
 import math
@@ -19,6 +21,7 @@ from typing import Any
 
 import polars as pl
 import pytest
+from PIL import Image
 
 pytest.importorskip("altair")
 vlc = pytest.importorskip("vl_convert")
@@ -97,29 +100,85 @@ def _scenegraph(chart: Any) -> dict[str, Any]:  # noqa: ANN401
 
 
 def _dots(chart: Any) -> list[dict[str, Any]]:  # noqa: ANN401
-    """Give the items of the mark of the dots: the first mark of circles of the chart."""
-    name = next(mark["name"] for mark in _vega(chart)["marks"] if mark["type"] == "symbol")
-    return _scenegraph(chart)[name]["items"]
+    """Give the items of the mark of the dots."""
+    return _scenegraph(chart)[f"{charts._DOTS}_marks"]["items"]  # noqa: SLF001
+
+
+@functools.cache
+def _metrics(texts: tuple[str, ...]) -> dict[str, tuple[float, float]]:
+    """Measure the width and height in pixels of each text as the chart draws it: its ink, in the font of the chart.
+
+    The texts are drawn in a picture of their own, a row each, 10 px Liberation Sans as the labels are, and the ink of
+    each row is measured: the width of a label is that and one more pixel, which a metric of the font would not make
+    different by more than the side bearings.
+    """
+    if not texts:
+        return {}
+    row = 24
+    vega = {
+        "$schema": "https://vega.github.io/schema/vega/v6.json",
+        "width": 700,
+        "height": row * len(texts),
+        "padding": 0,
+        "background": "white",
+        "marks": [
+            {
+                "type": "text",
+                "encode": {
+                    "update": {
+                        "text": {"value": text},
+                        "x": {"value": 10},
+                        "y": {"value": row * index + 16},
+                        "font": {"value": charts.FONT},
+                        "fontSize": {"value": 10},
+                        "fill": {"value": "black"},
+                    }
+                },
+            }
+            for index, text in enumerate(texts)
+        ],
+    }
+    image = Image.open(io.BytesIO(vlc.vega_to_png(vega))).convert("L")
+    found = {}
+    for index, text in enumerate(texts):
+        band = image.crop((0, row * index, image.width, row * (index + 1)))
+        left, top, right, bottom = band.point(lambda value: 255 if value < 200 else 0).getbbox()  # type: ignore[misc]
+        found[text] = (right - left + 1.0, bottom - top + 1.0)
+    return found
 
 
 def _boxes(
     chart: Any,  # noqa: ANN401
-    per_character: float = 4.4,
+    *,
+    slack: float = 0.0,
 ) -> tuple[list[tuple[str, tuple[float, float, float, float]]], list[tuple[float, float]]]:
-    """Give the boxes of the visible labels, as small as the text can be, and the centres of the dots.
+    """Give the boxes of the visible labels, measured, and the centres of the dots.
 
-    The box is a little narrower and lower than the text (4.4 pixels a character, 8 high), placed as the align and the
-    baseline of the label say: a test that finds two of them overlap has found labels that overlap.
+    A box is the ink of the text (`_metrics`) and `slack` pixels more all round, placed as the align and the baseline
+    of the label say.
     """
+    items = [item for item in _scenegraph(chart)["label_text"]["items"] if item["opacity"] != 0]
+    metrics = _metrics(tuple(item["text"] for item in items))
     labels = []
-    for item in _scenegraph(chart)["label_text"]["items"]:
-        if item["opacity"] == 0:
-            continue
-        width = per_character * len(item["text"])
+    for item in items:
+        width, height = metrics[item["text"]]
         left = {"left": item["x"], "right": item["x"] - width}.get(item["align"], item["x"] - width / 2)
-        top = {"top": item["y"], "bottom": item["y"] - 8}.get(item["baseline"], item["y"] - 4)
-        labels.append((item["text"], (left, top, left + width, top + 8)))
+        top = {"top": item["y"], "bottom": item["y"] - height}.get(item["baseline"], item["y"] - height / 2)
+        labels.append((item["text"], (left - slack, top - slack, left + width + slack, top + height + slack)))
     return labels, [(item["x"], item["y"]) for item in _dots(chart)]
+
+
+#: the radius of a dot in pixels with its white edge: `size` 60 is a disk of 4.37 and the edge is 0.8 wide
+DOT_RADIUS = 4.8
+
+
+def _on_a_dot(box: tuple[float, ...], dots: list[tuple[float, float]], radius: float = DOT_RADIUS) -> bool:
+    """Tell whether a box touches the disk of a dot: the point of the box nearest to its centre is within the radius."""
+    return any(
+        math.hypot(x - min(max(x, box[0]), box[2]), y - min(max(y, box[1]), box[3])) < radius
+        or (box[0] < x < box[2] and box[1] < y < box[3])
+        for x, y in dots
+    )
 
 
 def _overlap(a: tuple[float, ...], b: tuple[float, ...]) -> bool:
@@ -127,7 +186,10 @@ def _overlap(a: tuple[float, ...], b: tuple[float, ...]) -> bool:
 
 
 def test_a_dense_map_keeps_no_label_on_another_label_or_on_a_dot() -> None:
-    """Forty stations of two datasets in a picture of 700 x 500: what is shown is clear of everything else."""
+    """Forty stations of two datasets in a picture of 700 x 500: what is shown is clear of everything else.
+
+    The boxes are the ink of the text as the font draws it, and a dot is the disk it is, not its centre.
+    """
     result = _stations(GERMANY, ("temperature_air", "precipitation"))
     labels, dots = _boxes(result.to_plot())
 
@@ -135,7 +197,7 @@ def test_a_dense_map_keeps_no_label_on_another_label_or_on_a_dot() -> None:
     for (first, a), (second, b) in itertools.combinations(labels, 2):
         assert not _overlap(a, b), (first, second)
     for name, box in labels:
-        assert not any(box[0] < x < box[2] and box[1] < y < box[3] for x, y in dots), name
+        assert not _on_a_dot(box, dots), name
 
 
 def test_every_dot_stays() -> None:
@@ -170,7 +232,7 @@ def _placed(chart: Any) -> list[tuple[str, float, float, float]]:  # noqa: ANN40
 
 
 def test_the_same_stations_give_the_same_labels_in_whatever_order() -> None:
-    """The labels are taken in the order of the names, not of the rows: shuffles give the same picture."""
+    """The labels are taken the most crowded first and then by name, not in the order of the rows: shuffles agree."""
     result = _stations(GERMANY, ("temperature_air", "precipitation"))
     expected = _placed(result.to_plot())
     assert _placed(result.to_plot()) == expected
@@ -200,7 +262,7 @@ def test_the_page_places_the_labels_in_the_browser_and_keeps_every_name_in_its_t
         assert "vega-lite" not in spec["$schema"]
         assert len(transforms) == 2
         assert all(name in page for name in names)
-        dots = next(mark for mark in spec["marks"] if mark["type"] == "symbol")
+        dots = next(mark for mark in spec["marks"] if mark["name"] == f"{charts._DOTS}_marks")  # noqa: SLF001
         assert "tooltip" in dots["encode"]["update"]
         assert transforms[0]["avoidMarks"] == [dots["name"]]
 
@@ -264,15 +326,15 @@ def _crowded(extra: int) -> list[tuple[str, float, float]]:
     return points
 
 
-def _candidates(anchor: tuple[float, float], text: str) -> list[tuple[float, float, float, float]]:
-    """Give the boxes a label of `text` can be put in round `anchor`, as the transform tries them: 8 sides, 3 distances.
+def _candidates(anchor: tuple[float, float], width: float, height: float) -> list[tuple[float, float, float, float]]:
+    """Give the boxes a label of `width` x `height` can be put in round `anchor`: the 8 sides at the 3 distances.
 
-    The box is as large as the text can be (5.6 pixels a character and 2 more, 12 high), where the boxes it has to be
-    clear of are 5.3 pixels a character and 3 more all round (`_blocked`): a place that is free of them is free
-    whatever the font makes of the text, so a label with such a place left should not have been hidden.
+    The box is a little larger than the ink (3 pixels more each way), where what it has to be clear of is 2 pixels
+    larger than its own: a place that is free of them is free whatever the font makes of the text, so a label with such
+    a place left should not have been hidden.
     """
     x, y = anchor
-    width = 5.6 * len(text) + 2
+    width, height = width + 3, height + 3
     boxes = []
     for offset in (6, 14, 24):
         near = offset + 0.5
@@ -282,27 +344,33 @@ def _candidates(anchor: tuple[float, float], text: str) -> list[tuple[float, flo
             (diagonal, -diagonal), (-diagonal, -diagonal), (diagonal, diagonal), (-diagonal, diagonal),
         ):  # fmt: skip
             left = x + dx if dx > 0 else x + dx - width if dx < 0 else x - width / 2
-            top = y - 6 if dy == 0 else y + dy if dy > 0 else y + dy - 12
-            boxes.append((left, top, left + width, top + 12))
+            top = y - height / 2 if dy == 0 else y + dy if dy > 0 else y + dy - height
+            boxes.append((left, top, left + width, top + height))
     return boxes
 
 
 def _blocked(chart: Any) -> tuple[list[str], list[str]]:  # noqa: ANN401
     """Give the labels that are hidden and, of them, the ones that had a box free: those should not be hidden."""
     drawn = _scenegraph(chart)
-    labels, dots = _boxes(chart, per_character=5.3)
-    # what a label has to be clear of, with the 3 pixels the font and the pixels the transform works in take
-    taken = [(b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3) for _, b in labels]
-    taken += [(x - 7.4, y - 7.4, x + 7.4, y + 7.4) for x, y in dots]
+    labels, dots = _boxes(chart, slack=2.0)
+    taken = [box for _, box in labels]
+    hidden_items = [
+        (item, anchor)
+        for item, anchor in zip(
+            drawn["label_text"]["items"],
+            drawn[f"{charts._ANCHORS}_marks"]["items"],  # noqa: SLF001
+            strict=True,
+        )
+        if item["opacity"] == 0
+    ]
+    metrics = _metrics(tuple(item["text"] for item, _ in hidden_items))
     hidden, free = [], []
     view = (0.0, 0.0, 680.0, 433.0)
-    for item, anchor in zip(drawn["label_text"]["items"], drawn["layer_2_marks"]["items"], strict=True):
-        if item["opacity"] != 0:
-            continue
+    for item, anchor in hidden_items:
         hidden.append(item["text"])
-        for box in _candidates((anchor["x"], anchor["y"]), item["text"]):
+        for box in _candidates((anchor["x"], anchor["y"]), *metrics[item["text"]]):
             inside = box[0] >= view[0] and box[1] >= view[1] and box[2] <= view[2] and box[3] <= view[3]
-            if inside and not any(_overlap(box, other) for other in taken):
+            if inside and not any(_overlap(box, other) for other in taken) and not _on_a_dot(box, dots, DOT_RADIUS + 2):
                 free.append(item["text"])
                 break
     return hidden, free
@@ -348,3 +416,47 @@ def test_the_candidates_of_the_transform_are_the_8_sides_at_3_distances() -> Non
 
     assert transform["anchor"] == charts._SIDES * 3  # noqa: SLF001
     assert transform["offset"] == [6] * 8 + [14] * 8 + [24] * 8
+
+
+def _crowds(points: list[tuple[str, float, float]], datasets: tuple[str, ...]) -> dict[str, int]:
+    """Give the crowd of each station as the chart writes it: the dots of other stations within reach."""
+    spec = _stations(points, datasets).to_plot().to_dict()
+    (text,) = (d for d in spec["datasets"].values() if isinstance(d, str) and "crowd" in d.splitlines()[0])
+    frame = pl.read_csv(io.StringIO(text), schema_overrides={"name": pl.String})
+    return dict(zip(frame["name"], frame["crowd"], strict=True))
+
+
+def test_the_dots_of_a_station_in_other_datasets_are_no_crowd() -> None:
+    """A lone station in three datasets has three dots on one spot and is crowded by none of them."""
+    alone = [("Alone", 50.0, 10.0)]
+
+    assert _crowds(alone, ("a", "b", "c")) == {"Alone (00001)": 0}
+
+
+def test_the_dots_of_another_station_beside_one_are_its_crowd() -> None:
+    """Two stations 10 px apart crowd each other by one for each dot, and a third far away is crowded by neither.
+
+    One is in two datasets, so it has two dots, and Two has one.
+    """
+    scale = charts.MAP_WORLD_PIXELS * 2**6 / 360
+    points = [("One", 50.0, 10.0), ("Two", 50.0, 10.0 + 10 / scale), ("Far", 50.0, 14.0)]
+
+    crowds = _crowds(points, ("a", "b"))
+
+    assert (crowds["One (00001)"], crowds["Two (00002)"]) == (1, 2)
+    assert crowds["Far (00003)"] == 0
+
+
+def test_a_map_page_cannot_be_ended_by_a_station_name_inline_or_from_the_cdn() -> None:
+    """The page of the map writes its specification as the others do: `<`, `>` and `&` are escaped."""
+    evil = "</script><script>alert(1)</script>&"
+    for inline in (True, False):
+        page = charts.chart_to_html(_stations([(evil, 50.0, 10.0), ("Plain", 51.0, 11.0)]).to_plot(), inline=inline)
+        harmless = charts.chart_to_html(
+            _stations([("Plain", 50.0, 10.0), ("Plain 2", 51.0, 11.0)]).to_plot(), inline=inline
+        )
+
+        assert "</script><script>" not in page
+        assert page.count("<script") == harmless.count("<script")
+        assert page.count("</script>") == harmless.count("</script>")
+        assert "\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e\\u0026" in page

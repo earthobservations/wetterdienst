@@ -34,7 +34,7 @@ Types of changes:
   (GH-4461)
 - **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for
   values, a `LayerChart` for the station map), no longer a Plotly figure. The `plotting` extra is
-  `altair` and `vl-convert-python>=2.0.0rc7` now, with no Chrome. Where you called Plotly methods
+  `altair` and `vl-convert-python` now, with no Chrome. Where you called Plotly methods
   on the figure (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image
   exactly `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a
   Vega-Embed page with zoom and pan along time. vl-convert has no wheel for musllinux, Windows
@@ -59,8 +59,9 @@ Types of changes:
   tooltip) (GH-3238)
 - The `plotting` extra needs `vl-convert-python>=2.0.0rc7,<3`, a release candidate (pip and uv
   take it from the specifier): vl-convert 2 renders in a worker and does not hold the interpreter,
-  so the server answers while a chart renders, and Vega's label transform works in it. The floor
-  is 2.0.0 when that is out. It has no wheel below Python 3.10 or for musllinux (GH-4095)
+  so the server answers while a chart renders, and Vega's label transform works in it. Its
+  settings are the process's: a theme or locale of your own changes our images, and the allowed
+  addresses are none for a render and yours again after. The floor is 2.0.0 when it is out (GH-4095)
 - The `mcp` extra needs `fastmcp>=4.2.4` (was 4.1.2), which the Docker image and an environment
   synced from `uv.lock` now hold. The text of a tool error is as before. FastMCP cuts the text of
   an upstream error at 1,000 characters (`… (truncated)`) from 4.1.5, so the list of available

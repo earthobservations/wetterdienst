@@ -518,8 +518,22 @@ def test_a_chart_that_asks_for_an_address_is_refused_and_the_address_is_not_aske
                     break
             time.sleep(0.1)
         chart = alt.Chart(f"http://127.0.0.1:{port}/secret.csv").mark_point().encode(x="a:Q")
-        with pytest.raises(Exception, match=r"(?i)allowed|url|http|127"):
-            render_image(chart, "png")
+        vlc = pytest.importorskip("vl_convert")
+        found = vlc.get_config()["allowed_base_urls"]
+        try:
+            # whatever the caller has allowed for their own charts, ours are refused: by the check of the specification
+            # (`charts._refuse_addresses`, which needs no setting of the process) ...
+            for allowed in ([], ["*"]):
+                vlc.configure(allowed_base_urls=allowed)
+                with pytest.raises(Exception, match=r"(?i)allowed|url|http|127"):
+                    render_image(chart, "png")
+            # ... and, were one let past it, by the setting that is ours for the time of a render
+            vlc.configure(allowed_base_urls=["*"])
+            with charts.vl_convert() as inside, pytest.raises(Exception, match=r"(?i)allowed|url|http|127"):
+                inside.vegalite_to_svg(chart.to_dict())
+            assert vlc.get_config()["allowed_base_urls"] == ["*"]
+        finally:
+            vlc.configure(allowed_base_urls=found)
     finally:
         server.kill()
         server.wait()
@@ -823,14 +837,17 @@ def test_the_thinned_data_keeps_the_lowest_and_highest_values_where_a_line_has_n
 
 
 def test_a_picture_writes_nothing_to_stderr(tmp_path: Any) -> None:  # noqa: ANN401
-    """The zoom and pan of the page are not in a picture: vl-convert 2 writes that it has no window for them."""
+    """Nothing of a picture or a page is on stderr: no window for the zoom and pan, no `tree-shaker` pass."""
     code = textwrap.dedent(
         """
         from tests.test_charts import _stations_result, _values
         from wetterdienst.io import charts
-        from wetterdienst.io.export import render_image
+        from wetterdienst.io.export import chart_to_html, render_image
 
         for chart in (charts.values_chart(_values()), _stations_result().to_plot()):
+            # the first inline page of a process makes vl-convert's bundle, which wrote `tree-shaker; pass=1` and so on
+            assert "vega" in chart_to_html(chart)
+            assert "vega" in chart_to_html(chart)
             for fmt in ("png", "svg", "pdf"):
                 render_image(chart, fmt)
         """
@@ -849,17 +866,53 @@ def test_a_picture_writes_nothing_to_stderr(tmp_path: Any) -> None:  # noqa: ANN
     assert done.stderr == ""
 
 
-def test_no_address_is_let_through_whatever_else_configured_vl_convert() -> None:
-    """vl-convert 2 has no address per call: its configuration is the guard, set where a chart is drawn, every time."""
+def _every_way_to_draw() -> list[Any]:
+    """Give the ways this library draws with vl-convert: the images, the measure of a chart of rows, the pages."""
+    values = charts.values_chart(_values(parameters=("a", "b", "c"), hours=3))
+    stations = _stations_result().to_plot()
+    return [
+        lambda: render_image(values, "svg"),
+        lambda: render_image(stations, "png"),
+        lambda: charts.chart_to_html(stations),
+        lambda: charts.chart_to_html(stations, inline=False),
+        lambda: charts.chart_to_html(values),
+        lambda: charts.chart_to_html(values, inline=False),
+    ]
+
+
+def test_the_setting_of_the_caller_is_the_same_after_a_render(tmp_path: Any) -> None:  # noqa: ANN401
+    """vl-convert 2's allowed addresses are the process's: ours are none, for a render, and then the caller's again."""
     vlc = pytest.importorskip("vl_convert")
+    found = vlc.get_config()["allowed_base_urls"]
+    csv_file = tmp_path / "own.csv"
+    csv_file.write_text("a\n1\n2\n")
+    own = {"data": {"url": str(csv_file)}, "mark": "point", "encoding": {"x": {"field": "a", "type": "quantitative"}}}
+    ways = _every_way_to_draw()
     try:
-        vlc.configure(allowed_base_urls=["*"])
-        assert vlc.get_config()["allowed_base_urls"] == ["*"]
-        chart = charts.empty_chart()
-        render_image(chart, "svg")
-        assert vlc.get_config()["allowed_base_urls"] == []
-        vlc.configure(allowed_base_urls=["*"])
-        chart_to_html(chart)
-        assert vlc.get_config()["allowed_base_urls"] == []
+        for setting in (["*"], ["https://example.com/"], [str(tmp_path)], ["http:", "https:"], []):
+            vlc.configure(allowed_base_urls=setting)
+            for draw in ways:
+                draw()
+                assert vlc.get_config()["allowed_base_urls"] == setting
+        # a chart of the caller's own, with data from where they allowed, is drawn after ours as it was before
+        vlc.configure(allowed_base_urls=[str(tmp_path)])
+        render_image(charts.empty_chart(), "svg")
+        assert vlc.vegalite_to_svg(own).startswith("<svg")
     finally:
-        vlc.configure(allowed_base_urls=[])
+        vlc.configure(allowed_base_urls=found)
+
+
+def test_a_chart_that_reads_from_an_address_is_not_drawn_whatever_the_setting() -> None:
+    """The check needs no setting of the process: the specification names a URL, an image, and it is refused."""
+    import altair as alt  # noqa: PLC0415
+
+    for chart in (
+        alt.Chart("https://example.com/data.csv").mark_point().encode(x="a:Q"),
+        alt.Chart(alt.InlineData(values=[{"a": 1, "u": "x"}])).mark_image().encode(url="u:N"),
+    ):
+        with pytest.raises(ValueError, match="URL"):
+            render_image(chart, "svg")
+        with pytest.raises(ValueError, match="URL"):
+            charts.chart_to_html(chart)
+        with pytest.raises(ValueError, match="URL"):
+            charts.chart_to_html(chart, inline=False)
