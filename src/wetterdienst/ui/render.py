@@ -248,7 +248,7 @@ def _applied_settings(model: type[_M], options: Options) -> _M:
     )
 
 
-#: the most points a chart of the REST API or an MCP tool draws, an image or a page (GH-3238): 87,000 points take
+#: the most points a chart of the REST API draws, an image or a page (GH-3238): 87,000 points take
 #: 3.4 s to draw and 262,000 take 10 s and 2.6 GB, during which vl-convert 1.9 holds the interpreter. The library
 #: and the command line draw what they are given
 MAX_IMAGE_POINTS = 100_000

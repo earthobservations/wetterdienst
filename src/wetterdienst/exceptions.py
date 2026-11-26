@@ -471,9 +471,10 @@ class ParameterNotCarriedError(RequestError):
 class ImageTooLargeError(RequestError):
     """Raised when a chart would be rendered larger than the caller allows (`max_side`), in pixels on a side.
 
-    The REST API sets the limit and answers it with a 400. The size is only known once the figure is
-    built, as a chart of several parameters is 300 px taller for each, so this is raised after the
-    values were collected and before the browser is started.
+    The REST API sets the limit and answers it with a 400. The size is only known once the chart is
+    built, as a chart of several parameters is 300 px taller for each, and a chart of rows too small for its labels
+    is the smallest that holds them: the size is the one the picture is drawn at, `scale` applied. This is raised
+    after the values were collected and before anything is drawn.
     """
 
     def __init__(self, width: float, height: float, max_side: int) -> None:
@@ -494,7 +495,7 @@ class ImageTooLargeError(RequestError):
 class ImageTooManyPointsError(RequestError):
     """Raised when a chart would draw more points than the caller allows (`max_points`).
 
-    The REST API and the MCP tools set the limit and answer it with a 400 of the kind `limit-exceeded`: vl-convert
+    The REST API sets the limit and answers it with a 400 of the kind `limit-exceeded`: vl-convert
     holds the interpreter while it draws, and a page embeds every point it draws. The library and the command line
     set none. Counted from the data of the chart once it is built, before it is drawn.
     """

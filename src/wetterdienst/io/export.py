@@ -52,7 +52,10 @@ def check_image_size(
     """Raise `ImageTooLargeError` when the image of `chart` would have a side over `max_side` pixels.
 
     Measured as it will be drawn: a size the caller gives wins over the chart's own, which is the default size
-    of its kind (a chart of rows is `charts.ROW_HEIGHT` pixels high for each), and `scale` multiplies the result.
+    of its kind (a chart of rows is `charts.ROW_HEIGHT` pixels high for each), and `scale` multiplies the result. The
+    size asked for is checked first, which costs nothing; then the size the picture really has, since a chart of rows
+    too small for its labels is the smallest that holds them, which can be far more than was asked for (`width=1`,
+    `height=1` and `scale=8192` would be 753,000 pixels wide).
     Nothing is checked without `max_side`, which is what the library and the CLI do.
     """
     if max_side is None:
@@ -63,6 +66,9 @@ def check_image_size(
     rendered_height = (height or default_height) * factor
     if max(rendered_width, rendered_height) > max_side:
         raise ImageTooLargeError(rendered_width, rendered_height, max_side)
+    drawn_width, drawn_height = charts.drawn_size(chart, width, height)
+    if max(drawn_width, drawn_height) * factor > max_side:
+        raise ImageTooLargeError(drawn_width * factor, drawn_height * factor, max_side)
 
 
 def check_image_points(chart: alt.TopLevelMixin, max_points: int | None) -> None:
@@ -94,6 +100,7 @@ def render_image(
     width: int | None = None,
     height: int | None = None,
     scale: float | None = None,
+    max_side: int | None = None,
 ) -> bytes:
     """Render a chart as an image of `fmt` with vl-convert, in this process, with no browser, exactly as large as asked.
 
@@ -104,11 +111,13 @@ def render_image(
     Raises:
         UnknownFormatError: `fmt` is no image format.
         MissingDependencyError: Altair or vl-convert is not installed.
+        ImageTooLargeError: a side of the picture, as drawn and `scale` applied, is more than `max_side` pixels, where
+            that is given (the library and the command line give none).
 
     """
     if fmt not in IMAGE_FORMATS:
         raise UnknownFormatError(fmt, IMAGE_FORMATS)
-    return charts.render(chart, fmt, width=width, height=height, scale=scale)
+    return charts.render(chart, fmt, width=width, height=height, scale=scale, max_side=max_side)
 
 
 def _taken_by(method: Callable[..., object], kwargs: Mapping[str, Any]) -> dict[str, Any]:

@@ -26,26 +26,29 @@ Types of changes:
   nothing else meanwhile (about 5 s for a chart of 100,000 points). On your own server set the
   variable to keep the charts, or ask for `json`, `geojson` or `csv`. The library, the command
   line, the MCP tools and the web app are unchanged (GH-4461)
-- **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for values, a
-  `LayerChart` for the station map), no longer a Plotly figure. The `plotting` extra is `altair`
-  and `vl-convert-python` now, with no Chrome. Where you called Plotly methods on the figure
-  (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image exactly
-  `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a
+- **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for
+  values, a `LayerChart` for the station map), no longer a Plotly figure. The `plotting` extra is
+  `altair` and `vl-convert-python` now, with no Chrome. Where you called Plotly methods on the
+  figure (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image
+  exactly `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a
   Vega-Embed page with zoom and pan along time. vl-convert has no wheel for musllinux, Windows
   ARM64 or a free-threaded Python (GH-3238)
 - **Breaking**: `webp` is no longer an image format: REST `format=`, `--format` and `to_format`
   take `html`, `png`, `jpg`, `svg` and `pdf`. Ask for `png` and convert it (GH-3238)
 - **Breaking**: `ImageTimeoutError`, the REST problem `image-timeout`, `render_image(timeout=)`
-  and `IMAGE_TIMEOUT` are removed: there is no browser that can hang. `require_kaleido` is
-  `require_vl_convert` (GH-3238)
+  and `IMAGE_TIMEOUT` are removed: there is no browser that can hang. Drop the
+  `except ImageTimeoutError` and any match on `image-timeout`, and the `timeout=` of
+  `render_image`. `require_kaleido` is `require_vl_convert` (GH-3238)
 - Where REST charts are on, a chart of more than 100,000 points (an image or `html`, which embeds
   them) is refused with a 400 `limit-exceeded`, `limit` `image_points`: vl-convert 1.9 holds the
-  interpreter while it draws. The Python API and the CLI have no limit (GH-3238)
+  interpreter while it draws. A chart too small for its labels is measured as it is drawn, so
+  `scale` cannot take an image past the 8192 px of `image-too-large`. The Python API and the CLI
+  have no limit (GH-3238)
 - Images are drawn in the process by vl-convert, in 0.1 to 1 s where Kaleido started a Chrome for
-  each: the Docker image installs none. They are exactly `width` x `height` pixels (times `scale`),
-  and a series of more than 5000 rows is drawn. The look changes: Liberation Sans for all text,
-  and the station map draws the country borders of Natural Earth 1:50m (shipped, nothing fetched)
-  where it drew OpenStreetMap tiles (GH-3238)
+  each: the Docker image installs none. They are exactly `width` x `height` pixels (times
+  `scale`). The look changes: Liberation Sans for all text, and the station map draws the country
+  borders of Natural Earth 1:50m (shipped, nothing fetched) where it drew OpenStreetMap tiles
+  (GH-3238)
 
 ### Fixed
 

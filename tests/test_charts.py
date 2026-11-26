@@ -236,6 +236,20 @@ def test_the_scale_multiplies_a_png_and_a_jpg(kind: str, scale: float) -> None:
     assert _jpg_size(render_image(chart, "jpg", scale=scale)) == expected
 
 
+@pytest.mark.parametrize(("width", "height"), [(1, 1), (100, 100), (700, 500), (300, 1000)])
+def test_the_drawn_size_is_the_size_of_the_picture_a_chart_too_small_for_its_labels_makes(
+    width: int, height: int
+) -> None:
+    """`drawn_size` is what the PNG has (the smallest that holds the labels where less is asked), before `scale`."""
+    chart = charts.values_chart(_values(parameters=("a", "b", "c", "d")))
+    drawn = charts.drawn_size(chart, width, height)
+
+    assert _png_size(render_image(chart, "png", width=width, height=height)) == drawn
+    assert drawn[0] >= width or drawn[1] >= height or drawn == (width, height)
+    # a chart of one view is as large as asked, whatever it is asked for
+    assert charts.drawn_size(charts.empty_chart(), 3, 4) == (3, 4)
+
+
 def test_a_chart_of_rows_is_as_tall_as_its_rows_make_it_by_default() -> None:
     """300 pixels for each row of parameters: the default height is read off the chart, and is what is drawn."""
     for rows in (1, 2, 5):

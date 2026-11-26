@@ -14,7 +14,7 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   tool, which the Claude connectors directory requires and clients use to skip a confirmation (GH-3482),
 - the refusal of an argument a tool does not take, which FastMCP would drop,
 - input schemas without the options that make sense on the REST API only: the size and scale of a chart image,
-  `pretty` and the chart formats (html, png, jpg, webp, svg, pdf), which a model reading JSON cannot use and which
+  `pretty` and the chart formats (html, png, jpg, svg, pdf), which a model reading JSON cannot use and which
   cost every session part of its tool list (GH-4318),
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),

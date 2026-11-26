@@ -20,6 +20,7 @@ does not apply, 87,000 points build in a tenth of a second, and nothing is share
 
 from __future__ import annotations
 
+import csv
 import functools
 import io
 import json
@@ -30,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
+from wetterdienst.exceptions import ImageTooLargeError
 from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
@@ -60,11 +62,17 @@ def altair() -> Any:  # noqa: ANN401 -- the module, optional
     return import_optional("altair", "Plotting", extra="plotting")
 
 
-def _meta(width: int, height: int, rows: int | None = None) -> dict[str, dict[str, int]]:
-    """Give the `usermeta` of a chart: the size it is drawn at and the rows it has."""
+def _meta(width: int, height: int, rows: int | None = None, points: int | None = None) -> dict[str, dict[str, int]]:
+    """Give the `usermeta` of a chart: the size it is drawn at, the rows of parameters it has and its points.
+
+    The points are the rows of its data, written down where the chart is built: a label of a row of parameters can
+    hold a line break, so the lines of the CSV text are no count of them.
+    """
     meta = {"width": width, "height": height}
     if rows:
         meta["rows"] = rows
+    if points is not None:
+        meta["points"] = points
     return {_META: meta}
 
 
@@ -174,7 +182,7 @@ def values_chart(df: pl.DataFrame, *, tooltip: str | None = None) -> alt.TopLeve
             )
         )
         .resolve_scale(y="independent")
-        .properties(usermeta=_meta(DEFAULT_WIDTH, ROW_HEIGHT * len(rows), len(rows)))
+        .properties(usermeta=_meta(DEFAULT_WIDTH, ROW_HEIGHT * len(rows), len(rows), frame.height))
     )
     return _style(chart, view_stroke="#ddd")
 
@@ -267,7 +275,7 @@ def stations_chart(
             height=height,
             padding=_MAP_PADDING,
             autosize=alt.AutoSizeParams(type="fit", contains="padding"),
-            usermeta=_meta(width, height),
+            usermeta=_meta(width, height, points=frame.height),
             view=alt.ViewConfig(fill="#e3edf4", stroke=None),
         )
     )
@@ -354,15 +362,26 @@ _PDF_POINTS_PER_PIXEL = 0.75
 _FIT = {"type": "fit", "contains": "padding"}
 #: the root of an SVG: its size, in pixels
 _SVG_ROOT = re.compile(r'(<svg\b[^>]*?)\swidth="([\d.]+)"\sheight="([\d.]+)"')
-#: the lines of the data (all of them, the header included) above which a measuring render is given a cut down copy
+#: the rows of the data above which a measuring render is given a cut down copy
 _MEASURED_ROWS = 4000
 
 
+def _csv_rows(text: str) -> int:
+    """Count the rows of CSV text, a line break inside a quoted field being no row."""
+    return max(0, sum(1 for _ in csv.reader(io.StringIO(text))) - 1)
+
+
 def count_points(chart: alt.TopLevelMixin) -> int:
-    """Count the points a chart draws: the rows of its largest inline dataset, which a page embeds as well."""
+    """Count the points a chart draws: the rows of its data, which a page embeds as well.
+
+    A chart of the library says how many it has (`usermeta`); the rows of a chart without that are those of its
+    largest inline dataset.
+    """
     spec = chart.to_dict()
-    sizes = [data.count("\n") - 1 for data in spec.get("datasets", {}).values() if isinstance(data, str)]
-    return max(sizes, default=0)
+    points = _spec_meta(spec).get("points")
+    if points is not None:
+        return points
+    return max((_csv_rows(data) for data in spec.get("datasets", {}).values() if isinstance(data, str)), default=0)
 
 
 def default_size(chart: alt.TopLevelMixin) -> tuple[int, int]:
@@ -384,19 +403,38 @@ def sized_spec(chart: alt.TopLevelMixin, width: int | None = None, height: int |
     drawn once, small, to see what its axes, legend and labels take, and its plot areas are those that leave the rest;
     what the whole numbers of pixels leave over goes to the padding.
     """
+    return _sized(chart, width, height)[0]
+
+
+def drawn_size(chart: alt.TopLevelMixin, width: int | None = None, height: int | None = None) -> tuple[float, float]:
+    """Give the size in pixels the picture of a chart really has, before `scale`.
+
+    That is the size asked for, unless the chart is a chart of rows too small for its labels, legend and axes: it is
+    then the smallest that holds them, which is more than was asked for (4 rows at 1 x 1 pixel are 130 x 306).
+    """
+    if _spec_meta(chart.to_dict()).get("rows"):
+        return _sized(chart, width, height)[1:]
+    default_width, default_height = default_size(chart)
+    return width or default_width, height or default_height
+
+
+def _sized(chart: alt.TopLevelMixin, width: int | None, height: int | None) -> tuple[dict[str, Any], float, float]:
+    """Give the specification of `sized_spec` and the size in pixels of the picture it draws."""
     spec = chart.to_dict()
     meta = _spec_meta(spec)
     wide, high = width or meta.get("width", DEFAULT_WIDTH), height or meta.get("height", DEFAULT_HEIGHT)
     rows = meta.get("rows")
     if rows:
-        _fit_rows(spec, wide, high, rows)
-    else:
-        spec.update(width=wide, height=high, autosize=_FIT)
-    return spec
+        return spec, *_fit_rows(spec, wide, high, rows)
+    spec.update(width=wide, height=high, autosize=_FIT)
+    return spec, wide, high
 
 
-def _fit_rows(spec: dict[str, Any], width: int, height: int, rows: int) -> None:
-    """Set the plot area of a row and the padding of a chart so that it is `width` x `height` pixels."""
+def _fit_rows(spec: dict[str, Any], width: int, height: int, rows: int) -> tuple[float, float]:
+    """Set the plot area of a row and the padding of a chart so that it is `width` x `height` pixels.
+
+    Gives the size the picture has: that, or the smallest size that holds its labels where `width` x `height` is less.
+    """
     cell = spec["spec"]
     cell["width"], cell["height"] = _cell(width, height, rows)
     legend = cell["encoding"]["color"]["legend"]
@@ -418,6 +456,7 @@ def _fit_rows(spec: dict[str, Any], width: int, height: int, rows: int) -> None:
     # legend and axes cannot lose (the plot area is not less than a pixel)
     spec["padding"]["right"] += max(0, math.ceil(width - measured_width))
     spec["padding"]["bottom"] += max(0, math.ceil(height - measured_height))
+    return max(float(width), measured_width), max(float(height), measured_height)
 
 
 def _measure(spec: dict[str, Any]) -> tuple[float, float]:
@@ -440,7 +479,8 @@ def _thinned(spec: dict[str, Any]) -> dict[str, Any]:
     """
     name = spec.get("data", {}).get("name")
     data = spec.get("datasets", {}).get(name)
-    if not isinstance(data, str) or data.count("\n") <= _MEASURED_ROWS:
+    points = _spec_meta(spec).get("points")
+    if not isinstance(data, str) or (points if points is not None else _csv_rows(data)) <= _MEASURED_ROWS:
         return {**spec, "spec": dict(spec["spec"])}
     frame = pl.read_csv(io.StringIO(data), infer_schema_length=0).with_row_index("_row")
     value = pl.col("value").cast(pl.Float64)
@@ -486,19 +526,34 @@ def chart_to_html(chart: alt.TopLevelMixin, *, inline: bool = True) -> str:
     return chart.to_html(inline=inline, json_kwds={"cls": _HtmlSafeEncoder})
 
 
-def render(chart: alt.TopLevelMixin, fmt: str, *, width: int | None, height: int | None, scale: float | None) -> bytes:
+def render(
+    chart: alt.TopLevelMixin,
+    fmt: str,
+    *,
+    width: int | None,
+    height: int | None,
+    scale: float | None,
+    max_side: int | None = None,
+) -> bytes:
     """Draw a chart as `png`, `jpg`, `svg` or `pdf` with vl-convert, in this process, with no browser.
 
     The size of the picture is `width` x `height` pixels, times `scale`. A PNG and a JPG have that many pixels; an SVG
     says that size in its root, and is a vector: its drawing is the same at every scale; the page of a PDF is that
     size in points at 96 pixels to the inch, which is 0.75 point to the pixel (a picture of 700 x 500 pixels is a page
     of 525 x 375 points, as it was).
+
+    Raises:
+        ImageTooLargeError: a side of the picture drawn, `scale` applied, is more than `max_side` pixels. The size
+            is that of the picture and not the size asked for, which a chart too small for its labels exceeds.
+
     """
     vlc = import_optional("vl_convert", "Rendering an image", extra="plotting")
-    spec = sized_spec(chart, width, height)
+    spec, drawn_width, drawn_height = _sized(chart, width, height)
+    factor = 1.0 if scale is None else scale
+    if max_side is not None and max(drawn_width, drawn_height) * factor > max_side:
+        raise ImageTooLargeError(drawn_width * factor, drawn_height * factor, max_side)
     # a specification holds all its data, so no address is needed: none is let through
     options: dict[str, Any] = {"allowed_base_urls": []}
-    factor = 1.0 if scale is None else scale
     if fmt == "png":
         return vlc.vegalite_to_png(spec, scale=factor, **options)
     if fmt == "jpg":

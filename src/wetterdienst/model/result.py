@@ -418,17 +418,17 @@ def _draw_chart(
 ) -> bytes | str:
     """Write a chart in a format of the registry: the html page, or an image drawn by vl-convert.
 
-    The points and the size of an image are checked first, before anything is drawn, and the `plotting` extra is
-    asked for.
+    The size of an image, as it will be drawn, and then its points are checked first, before anything is drawn, and
+    the `plotting` extra is asked for.
     """
     if fmt == "html":
         check_image_points(chart, max_points)
         return chart_to_html(chart)
     if is_image(fmt):
-        check_image_points(chart, max_points)
         check_image_size(chart, width, height, scale, max_side)
+        check_image_points(chart, max_points)
         require_vl_convert()
-        return render_image(chart, fmt, width=width, height=height, scale=scale)
+        return render_image(chart, fmt, width=width, height=height, scale=scale, max_side=max_side)
     raise UnknownFormatError(fmt, names_of("chart"))
 
 

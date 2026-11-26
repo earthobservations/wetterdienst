@@ -1163,7 +1163,7 @@ png = values.to_image(fmt="png", width=1000, height=600, scale=2)  # bytes: an i
   so that Altair's limit of 5000 rows, which `alt.data_transformers` would lift for the whole process, is not reached,
   and no file is written. Polars frames need no pandas.
 - **The station map** draws the stations on the borders and coastlines of the countries of Natural Earth 1:50m, which
-  the package ships (733 KB) and which nothing fetches while it draws. There are no map tiles, and at the scale of a
+  the package ships (742 KB) and which nothing fetches while it draws. There are no map tiles, and at the scale of a
   town the borders are those of a map of the world at 1:50 million.
 - **The text** is set in Liberation Sans, which vl-convert carries, so that an image is the same on every system.
 - **A caller of the earlier releases** who took the Plotly figure that `to_plot()` returned (`to_plot().update_layout(...)`,

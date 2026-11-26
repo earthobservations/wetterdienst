@@ -687,30 +687,6 @@ def blocked_network() -> list[object]:
     return _GUARD_STATE["refused"]
 
 
-@pytest.fixture
-def chart_draws_itself(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Have `render_image` ask the chart for its image, so a test can stand in a chart that answers `to_image`.
-
-    A test that is about what happens to the image (the headers it is sent with, where it is written) and not about
-    drawing it gives a chart of its own, an object with a `to_image(format=..., width=..., height=..., scale=...)`,
-    and uses this to have that answer reach the caller instead of a render by vl-convert.
-    """
-
-    def draw(
-        chart: Any,  # noqa: ANN401
-        fmt: str,
-        *,
-        width: int | None = None,
-        height: int | None = None,
-        scale: float | None = None,
-    ) -> Any:  # noqa: ANN401
-        return chart.to_image(format=fmt, width=width, height=height, scale=scale)
-
-    monkeypatch.setattr("wetterdienst.io.export.render_image", draw)
-    # the REST API binds the name where it is imported
-    monkeypatch.setattr("wetterdienst.ui.restapi.render_image", draw)
-
-
 #: how long an offline test may run before it is failed as hung, in seconds: the slowest take about a minute, and
 #: the image tests, about 10 s with a dozen of them at once on a loaded machine. Short enough that the two reruns of a
 #: hung test (`--only-rerun HungTestError`) end before the 27 minutes of GH-3723
