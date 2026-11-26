@@ -1459,7 +1459,8 @@ class TimeseriesRequest:
         )
         matches = match_names(name, candidates.get_column("name").to_list(), threshold)
         station_ids = candidates.get_column("station_id")
-        selected = list(dict.fromkeys(station_ids[index] for index, _ in matches))[:rank]
+        found = list(dict.fromkeys(station_ids[index] for index, _ in matches))
+        selected = found[:rank]
 
         if selected:
             position = pl.DataFrame({"station_id": selected, "_match": range(len(selected))})
@@ -1481,6 +1482,8 @@ class TimeseriesRequest:
             _df_all=df_all,
             _stations_filter=StationsFilter.BY_NAME,
             _rank=rank,
+            # the stations the name matched, of which the best `rank` are kept (GH-4472)
+            _matched=len(found),
         )
 
     def filter_by_rank(

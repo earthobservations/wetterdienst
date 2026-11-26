@@ -123,6 +123,13 @@ class Counts(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     stations: int = Field(description="The stations in the answer; 0 for one that is not about stations.")
+    stations_matched: int | None = Field(
+        default=None,
+        description="Only in the answer of `stations`: how many stations match the request. `stations` is fewer where "
+        "the answer was cut: by `rank` (the nearest `rank` of the stations that could be ranked, the best `rank` of "
+        "the names that matched) or, for a tool's answer, to the budget of 40,000 characters (`answer-truncated`). "
+        "Equal to `stations` where nothing was cut; absent from every other answer.",
+    )
     rows: int = Field(
         description="The rows of `values` (one per timestamp in the wide shape, one per value in the long "
         "one), the stations listed, the histories, the issues, the alerts or the storm cells.",
@@ -303,6 +310,10 @@ class StationIdsCounts(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     stations: int = Field(description="How many stations (rows) the answer has.")
+    stations_matched: int = Field(
+        description="How many stations the search found: more than `stations` where a tool's answer was cut to its "
+        "budget of 40,000 characters (`answer-truncated`), and equal to it otherwise.",
+    )
     providers: int = Field(description="How many providers have a station in it.")
     networks_searched: int = Field(description="How many networks were asked.")
     networks_answered: int = Field(description="How many of them read their list.")
@@ -617,15 +628,27 @@ def response_metadata(
     """Build the block of the answer to `request`, which `result` is the result of.
 
     `heavy` adds the units and the quality legend, and is what `with_metadata` of the request asks for
-    by default. `rows` is given where the answer holds something other than the rows of the result's frame.
+    by default. `rows` is given where the answer holds something other than the rows of the result's frame. The
+    answer to a `stations` request says how many stations match (`counts.stations_matched`), no other does.
     """
+    from wetterdienst.ui.core import StationsRequest  # noqa: PLC0415
+
     return result_metadata(
         result,
         provider=request.provider,
         network=request.network,
         heavy=request.with_metadata if heavy is None else heavy,
         rows=rows,
+        matched=isinstance(request, StationsRequest),
     )
+
+
+def _stations_matched(result: StationsResult | _ValuesResult[Any, Any], listed: int) -> int | None:
+    """Give how many stations the selection of a stations result found: its own count, or the `listed` ones."""
+    if not isinstance(result, StationsResult):
+        return None
+    # never fewer than the stations listed
+    return listed if result._matched is None else max(result._matched, listed)  # noqa: SLF001
 
 
 def result_metadata(
@@ -635,10 +658,13 @@ def result_metadata(
     network: str,
     heavy: bool,
     rows: int | None = None,
+    matched: bool = False,
 ) -> ResponseMetadata:
     """Build the block of an answer made from `result` when the request does not name the provider and network.
 
-    `response_metadata` is this for the requests that name them.
+    `response_metadata` is this for the requests that name them. `matched` adds `counts.stations_matched`, for the
+    answer that lists the stations of a `StationsResult`: the stations the selection found, which are more than the
+    ones in `result.df` where a `rank` or the budget of a tool's answer cut them (GH-4472).
     """
     stations = result if isinstance(result, StationsResult) else result.stations
     frame = result.df if isinstance(result, StationsResult) else result.df_stations
@@ -667,7 +693,11 @@ def result_metadata(
                 ids=ids if len(ids) <= MAX_LISTED_STATION_IDS else None,
             ),
         ),
-        counts=Counts(stations=len(ids), rows=result.df.height if rows is None else rows),
+        counts=Counts(
+            stations=len(ids),
+            stations_matched=_stations_matched(result, len(ids)) if matched else None,
+            rows=result.df.height if rows is None else rows,
+        ),
         crs=Crs(),
         warnings=recorded_warnings(),
     )
@@ -944,6 +974,7 @@ def station_ids_metadata(result: StationIdSearchResult) -> StationIdsMetadata:
         ),
         counts=StationIdsCounts(
             stations=result.df.height,
+            stations_matched=result.df.height if result.matched is None else result.matched,
             providers=len(providers),
             networks_searched=len(searched),
             networks_answered=sum(network.status == "searched" for network in searched),
@@ -961,6 +992,7 @@ def station_ids_headers(metadata: StationIdsMetadata) -> Mapping[str, str]:
         "X-Wetterdienst-Schema-Version": metadata.schema_version,
         "X-Wetterdienst-Retrieved-At": metadata.retrieved_at,
         "X-Wetterdienst-Stations": str(metadata.counts.stations),
+        "X-Wetterdienst-Stations-Matched": str(metadata.counts.stations_matched),
     }
     if metadata.providers:
         headers["X-Wetterdienst-Provider"] = _header_text(", ".join(p.name_english for p in metadata.providers))
@@ -987,13 +1019,25 @@ def station_ids_headers(metadata: StationIdsMetadata) -> Mapping[str, str]:
 
 def metadata_to_dict(metadata: ResponseMetadata) -> dict[str, Any]:
     """Write the block as the JSON of an answer has it: the heavy parts only where they were asked for."""
-    exclude = {name for name in (*_HEAVY, "search") if getattr(metadata, name) is None}
+    exclude: dict[str, Any] = {name: True for name in (*_HEAVY, "search") if getattr(metadata, name) is None}
+    # only the answer of `stations` has it
+    if metadata.counts.stations_matched is None:
+        exclude["counts"] = {"stations_matched"}
     return metadata.model_dump(mode="json", exclude=exclude)
 
 
 def _header_text(value: str) -> str:
     """Write a header value that may carry more than ASCII (an attribution) as percent-encoded UTF-8."""
     return quote(value, safe=" ,.:;/()-_@=+'!*&")
+
+
+def _count_headers(counts: Counts) -> dict[str, str]:
+    """Write the `counts` of a block as headers: the stations and the rows, and how many stations matched if it says."""
+    headers = {"X-Wetterdienst-Stations": str(counts.stations)}
+    if counts.stations_matched is not None:
+        headers["X-Wetterdienst-Stations-Matched"] = str(counts.stations_matched)
+    headers["X-Wetterdienst-Rows"] = str(counts.rows)
+    return headers
 
 
 def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
@@ -1008,8 +1052,7 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
         "X-Wetterdienst-Schema-Version": metadata.schema_version,
         "X-Wetterdienst-Retrieved-At": metadata.retrieved_at,
         "X-Wetterdienst-Provider": _header_text(provider["name_english"]),
-        "X-Wetterdienst-Stations": str(metadata.counts.stations),
-        "X-Wetterdienst-Rows": str(metadata.counts.rows),
+        **_count_headers(metadata.counts),
     }
     if metadata.data_updated_at is not None:
         headers["X-Wetterdienst-Data-Updated-At"] = metadata.data_updated_at

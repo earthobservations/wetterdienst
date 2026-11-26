@@ -315,7 +315,11 @@ what the answer is missing:
   and 5 minute precipitation of the historical period, and a forecast counts where one of its steps is in the answer.
 
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
-  the wide shape), the stations listed, or the histories.
+  the wide shape), the stations listed, or the histories. The answer of `stations` has `stations_matched` too, the
+  stations that match the request: `stations` is fewer where a `rank` kept the nearest (or best) of them or, for an
+  MCP tool, the 40,000-character budget cut the list (`answer-truncated`), and equal to it where nothing was cut, so
+  that "how many stations are there" is a number, not a sentence of the note. It is in the `end` line of
+  `format=ndjson` as well; no other answer has it.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
   a GeoJSON position, the elevation in metres above mean sea level.
 - **`warnings`** is what the answer is missing but did not fail on, so that a partial answer can be told
@@ -666,6 +670,7 @@ A format with no body to put the block in carries the same in headers, and so do
 | `X-Wetterdienst-Attribution` | the credit line; left out without one |
 | `X-Wetterdienst-Processing` | `processing_note` |
 | `X-Wetterdienst-Stations`, `X-Wetterdienst-Rows` | the `counts` |
+| `X-Wetterdienst-Stations-Matched` | `counts.stations_matched`, of a list of stations only |
 | `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
 | `X-Wetterdienst-Truncated` | the message of the `answer-truncated` warning of an MCP tool's answer; left out otherwise |
 | `X-Wetterdienst-Forecast-From-Now` | the message of the `forecast-from-now` warning of an MCP tool's forecast answer; left out otherwise |

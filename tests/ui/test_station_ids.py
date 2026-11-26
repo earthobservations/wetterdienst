@@ -82,7 +82,13 @@ def test_rest_the_block_has_the_licence_of_each_provider_in_the_answer_and_every
         "icao_id": ["EDDH"],
         "also_searched": {"wmo_id": ["10147"], "wigos_id": ["0-20000-0-10147"]},
     }
-    assert metadata["counts"] == {"stations": 3, "providers": 2, "networks_searched": 18, "networks_answered": 18}
+    assert metadata["counts"] == {
+        "stations": 3,
+        "stations_matched": 3,
+        "providers": 2,
+        "networks_searched": 18,
+        "networks_answered": 18,
+    }
     assert len(metadata["searched"]) == 18
     assert metadata["searched"][0] == {
         "provider": "aemet",
@@ -626,3 +632,55 @@ def test_the_mcp_tool_leaves_a_short_answer_as_it_is(monkeypatch: pytest.MonkeyP
     data = result.structured_content.get("result", result.structured_content)
     assert len(data["stations"]) == 3
     assert [w["code"] for w in data["metadata"]["warnings"]] == []
+
+
+# --- how many stations the search found, whatever cut the answer (GH-4472) ------------------------------------------
+
+
+def test_rest_the_counts_say_how_many_stations_were_found(client: TestClient) -> None:
+    """Nothing is cut: three are listed and three were found, in the block and in the headers of a CSV."""
+    answer = client.get("/api/station-ids", params={"wmo_id": "10147"}).json()
+    assert answer["metadata"]["counts"]["stations"] == 3
+    assert answer["metadata"]["counts"]["stations_matched"] == 3
+
+    csv_answer = client.get("/api/station-ids", params={"wmo_id": "10147", "format": "csv"})
+    assert csv_answer.headers["X-Wetterdienst-Stations-Matched"] == "3"
+
+
+def test_rest_an_answer_that_is_not_cut_has_every_station_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The REST API is never cut: 400 are listed and 400 were found."""
+    _many(monkeypatch)
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    counts = client.get("/api/station-ids", params={"wmo_id": ",".join(MANY)}).json()["metadata"]["counts"]
+
+    assert counts["stations"] == counts["stations_matched"] == len(MANY)
+
+
+def test_the_mcp_tool_says_how_many_stations_were_found_when_it_cuts_the_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The first stations that fit are listed, and the counts say that all 400 were found."""
+    _many(monkeypatch)
+
+    result = _tool_call({"wmo_id": ",".join(MANY)})
+
+    assert result.structured_content is not None
+    data = result.structured_content.get("result", result.structured_content)
+    counts = data["metadata"]["counts"]
+    assert 0 < counts["stations"] < len(MANY)
+    assert counts["stations"] == len(data["stations"])
+    assert counts["stations_matched"] == len(MANY)
+
+
+def test_a_cut_csv_says_how_many_stations_were_found_in_its_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A CSV has no block: the headers carry the stations returned and the stations found."""
+    from wetterdienst.ui.mcp import _mark_tool_requests  # noqa: PLC0415
+
+    _many(monkeypatch)
+    client = TestClient(_mark_tool_requests(restapi.app), raise_server_exceptions=False)
+
+    response = client.get("/api/station-ids", params={"wmo_id": ",".join(MANY), "format": "csv"})
+
+    assert 0 < int(response.headers["X-Wetterdienst-Stations"]) < len(MANY)
+    assert response.headers["X-Wetterdienst-Stations-Matched"] == str(len(MANY))

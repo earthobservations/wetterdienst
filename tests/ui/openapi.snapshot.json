@@ -6665,6 +6665,18 @@
             "title": "Stations",
             "description": "The stations in the answer; 0 for one that is not about stations."
           },
+          "stations_matched": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stations Matched",
+            "description": "Only in the answer of `stations`: how many stations match the request. `stations` is fewer where the answer was cut: by `rank` (the nearest `rank` of the stations that could be ranked, the best `rank` of the names that matched) or, for a tool's answer, to the budget of 40,000 characters (`answer-truncated`). Equal to `stations` where nothing was cut; absent from every other answer."
+          },
           "rows": {
             "type": "integer",
             "title": "Rows",
@@ -8661,6 +8673,11 @@
             "title": "Stations",
             "description": "How many stations (rows) the answer has."
           },
+          "stations_matched": {
+            "type": "integer",
+            "title": "Stations Matched",
+            "description": "How many stations the search found: more than `stations` where a tool's answer was cut to its budget of 40,000 characters (`answer-truncated`), and equal to it otherwise."
+          },
           "providers": {
             "type": "integer",
             "title": "Providers",
@@ -8681,6 +8698,7 @@
         "type": "object",
         "required": [
           "stations",
+          "stations_matched",
           "providers",
           "networks_searched",
           "networks_answered"
