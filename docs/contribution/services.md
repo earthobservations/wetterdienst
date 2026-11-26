@@ -287,8 +287,10 @@ code of the source next to the provider's page and quote its documentation in th
 kind of token means in `LEGENDS` of `wetterdienst.model.quality_legend`, under `provider/network`: the answers
 of `with_metadata` carry it as `metadata.quality.legend`, and `tests/model/test_quality_legend.py` fails until
 the kinds the reader passes to `join_quality_flags` are the kinds listed there. Give `codes` only for a set the
-source documents; for the others say in the `meaning` where the source tells them. A network with no flag is
-listed with an empty legend.
+source documents, in its words, with the document in `documentation`; for the others say in the `meaning` where
+the source tells them. A network with no flag of the source has only the tokens of the core in its legend, and its
+answers say in `metadata.quality.source_flag_note` that the library carries none (`SOURCE_FLAG_NOTES` names a source
+that publishes one that is not read yet).
 
 A source that writes a number or a text for a value it does not have (`-999`, `99.9`, `NaN`, `---`, a wind
 direction `0`) is mapped to null in the reader, before the unit conversion, and its text is not lost: map it

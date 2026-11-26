@@ -305,13 +305,23 @@ def ndjson_head(metadata: ResponseMetadata, settings: _AppliedSettings | None = 
 
 
 def ndjson_end(
-    stations: int, rows: int, warnings: Sequence[ResponseWarning], search: Mapping[str, Any] | None = None
+    stations: int,
+    rows: int,
+    warnings: Sequence[ResponseWarning],
+    search: Mapping[str, Any] | None = None,
+    *,
+    matched: int | None = None,
 ) -> dict[str, Any]:
     """Give the content of the last line of an NDJSON answer: what was sent, and every warning raised on the way.
 
-    `search` is what the row options searched, where a stream has them and could not say before its end.
+    `search` is what the row options searched, where a stream has them and could not say before its end. `matched`
+    is the stations the selection found, for the answer of `stations`, whose counts say so (GH-4472).
     """
-    end: dict[str, Any] = {"counts": {"stations": stations, "rows": rows}, "warnings": list(warnings)}
+    counts = {"stations": stations}
+    if matched is not None:
+        counts["stations_matched"] = matched
+    counts["rows"] = rows
+    end: dict[str, Any] = {"counts": counts, "warnings": list(warnings)}
     if search is not None:
         end["search"] = dict(search)
     return end
@@ -345,7 +355,8 @@ def _render_ndjson(
     """Write a whole answer as NDJSON, as the REST API streams it: the head, a line for each row, the end."""
     stations = frame.get_column("station_id").n_unique() if "station_id" in frame.columns else 0
     lines = [ndjson_line(ndjson_head(metadata, settings)), *(ndjson_line(row) for row in rows)]
-    lines.append(ndjson_line({"end": ndjson_end(stations, len(rows), metadata.warnings)}))
+    end = ndjson_end(stations, len(rows), metadata.warnings, matched=metadata.counts.stations_matched)
+    lines.append(ndjson_line({"end": end}))
     return b"".join(lines).decode()
 
 

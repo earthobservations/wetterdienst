@@ -7823,7 +7823,7 @@ def test_coverage_of_dmo_carries_the_lead_times_the_others_leave_out(client: Tes
     ("params", "detail"),
     [
         ({"resolutions": "foo"}, "Resolution 'foo' not found in DwdObservationMetadata. Available resolutions: "),
-        ({"datasets": "foo"}, "Dataset 'foo' not found in DwdObservationMetadata. Available datasets: "),
+        ({"datasets": "foo"}, "Dataset 'foo' not found in DwdObservationMetadata. Closest datasets: "),
     ],
 )
 def test_coverage_of_a_resolution_or_dataset_that_does_not_exist_is_a_404(

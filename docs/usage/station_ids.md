@@ -47,7 +47,9 @@ answer says:
   stations of it that carry an id, and its `status`: `searched`, `failed`, `rate-limited` or `not-configured`;
 - `providers`: the licence and the credit line of each provider that has a station in the answer, since the answer holds
   several providers' data (there is no one `provider` as in the answers of `stations`);
-- `counts`, `warnings`, the versions, the time and the `processing_note`, as every block has them.
+- `counts`, `warnings`, the versions, the time and the `processing_note`, as every block has them. `counts.stations`
+  is the rows of the answer and `counts.stations_matched` the stations the search found: more where an MCP tool's
+  answer was cut (below), and equal to it otherwise (the header `X-Wetterdienst-Stations-Matched` of a CSV has it).
 
 ## The ids are equivalent
 
@@ -136,7 +138,7 @@ them too and carries the longest wait asked for (a 503 with `Retry-After` at RES
 same search can succeed once the limit resets.
 
 An MCP tool's answer is cut to 40,000 characters, as that of `stations` is, keeping the first rows, with an
-`answer-truncated` warning that tells to ask for fewer ids.
+`answer-truncated` warning that tells to ask for fewer ids; `counts.stations_matched` still says how many were found.
 
 ## Python
 

@@ -890,7 +890,7 @@ def test_stations_are_streamed_as_ndjson_and_csv(client: TestClient, monkeypatch
     lines = _lines(ndjson)
     assert lines[1:-1] == as_json["stations"]
     assert lines[0]["metadata"]["counts"] == as_json["metadata"]["counts"]
-    assert lines[-1]["end"]["counts"] == {"stations": 5, "rows": 5}
+    assert lines[-1]["end"]["counts"] == {"stations": 5, "rows": 5, "stations_matched": 5}
     assert csv.text == stations.to_csv()
     assert csv.text.count("station_id") == 1
 

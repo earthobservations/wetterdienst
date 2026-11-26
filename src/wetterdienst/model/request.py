@@ -55,6 +55,7 @@ from wetterdienst.model.metadata import (
     group_parameters_by_dataset,
     parse_parameters,
     requested_by_kind,
+    unknown_name_message,
 )
 from wetterdienst.model.regions import search_regions, select_regions, shown_in_log
 from wetterdienst.model.result import (
@@ -868,18 +869,17 @@ class TimeseriesRequest:
         # an empty answer would read as "nothing published" where the name is only wrong
         for name in resolution_strings:
             if not any(named(resolution, [name]) for resolution in selected):
-                available = ", ".join(resolution.name for resolution in cls.metadata)
-                msg = f"Resolution '{name}' not found in {cls.metadata.name}. Available resolutions: {available}"
+                msg = unknown_name_message("resolutions", name, cls.metadata.name, cls.metadata.resolutions)
                 raise MetadataNotFoundError(msg)
         for name in dataset_strings:
             if not any(named(dataset, [name]) for resolution in selected for dataset in resolution):
-                available = ", ".join(sorted({dataset.name for resolution in selected for dataset in resolution}))
+                one_of_each = {dataset.name: dataset for resolution in selected for dataset in resolution}
                 where = (
                     f"{cls.metadata.name} for resolutions {', '.join(resolution_strings)}"
                     if resolution_strings
                     else cls.metadata.name
                 )
-                msg = f"Dataset '{name}' not found in {where}. Available datasets: {available}"
+                msg = unknown_name_message("datasets", name, where, list(one_of_each.values()))
                 raise MetadataNotFoundError(msg)
         # the unit the values come back in for a caller who passes no options: the converter `values` and `glossary`
         # build, with the targets of the environment, so that the three cannot differ. With `convert_units` off the
@@ -1459,7 +1459,8 @@ class TimeseriesRequest:
         )
         matches = match_names(name, candidates.get_column("name").to_list(), threshold)
         station_ids = candidates.get_column("station_id")
-        selected = list(dict.fromkeys(station_ids[index] for index, _ in matches))[:rank]
+        found = list(dict.fromkeys(station_ids[index] for index, _ in matches))
+        selected = found[:rank]
 
         if selected:
             position = pl.DataFrame({"station_id": selected, "_match": range(len(selected))})
@@ -1481,6 +1482,8 @@ class TimeseriesRequest:
             _df_all=df_all,
             _stations_filter=StationsFilter.BY_NAME,
             _rank=rank,
+            # the stations the name matched, of which the best `rank` are kept (GH-4472)
+            _matched=len(found),
         )
 
     def filter_by_rank(
