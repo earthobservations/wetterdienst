@@ -3896,6 +3896,8 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     ("endpoint", "params"),
     [
         pytest.param("/api/alerts", {}, id="alerts"),
+        pytest.param("/api/version", {}, id="version"),
+        pytest.param("/api/v1/version", {}, id="version-v1"),
         pytest.param("/api/stations", {**_OBSERVATION, "stations": "01048"}, id="stations"),
         pytest.param("/api/history", {**_OBSERVATION, "stations": "01048"}, id="history"),
         pytest.param("/api/issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
