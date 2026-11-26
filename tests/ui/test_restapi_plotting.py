@@ -26,6 +26,7 @@ from tests.ui.test_restapi import (
     _IMAGE_MEDIA_TYPES,
     _IMAGE_ROUTES,
     _image_params,
+    _is_an_unhandled_500,
     _stub_result,
     _values_result_of_shape,
 )
@@ -503,7 +504,7 @@ def test_a_malformed_setting_is_the_server_error_it_is_for_every_setting(
 
     response = client.get("/api/stations", params=_image_params({"all": "true"}, format="png"))
 
-    assert response.status_code == 500
+    _is_an_unhandled_500(response)
     assert "secret-ish" not in response.text
 
 
@@ -642,3 +643,87 @@ def test_the_charts_of_the_tools_are_refused_in_the_tools_not_by_a_route(monkeyp
 
     assert result.is_error
     assert result.content[0].text.startswith("format=png is not offered by the tool stations")
+
+
+# --- /api/version says which (GH-4467) ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("prefix", PREFIXES)
+def test_version_says_charts_are_off_by_default(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str
+) -> None:
+    """With nothing set the answer says `plotting` is false, as a boolean, beside `mcp_enabled` and `limits`."""
+    monkeypatch.delenv("WD_RESTAPI_PLOTTING")
+
+    answer = client.get(f"{prefix}/version").json()
+
+    assert answer["plotting"] is False
+    assert {"mcp_enabled", "limits", "plotting"} <= answer.keys()
+
+
+@pytest.mark.parametrize("prefix", PREFIXES)
+@pytest.mark.parametrize(("text", "expected"), [("true", True), ("1", True), ("false", False), ("0", False)])
+def test_version_reads_the_setting_from_the_environment(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, text: str, *, expected: bool
+) -> None:
+    """`plotting` is what `WD_RESTAPI_PLOTTING` says, the same under both prefixes."""
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", text)
+
+    assert client.get(f"{prefix}/version").json()["plotting"] is expected
+
+
+def test_version_follows_the_setting_per_request(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switching charts on or off without a restart changes the next answer, as it does the refusal."""
+    assert client.get("/api/version").json()["plotting"] is False
+    _on(monkeypatch)
+    assert client.get("/api/version").json()["plotting"] is True
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "false")
+    assert client.get("/api/v1/version").json()["plotting"] is False
+
+
+def test_version_is_read_from_the_env_file_for_every_request(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The `.env` file is read per request too, and the environment wins over it."""
+    monkeypatch.delenv("WD_RESTAPI_PLOTTING")
+    (tmp_path / ".env").write_text("WD_RESTAPI_PLOTTING=true\n")
+    assert client.get("/api/version").json()["plotting"] is True
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "false")
+    assert client.get("/api/version").json()["plotting"] is False
+
+
+@pytest.mark.parametrize("prefix", PREFIXES)
+@pytest.mark.parametrize("on", [False, True])
+def test_version_and_the_refusal_agree(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, *, on: bool
+) -> None:
+    """A client that reads `plotting` is right: false is the 403 `charts-disabled`, true is no refusal."""
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", str(on).lower())
+    endpoint, query = _IMAGE_ROUTES[0]
+    _stub(monkeypatch, endpoint)
+
+    plotting = client.get(f"{prefix}/version").json()["plotting"]
+    response = _get(client, prefix, endpoint, query, format="png")
+
+    assert plotting is on
+    assert (response.status_code == 403) is (not plotting)
+    if plotting:
+        assert response.status_code == 200, response.text
+    else:
+        assert response.json()["type"] == "urn:wetterdienst:problem:charts-disabled"
+
+
+def test_version_with_a_malformed_setting_is_the_server_500_without_the_value(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A malformed `WD_RESTAPI_PLOTTING` fails `/api/version` as a malformed setting always did: a bare 500.
+
+    The route read `Settings()` for its limits before `plotting` existed, so a malformed value of any setting
+    (`tests/ui/test_restapi.py`, `WD_CACHE_DISABLE`) was already this answer; the new field adds no other failure.
+    """
+    monkeypatch.setenv("WD_RESTAPI_PLOTTING", "secret-ish")
+
+    response = client.get("/api/version")
+
+    _is_an_unhandled_500(response)
+    assert "secret-ish" not in response.text

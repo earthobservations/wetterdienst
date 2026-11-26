@@ -250,8 +250,9 @@ sql = [
 mcp = [
     "wetterdienst[restapi]",
     # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one;
-    # >=4.1.2 for GHSA-vqqp-x5qm-5qp4 and GHSA-7xgj-8392-5q4r
-    "fastmcp>=4.1.2,<5",
+    # >=4.2.4 for GHSA-vqqp-x5qm-5qp4 and GHSA-7xgj-8392-5q4r (4.1.2) and GHSA-78c8-3jhx-5mg7 (4.2.4, the first fix);
+    # also from 4.1.5 the upstream error of a tool is bounded and written with json.dumps (GH-4384)
+    "fastmcp>=4.2.4,<5",
     # >=2.14.2 for GHSA-3r8g-cqwr-jr29: mcp_types validates the `_meta` of a request as an aliased TypedDict with extra
     # items, where before 2.14.2 a key under the field's python name replaced the validated one (GH-4378)
     "pydantic>=2.14.2,<3",

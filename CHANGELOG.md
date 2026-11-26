@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `GET /api/version` (and `/api/v1/version`) has `plotting`, whether the server draws charts
+  (`WD_RESTAPI_PLOTTING`, read per request), so a client learns it before it asks for one and gets
+  the 403 `charts-disabled` (GH-4467)
+
 ### Changed
 
 - **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
@@ -55,11 +61,22 @@ Types of changes:
   take it from the specifier): vl-convert 2 renders in a worker and does not hold the interpreter,
   so the server answers while a chart renders, and Vega's label transform works in it. The floor
   is 2.0.0 when that is out. It has no wheel below Python 3.10 or for musllinux (GH-4095)
+- The `mcp` extra needs `fastmcp>=4.2.4` (was 4.1.2), which the Docker image and an environment
+  synced from `uv.lock` now hold. The text of a tool error is as before. FastMCP cuts the text of
+  an upstream error at 1,000 characters (`… (truncated)`) from 4.1.5, so the list of available
+  parameters in the answer to a wrong parameter name is shortened for providers with many (`dwd`
+  `mosmix`, `noaa` `ghcn`); `coverage` lists them all (GH-4384)
 
 ### Fixed
 
 - A command that drew an image no longer hangs when it exits: the images are drawn without
   Kaleido, so there is no Chrome to close (GH-3742)
+
+### Security
+
+- fastmcp 4.2.4 is the first release that fixes GHSA-78c8-3jhx-5mg7 (`OAuthProxy` redeemed an
+  authorization code twice under concurrent requests). The MCP server of `wetterdienst restapi`
+  is open and does not use `OAuthProxy`, so it did not reach it (GH-4384)
 
 ## [0.200.0] - 2026-11-25
 

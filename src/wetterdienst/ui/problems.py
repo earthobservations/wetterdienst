@@ -26,7 +26,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, PlainTextResponse, Response
 
 from wetterdienst.util.logging import get_one_line_logger
 
@@ -321,11 +321,13 @@ def problem_response(
     errors: list[Any] | None = None,
     extra: Mapping[str, Any] | None = None,
     headers: Mapping[str, str] | None = None,
-) -> JSONResponse:
+) -> Response:
     """Answer a failure with the problem of this API, for the request whose ASGI `scope` this is.
 
-    An MCP tool's request is answered with the text alone, as a JSON string: FastMCP puts the body of a failed call
-    into the tool error as Python writes it, and a dict would read as its repr.
+    An MCP tool's request is answered with the text alone, as `text/plain`: FastMCP puts the body of a failed call
+    into the tool error. Before 4.1.5 it wrote a body that is JSON as Python does (a dict as its repr); from 4.1.5 it
+    writes it with `json.dumps`, so a JSON string would read with quotes and escapes for its line breaks, and a body
+    that merely parses as JSON is rewritten (`1.50` comes out `1.5`). A body that is no JSON is appended as it is.
     """
     from wetterdienst.ui.mcp import is_tool_request  # noqa: PLC0415
 
@@ -335,6 +337,6 @@ def problem_response(
         # the id is what ties the log to the answer a caller reports
         log.warning(f"Request {request_id} failed with a {status_code}: {(kind or default_kind(status_code)).value}.")
     if is_tool_request(scope):
-        return JSONResponse(detail, status_code=status_code, headers=given)
+        return PlainTextResponse(detail, status_code=status_code, headers=given)
     body = problem_body(status_code, detail, kind or default_kind(status_code), request_id, errors=errors, extra=extra)
     return JSONResponse(body, status_code=status_code, headers=given, media_type=PROBLEM_MEDIA_TYPE)

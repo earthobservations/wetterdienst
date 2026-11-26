@@ -126,12 +126,14 @@ examples on this page and the web app use the alias.
   "mcp_enabled": true,
   "mcp_path": "/mcp/v1",
   "mcp_alias_path": "/mcp",
+  "plotting": false,
   "limits": {"max_stations": 100, "max_rows": 500000, "max_stream_rows": 10000000, "max_groups": 50000, "timeout": 60.0, "max_concurrent": 32}
 }
 ```
 
 `limits` are those the instance holds requests to (see [Limits](#limits)), so a client can size its
-requests before it is refused; 0 means the instance sets none.
+requests before it is refused; 0 means the instance sets none. `plotting` says whether the instance
+draws [charts](#charts), so a client learns it before it asks for one.
 
 `api_version` is raised with a change a client has to follow. A path under a version that does
 not exist (`/api/v2/...`) is a 404. What counts as a change a client has to follow, for this API and
@@ -1719,7 +1721,8 @@ request for a chart format of `stations`, `values`, `interpolate` or `summarize`
 anything is read: no station is looked up, nothing is downloaded and no plotting library is loaded. `detail` names the
 formats the route answers and says that the operator can switch charts on, and the `errors` entry for `format` has
 them in `ctx.formats`. The answer carries `Cache-Control: no-store`, since the operator may switch charts on without a
-restart: the variable (or `.env`) is read for every request.
+restart: the variable (or `.env`) is read for every request. A client can check first: `plotting` of
+`GET /api/version` (`/api/v1/version`) is `false` for a server that refuses charts, read the same way.
 
 ```json
 {
