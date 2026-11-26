@@ -152,6 +152,27 @@ _DWD_DUETT = (
     "DESCRIPTION_derived_germany-climate-hourly-duett_en.pdf"
 )
 
+#: the metadata of GeoSphere's klima-v2-1d dataset, whose `code_lists` has q21, the list of the codes of every
+#: `<parameter>_flag`; the metadata of klima-v2-10min, -1h and -1m holds the same list (read 2026-11-26)
+_GEOSPHERE_METADATA = "https://dataset.api.hub.geosphere.at/v1/station/historical/klima-v2-1d/metadata"
+
+_GEOSPHERE_FLAG = _plain(
+    "GeoSphere's quality flag of the value, the `<parameter>_flag` of the klima-v2 datasets (code list q21), as the "
+    "source writes it, a whole number ('12'): whether the value was checked, by a program or by a person, and whether "
+    "the check changed it. The words are GeoSphere's, German. A flag the source leaves empty ('undefiniert' in the "
+    "list) is left out, so that a reading without one has no such token.",
+    codes=_codes(
+        c_0="ungeprüfte Daten",
+        c_10="automatisch geprüft",
+        c_11="automatisch geprüft (verändert)",
+        c_12="automatisch geprüft (original)",
+        c_20="manuell geprüft (unbekannt)",
+        c_21="manuell geprüft (verändert)",
+        c_22="manuell geprüft (original)",
+    ),
+    documentation=_GEOSPHERE_METADATA,
+)
+
 _DWD_DERIVED_QN = _plain(
     "The quality level (QN_952) of the hourly DUETT datasets (`radiation_global`, `sunshine_duration`), as DWD writes "
     "it: the scope of the input data used for merging, DWD's words. The other derived datasets have none.",
@@ -438,7 +459,7 @@ LEGENDS: dict[str, list[QualityKind]] = {
         RAW,
     ],
     "fmi/observation": [SUSPECT, REJECTED, RAW],
-    "geosphere/observation": [SUSPECT, REJECTED, RAW],
+    "geosphere/observation": [_GEOSPHERE_FLAG, SUSPECT, REJECTED, RAW],
     "imgw/hydrology": [SUSPECT, REJECTED, RAW],
     "imgw/meteorology": [
         _plain(
@@ -620,14 +641,9 @@ NO_SOURCE_FLAG = (
     "tokens (`suspect`, `rejected`, `raw`)."
 )
 
-#: the networks whose source does publish a flag that the library does not read, and what to say of it
-SOURCE_FLAG_NOTES: dict[str, str] = {
-    "geosphere/observation": (
-        "This library carries no quality flag of the source for these readings: `quality_flags` holds only its own "
-        "tokens (`suspect`, `rejected`, `raw`). The source has a `<parameter>_flag` (code list q21) that is not read "
-        "yet (GH-4480)."
-    ),
-}
+#: the networks whose source does publish a flag that the library does not read, and what to say of it: none now
+#: (GeoSphere's `<parameter>_flag` is read, GH-4480), and the table is kept for the next one
+SOURCE_FLAG_NOTES: dict[str, str] = {}
 
 
 def source_flag_note(provider: str, network: str) -> str | None:
