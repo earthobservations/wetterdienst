@@ -16,6 +16,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
+import polars as pl
 import pytest
 from click.testing import CliRunner
 
@@ -23,6 +24,7 @@ from tests.ui.test_mcp_budget import _VALUES, _client_sees, _rest_client, _stub_
 from tests.ui.test_mcp_budget_estimates import _ESTIMATE, _estimate_of, _stub
 from tests.ui.test_operations import _no_ambient_settings  # noqa: F401
 from wetterdienst.io.file_metadata import metadata_block
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.ui import cli as cli_module
 
 if TYPE_CHECKING:
@@ -153,6 +155,108 @@ def test_a_mcp_client_receives_the_elevation(monkeypatch: pytest.MonkeyPatch, to
     request = result.structured_content["result"]["metadata"]["request"]  # ty: ignore[not-subscriptable]
     assert request["elevation"] == 1500.0
     assert request["elevation_corrected"] == [_TEMPERATURE]
+
+
+@pytest.mark.parametrize("tool", ["interpolate", "summarize"])
+def test_a_mcp_csv_says_the_elevation_in_its_sentence_and_meta(monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
+    """A CSV has no block: the sentence of the tool and the `_meta` of the result carry what the headers say."""
+    _stub(monkeypatch, tool, _at(tool, 1500.0))
+
+    result = _client_sees(tool, {**_ESTIMATE, "elevation": 1500, "format": "csv"})
+
+    assert not result.is_error, result.content
+    sentence = result.structured_content["result"]  # ty: ignore[not-subscriptable]
+    assert " Elevation: 1500.0 m." in sentence
+    assert f" Corrected for the elevation: {_TEMPERATURE}." in sentence
+    assert result.meta["wetterdienst"]["elevation"] == "1500.0"  # ty: ignore[not-subscriptable]
+    assert result.meta["wetterdienst"]["elevation_corrected"] == [_TEMPERATURE]  # ty: ignore[not-subscriptable]
+
+
+@pytest.mark.parametrize("tool", ["interpolate", "summarize"])
+def test_a_mcp_csv_without_an_elevation_says_none(monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
+    """No elevation, no correction: the sentence has neither."""
+    _stub(monkeypatch, tool, _at(tool, None))
+
+    result = _client_sees(tool, {**_ESTIMATE, "format": "csv"})
+
+    assert "Elevation" not in result.structured_content["result"]  # ty: ignore[not-subscriptable]
+    assert "Corrected" not in result.structured_content["result"]  # ty: ignore[not-subscriptable]
+
+
+@pytest.mark.parametrize("tool", ["interpolate", "summarize"])
+def test_a_cut_mcp_csv_keeps_the_elevation_in_its_sentence(monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
+    """The cut answer is counted with the sentence, and it still says the elevation."""
+    _stub(monkeypatch, tool, _at(tool, 1500.0, days=900))
+
+    result = _client_sees(tool, {**_ESTIMATE, "elevation": 1500, "format": "csv"})
+
+    sentence = result.structured_content["result"]  # ty: ignore[not-subscriptable]
+    assert "answer-truncated" in result.meta["wetterdienst"]["warnings"]  # ty: ignore[not-subscriptable]
+    assert " Elevation: 1500.0 m." in sentence
+
+
+# --- a point named by a station -------------------------------------------------------------------------------------
+
+
+def _serve_a_station(monkeypatch: pytest.MonkeyPatch, elevation: float | None) -> None:
+    """Serve one DWD station, with its own elevation, and stand in for the estimate made at its position."""
+    station = pl.DataFrame(
+        {
+            "resolution": ["daily"],
+            "dataset": ["climate_summary"],
+            "station_id": ["01048"],
+            "start_timestamp": [dt.datetime(1950, 1, 1, tzinfo=dt.UTC)],
+            "end_timestamp": [None],
+            "latitude": [51.1],
+            "longitude": [13.8],
+            "elevation": [elevation],
+            "name": ["Dresden-Klotzsche"],
+            "state": ["Sachsen"],
+        },
+        schema_overrides={"end_timestamp": pl.Datetime(time_zone="UTC"), "elevation": pl.Float64},
+    )
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: station.lazy())
+    template = _estimate_of("interpolate", 2)
+
+    def estimated(_self: object, latlon: tuple[float, float], elevation: float | None, **_kwargs: object) -> Any:  # noqa: ANN401
+        assert latlon == (51.1, 13.8)
+        return replace(template, elevation=elevation)
+
+    monkeypatch.setattr(DwdObservationRequest, "_interpolate", estimated)
+
+
+def _by_station(**kwargs: float) -> dict[str, Any]:
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary", "temperature_air_mean_2m")])
+    block = metadata_block(request.interpolate_by_station_id("01048", **kwargs), heavy=False)
+    assert block is not None
+    return block["request"]
+
+
+def test_a_point_named_by_a_station_is_made_at_the_station_s_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No elevation given: the answer is made at the station's own, 228 m, and says so."""
+    _serve_a_station(monkeypatch, 228.0)
+
+    request = _by_station()
+
+    assert request["elevation"] == 228.0
+    assert request["elevation_corrected"] == [_TEMPERATURE]
+
+
+def test_an_elevation_given_beats_the_one_of_the_station_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station names the point, the caller names the height: 1500 m, not 228 m."""
+    _serve_a_station(monkeypatch, 228.0)
+
+    assert _by_station(elevation=1500.0)["elevation"] == 1500.0
+
+
+def test_a_point_named_by_a_station_that_has_no_elevation_has_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station that lists no elevation names none: the answer says null and corrects nothing."""
+    _serve_a_station(monkeypatch, None)
+
+    request = _by_station()
+
+    assert request["elevation"] is None
+    assert request["elevation_corrected"] == []
 
 
 # --- the command line and Python ------------------------------------------------------------------------------------
