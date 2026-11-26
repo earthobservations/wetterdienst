@@ -14,7 +14,7 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   tool, which the Claude connectors directory requires and clients use to skip a confirmation (GH-3482),
 - the refusal of an argument a tool does not take, which FastMCP would drop,
 - input schemas without the options that make sense on the REST API only: the size and scale of a chart image,
-  `pretty` and the chart formats (html, png, jpg, webp, svg, pdf), which a model reading JSON cannot use and which
+  `pretty` and the chart formats (html, png, jpg, svg, pdf), which a model reading JSON cannot use and which
   cost every session part of its tool list (GH-4318),
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
@@ -91,17 +91,17 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
     """Wrap the REST app so each request the tools send it carries the scope key `is_tool_request` checks."""
 
     async def marked(scope: Scope, receive: Receive, send: Send) -> None:
-        from wetterdienst.io.export import HTML_PLOTLYJS  # noqa: PLC0415
+        from wetterdienst.io.export import HTML_INLINE  # noqa: PLC0415
 
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
-        # a chart as html carries plotly.js from the CDN, not inline: 4.8 MB less for an assistant to read (GH-3464).
+        # a chart as html carries Vega from the CDN, not inline: 1 MB less for an assistant to read (GH-3464).
         # A call cannot ask for html (`_refuse_unknown_arguments`, GH-4318, GH-4453) and the transport answers an error
         # for it (`_carry_bodies_as_json`); the CDN is what a chart that reached the route would cost, the last line
-        token = HTML_PLOTLYJS.set("cdn")
+        token = HTML_INLINE.set(False)
         try:
             await app(scope, receive, send)
         finally:
-            HTML_PLOTLYJS.reset(token)
+            HTML_INLINE.reset(token)
 
     return marked
 
@@ -388,7 +388,7 @@ _IMAGE_OPTIONS = {
 }
 
 #: the formats of a rendered chart, which only the REST API answers (GH-4318): a tool answers data
-_CHART_FORMATS = ("html", "png", "jpg", "webp", "svg", "pdf")
+_CHART_FORMATS = ("html", "png", "jpg", "svg", "pdf")
 
 #: the tools whose route draws a chart, which the REST API still does (`tests/ui/test_mcp_slim_schemas.py` holds it to
 #: the routes that offer a chart format)
@@ -846,6 +846,9 @@ _REPORTING_HEADERS = (
     "x-wetterdienst-values-searched",
     "x-wetterdienst-values-expected",
     "x-wetterdienst-rows-matched",
+    "x-wetterdienst-stations-matched",
+    "x-wetterdienst-elevation",
+    "x-wetterdienst-elevation-corrected",
 )
 
 
@@ -951,6 +954,14 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:  # noqa: C901
         report["truncated"] = unquote(truncated)
     if started := headers.get("x-wetterdienst-forecast-from-now"):
         report["forecast_from_now"] = unquote(started)
+    # how many stations match a list of stations, which a CSV has no block to carry (`counts.stations_matched`)
+    if stations_matched := headers.get("x-wetterdienst-stations-matched"):
+        report["stations_matched"] = stations_matched
+    # the elevation an estimate was made at and what was corrected for it, which a CSV has no block to carry
+    if elevation := headers.get("x-wetterdienst-elevation"):
+        report["elevation"] = elevation
+    if corrected := headers.get("x-wetterdienst-elevation-corrected"):
+        report["elevation_corrected"] = [name for name in corrected.split(",") if name]
     # what the row options searched, which a CSV has no block to carry (`metadata.search` of the JSON answers)
     if searched := headers.get("x-wetterdienst-values-searched"):
         report["values_searched"] = searched
@@ -983,6 +994,18 @@ def _sentence_of(media_type: str, size: int, report: dict[str, Any]) -> str:
         sentence += f" Truncated: {report['truncated']}"
     if "forecast_from_now" in report:
         sentence += f" Forecast: {report['forecast_from_now']}"
+    return sentence + _findings_sentence(report)
+
+
+def _findings_sentence(report: dict[str, Any]) -> str:
+    """Tell what the answer found: the stations matched, the elevation of an estimate, what the row options searched."""
+    sentence = ""
+    if "stations_matched" in report:
+        sentence += f" Stations matched: {report['stations_matched']}."
+    if "elevation" in report:
+        sentence += f" Elevation: {report['elevation']} m."
+    if "elevation_corrected" in report:
+        sentence += f" Corrected for the elevation: {', '.join(report['elevation_corrected'])}."
     if "values_searched" in report:
         of = f" of {report['values_expected']} expected" if "values_expected" in report else ""
         sentence += (

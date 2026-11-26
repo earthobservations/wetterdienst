@@ -2,18 +2,22 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The zoom and centre of the station map hold every station in the picture (GH-3373).
 
-Read off the layout of the figure, not off pixels: a picture needs a Chrome and the tile server. MapLibre
-draws the world 512 * 2 ** zoom pixels wide, which are 360 degrees of longitude and 2 pi of Mercator northing.
+Read off the projection of the chart, not off pixels. The map is 512 * 2 ** zoom pixels wide for the whole world,
+which are 360 degrees of longitude and 2 pi of Mercator northing, and Vega's projection is given its scale, the
+pixels of a radian, instead of the zoom.
 """
 
 import datetime as dt
 import math
+import struct
+from types import SimpleNamespace
 from typing import Any
 
 import polars as pl
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.model import result as result_module
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -48,17 +52,25 @@ def _northing(latitude: float) -> float:
     return math.asinh(math.tan(math.radians(latitude)))
 
 
-def _offsets(layout: Any, points: list[tuple[float, float]], width: int, height: int) -> list[tuple[float, float]]:  # noqa: ANN401
-    """Pixels of each point right of and below the middle of the map, as MapLibre lays it out, and the map's size."""
-    margin = layout.margin
-    map_width = width - margin.l - margin.r
-    map_height = height - margin.t - margin.b
-    pixels = 512 * 2**layout.map.zoom
-    center = layout.map.center
+def _view(chart: Any) -> SimpleNamespace:  # noqa: ANN401
+    """Read the centre and the zoom the map was fitted to off the projection of the chart."""
+    projection = chart.to_dict()["projection"]
+    lon, lat = projection["center"]
+    return SimpleNamespace(lat=lat, lon=lon, zoom=math.log2(projection["scale"] * 2 * math.pi / 512))
+
+
+def _offsets(
+    view: SimpleNamespace, points: list[tuple[float, float]], width: int, height: int
+) -> list[tuple[float, float]]:
+    """Pixels of each point right of and below the middle of the map, as the projection lays it out."""
+    margin = result_module._MAP_MARGIN  # noqa: SLF001
+    map_width = width - margin["l"] - margin["r"]
+    map_height = height - margin["t"] - margin["b"]
+    pixels = 512 * 2**view.zoom
     return [
         (
-            (lon - center.lon) / 360 * pixels / (map_width / 2),
-            (_northing(center.lat) - _northing(lat)) / (2 * math.pi) * pixels / (map_height / 2),
+            (lon - view.lon) / 360 * pixels / (map_width / 2),
+            (_northing(view.lat) - _northing(lat)) / (2 * math.pi) * pixels / (map_height / 2),
         )
         for lat, lon in points
     ]
@@ -71,8 +83,8 @@ def _square(span: float, latitude: float = 50.0, longitude: float = 10.0) -> lis
 
 
 @pytest.fixture(autouse=True)
-def _plotly() -> None:
-    pytest.importorskip("plotly")
+def _altair() -> None:
+    pytest.importorskip("altair")
 
 
 @pytest.mark.parametrize("span", [0.1, 1, 5, 20, 60])
@@ -82,8 +94,8 @@ def test_every_station_is_in_the_map_and_the_map_is_not_far_wider_than_they_are(
     The zoom was `12 - lat_diff`, which cropped every station out of a region below about 6 degrees.
     """
     points = _square(span)
-    layout = _result(points).to_plot().layout
-    offsets = _offsets(layout, points, _WIDTH, _HEIGHT)
+    view = _view(_result(points).to_plot())
+    offsets = _offsets(view, points, _WIDTH, _HEIGHT)
     fill = max(max(abs(x), abs(y)) for x, y in offsets)
     assert fill <= 0.86  # in the map, with room for the labels
     if span >= 5:
@@ -104,24 +116,24 @@ def test_every_station_is_in_the_map_and_the_map_is_not_far_wider_than_they_are(
 )
 def test_the_stations_of_a_real_region_are_all_in_the_map(name: str, points: list[tuple[float, float]]) -> None:
     """A town, a metropolitan region, a country, the world, and the southern hemisphere."""
-    layout = _result(points).to_plot().layout
-    offsets = _offsets(layout, points, _WIDTH, _HEIGHT)
+    view = _view(_result(points).to_plot())
+    offsets = _offsets(view, points, _WIDTH, _HEIGHT)
     assert max(max(abs(x), abs(y)) for x, y in offsets) <= 0.86, name
 
 
 def test_a_single_station_is_the_centre_of_a_map_of_a_town() -> None:
     """There is no extent to fit: the map is centred on the station, at a zoom a town fits in."""
-    layout = _result([(52.52, 13.405)]).to_plot().layout
-    assert layout.map.center.lat == pytest.approx(52.52)
-    assert layout.map.center.lon == pytest.approx(13.405)
-    assert layout.map.zoom == 10
+    view = _view(_result([(52.52, 13.405)]).to_plot())
+    assert view.lat == pytest.approx(52.52)
+    assert view.lon == pytest.approx(13.405)
+    assert view.zoom == pytest.approx(10)
 
 
 def test_stations_on_one_parallel_or_one_meridian_are_fitted_by_the_direction_they_spread_in() -> None:
     """The extent is zero in the other direction, which must neither fail nor limit the zoom."""
     for points in ([(50.0, 5.0), (50.0, 15.0)], [(45.0, 10.0), (55.0, 10.0)]):
-        layout = _result(points).to_plot().layout
-        assert max(max(abs(x), abs(y)) for x, y in _offsets(layout, points, _WIDTH, _HEIGHT)) == pytest.approx(
+        view = _view(_result(points).to_plot())
+        assert max(max(abs(x), abs(y)) for x, y in _offsets(view, points, _WIDTH, _HEIGHT)) == pytest.approx(
             0.85, abs=0.01
         )
 
@@ -129,50 +141,49 @@ def test_stations_on_one_parallel_or_one_meridian_are_fitted_by_the_direction_th
 def test_stations_at_the_poles_are_fitted_too() -> None:
     """Mercator has no latitude 90: the map reaches its edge at 85 degrees, which is where the zoom is fitted."""
     points = [(-90.0, 0.0), (90.0, 0.0)]
-    layout = _result(points).to_plot().layout
-    assert 0 <= layout.map.zoom < 1
-    assert math.isfinite(layout.map.center.lat)
+    view = _view(_result(points).to_plot())
+    assert 0 <= view.zoom < 1
+    assert math.isfinite(view.lat)
 
 
 def test_the_center_is_the_middle_of_the_box_as_the_map_draws_it() -> None:
     """The latitudes are not evenly spaced in the map: the middle between 20 and 80 degrees is not 50."""
-    layout = _result(_square(60.0)).to_plot().layout
-    assert layout.map.center.lon == pytest.approx(10.0)
-    assert layout.map.center.lat > 50.0
-    assert _northing(layout.map.center.lat) == pytest.approx((_northing(20.0) + _northing(80.0)) / 2)
+    view = _view(_result(_square(60.0)).to_plot())
+    assert view.lon == pytest.approx(10.0)
+    assert view.lat > 50.0
+    assert _northing(view.lat) == pytest.approx((_northing(20.0) + _northing(80.0)) / 2)
 
 
-@pytest.mark.usefixtures("figure_draws_itself")
 def test_a_picture_of_another_size_is_fitted_to_its_size(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The zoom for the size plotly draws by default would crop a smaller picture: `width` and `height` refit it."""
-    go = pytest.importorskip("plotly.graph_objects")
-    pytest.importorskip("kaleido")
+    """The zoom for the default size would crop a smaller picture: `width` and `height` fit the map again."""
+    pytest.importorskip("vl_convert")
     drawn: list[Any] = []
 
-    def to_image(figure: Any, *_args: object, **_kwargs: object) -> bytes:  # noqa: ANN401
-        drawn.append(figure.layout)
+    def render_image(chart: Any, *_args: object, **_kwargs: object) -> bytes:  # noqa: ANN401
+        drawn.append(_view(chart))
         return b""
 
-    monkeypatch.setattr(go.Figure, "to_image", to_image)
+    monkeypatch.setattr(result_module, "render_image", render_image)
     points = _square(5.0)
     result = _result(points)
     result.to_image(fmt="png", width=300, height=300)
     result.to_image(fmt="png", width=1600, height=1000)
     result.to_image(fmt="png")
     small, wide, default = drawn
-    for layout, width, height in ((small, 300, 300), (wide, 1600, 1000)):
-        offsets = _offsets(layout, points, width, height)
+    for view, width, height in ((small, 300, 300), (wide, 1600, 1000)):
+        offsets = _offsets(view, points, width, height)
         assert 0.8 <= max(max(abs(x), abs(y)) for x, y in offsets) <= 0.86
-    assert default.map.zoom == result.to_plot().layout.map.zoom
-    assert small.map.zoom < default.map.zoom < wide.map.zoom
+    assert default.zoom == _view(result.to_plot()).zoom
+    assert small.zoom < default.zoom < wide.zoom
 
 
-@pytest.mark.usefixtures("figure_draws_itself")
-def test_a_picture_smaller_than_its_margins_is_still_drawn(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No map is left at a width of 20 pixels, and the zoom is a number, not a `ValueError` of `log2`."""
-    go = pytest.importorskip("plotly.graph_objects")
-    pytest.importorskip("kaleido")
-    drawn: list[Any] = []
-    monkeypatch.setattr(go.Figure, "to_image", lambda figure, *_a, **_k: drawn.append(figure.layout.map.zoom) or b"")
-    _result(_square(5.0)).to_image(fmt="png", width=20, height=40)
-    assert drawn[0] >= 0
+@pytest.mark.parametrize(("width", "height"), [(20, 40), (1, 1), (700, 20)])
+def test_a_picture_smaller_than_its_margins_is_still_drawn(width: int, height: int) -> None:
+    """No map is left at a width of 20 pixels, and the zoom is a number, not a `ValueError` of `log2`.
+
+    The picture is drawn, and is as large as asked.
+    """
+    pytest.importorskip("vl_convert")
+    png = _result(_square(5.0)).to_image(fmt="png", width=width, height=height)
+    assert isinstance(png, bytes)
+    assert struct.unpack(">II", png[16:24]) == (width, height)

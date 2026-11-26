@@ -21,6 +21,7 @@ from fastapi.testclient import TestClient
 
 from wetterdienst import Settings
 from wetterdienst.exceptions import NoStationPositionsError, RequestError
+from wetterdienst.io.charts import count_points
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -35,9 +36,23 @@ QUERY = {"provider": "dwd", "network": "pollen", "parameters": "daily/data", "al
 
 
 @pytest.fixture(autouse=True)
-def _plotly(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN401
-    pytest.importorskip("plotly")
+def _altair(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN401
+    pytest.importorskip("altair")
+    pytest.importorskip("vl_convert")
     monkeypatch.chdir(tmp_path)
+
+
+def _stations_drawn(chart: Any) -> list[str]:  # noqa: ANN401
+    """Give the labels of the stations a map holds: the data of its points, which is the text of a CSV file."""
+    # the dots are the data without `crowd`: the other is the stations the labels are placed round
+    (text,) = (
+        data
+        for data in chart.to_dict()["datasets"].values()
+        if isinstance(data, str) and "crowd" not in data.splitlines()[0]
+    )
+    header, *lines = text.splitlines()
+    column = header.split(",").index("name")
+    return sorted(line.split(",")[column] for line in lines)
 
 
 def _pollen() -> StationsResult:
@@ -142,13 +157,10 @@ def test_the_command_line_still_lists_the_stations_in_the_formats_the_message_na
 def test_stations_of_which_only_some_have_a_position_are_drawn_without_the_others() -> None:
     """A mix draws as it did: the stations with no position are left out of the map, which fits the others."""
     result = _result([(52.52, 13.405), (None, None), (50.0, 10.0), (51.0, None)])
-    figure = result.to_plot()
-    (trace,) = figure.data
-    # plotly gets the missing ones as NaN, which the map does not draw: the two stations that have a position are
-    # the ones it can place, and the zoom is fitted to them
-    drawn = sorted((lat, lon) for lat, lon in zip(trace.lat, trace.lon, strict=True) if lat == lat and lon == lon)  # noqa: PLR0124
-    assert drawn == [(50.0, 10.0), (52.52, 13.405)]
-    assert figure.layout.map.zoom > 0
+    chart = result.to_plot()
+    # the two stations that have a position are the ones it can place, and the zoom is fitted to them
+    assert _stations_drawn(chart) == ["Station 0 (00000)", "Station 2 (00002)"]
+    assert chart.to_dict()["projection"]["scale"] > 0
     assert "<html" in result.to_image(fmt="html")
 
 
@@ -158,9 +170,9 @@ def test_stations_none_of_which_has_a_complete_position_are_refused() -> None:
         _result([(51.0, None), (None, 10.0)]).to_plot()
 
 
-def test_no_station_at_all_is_an_empty_figure_as_before() -> None:
+def test_no_station_at_all_is_an_empty_chart_as_before() -> None:
     """A listing that is empty is no refusal: there is nothing to say about positions."""
-    assert _result([]).to_plot().data == ()
+    assert count_points(_result([]).to_plot()) == 0
 
 
 @pytest.mark.parametrize("fmt", IMAGE_FORMATS)
@@ -189,11 +201,10 @@ def test_the_postal_codes_of_the_correction_factor_are_refused_as_pollen_is(
 
 def test_a_station_with_a_latitude_only_does_not_widen_the_map() -> None:
     """The view is fitted to the stations with both coordinates: a latitude of -30 and no longitude is not on it."""
-    alone = _result([(52.52, 13.405), (52.6, 13.5)]).to_plot().layout.map
-    with_half = _result([(52.52, 13.405), (52.6, 13.5), (-30.0, None), (None, 120.0)]).to_plot().layout.map
-    assert with_half.zoom == pytest.approx(alone.zoom)
-    assert with_half.center.lat == pytest.approx(alone.center.lat)
-    assert with_half.center.lon == pytest.approx(alone.center.lon)
+    alone = _result([(52.52, 13.405), (52.6, 13.5)]).to_plot().to_dict()["projection"]
+    with_half = _result([(52.52, 13.405), (52.6, 13.5), (-30.0, None), (None, 120.0)]).to_plot().to_dict()["projection"]
+    assert with_half["scale"] == pytest.approx(alone["scale"])
+    assert with_half["center"] == pytest.approx(alone["center"])
     # a picture of another size is fitted again to the same stations
     result = _result([(52.52, 13.405), (52.6, 13.5), (-30.0, None)])
     assert result._map_view(300, 300)[1] == pytest.approx(  # noqa: SLF001

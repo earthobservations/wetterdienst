@@ -154,6 +154,9 @@ class StationIdSearchResult:
     df: pl.DataFrame
     searched: list[SearchedNetwork]
     warnings: list[ResponseWarning] = field(default_factory=list)
+    #: how many stations were found where `df` holds fewer because a tool's answer was cut to its budget; None
+    #: where nothing was cut, so that the rows of `df` are the count (`counts.stations_matched`, GH-4472)
+    matched: int | None = None
 
     def to_dict(self) -> list[dict[str, object]]:
         """Give the stations as a list of dictionaries, one for each row of `df`."""
