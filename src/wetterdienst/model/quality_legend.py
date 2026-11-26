@@ -20,7 +20,15 @@ memory is a claim nothing checks.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, ConfigDict, Field
+
+from wetterdienst.model.dwd_qn_levels import LEVELS as _DWD_QN_LEVELS
+from wetterdienst.model.dwd_qn_levels import NOTE_1980, qn_levels
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 class QualityCode(BaseModel):
@@ -121,10 +129,70 @@ def _kind(kind: str, code: str, meaning: str, *, codes: list[QualityCode] | None
 
 
 _DWD_QN = _plain(
-    "The quality level (QN) of the dataset the reading belongs to, as DWD writes it ('3'). The levels in use and "
-    "what they mean are DWD's and depend on the dataset's QN column, which `metadata.quality.source_flags` names; "
-    "readings of a dataset without one have no such token.",
+    "The quality level (QN) of the dataset the reading belongs to, as DWD writes it ('3'): the quality control the "
+    "values went through. What the levels mean is DWD's and depends on the dataset; `with_metadata` lists the levels "
+    "of the datasets read, and `metadata.quality.source_flags` names the QN column. Readings of a dataset without "
+    "one have no such token.",
 )
+
+_DWD_DOCUMENTS = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/"
+#: how many documents a legend names by URL; for more it names the directory they are in
+_MOST_URLS = 2
+
+#: DWD's description of the annual reporters' crops (read 2026-11-26), which lists the levels 1, 7 and 10
+_DWD_PHENOLOGY = (
+    "https://opendata.dwd.de/climate_environment/CDC/observations_germany/phenology/annual_reporters/crops/recent/"
+    "DESCRIPTION_obsgermany-phenology-annual_reporters-crops-recent_en.pdf"
+)
+#: DWD's description of the hourly DUETT products, which lists the levels of `QN_952`
+_DWD_DUETT = (
+    "https://opendata.dwd.de/climate_environment/CDC/derived_germany/climate/hourly/duett/"
+    "DESCRIPTION_derived_germany-climate-hourly-duett_en.pdf"
+)
+
+_DWD_DERIVED_QN = _plain(
+    "The quality level (QN_952) of the hourly DUETT datasets (`radiation_global`, `sunshine_duration`), as DWD writes "
+    "it: the scope of the input data used for merging, DWD's words. The other derived datasets have none.",
+    codes=_codes(
+        c_500="DUETT data without station and satellite data",
+        c_501="DUETT data based on station data only",
+        c_502="DUETT data based on satellite data only",
+        c_503="DUETT data based on (max 42) station and satellite data",
+    ),
+    documentation=_DWD_DUETT,
+)
+
+
+def dwd_observation_qn(datasets: Iterable[str]) -> QualityKind:
+    """Describe the QN of the datasets read (`resolution/dataset`): the levels DWD lists for them, and where.
+
+    Where DWD lists no level for a dataset (it publishes no description of it) the kind says so; the levels of
+    another product are never told for it.
+    """
+    found = qn_levels(datasets)
+    if not (found.urls or found.undocumented):
+        return _DWD_QN
+    meaning = (
+        "DWD's quality level (QN) of the row, as DWD writes it ('3'): the quality control the values went through, "
+        "worded as in the product's English description."
+    )
+    if {"5", "10"} & set(found.levels):
+        meaning += " " + NOTE_1980
+    if found.undocumented:
+        meaning += " DWD publishes no description of the levels of " + ", ".join(found.undocumented) + "."
+    documentation = (
+        " ".join(found.urls)
+        if len(found.urls) <= _MOST_URLS
+        else f"{_DWD_DOCUMENTS} (the DESCRIPTION_*_en.pdf of each product's directory)"
+    )
+    return QualityKind(
+        kind=None,
+        written="<code>",
+        meaning=meaning,
+        codes=[QualityCode(code=level, meaning=_DWD_QN_LEVELS[level]) for level in found.levels] or None,
+        documentation=documentation or None,
+    )
+
 
 #: every network by `provider/network`; the order is that of the column
 LEGENDS: dict[str, list[QualityKind]] = {
@@ -237,7 +305,7 @@ LEGENDS: dict[str, list[QualityKind]] = {
         REJECTED,
         RAW,
     ],
-    "dwd/derived": [_DWD_QN, SUSPECT, REJECTED, RAW],
+    "dwd/derived": [_DWD_DERIVED_QN, SUSPECT, REJECTED, RAW],
     "dwd/mosmix": [SUSPECT, RAW],
     "dwd/dmo": [SUSPECT, REJECTED, RAW],
     "dwd/road": [
@@ -259,12 +327,15 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "dwd/pollen": [SUSPECT, RAW],
     "dwd/phenology": [
         _plain(
-            "DWD's Qualitaetsniveau of the phase report, as DWD writes it.",
+            "DWD's Qualitaetsniveau of the phase report, as DWD writes it: the quality control procedure applied, in "
+            "the words of DWD's English description. The German description words 7 as 'geprüft, nicht korrigiert' "
+            "(checked, not corrected).",
             codes=_codes(
-                c_1="Formal check only",
-                c_7="Checked in routine, uncorrected",
-                c_10="Checked and corrected",
+                c_1=_DWD_QN_LEVELS["1"],
+                c_7=_DWD_QN_LEVELS["7"],
+                c_10=_DWD_QN_LEVELS["10"],
             ),
+            documentation=_DWD_PHENOLOGY,
         ),
         SUSPECT,
         REJECTED,
@@ -289,7 +360,17 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "eaufrance/hubeau": [
         _plain(
             "Hub'Eau's code_qualification_obs of the observation, as the service writes it, a whole number "
-            "('12'). The codes are Hub'Eau's and told in its API documentation.",
+            "('12'); the seven values its API documentation lists, with the French words it gives them.",
+            codes=_codes(
+                c_0="Neutre",
+                c_4="Faible",
+                c_8="Forte",
+                c_12="Douteuse",
+                c_16="Non qualifiée",
+                c_20="Bonne",
+                c_30="Estimée",
+            ),
+            documentation="https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs",
         ),
     ],
     "eccc/observation": [
@@ -337,7 +418,21 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "meteofrance/synop": [SUSPECT, REJECTED, RAW],
     "meteoswiss/observation": [SUSPECT, REJECTED, RAW],
     "metno/frost": [
-        _plain("The qualityCode of the observation in Frost, as the service writes it, a whole number."),
+        _plain(
+            "The qualityCode of the observation in Frost, as the service writes it, a whole number: Frost's single "
+            "value for the quality of the observation, as its table words it.",
+            codes=_codes(
+                c_0="OK, value is controlled and found O.K.",
+                c_1="OK, value is controlled and corrected, or value is missing and interpolated",
+                c_2="Slightly uncertain, value is not controlled",
+                c_4="Slightly uncertain, value is not corrected",
+                c_5="Very uncertain, value is not corrected",
+                c_6="Very uncertain, model data. Value is controlled and corrected, or value is missing and is "
+                "interpolated - automatic",
+                c_7="Erroneous, value is not corrected",
+            ),
+            documentation="https://frost.met.no/dataclarifications.html#quality-code",
+        ),
         _kind(
             "completeness",
             "Incomplete",
@@ -447,11 +542,32 @@ def _with_the_tokens_of_limits(legend: list[QualityKind]) -> list[QualityKind]:
 LEGENDS = {network: _with_the_tokens_of_limits(legend) for network, legend in LEGENDS.items()}
 
 
-def quality_legend(provider: str, network: str) -> list[QualityKind]:
+def quality_legend(provider: str, network: str, datasets: Iterable[str] | None = None) -> list[QualityKind]:
     """Give the kinds of token the `quality_flags` of a network holds, in the order of the column.
+
+    `datasets` (`resolution/dataset`, the ones an answer reads) lets `dwd/observation` tell the quality levels DWD
+    lists for those products (`dwd_observation_qn`); without it the legend of that network names no level, as the
+    levels differ by product.
 
     Raises:
         KeyError: the network has no legend, which `tests/model/test_quality_legend.py` keeps a registered one from.
 
     """
-    return list(LEGENDS[f"{provider.lower()}/{network.lower()}"])
+    key = f"{provider.lower()}/{network.lower()}"
+    legend = list(LEGENDS[key])
+    if key == "dwd/observation" and datasets is not None:
+        legend = [dwd_observation_qn(datasets) if kind is _DWD_QN else kind for kind in legend]
+    return legend
+
+
+#: what a network with no flag of its own says in `metadata.quality.source_flag_note`
+NO_SOURCE_FLAG = (
+    "The source publishes no quality flag with these readings: `quality_flags` holds only this library's tokens "
+    "(`suspect`, `rejected`, `raw`)."
+)
+
+
+def source_flag_note(provider: str, network: str) -> str | None:
+    """Say so where the network's source states no quality flag: its legend has no plain kind, the source's own flag."""
+    legend = LEGENDS[f"{provider.lower()}/{network.lower()}"]
+    return None if any(kind.kind is None for kind in legend) else NO_SOURCE_FLAG

@@ -21,6 +21,12 @@ Types of changes:
 - `GET /api/version` (and `/api/v1/version`) has `plotting`, whether the server draws charts
   (`WD_RESTAPI_PLOTTING`, read per request), so a client learns it before it asks for one and gets
   the 403 `charts-disabled` (GH-4467)
+- The `quality` legend of `with_metadata` lists DWD's QN levels of the datasets read in DWD's own
+  words, with the description they are from (`1` only formal control ... `9` not all parameters
+  corrected ... `10` quality control finished; the 10 minute data list `1` to `3`), and says where
+  DWD describes none (sub-daily, annual). It lists the DUETT, Hub'Eau and Frost codes too, and
+  `source_flag_note` says where the source publishes no flag. About 550 more characters per
+  hourly or daily DWD answer. The phenology levels are DWD's wording now (GH-4474)
 
 ### Changed
 

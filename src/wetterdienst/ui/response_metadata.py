@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
 from wetterdienst.model.processing_note import STATION_IDS_NOTE, processing_note
-from wetterdienst.model.quality_legend import QualityKind, quality_legend
+from wetterdienst.model.quality_legend import QualityKind, quality_legend, source_flag_note
 from wetterdienst.model.result import (
     StationsFilter,
     StationsResult,
@@ -192,7 +192,14 @@ class Quality(BaseModel):
     )
     legend: list[QualityKind] = Field(
         description="What the tokens of `quality_flags` mean for this network, in the order of the column: the "
-        "source's own flag, its further kinds, and `raw` last. Empty for a network whose readings carry no flag.",
+        "source's own flag, its further kinds, and `raw` last. For DWD's observation network the source's own flag "
+        "(the quality level QN) lists the levels of the datasets read, with DWD's words and the documents they are "
+        "from.",
+    )
+    source_flag_note: str | None = Field(
+        default=None,
+        description="Said where the provider publishes no quality flag with its readings, so that `quality_flags` "
+        "holds only this library's tokens; null where it does.",
     )
 
 
@@ -691,8 +698,10 @@ def result_metadata(
             )
             for p in parameters
         ]
+        read_datasets = list({id(p.dataset): p.dataset for p in parameters}.values())
         block.quality = Quality(
-            legend=quality_legend(provider, network),
+            legend=quality_legend(provider, network, [f"{d.resolution.name}/{d.name}" for d in read_datasets]),
+            source_flag_note=source_flag_note(provider, network),
             source_flags=[
                 SourceQualityFlag(
                     resolution=dataset.resolution.name,
@@ -700,7 +709,7 @@ def result_metadata(
                     name_original=flag.name_original,
                     description=flag.description,
                 )
-                for dataset in {id(p.dataset): p.dataset for p in parameters}.values()
+                for dataset in read_datasets
                 for flag in dataset.parameters
                 if is_quality_flag(flag)
             ],
