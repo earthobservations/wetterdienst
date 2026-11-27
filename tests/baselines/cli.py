@@ -38,17 +38,7 @@ from tests.baselines.common import DIRECTORY, read, write
 BASELINE = DIRECTORY / "cli.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
-_WEBP = (
-    "`webp` is dropped with Plotly and Kaleido, which wrote it: the images are drawn by vl-convert, which has "
-    "png, jpg, svg and pdf (GH-3238, decision of 2026-11-14). Ask for `png` and convert it where webp is needed."
-)
-
-ACCEPTED_BREAKS: dict[str, str] = {
-    "wetterdienst interpolate: --format: choices webp were removed": _WEBP,
-    "wetterdienst stations: --format: choices webp were removed": _WEBP,
-    "wetterdienst summarize: --format: choices webp were removed": _WEBP,
-    "wetterdienst values: --format: choices webp were removed": _WEBP,
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: the keys of an option that are compared as they are: a change is a finding
 _SAME = ("param_type_name", "nargs", "multiple", "is_flag", "count", "envvar", "flag_value")
