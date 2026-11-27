@@ -900,6 +900,52 @@
     "runLabel": "Uruchomienie modelu",
     "runLatest": "Najnowsza (auto)"
   },
+  "uvPollen": {
+    "title": "UV i pyłki",
+    "today": "Dziś",
+    "tomorrow": "Jutro",
+    "noValue": "brak wartości",
+    "uv": {
+      "title": "Indeks UV dla {place} ({km} km)",
+      "index": "Indeks UV",
+      "class": {
+        "low": "Niski",
+        "moderate": "Umiarkowany",
+        "high": "Wysoki",
+        "veryHigh": "Bardzo wysoki",
+        "extreme": "Ekstremalny"
+      },
+      "credit": "Prognoza indeksu UV z DWD."
+    },
+    "pollen": {
+      "title": "Obciążenie pyłkiem dla {state}",
+      "regions": "Region ({state})",
+      "typeHeader": "Rodzaj pyłku",
+      "caption": "Prognoza obciążenia pyłkiem dla {region}",
+      "outOfSeason": "W tych dniach nie przewiduje się obciążenia pyłkiem.",
+      "noForecast": "DWD nie podaje obecnie prognozy pyłków dla tego regionu.",
+      "credit": "Prognoza obciążenia pyłkiem z DWD.",
+      "type": {
+        "hazel": "Leszczyna",
+        "alder": "Olcha",
+        "ash": "Jesion",
+        "birch": "Brzoza",
+        "grass": "Trawy",
+        "rye": "Żyto",
+        "mugwort": "Bylica",
+        "ragweed": "Ambrozja"
+      },
+      "level": {
+        "none": "Brak",
+        "noneToLow": "Od braku do niskiego",
+        "low": "Niskie",
+        "lowToMedium": "Od niskiego do umiarkowanego",
+        "medium": "Umiarkowane",
+        "mediumToHigh": "Od umiarkowanego do wysokiego",
+        "high": "Wysokie"
+      }
+    }
+  },
   "widget": {
     "noStation": "Nie określono stacji. Dodaj {param} do adresu URL.",
     "loading": "Ładowanie prognozy …",
