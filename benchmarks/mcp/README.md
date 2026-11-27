@@ -9,9 +9,13 @@ requests to the live providers.
 This file is the runbook. A fresh Claude Code session that is told only *"follow `benchmarks/mcp/README.md` for the smoke
 run"* or *"... for the baseline"* has everything it needs here: do **Parts 1 to 6** in order, and **Part 7** whenever
 something is unclear or breaks. Told *"run a comparison of branch X against baseline file Y"*, do the same with **Part 8**. **Current reference** (the file Y of
-Part 8 unless you are given another): **the baseline of `main` at label `39aa57d89` (0.200.0), run on 2026-11-27, a
-secret gist, <https://gist.github.com/gutzbenj/d0180a9e8d2d483c0a7ef69a8888b8ea>, file
-`mcpbench-results-baseline-main-0.200.0-39aa57d89-2026-11-27.json`** (370 runs; reported on #4445). The cases changed with the re-baseline of #4318 (a case dropped a forbidden
+Part 8 unless you are given another): **the comparison run of the compact default of the `values` tool, the branch of
+#4483 at label `f447d110f` (merged as `55f0cc727`), run on 2026-11-27, a secret gist,
+<https://gist.github.com/gutzbenj/17d7c5874f26b799a998d37d2d1a582d>, file
+`mcpbench-results-change-feat-compact-format-values-4445-f447d110f-2026-11-27.json`** (reported on #4445): the server as
+`main` has it since. The reference before it, the baseline of `main` at label `39aa57d89` (0.200.0, JSON answers), is the
+secret gist <https://gist.github.com/gutzbenj/d0180a9e8d2d483c0a7ef69a8888b8ea>, file
+`mcpbench-results-baseline-main-0.200.0-39aa57d89-2026-11-27.json` (370 runs). The cases changed with the re-baseline of #4318 (a case dropped a forbidden
 rule, the judging of a forecast figure at the current hour changed, and a case was added) and again with the cases of
 #4445 (nine cases for the tools nobody asked about, and the prompt names all 15 tools: 37 cases that need no key, hash of
 `cases.json` and of the prompt changed), so a file of the old cases is no baseline for a run of these: `compare` refuses a file made with the old prompt (exit 4, the prompt hash differs), and for a file with the same prompt it leaves out the cases whose hash changed (the new ones have no counterpart in an old file). The last
