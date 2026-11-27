@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The compact answer of `values` with `with_metadata` lists in its quality legend only the kinds
+  of flag and the codes that occur in its readings, with no `documentation` column, and has no
+  legend where no reading has a flag. DWD's 18 readings of two precipitation parameters over nine
+  days went from 9,036 to 3,112 characters. The JSON keeps the whole legend. The MCP `values` tool
+  describes `with_metadata` in one clause, and the note of a cut answer counts the legend it left
+  out (GH-4499)
+
 ## [0.201.0] - 2026-11-27
 
 ### Added
