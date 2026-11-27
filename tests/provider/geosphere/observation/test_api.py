@@ -968,7 +968,8 @@ def test_geosphere_observation_an_incomplete_response_is_a_download_error(
     with pytest.raises(DownloadError) as error:
         _humidity("4821").values().all()
     message = str(error.value)
-    assert "https://dataset.api.hub.geosphere.at/v1/station/historical/klima-v2-1m?" in message
+    # the URL without its query, as every DownloadError has it; the query of a keyless request names the station
+    assert error.value.url == "https://dataset.api.hub.geosphere.at/v1/station/historical/klima-v2-1m"
     assert "station_ids=4821" in message
     assert reason in message
 

@@ -23,7 +23,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.geosphere.observation.metadata import GeosphereObservationMetadata
 from wetterdienst.util.datetime import round_minutes
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import _without_url_secrets, download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -218,19 +218,26 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
 
 
 def _incomplete(url: str, what: str) -> DownloadError:
-    """Make the error of a response that cannot be read as the values it was asked for, naming the URL."""
-    return DownloadError(url, f"the response is incomplete: {what}")
+    """Make the error of a response that cannot be read as the values it was asked for, naming the URL.
+
+    `url` is without its query, as for every `DownloadError`; GeoSphere is keyless, so the query, which names the
+    station, the parameters and the window, is given in the reason.
+    """
+    query = url.partition("?")[2]
+    asked = f" (asked for {query})" if query else ""
+    return DownloadError(_without_url_secrets(url), f"the response is incomplete: {what}{asked}")
 
 
 def _parameters_of(url: str, content: BinaryIO) -> tuple[list[str], dict[str, object]]:
     """Read the timestamps and the parameters of the one feature of a response, the numbers still the text it wrote.
 
     The standard library's reader hands the text of a number to ``parse_int`` and ``parse_float``: ``-1`` and ``-1.0``
-    are two texts, which polars' JSON reader makes one number. It costs no more than polars' (5 MB in 0.05 s).
+    are two texts, which polars' JSON reader makes one number. It costs about as much as polars' (4 MB in 0.07 s
+    against 0.05 s).
     """
     try:
         body = json.load(content, parse_int=str, parse_float=str, parse_constant=str)
-    except (ValueError, UnicodeDecodeError) as error:
+    except ValueError as error:  # a UnicodeDecodeError among them
         raise _incomplete(url, "it is no JSON") from error
     timestamps = body.get("timestamps") if isinstance(body, dict) else None
     features = body.get("features") if isinstance(body, dict) else None
