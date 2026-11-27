@@ -614,7 +614,114 @@ def _settings_header(settings: Mapping[str, Any] | None) -> list[tuple[str, str]
     return lines
 
 
-def _metadata_tables(block: Mapping[str, Any]) -> list[Table]:
+#: how the tokens of `quality_flags` read, in the legend of an answer (the JSON's `format` is a paragraph)
+_FLAGS_FORMAT = (
+    "comma-separated tokens: the source's own flag as the source writes it, then `kind:code`, `raw:<text>` last"
+)
+
+#: the meanings of the kinds every network shares, as short as they go (the JSON's `meaning` names every check)
+_SHORT_MEANINGS = {
+    "suspect": (
+        "The value is kept, but a plausibility check in the mode `soft` found it implausible: `range`, `elevation`, "
+        "`stuck`, `consistency`, `floor`, `limits`, `source`, `step` or `relations`, joined with `+` if several."
+    ),
+    "rejected": (
+        "The value is null: a plausibility check in the mode `hard` rejected the number the source wrote, which `raw` "
+        "holds. The checks are those of `suspect`."
+    ),
+    "raw": (
+        "The value is null (or the value the source documents the marker to mean): the source wrote a missing-value "
+        "marker or an impossible number, given here as the source wrote it. Always last."
+    ),
+}
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z`'])")
+
+
+def _short_meaning(kind: str | None, meaning: str) -> str:
+    """Give the meaning of a kind of flag in a sentence: a shared kind has its own words, any other its first one."""
+    return _SHORT_MEANINGS.get(kind or "") or _SENTENCE_END.split(meaning, maxsplit=1)[0]
+
+
+def _written(entry: Mapping[str, Any]) -> str:
+    """Write how a token of a kind reads: a kind with a set of codes says `<code>`, the table of codes lists them.
+
+    The JSON's `written` names every code of the set (`zone:<mez|mez-1973-75|mez-local-mean-time|woz>`), among them
+    those that no reading of the answer has.
+    """
+    return f"{entry['kind']}:<code>" if entry["kind"] and entry.get("codes") else entry["written"]
+
+
+def _flags_that_occur(frame: pl.DataFrame, kinds: Iterable[str]) -> set[tuple[str | None, str]]:
+    """Give the (kind, code) of every token the `quality_flags` of the frame hold; the kind is None for the plain one.
+
+    A token is `kind:code` where its text before the first colon is a kind of the legend. The first token of a
+    reading that is no such token is the source's own flag. Tokens are told apart by commas, which no code holds.
+    """
+    if "quality_flags" not in frame.columns:
+        return set()
+    known = set(kinds)
+    found: set[tuple[str | None, str]] = set()
+    for text in frame.get_column("quality_flags").drop_nulls().unique().to_list():
+        for position, token in enumerate(text.split(SEPARATOR)):
+            prefix, colon, code = token.partition(":")
+            if colon and prefix in known:
+                found.add((prefix, code))
+            elif position == 0 and token:
+                found.add((None, token))
+    return found
+
+
+def _quality_tables(quality: Mapping[str, Any], frame: pl.DataFrame) -> list[Table]:
+    """Write what the quality flags that occur in the frame mean: nothing for a kind or a code that does not.
+
+    The JSON keeps the legend of the network whatever the readings hold; here every row costs the reader, and a flag
+    that is not in the answer is no use to it. No flag in the answer, no legend.
+    """
+    kinds = {e["kind"] for e in quality["legend"] if e["kind"] is not None}
+    occurring = _flags_that_occur(frame, kinds)
+    legend = [e for e in quality["legend"] if any(kind == e["kind"] for kind, _ in occurring)]
+    if not legend:
+        return []
+    attributes = [("column", text_value(f"{quality['column']}: {_FLAGS_FORMAT}"))]
+    if quality.get("source_flag_note"):
+        # said where this library carries no flag of the source, as the JSON's `source_flag_note` does
+        attributes.append(("source_flag_note", text_value(quality["source_flag_note"])))
+    tables = [
+        Table(
+            "quality_flags legend",
+            ["kind", "written", "meaning"],
+            [[cell(e["kind"]), cell(_written(e)), cell(_short_meaning(e["kind"], e["meaning"]))] for e in legend],
+            attributes,
+        )
+    ]
+    # the codes of a flag the source documents as a closed set (DWD's QN levels): a row for each code that occurs
+    codes = [
+        [cell(e["kind"]), cell(c["code"]), cell(c["meaning"])]
+        for e in legend
+        for c in e.get("codes") or ()
+        if (e["kind"], c["code"]) in occurring
+    ]
+    if codes:
+        tables.append(Table("quality_flags codes", ["kind", "code", "meaning"], codes))
+    # the columns the source's own flag is the code of: only where that flag occurs, and for the datasets of the answer
+    if any(kind is None for kind, _ in occurring):
+        datasets = {f"{r}/{d}" for r, d in frame.select("resolution", "dataset").unique().rows()}
+        source_flags = [e for e in quality.get("source_flags") or () if f"{e['resolution']}/{e['dataset']}" in datasets]
+        if source_flags:
+            tables.append(
+                Table(
+                    "source quality flags",
+                    ["dataset", "name_original", "description"],
+                    [
+                        [cell(f"{e['resolution']}/{e['dataset']}"), cell(e["name_original"]), cell(e["description"])]
+                        for e in source_flags
+                    ],
+                )
+            )
+    return tables
+
+
+def _metadata_tables(block: Mapping[str, Any], frame: pl.DataFrame) -> list[Table]:
     """Write the heavy parts of the block (`with_metadata`): the parameters, and what the quality flags hold."""
     tables: list[Table] = []
     if parameters := block.get("parameters"):
@@ -637,40 +744,7 @@ def _metadata_tables(block: Mapping[str, Any]) -> list[Table]:
             )
         )
     if quality := block.get("quality"):
-        attributes = [("column", text_value(f"{quality['column']}: {quality['format']}"))]
-        if quality.get("source_flag_note"):
-            # said where this library carries no flag of the source, as the JSON's `source_flag_note` does
-            attributes.append(("source_flag_note", text_value(quality["source_flag_note"])))
-        tables.append(
-            Table(
-                "quality_flags legend",
-                ["kind", "written", "meaning", "documentation"],
-                [
-                    [cell(e["kind"]), cell(e["written"]), cell(e["meaning"]), cell(e.get("documentation"))]
-                    for e in quality["legend"]
-                ],
-                attributes,
-            )
-        )
-        # the codes of a flag the source documents as a closed set (DWD's QN levels): a row for each code
-        codes = [
-            [cell(e["kind"]), cell(c["code"]), cell(c["meaning"])]
-            for e in quality["legend"]
-            for c in e.get("codes") or ()
-        ]
-        if codes:
-            tables.append(Table("quality_flags codes", ["kind", "code", "meaning"], codes))
-        if quality.get("source_flags"):
-            tables.append(
-                Table(
-                    "source quality flags",
-                    ["dataset", "name_original", "description"],
-                    [
-                        [cell(f"{e['resolution']}/{e['dataset']}"), cell(e["name_original"]), cell(e["description"])]
-                        for e in quality["source_flags"]
-                    ],
-                )
-            )
+        tables += _quality_tables(quality, frame)
     return tables
 
 
@@ -706,7 +780,7 @@ def values_document(
         tables += _values_tables(frame, _units_of(parameters), chronological=not options.get("sort"))
     if search_table is not None:
         tables.append(search_table)
-    tables += _metadata_tables(block)
+    tables += _metadata_tables(block, frame)
     header = [*header_of(block), *search_lines, *_settings_header(settings)]
     # the readings of the answer: a row of the long frame each, whatever the shape it was asked in
     return Document(tool, header, tables, frame.height)

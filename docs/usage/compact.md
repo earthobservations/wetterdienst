@@ -111,7 +111,17 @@ is written as a JSON string, so that no text of the provider or of a warning can
 | `values <resolution>/<dataset> parameter=<name>` | a sorted answer of several stations: the readings of one parameter in the order of the answer, `station_id`, `timestamp` and the parameter (`parameter=` only where the answer has several) |
 | `flags <resolution>/<dataset> station=<id> (exceptions)` | the periods in which the readings of that table have other flags than its default (with a `station_id` column in the table of a sorted answer of several stations) |
 | `search series` | with a row option: for each station and parameter, from when to when it was searched and how many values matched |
-| `parameters`, `quality_flags legend`, `quality_flags codes`, `source quality flags` | with `with_metadata`: what each parameter is, what the tokens of `quality_flags` mean (the legend has the `source_flag_note` as an attribute where the library carries no flag of the source, and `quality_flags codes` has a row for each code of a flag the source documents as a closed set, such as DWD's QN levels), what the source's own flags mean (the long descriptions of the parameters are left out: see `coverage` and `glossary`) |
+| `parameters`, `quality_flags legend`, `quality_flags codes`, `source quality flags` | with `with_metadata`: what each parameter is (the long descriptions are left out: see `coverage` and `glossary`) and what the flags of the answer mean (below) |
+
+**The legend covers the flags in the answer, and no others** (the JSON's `metadata.quality.legend` keeps those of the
+whole network). `quality_flags legend` has a row (`kind`, `written`, `meaning`) for each kind of token that some reading
+of the answer has, with the first sentence of its meaning, or a line of its own for the kinds every network has
+(`suspect`, `rejected`, `raw`); there is no `documentation` column. `quality_flags codes` has a row for each code that
+occurs of a flag the source documents as a closed set, such as DWD's QN levels or a `zone`: with QN 10 in every
+reading, it is the one row for 10. `source quality flags` is there where the source's own flag occurs, for the datasets
+of the answer. The legend has the `source_flag_note` as an attribute where the library carries no flag of the source.
+An answer none of whose readings has a flag has none of these tables: the `parameters` and the settings are still
+there.
 
 A word of a heading that has a space, a quote or anything a line cannot hold is a JSON string.
 

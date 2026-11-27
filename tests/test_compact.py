@@ -485,7 +485,7 @@ def test_with_metadata_adds_the_settings_and_the_tables_of_the_parameters_and_th
         "source_flags": [
             {"resolution": "daily", "dataset": "d", "name_original": "qn_3", "description": "Quality flag."}
         ],
-        "legend": [{"kind": "source", "written": "<code>", "meaning": "The source's own flag, as it writes it."}],
+        "legend": [{"kind": None, "written": "<code>", "meaning": "The source's own flag, as it writes it."}],
     }
     rows = [("01975", "daily", "d", "a", day(0), 1.0, "1")]
     text = compact.values_text(
@@ -500,7 +500,7 @@ def test_with_metadata_adds_the_settings_and_the_tables_of_the_parameters_and_th
     assert parsed.get("settings") == "humanize=true shape=long"
     assert parsed.get("unit_targets") == "temperature=degree_celsius"
     assert parsed.table("parameters").rows == [["daily/d", "a", "A", "temperature", "°C", "mean", None]]
-    assert parsed.table("quality_flags legend").attribute("column") == "quality_flags: One string per reading."
+    assert parsed.table("quality_flags legend").attribute("column").startswith("quality_flags: comma-separated")
     assert parsed.table("source quality flags").rows == [["daily/d", "qn_3", "Quality flag."]]
     assert "very long" not in text
 
@@ -524,31 +524,98 @@ def test_the_note_of_a_source_flag_the_library_does_not_carry_is_an_attribute_of
     """`dwd/mosmix` has no flag of the source: the JSON says so in `source_flag_note`, and so does the text."""
     block = _quality_block("dwd", "mosmix")
     assert block["quality"]["source_flag_note"]
+    rows = [("01975", "daily", "d", "a", day(0), 1.0, "suspect:range"), ("01975", "daily", "d", "a", day(1), 2.0, None)]
 
-    parsed = parse(write([], [], block=block, stations=[]))
+    parsed = assert_round_trip(write(rows, [parameter("a", dataset="d")], block=block), rows)
     legend = parsed.table("quality_flags legend")
 
     assert legend.attribute("source_flag_note") == block["quality"]["source_flag_note"]
-    assert [row[0] for row in legend.rows] == [e["kind"] for e in block["quality"]["legend"]]
+    # `rejected` and `raw` are in the network's legend and not in the answer
+    assert [row[0] for row in legend.rows] == ["suspect"]
     assert "codes" not in parsed.tables[-1].heading
 
 
 def test_a_network_that_carries_a_flag_of_the_source_has_no_note_and_its_codes_are_a_table() -> None:
-    """DWD's QN levels are the codes of the source's own flag: a row each, with the kind empty for that flag."""
+    """DWD's QN levels are the codes of the source's own flag: a row for each level that occurs, kind empty."""
     block = _quality_block("dwd", "observation", ["daily/climate_summary"])
     assert block["quality"]["source_flag_note"] is None
-    expected = [(c["code"], c["meaning"]) for e in block["quality"]["legend"] if e["kind"] is None for c in e["codes"]]
-    assert expected
+    levels = {c["code"]: c["meaning"] for e in block["quality"]["legend"] if e["kind"] is None for c in e["codes"]}
+    assert len(levels) > 3
+    rows = [("01975", "daily", "d", "a", day(i), 1.0, flags) for i, flags in enumerate(["3", "10", "10", "3"])]
 
-    parsed = parse(write([], [], block=block, stations=[]))
+    parsed = assert_round_trip(write(rows, [parameter("a", dataset="d")], block=block), rows)
 
     assert parsed.table("quality_flags legend").attribute("source_flag_note") is None
     codes = parsed.table("quality_flags codes")
     assert codes.columns == ["kind", "code", "meaning"]
-    assert [(row[1], row[2]) for row in codes.rows if row[0] is None] == expected
-    documented = [e for e in block["quality"]["legend"] if e.get("documentation")]
+    assert [(row[1], row[2]) for row in codes.rows if row[0] is None] == [("3", levels["3"]), ("10", levels["10"])]
+
+
+def _flag_tables(flags: list[str | None], readings: list[float | None] | None = None) -> Any:  # noqa: ANN401
+    """Write the answer of dwd/observation with a reading for each of the flags and its with_metadata, and read it."""
+    block = _quality_block("dwd", "observation", ["daily/climate_summary"])
+    block["quality"]["source_flags"] = [
+        {"resolution": "daily", "dataset": "d", "name_original": "qn_3", "description": "Quality level."}
+    ]
+    readings = readings or [1.0] * len(flags)
+    rows = [("01975", "daily", "d", "a", day(i), v, f) for i, (f, v) in enumerate(zip(flags, readings, strict=True))]
+    text = write(rows, [parameter("a", dataset="d")], block=block)
+    return assert_round_trip(text, rows), text
+
+
+def test_the_legend_lists_only_the_kinds_and_codes_that_occur() -> None:
+    """A level, a zone and a check that are in no reading are in no table; the one that is, is, with its meaning."""
+    parsed, text = _flag_tables(["3", "3,zone:mez", "10", None])
+
     legend = parsed.table("quality_flags legend")
-    assert [row[3] for row in legend.rows if row[3]] == [e["documentation"] for e in documented]
+    assert legend.columns == ["kind", "written", "meaning"]
+    assert [row[0] for row in legend.rows] == [None, "zone"]
+    codes = parsed.table("quality_flags codes")
+    assert [(row[0], row[1]) for row in codes.rows] == [(None, "3"), (None, "10"), ("zone", "mez")]
+    assert "mez-1973-75" not in text
+    assert "woz" not in text
+    assert "suspect" not in text
+    assert "documentation" not in text
+    # the one source quality flag is the code of the first token, and there is one
+    assert parsed.table("source quality flags").rows == [["daily/d", "qn_3", "Quality level."]]
+
+
+def test_a_row_with_a_raw_token_still_reads_and_its_kind_is_listed() -> None:
+    """`1,raw:-999` on a null reading, a `raw:` text with a colon in it and `rejected:` before it: all read back."""
+    flags = ["10", "10,raw:-999", "10,rejected:range+step,raw:12:30"]
+    parsed, _ = _flag_tables(flags, readings=[1.0, None, None])
+
+    assert [row[0] for row in parsed.table("quality_flags legend").rows] == [None, "rejected", "raw"]
+    assert [(row[0], row[1]) for row in parsed.table("quality_flags codes").rows] == [(None, "10")]
+    assert values(parsed)[("01975", "daily", "d", "a", day(2))] == (None, "10,rejected:range+step,raw:12:30")
+
+
+def test_an_answer_with_no_flags_has_no_legend() -> None:
+    """The legend is the readings' flags told: with none there is nothing to tell, and no table of its sources."""
+    parsed, text = _flag_tables([None, None, None])
+
+    assert [t.heading for t in parsed.tables if t.heading.startswith(("quality", "source"))] == []
+    assert "quality_flags" not in text
+    assert "documentation" not in text
+
+
+def test_the_flags_of_the_library_alone_are_a_legend_without_a_source_table() -> None:
+    """A reading with only `raw:` has the kind `raw` listed; the source's flag did not occur, so its columns are not."""
+    parsed, _ = _flag_tables(["raw:-999", "raw:-999"], readings=[None, None])
+
+    assert [row[0] for row in parsed.table("quality_flags legend").rows] == ["raw"]
+    assert not any(t.heading in ("quality_flags codes", "source quality flags") for t in parsed.tables)
+
+
+def test_every_kind_of_every_network_has_a_meaning_of_a_sentence() -> None:
+    """The legend of an answer is the first sentence of the JSON's meaning, or the words of a kind every network has."""
+    from wetterdienst.model.quality_legend import LEGENDS  # noqa: PLC0415
+
+    for network, kinds in LEGENDS.items():
+        for kind in kinds:
+            short = compact._short_meaning(kind.kind, kind.meaning)  # noqa: SLF001
+            assert short, (network, kind.kind)
+            assert len(short) <= 300, (network, kind.kind, short)
 
 
 # --- hostile text --------------------------------------------------------------------------------------------------

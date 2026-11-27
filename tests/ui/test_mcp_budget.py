@@ -972,7 +972,7 @@ def test_the_values_tool_recommends_a_window_and_the_rest_document_does_not() ->
 
     descriptions = asyncio.run(listed())
     advice = "Give a `timestamp` window: an answer is cut to 40,000 characters. The text above describes the JSON"
-    assert descriptions["values"].rstrip().endswith("`quality_flags` tables.")
+    assert descriptions["values"].rstrip().endswith("the `search series` table.")
     assert advice in descriptions["values"]
     assert advice not in descriptions["stations"]
     paths = restapi.app.openapi()["paths"]

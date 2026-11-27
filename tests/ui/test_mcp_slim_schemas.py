@@ -759,3 +759,23 @@ def test_python_still_takes_the_skip_options() -> None:
     options = Options(skip_empty=True, skip_threshold=0.5, skip_criteria="max")
 
     assert (options.skip_empty, options.skip_threshold, options.skip_criteria) == (True, 0.5, "max")
+
+
+def test_the_values_tool_says_what_with_metadata_adds_in_one_clause() -> None:
+    """The unit is in each column line, so the tool does not draw a model to `with_metadata` (GH-4499).
+
+    The argument has a clause, and neither the description of the tool nor its closing advice has a paragraph about it;
+    the other tools keep the description of their route.
+    """
+    tools = _tools()
+    values = tools["values"]
+
+    clause = values.input_schema["properties"]["with_metadata"]["description"]
+    assert clause.count(".") == 1
+    assert len(clause) < 100
+    assert "with_metadata" not in values.description
+    assert "metadata.parameters" not in values.description
+    # the REST API and the other tools are not touched
+    route = next(op for path, op in restapi.app.openapi()["paths"].items() if path.endswith("/values"))["get"]
+    assert "metadata.parameters" in route["description"]
+    assert "unit of every parameter" in tools["stations"].input_schema["properties"]["with_metadata"]["description"]
