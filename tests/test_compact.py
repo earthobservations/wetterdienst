@@ -485,7 +485,7 @@ def test_with_metadata_adds_the_settings_and_the_tables_of_the_parameters_and_th
         "source_flags": [
             {"resolution": "daily", "dataset": "d", "name_original": "qn_3", "description": "Quality flag."}
         ],
-        "legend": [{"kind": "source", "written": "<code>", "meaning": "The source's own flag, as it writes it."}],
+        "legend": [{"kind": None, "written": "<code>", "meaning": "The source's own flag, as it writes it."}],
     }
     rows = [("01975", "daily", "d", "a", day(0), 1.0, "1")]
     text = compact.values_text(
@@ -500,7 +500,7 @@ def test_with_metadata_adds_the_settings_and_the_tables_of_the_parameters_and_th
     assert parsed.get("settings") == "humanize=true shape=long"
     assert parsed.get("unit_targets") == "temperature=degree_celsius"
     assert parsed.table("parameters").rows == [["daily/d", "a", "A", "temperature", "°C", "mean", None]]
-    assert parsed.table("quality_flags legend").attribute("column") == "quality_flags: One string per reading."
+    assert parsed.table("quality_flags legend").attribute("column").startswith("quality_flags: comma-separated")
     assert parsed.table("source quality flags").rows == [["daily/d", "qn_3", "Quality flag."]]
     assert "very long" not in text
 
@@ -524,31 +524,189 @@ def test_the_note_of_a_source_flag_the_library_does_not_carry_is_an_attribute_of
     """`dwd/mosmix` has no flag of the source: the JSON says so in `source_flag_note`, and so does the text."""
     block = _quality_block("dwd", "mosmix")
     assert block["quality"]["source_flag_note"]
+    rows = [("01975", "daily", "d", "a", day(0), 1.0, "suspect:range"), ("01975", "daily", "d", "a", day(1), 2.0, None)]
 
-    parsed = parse(write([], [], block=block, stations=[]))
+    parsed = assert_round_trip(write(rows, [parameter("a", dataset="d")], block=block), rows)
     legend = parsed.table("quality_flags legend")
 
     assert legend.attribute("source_flag_note") == block["quality"]["source_flag_note"]
-    assert [row[0] for row in legend.rows] == [e["kind"] for e in block["quality"]["legend"]]
+    # `rejected` and `raw` are in the network's legend and not in the answer
+    assert [row[0] for row in legend.rows] == ["suspect"]
     assert "codes" not in parsed.tables[-1].heading
 
 
 def test_a_network_that_carries_a_flag_of_the_source_has_no_note_and_its_codes_are_a_table() -> None:
-    """DWD's QN levels are the codes of the source's own flag: a row each, with the kind empty for that flag."""
+    """DWD's QN levels are the codes of the source's own flag: a row for each level that occurs, kind empty."""
     block = _quality_block("dwd", "observation", ["daily/climate_summary"])
     assert block["quality"]["source_flag_note"] is None
-    expected = [(c["code"], c["meaning"]) for e in block["quality"]["legend"] if e["kind"] is None for c in e["codes"]]
-    assert expected
+    levels = {c["code"]: c["meaning"] for e in block["quality"]["legend"] if e["kind"] is None for c in e["codes"]}
+    assert len(levels) > 3
+    rows = [("01975", "daily", "d", "a", day(i), 1.0, flags) for i, flags in enumerate(["3", "10", "10", "3"])]
 
-    parsed = parse(write([], [], block=block, stations=[]))
+    parsed = assert_round_trip(write(rows, [parameter("a", dataset="d")], block=block), rows)
 
     assert parsed.table("quality_flags legend").attribute("source_flag_note") is None
     codes = parsed.table("quality_flags codes")
     assert codes.columns == ["kind", "code", "meaning"]
-    assert [(row[1], row[2]) for row in codes.rows if row[0] is None] == expected
-    documented = [e for e in block["quality"]["legend"] if e.get("documentation")]
+    assert [(row[1], row[2]) for row in codes.rows if row[0] is None] == [("3", levels["3"]), ("10", levels["10"])]
+
+
+def _flag_tables(flags: list[str | None], readings: list[float | None] | None = None) -> Any:  # noqa: ANN401
+    """Write the answer of dwd/observation with a reading for each of the flags and its with_metadata, and read it."""
+    block = _quality_block("dwd", "observation", ["daily/climate_summary"])
+    block["quality"]["source_flags"] = [
+        {"resolution": "daily", "dataset": "d", "name_original": "qn_3", "description": "Quality level."}
+    ]
+    readings = readings or [1.0] * len(flags)
+    rows = [("01975", "daily", "d", "a", day(i), v, f) for i, (f, v) in enumerate(zip(flags, readings, strict=True))]
+    text = write(rows, [parameter("a", dataset="d")], block=block)
+    return assert_round_trip(text, rows), text
+
+
+def test_the_legend_lists_only_the_kinds_and_codes_that_occur() -> None:
+    """A level, a zone and a check that are in no reading are in no table; the one that is, is, with its meaning."""
+    parsed, text = _flag_tables(["3", "3,zone:mez", "10", None])
+
     legend = parsed.table("quality_flags legend")
-    assert [row[3] for row in legend.rows if row[3]] == [e["documentation"] for e in documented]
+    assert legend.columns == ["kind", "written", "meaning"]
+    assert [row[0] for row in legend.rows] == [None, "zone"]
+    codes = parsed.table("quality_flags codes")
+    assert [(row[0], row[1]) for row in codes.rows] == [(None, "3"), (None, "10"), ("zone", "mez")]
+    assert "mez-1973-75" not in text
+    assert "woz" not in text
+    assert "suspect" not in text
+    assert "documentation" not in text
+    # the one source quality flag is the code of the first token, and there is one
+    assert parsed.table("source quality flags").rows == [["daily/d", "qn_3", "Quality level."]]
+
+
+def test_a_row_with_a_raw_token_still_reads_and_its_kind_is_listed() -> None:
+    """`1,raw:-999` on a null reading, a `raw:` text with a colon in it and `rejected:` before it: all read back."""
+    flags = ["10", "10,raw:-999", "10,rejected:range+step,raw:12:30"]
+    parsed, _ = _flag_tables(flags, readings=[1.0, None, None])
+
+    assert [row[0] for row in parsed.table("quality_flags legend").rows] == [None, "rejected", "raw"]
+    assert [(row[0], row[1]) for row in parsed.table("quality_flags codes").rows] == [(None, "10")]
+    assert values(parsed)[("01975", "daily", "d", "a", day(2))] == (None, "10,rejected:range+step,raw:12:30")
+
+
+def test_an_answer_with_no_flags_has_no_legend() -> None:
+    """The legend is the readings' flags told: with none there is nothing to tell, and no table of its sources."""
+    parsed, text = _flag_tables([None, None, None])
+
+    assert [t.heading for t in parsed.tables if t.heading.startswith(("quality", "source"))] == []
+    assert "quality_flags" not in text
+    assert "documentation" not in text
+
+
+def test_the_flags_of_the_library_alone_are_a_legend_without_a_source_table() -> None:
+    """A reading with only `raw:` has the kind `raw` listed; the source's flag did not occur, so its columns are not."""
+    parsed, _ = _flag_tables(["raw:-999", "raw:-999"], readings=[None, None])
+
+    assert [row[0] for row in parsed.table("quality_flags legend").rows] == ["raw"]
+    assert not any(t.heading in ("quality_flags codes", "source quality flags") for t in parsed.tables)
+
+
+#: the kinds that have words of their own in the compact legend; every other kind is written as its network words it
+_SHORTENED = ("suspect", "rejected", "raw", "zone")
+
+
+def test_a_kind_without_words_of_its_own_is_written_with_its_whole_meaning() -> None:
+    """A cut would drop what a meaning says of the datasets or sources its codes apply to: no meaning is cut."""
+    from wetterdienst.model.quality_legend import LEGENDS  # noqa: PLC0415
+
+    for network, kinds in LEGENDS.items():
+        for kind in kinds:
+            written = compact._meaning(kind.kind, kind.meaning)  # noqa: SLF001
+            if kind.kind in _SHORTENED:
+                assert len(written) < len(kind.meaning), (network, kind.kind)
+                assert len(written) <= 500, (network, kind.kind, written)
+            else:
+                assert written == kind.meaning, (network, kind.kind)
+            assert written
+
+
+@pytest.mark.parametrize(
+    "datasets",
+    [
+        ["daily/climate_summary"],
+        ["daily/climate_summary", "daily/weather_phenomena"],
+        ["daily/weather_phenomena"],
+        ["subdaily/air_temperature", "annual/more_precip"],
+        ["10_minutes/urban_temperature_air"],
+    ],
+)
+def test_the_quality_level_of_dwd_keeps_what_it_says_of_the_datasets_it_applies_to(datasets: list[str]) -> None:
+    """Documented and undocumented datasets, the note of 1980: whatever the JSON's meaning says, the text says."""
+    from wetterdienst.model.quality_legend import dwd_observation_qn  # noqa: PLC0415
+
+    block = _quality_block("dwd", "observation", datasets)
+    meaning = dwd_observation_qn(datasets).meaning
+    rows = [("01975", "daily", "d", "a", day(0), 1.0, "3")]
+
+    parsed = assert_round_trip(write(rows, [parameter("a", dataset="d")], block=block), rows)
+
+    plain = next(row for row in parsed.table("quality_flags legend").rows if row[0] is None)
+    assert plain[2] == meaning
+    for qualifier in ("DWD publishes no description of the levels of", "Data up to and including 1980"):
+        assert (qualifier in meaning) == (qualifier in plain[2])
+
+
+def test_the_short_words_of_the_checks_are_true_of_a_floor_and_a_suspect_level_of_the_source() -> None:
+    """What the core writes: a model's -0.1 mm is 0 with `rejected:floor`, and the suspect level of a source stays."""
+    from tests.model import test_plausibility_core as plausibility_core  # noqa: PLC0415
+    from tests.model import test_source_flags as source_flags  # noqa: PLC0415
+    from tests.provider.judging import judged  # noqa: PLC0415
+    from wetterdienst.model.judge import judge, plan_for  # noqa: PLC0415
+    from wetterdienst.model.plausibility import Plausibility  # noqa: PLC0415
+
+    # the floor: the mode `hard` (the default) sets the floor of the quantity, not null, and keeps the number
+    dataset = plausibility_core._datasets("dwd/dmo")[("hourly", "icon")]  # noqa: SLF001
+    precipitation = next(
+        name for name, c in plan_for("dwd/dmo", dataset).parameters.items() if c.name == "precipitation_amount_last_1h"
+    )
+    floored = judged(
+        plausibility_core._frame([(precipitation, -0.1)]),  # noqa: SLF001
+        network="dwd/dmo",
+        dataset=dataset,
+    )
+    assert floored.get_column("value").to_list() == [0.0]
+    assert floored.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.1"]
+    # the suspect level of a source's own verdict, in the mode `hard`: flagged `source`, not rejected, and kept
+    levels = judge(
+        source_flags._frame(["1", "2"], [10.0, 20.0]),  # noqa: SLF001
+        source_flags._plan(source_flags.TWO_LEVELS),  # noqa: SLF001
+        Plausibility(source="hard"),
+    )
+    assert levels.get_column("quality_flags").to_list() == ["1,suspect:source", "2,rejected:source,raw:20"]
+    assert levels.get_column("value").to_list() == [10.0, None]
+
+    rows = [
+        (
+            "01975",
+            "hourly",
+            "icon",
+            "a",
+            day(0),
+            floored.get_column("value")[0],
+            floored.get_column("quality_flags")[0],
+        ),
+        ("01975", "hourly", "icon", "a", day(1), levels.get_column("value")[0], levels.get_column("quality_flags")[0]),
+        ("01975", "hourly", "icon", "a", day(2), levels.get_column("value")[1], levels.get_column("quality_flags")[1]),
+    ]
+    block = _quality_block("dwd", "dmo")
+    parsed = assert_round_trip(write(rows, [parameter("a", "hourly", "icon")], block=block), rows)
+
+    meanings = {row[0]: row[2] for row in parsed.table("quality_flags legend").rows}
+    assert list(meanings) == ["suspect", "rejected", "raw"]
+    # `rejected` is a null value, or the floor for the check `floor`
+    assert "the value is null, or for `floor` the floor of its quantity (0)" in meanings["rejected"]
+    assert "the value is the floor, 0" in meanings["raw"]
+    assert "the number that check rejected" in meanings["raw"]
+    # `suspect` is the mode `soft`, or `source` in either mode, and a forecast is soft for every check but two
+    assert "or it is `source`" in meanings["suspect"]
+    assert "in the mode `hard` too" in meanings["suspect"]
+    assert "on a forecast network every check but `floor` and `limits` is" in meanings["suspect"]
 
 
 # --- hostile text --------------------------------------------------------------------------------------------------

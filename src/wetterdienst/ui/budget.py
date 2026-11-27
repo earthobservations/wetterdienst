@@ -307,6 +307,16 @@ def _lean(request: Any) -> Any:  # noqa: ANN401
     return request.model_copy(update={"with_metadata": False})
 
 
+def _flags_sample(df: pl.DataFrame) -> pl.DataFrame:
+    """Give the rows that make the block of the whole frame: one for each dataset and each quality flag it has.
+
+    The compact legend lists the flags that occur (GH-4499), so the block is not the same for an empty frame as for
+    the answer; a row for each distinct flag text has every flag the whole frame has, at the size of a few rows.
+    """
+    keys = [column for column in ("resolution", "dataset", "quality_flags") if column in df.columns]
+    return df.unique(subset=keys, maintain_order=True) if keys else df.head(0)
+
+
 def _without_block(
     result: StationsResult | _SeriesResult,
     request: _ListRequest | _SeriesRequest,
@@ -324,9 +334,9 @@ def _without_block(
     """
     if not getattr(request, "with_metadata", False):
         return None
-    empty = result.df.head(0)
+    sample = _flags_sample(result.df)
     lean = _lean(request)
-    block = _made(result, request, empty, "", render).size - _made(result, lean, empty, "", render).size
+    block = _made(result, request, sample, "", render).size - _made(result, lean, sample, "", render).size
     lead = _block_left_out(block)
     whole = _made(result, lean, result.df, lead, render)
     fitted = whole if whole.size <= ANSWER_BUDGET or fit is None else fit(lean, whole.size, lead)

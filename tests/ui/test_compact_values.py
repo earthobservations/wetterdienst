@@ -157,8 +157,11 @@ def test_with_metadata_adds_the_settings_and_the_tables_and_every_surface_agrees
         "temperature_air_max_2m": "°C",
         "temperature_air_min_2m": "°C",
     }
-    assert [row[0] for row in parsed.table("quality_flags legend").rows][-1] == "raw"
+    # the stub's readings have QN 1 and a `suspect:relations` check: the legend tells those and no other kind
+    assert [row[0] for row in parsed.table("quality_flags legend").rows] == [None, "suspect"]
+    assert [row[:2] for row in parsed.table("quality_flags codes").rows] == [[None, "1"]]
     assert parsed.table("source quality flags").rows
+    assert "documentation" not in parsed.table("quality_flags legend").columns
     # the descriptions of the parameters are what makes the block long: they are not in it
     assert "description" not in parsed.table("parameters").columns
     assert _cli("--format=compact", "--with-metadata").stdout == rich

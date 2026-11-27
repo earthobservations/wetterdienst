@@ -900,6 +900,52 @@
     "runLabel": "Modelllaaf",
     "runLatest": "Neist (auto)"
   },
+  "uvPollen": {
+    "title": "UV a Pollen",
+    "today": "Haut",
+    "tomorrow": "Muer",
+    "noValue": "kee Wäert",
+    "uv": {
+      "title": "UV-Index fir {place} ({km} km)",
+      "index": "UV-Index",
+      "class": {
+        "low": "Niddereg",
+        "moderate": "Mëttel",
+        "high": "Héich",
+        "veryHigh": "Ganz héich",
+        "extreme": "Extrem"
+      },
+      "credit": "UV-Index-Prognos vum DWD."
+    },
+    "pollen": {
+      "title": "Pollebelaaschtung fir {state}",
+      "regions": "Regioun ({state})",
+      "typeHeader": "Pollenaart",
+      "caption": "Prognos vun der Pollebelaaschtung fir {region}",
+      "outOfSeason": "Fir dës Deeg gëtt keng Pollebelaaschtung erwaart.",
+      "noForecast": "Den DWD huet de Moment keng Pollenprognos fir dës Regioun.",
+      "credit": "Pollebelaaschtungs-Prognos vum DWD.",
+      "type": {
+        "hazel": "Hasel",
+        "alder": "Ierle",
+        "ash": "Esch",
+        "birch": "Bierk",
+        "grass": "Gras",
+        "rye": "Roggen",
+        "mugwort": "Béifouss",
+        "ragweed": "Ambrosia"
+      },
+      "level": {
+        "none": "Keng",
+        "noneToLow": "Keng bis niddereg",
+        "low": "Niddereg",
+        "lowToMedium": "Niddereg bis mëttel",
+        "medium": "Mëttel",
+        "mediumToHigh": "Mëttel bis héich",
+        "high": "Héich"
+      }
+    }
+  },
   "widget": {
     "noStation": "Keng Statioun uginn. Setz {param} an d'URL.",
     "loading": "Prognos gëtt gelueden …",

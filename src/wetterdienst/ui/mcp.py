@@ -421,6 +421,18 @@ _CHART_TOOLS = frozenset({"stations", "values", "interpolate", "summarize"})
 #: which the tool no longer does
 _CHART_CLAUSE = re.compile(r" or a rendered chart \([^)]*\)| Charts are drawn only by a server[^.]*\.")
 
+#: what the `values` tool says of `with_metadata` (GH-4499): one clause, true of both formats. The unit is in each
+#: column line already, and the models that were told what it adds in a paragraph passed it in 135 of 205 calls
+_VALUES_WITH_METADATA = (
+    "Adds each parameter's quantity, unit, aggregation and timestamp position, the settings, and what the quality "
+    "flags mean (in compact, only those in the answer)."
+)
+
+#: the paragraph of the `values` route that says what `with_metadata` adds to the JSON, which the tool leaves out
+_WITH_METADATA_PARAGRAPH = re.compile(
+    r"\n*With `with_metadata`, `metadata\.parameters` gives .*?state it\.\n?", re.DOTALL
+)
+
 
 @dataclass(frozen=True)
 class _Route:
@@ -510,15 +522,33 @@ def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
             # the `parameters` that a path item may carry is a list: only the operations are dicts
             if not isinstance(operation, dict) or "parameters" not in operation:
                 continue
+            tool = _TOOL_NAMES.get(operation.get("operationId"))
             kept = []
             for parameter in operation["parameters"]:
                 if parameter.get("in") == "query" and parameter.get("name") in _REST_ONLY_ARGUMENTS:
                     continue
                 if parameter.get("in") == "query" and parameter.get("name") == "format":
-                    _slim_format(parameter, tool=_TOOL_NAMES.get(operation.get("operationId")))
+                    _slim_format(parameter, tool=tool)
+                if parameter.get("in") == "query" and parameter.get("name") == "with_metadata" and tool == "values":
+                    _slim_with_metadata(parameter, operation)
                 kept.append(parameter)
             operation["parameters"] = kept
     return slim
+
+
+def _slim_with_metadata(parameter: dict[str, Any], operation: dict[str, Any]) -> None:
+    """Say what `with_metadata` adds in one clause for the `values` tool, and leave out the route's paragraph (GH-4499).
+
+    The route's paragraph describes the JSON's `metadata` block, which a tool that answers compact text does not have,
+    and draws a model to the argument: a compact answer with it is several times the size, and nothing in it is
+    needed to read the values.
+    """
+    for holder in (parameter.get("schema", {}), parameter):
+        if "description" in holder:
+            holder["description"] = _VALUES_WITH_METADATA
+    for key in ("description", "summary"):
+        if isinstance(operation.get(key), str):
+            operation[key] = _WITH_METADATA_PARAGRAPH.sub("\n", operation[key])
 
 
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).
@@ -574,9 +604,8 @@ _VALUES_WINDOW_ADVICE = (
     "Give a `timestamp` window: an answer is cut to 40,000 characters. The text above describes the JSON; by default "
     "this tool answers compact text instead (pass format=json for the JSON): a table for each station and dataset, "
     "a row for each timestamp, the unit in the column line, an empty cell for no value, flags as the table's default "
-    "and the periods that differ in a `flags` table. In it the last row of a table is its latest timestamp, "
-    "`metadata.search` is the `search` header lines and the `search series` table, and `with_metadata` adds the "
-    "`parameters` (unit, aggregation, timestamp_position) and `quality_flags` tables."
+    "and the periods that differ in a `flags` table. In it the last row of a table is its latest timestamp, and "
+    "`metadata.search` is the `search` header lines and the `search series` table."
 )
 
 # The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same

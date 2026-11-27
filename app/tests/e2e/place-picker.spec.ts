@@ -95,7 +95,8 @@ test.describe('the Forecast finds places', () => {
     const url = new URL(page.url())
     expect(Object.fromEntries(url.searchParams)).toMatchObject({ station: 'M0814', lat: '47.7610', lon: '11.5596', placeName: 'Bad Tölz', placeRegion: 'Bayern, Germany' })
     // the stations near the place were asked for by its position, from the forecast's own network
-    expect(queries.at(-1)).toMatchObject({ provider: 'dwd', network: 'mosmix', rank: '5' })
+    // (the UV index and pollen panel asks for the nearest place and state of the station that is shown, which are not the forecast's lists)
+    expect(queries.filter(query => query.network === 'mosmix').at(-1)).toMatchObject({ provider: 'dwd', network: 'mosmix', rank: '5' })
     // Photon was asked once, for the text, by the app's own server: no cookie, no referrer, no address
     const [request] = await asked(text)
     expect(request).toBeDefined()

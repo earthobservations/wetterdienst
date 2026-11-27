@@ -32,6 +32,23 @@ function ranked() {
   }
 }
 
+/**
+ * The requests that look a station up by a position, which is the reader's: the forecast's own network (`mosmix`) asked by position. The
+ * UV index and pollen panel (GH-4501) also asks `uvi` and `observation` by position, but by the coordinates of the forecast station that is
+ * shown and never the reader's: `onlyTheStationsOwn` holds that, so the filter above is exact and the privacy check is not loosened.
+ */
+const positionLookups = () => asked.filter(query => query.latitude && query.network === 'mosmix')
+
+/** The coordinates of the station these specs show (HAMBURG-FUHLSBUETTEL of the mock backend), as the panel sends them */
+const STATION = { latitude: '53.63', longitude: '10' }
+
+/** Every request by position that is not a lookup of the forecast's own network is for the shown station's coordinates, and carries none of the reader's */
+function onlyTheStationsOwn() {
+  const others = asked.filter(query => query.latitude && query.network !== 'mosmix')
+  for (const query of others)
+    expect({ latitude: query.latitude, longitude: query.longitude }, JSON.stringify(query)).toEqual(STATION)
+}
+
 async function open(page: Page, baseURL: string, path: string, title: string) {
   asked.length = 0
   await page.context().addCookies([{ name: 'wd_lang', value: 'en', url: baseURL }])
@@ -46,7 +63,7 @@ test.describe('with the position allowed', () => {
   test('the forecast picks the nearest station, tells how far it is, and sent only the rounded position, on the press', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/meteogram', en.meteogram.title)
     // nothing is asked of the browser or of the backend by a page that is only opened
-    expect(asked.filter(query => query.latitude)).toEqual([])
+    expect(positionLookups()).toEqual([])
     // and only the button is shown at first: the box and its note come after a press (GH-4011)
     await expect(page.getByText(en.location.note)).toHaveCount(0)
     await expect(page.getByRole('checkbox')).toHaveCount(0)
@@ -66,9 +83,11 @@ test.describe('with the position allowed', () => {
     await expect(page.getByRole('checkbox', { name: en.location.remember })).not.toBeChecked()
     await expect(page.getByText(en.location.note)).toBeVisible()
     // the one request that carries the position: rounded to two decimals, ranked by one, to the app's own backend
-    const located = asked.filter(query => query.latitude)
+    const located = positionLookups()
     expect(located).toHaveLength(1)
     expect(located[0]).toMatchObject({ provider: 'dwd', network: 'mosmix', latitude: '53.54', longitude: '10.2', rank: '1' })
+    // the panel's requests of the station that was found carry the station's own coordinates, never the position that found it
+    onlyTheStationsOwn()
     // and the position is in no address
     expect(page.url()).not.toMatch(/53\.5|10\.19|latitude|lat=/)
     await forecast
@@ -129,7 +148,9 @@ test.describe('the stored position', () => {
     await expect(chip).toBeVisible()
     await expect(box).toHaveCount(0)
     await expect(page.getByText(en.location.note)).toHaveCount(0)
-    expect(asked.filter(query => query.latitude)).toEqual([])
+    expect(positionLookups()).toEqual([])
+    // the station of the address is shown again, and its panel asks by the station's coordinates, not the stored position
+    onlyTheStationsOwn()
 
     // the keyboard opens it to the position and the way to forget it, and Escape closes it again with the focus on it
     await chip.focus()
@@ -193,7 +214,7 @@ test.describe('the stored position and the browser\'s permission (GH-4014)', () 
     await expect(page.getByTestId('use-my-location-withdrawn')).toHaveText(en.location.withdrawn)
     await expect(chip).toHaveCount(0)
     expect(await stored(page)).toBeNull()
-    expect(asked.filter(query => query.latitude)).toEqual([])
+    expect(positionLookups()).toEqual([])
   })
 
   test('a stored position whose station is the place of the home page is deleted at load where the permission is `denied`, and the reader is told', async ({ page, baseURL }) => {
@@ -284,7 +305,7 @@ test.describe('with the position refused', () => {
     const alert = page.getByTestId('use-my-location-problem')
     await expect(alert).toHaveAttribute('role', 'alert')
     await expect(alert).toHaveText(en.location.denied)
-    expect(asked.filter(query => query.latitude)).toEqual([])
+    expect(positionLookups()).toEqual([])
     // nothing is picked, and the search of stations is still there
     await expect(page.getByRole('button', { name: en.location.button })).toBeEnabled()
     await expect(page.getByRole('button', { name: en.common.stationSearch })).toBeVisible()
