@@ -918,10 +918,11 @@
       "credit": "Prognoza indeksu UV z DWD."
     },
     "pollen": {
-      "title": "Obciążenie pyłkiem dla {state}",
+      "title": "Obciążenie pyłkiem: {state}",
       "regions": "Region ({state})",
+      "dwdName": "Nazwa w DWD: {name}",
       "typeHeader": "Rodzaj pyłku",
-      "caption": "Prognoza obciążenia pyłkiem dla {region}",
+      "caption": "Prognoza obciążenia pyłkiem: {region}",
       "outOfSeason": "W tych dniach nie przewiduje się obciążenia pyłkiem.",
       "noForecast": "DWD nie podaje obecnie prognozy pyłków dla tego regionu.",
       "credit": "Prognoza obciążenia pyłkiem z DWD.",

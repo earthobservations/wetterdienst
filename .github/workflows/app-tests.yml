@@ -5,7 +5,8 @@ name: App Tests
 # REST contract has to run it. The vitest suite also reads the backend's canonical parameter table and
 # resolution enum (tests/unit/glossary-translations.test.ts), so those two files are in the filter too, and the
 # processing note (app/tests/unit/processing-note.test.ts holds the app's English text to the backend's
-# src/wetterdienst/model/processing_note.py).
+# src/wetterdienst/model/processing_note.py), and the names of DWD's pollen regions (app/tests/unit/pollen-names.test.ts holds the
+# app's table of their names to src/wetterdienst/provider/dwd/pollen/regions.py).
 # The E2E suite also drives a backend started from src/ and lives in app-e2e.yml, which
 # carries the wider filter.
 on:
@@ -16,6 +17,7 @@ on:
       - 'src/wetterdienst/metadata/resolution.py'
       - 'tests/ui/openapi.snapshot.json'
       - 'src/wetterdienst/model/processing_note.py'
+      - 'src/wetterdienst/provider/dwd/pollen/regions.py'
       - '.github/workflows/app-tests.yml'
   push:
     branches: [ main ]
@@ -25,6 +27,7 @@ on:
       - 'src/wetterdienst/metadata/resolution.py'
       - 'tests/ui/openapi.snapshot.json'
       - 'src/wetterdienst/model/processing_note.py'
+      - 'src/wetterdienst/provider/dwd/pollen/regions.py'
       - '.github/workflows/app-tests.yml'
 
   # Allow job to be triggered manually

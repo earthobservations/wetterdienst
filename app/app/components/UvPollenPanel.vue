@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { PollenAnswer, UvAnswer } from '~/composables/useUvPollen'
-import type { PollenType } from '~/utils/uv-pollen'
+import type { PollenPart, PollenType } from '~/utils/uv-pollen'
 import { DateTime } from 'luxon'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatDayMonth, weekdayShort } from '~/utils/format'
+import { hasPollenNames, regionName, stateName } from '~/utils/pollen-names'
 import { dayOfRow, daysFromToday, forecastDays, hasNoForecast, isOutOfSeason, POLLEN_TYPES, pollenClass, pollenFill, pollenParameter, rememberedPart, rememberPart, selectedPart, UV_COLORS, uvClass } from '~/utils/uv-pollen'
 
 // The "UV & pollen" panel of the Forecast (GH-4501), below the meteogram of a station in Germany: DWD's UV index of the nearest of its 38
@@ -20,7 +21,7 @@ const props = defineProps<{
   zone: string
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const formatLanguage = useFormatLanguage()
 
 // the date it is today at the station, a computed of its own so that what reads it runs again at midnight and not with each tick
@@ -124,6 +125,15 @@ const titleId = useId()
 const uvTitleId = useId()
 const pollenTitleId = useId()
 const typeName = (type: PollenType) => t(`uvPollen.pollen.type.${type}`)
+
+// The names of the state and of the parts in the reader's language (GH-4508); DWD's own name stays on the chip, as a tooltip and as its description,
+// so that it can be matched with DWD's pages. What is chosen and stored is the part's id, never the words shown.
+const stateLabel = computed(() => props.pollen ? stateName(props.pollen.state, locale.value) : '')
+const partLabel = (p: PollenPart) => regionName(p.label, locale.value)
+/** A language that has no table of names shows DWD's, which a tooltip would only repeat */
+const showsDwdName = computed(() => hasPollenNames(locale.value))
+const dwdNameId = (p: PollenPart) => `${pollenTitleId}-dwd-${p.id}`
+const dwdNameOf = (p: PollenPart) => t('uvPollen.pollen.dwdName', { name: p.name })
 </script>
 
 <template>
@@ -173,10 +183,10 @@ const typeName = (type: PollenType) => t(`uvPollen.pollen.type.${type}`)
     <!-- the pollen load of the part-regions of the state: chips for the parts, the grid of the selected one, or a line where there is no load -->
     <section v-if="hasPollen && pollen && part" :aria-labelledby="pollenTitleId" data-testid="pollen-part">
       <h4 :id="pollenTitleId" class="text-sm font-semibold text-highlighted">
-        {{ t('uvPollen.pollen.title', { state: pollen.state }) }}
+        {{ t('uvPollen.pollen.title', { state: stateLabel }) }}
       </h4>
       <!-- one choice out of a few: a radio group, with one stop of Tab (the chosen chip); the arrow keys move along it and choose, Home and End go to the ends -->
-      <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" :aria-label="t('uvPollen.pollen.regions', { state: pollen.state })" data-testid="pollen-chips">
+      <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" :aria-label="t('uvPollen.pollen.regions', { state: stateLabel })" data-testid="pollen-chips">
         <button
           v-for="(p, index) in pollen.parts"
           :key="p.id"
@@ -186,6 +196,8 @@ const typeName = (type: PollenType) => t(`uvPollen.pollen.type.${type}`)
           :aria-checked="p.id === part.id"
           :tabindex="p.id === part.id ? 0 : -1"
           :data-part="p.id"
+          :title="showsDwdName ? dwdNameOf(p) : undefined"
+          :aria-describedby="showsDwdName ? dwdNameId(p) : undefined"
           class="inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-start text-sm leading-snug transition-colors cursor-pointer"
           :class="p.id === part.id
             ? 'border-primary-600 dark:border-primary-400 bg-primary-50 dark:bg-primary-950/40 font-semibold text-highlighted'
@@ -195,8 +207,12 @@ const typeName = (type: PollenType) => t(`uvPollen.pollen.type.${type}`)
         >
           <!-- the chosen chip has a check as well as a colour -->
           <UIcon v-if="p.id === part.id" name="i-ph-check-bold" class="size-3.5 shrink-0" aria-hidden="true" />
-          <span class="min-w-0">{{ p.label }}</span>
+          <span class="min-w-0">{{ partLabel(p) }}</span>
         </button>
+      </div>
+      <!-- DWD's own name of each part, which a chip is described by: a tooltip is no description for a screen reader or a touch screen -->
+      <div v-if="showsDwdName" hidden>
+        <span v-for="p in pollen.parts" :id="dwdNameId(p)" :key="p.id" data-testid="pollen-dwd-name">{{ dwdNameOf(p) }}</span>
       </div>
 
       <p v-if="noForecast" class="mt-3 flex items-start gap-2 text-sm text-toned" data-testid="pollen-no-forecast">
@@ -209,7 +225,7 @@ const typeName = (type: PollenType) => t(`uvPollen.pollen.type.${type}`)
       </p>
       <table v-else class="mt-3 w-full table-fixed border-collapse text-sm" data-testid="pollen-grid">
         <caption class="sr-only">
-          {{ t('uvPollen.pollen.caption', { region: part.label }) }}
+          {{ t('uvPollen.pollen.caption', { region: partLabel(part) }) }}
         </caption>
         <thead>
           <tr>
@@ -235,7 +251,7 @@ const typeName = (type: PollenType) => t(`uvPollen.pollen.type.${type}`)
                     <span class="block h-full bg-orange-600 dark:bg-orange-400" :style="{ width: `${Math.min(1, Math.max(0, cell.fill * 3 - (i - 1))) * 100}%` }" />
                   </span>
                 </span>
-                <span class="block text-xs leading-tight text-toned" data-testid="pollen-class">{{ t(`uvPollen.pollen.level.${cell.cls}`) }}</span>
+                <span class="block text-xs leading-tight text-toned hyphens-auto" data-testid="pollen-class">{{ t(`uvPollen.pollen.level.${cell.cls}`) }}</span>
               </template>
               <template v-else>
                 <span class="text-muted" aria-hidden="true">–</span><span class="sr-only">{{ t('uvPollen.noValue') }}</span>
