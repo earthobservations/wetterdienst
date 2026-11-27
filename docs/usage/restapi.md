@@ -665,7 +665,7 @@ the terms are those of each provider it lists.
   flags) the `meaning` names whose they are, and `codes` is `null`. A network whose legend has no flag of the
   source has `source_flag_note`, which says that this library carries none (`null` where it does), so
   the first token of its `quality_flags` is none of the source's codes; for a source that does publish
-  one that is not read yet (GeoSphere's `<parameter>_flag`) it says so.
+  one that is not read yet it says so (none is now: GeoSphere's `<parameter>_flag` is read).
 
 A format with no body to put the block in carries the same in headers, and so does every JSON answer:
 

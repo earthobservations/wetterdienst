@@ -372,13 +372,17 @@ _EXCLUDE_PATTERNS = (
 )
 
 #: the query parameters of the REST routes that no tool takes (GH-4318): the size and scale of a chart image, which a
-#: model that reads JSON has no use for, and `pretty`, which is whitespace. A call that sends one is let go only
+#: model that reads JSON has no use for, and `pretty`, which is whitespace; and the three options of `skip_empty`
+#: (GH-4471), which models did not use. A call that sends one is let go only
 #: where it means nothing (`pretty` at any value, the others as `null`, the default they had) and only by a tool whose
 #: route took it (`_Route.rest_only`); a `width`, `height` or `scale` with a value is refused, since it may mean
-#: something else to the model (`height` for `elevation`), and a chart format is refused too (`_CHART_FORMATS`). The
-#: set is only a list of names to look for: what a tool drops is what its route has of them, and
-#: `tests/ui/test_mcp_slim_schemas.py` holds the routes that have them, and what they mean, to a table.
-_REST_ONLY_ARGUMENTS = frozenset({"pretty", "width", "height", "scale"})
+#: something else to the model (`height` for `elevation`), and a chart format is refused too (`_CHART_FORMATS`), and
+#: so is a skip option that is not what the server does. The set is only a list of names to look for: what a tool
+#: drops is what its route has of them, and `tests/ui/test_mcp_slim_schemas.py` holds the routes that have them, and
+#: what they mean, to a table.
+_REST_ONLY_ARGUMENTS = frozenset(
+    {"pretty", "width", "height", "scale", "skip_empty", "skip_threshold", "skip_criteria"}
+)
 
 #: what the three size options of a chart image are, to say what a refused one was
 _IMAGE_OPTIONS = {
@@ -386,6 +390,18 @@ _IMAGE_OPTIONS = {
     "height": "the height in pixels",
     "scale": "the scale factor",
 }
+
+#: the options that leave a station out for too few readings (GH-4471) and what each did, to say what a refused one
+#: was. The value a call may still send is the server's own (`_server_skip_options`), not a constant
+_SKIP_OPTIONS = {
+    "skip_empty": "left out the stations whose readings cover less of the window than `skip_threshold` asks",
+    "skip_threshold": "set the share of the window a station's readings had to cover to stay in",
+    "skip_criteria": "chose how that share is judged across the parameters: by their min, mean or max",
+}
+
+#: the spellings of a boolean that a query parameter takes (pydantic's), which the REST route read for `skip_empty`
+_TRUE_SPELLINGS = frozenset({"1", "on", "t", "true", "y", "yes"})
+_FALSE_SPELLINGS = frozenset({"0", "off", "f", "false", "n", "no"})
 
 #: the formats of a rendered chart, which only the REST API answers (GH-4318): a tool answers data
 _CHART_FORMATS = ("html", "png", "jpg", "svg", "pdf")
@@ -660,6 +676,87 @@ def _refused_image_options(tool: str, arguments: dict[str, Any], taken: dict[str
     return refused
 
 
+def _server_skip_options() -> dict[str, Any]:
+    """Give what the server does with the skip options when a call gives none: its `WD_TS_*`, as `Options()` reads them.
+
+    It is read for each call that sends one, and not taken from the default the schema of the route advertised (built
+    once per process, with the server's values of that moment): it is what the route uses for a call that leaves the
+    option out, so a value equal to it changes nothing and is let go, and any other is a different answer. Where the
+    settings cannot be read (a malformed `WD_TS_*`, which the route refuses) the defaults of wetterdienst stand in, as
+    `_where_charts_are_drawn` does for its setting, so that reading them cannot turn the refusal into an error.
+    """
+    from pydantic import ValidationError  # noqa: PLC0415
+    from pydantic_settings import SettingsError  # noqa: PLC0415
+
+    from wetterdienst import Options  # noqa: PLC0415
+
+    try:
+        options = Options()
+    except (ValidationError, SettingsError):
+        return {"skip_empty": False, "skip_threshold": 0.95, "skip_criteria": "min"}
+    return {
+        "skip_empty": options.skip_empty,
+        "skip_threshold": options.skip_threshold,
+        "skip_criteria": options.skip_criteria,
+    }
+
+
+def _equals_server(given: Any, server: Any) -> bool:  # noqa: ANN401
+    """Tell whether a value given for a skip option is what the server does.
+
+    The type counts (`0` is not `false`), but a string is read as the route reads a query parameter: a boolean by any
+    spelling pydantic takes (`no`, `off`, `f`, `n`, `0`, `false`, `yes`, ..., in any case and with spaces round it),
+    a number as text (`"0.95"`).
+    """
+    if isinstance(server, bool):
+        if isinstance(given, str):
+            spelled = given.strip().lower()
+            if spelled in _TRUE_SPELLINGS:
+                return server
+            return spelled in _FALSE_SPELLINGS and not server
+        return isinstance(given, bool) and given == server
+    if isinstance(server, float):
+        if isinstance(given, str):
+            try:
+                return float(given) == server
+            except ValueError:
+                return False
+        return isinstance(given, int | float) and not isinstance(given, bool) and given == server
+    return isinstance(given, str) and given == server
+
+
+def _skip_state(server: dict[str, Any]) -> str:
+    """Say what the server does with the skip options, which the tool cannot change."""
+    if not server["skip_empty"]:
+        return "This server leaves out no station: the answer has each station asked for, with the rows it has."
+    return (
+        f"This server leaves out the stations whose readings cover less than {server['skip_threshold']} of the window "
+        f"(judged by the {server['skip_criteria']} of the parameters), whatever the call says."
+    )
+
+
+def _refused_skip_options(tool: str, arguments: dict[str, Any], route: _Route) -> list[str]:
+    """Name each option that leaves a station out that a call gives a value other than the server's (GH-4471).
+
+    `null` and the value the server itself uses mean nothing, so the call is answered as one without. Any other value
+    is refused: the call would be answered with what the server does, not with what it asked for (`skip_empty=false`
+    on a server that skips would still skip). The refusal says what the server does and how to get the result asked for.
+    A station with no rows is left out anyway, so what the reader does is leave out the stations with rows below the
+    share wanted, by counting each one's readings against what the window holds; or the REST API takes the option.
+    """
+    names = [name for name in sorted(route.rest_only & _SKIP_OPTIONS.keys()) if arguments.get(name) is not None]
+    if not names:
+        return []
+    server = _server_skip_options()
+    return [
+        f"{name} is not an argument of {tool}: it {_SKIP_OPTIONS[name]}, and the tool no longer takes it. "
+        f"{_skip_state(server)} To get the result asked for, count each station's readings against what the window "
+        f"holds and leave out those below the share wanted, or call the REST API: {route.path} takes {name}."
+        for name in names
+        if not _equals_server(arguments[name], server[name])
+    ]
+
+
 def _holds_object(value: Any) -> bool:  # noqa: ANN401
     """Tell whether a value of an argument is an object, or a list that holds one at any depth."""
     if isinstance(value, dict):
@@ -685,6 +782,9 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Rout
     every option with its default does). A `width`, `height` or `scale` with a value is refused, since a model may
     mean something else by it (`height` for `elevation`), and so is a `format` the tool does not offer (a chart,
     `html`, `png`, ..., with where the charts are, instead of the REST answer the call would otherwise get).
+
+    GH-4471 took `skip_empty`, `skip_threshold` and `skip_criteria` out of `values` the same way: let go as `null` or
+    at the value the server uses, refused at any other, with what to do instead (`_refused_skip_options`).
 
     So is an object (or a list that holds one) for an argument that is no object (GH-4453): FastMCP sends it as one
     query parameter for each key, so `shape={"format": "png"}` asked the route for `format=png`, past the refusal of
@@ -717,6 +817,8 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider, routes: dict[str, _Rout
                 refused = _refused_formats(tool.name, arguments, taken, route.path)
                 # the options of GH-4318 are let go as given where the tool's route took them and they mean nothing
                 refused += _refused_image_options(tool.name, arguments, taken, route)
+                # and those of GH-4471, where they are what the server does
+                refused += _refused_skip_options(tool.name, arguments, route)
                 # `format` has its refusal; an argument that is an object is sent as its JSON (`_send_objects_as_json`)
                 objects = _object_arguments(tool.parameters)
                 refused += [

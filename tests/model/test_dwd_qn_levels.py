@@ -211,15 +211,10 @@ def test_a_network_without_a_flag_in_the_library_says_so(network: str) -> None:
     assert "publishes no" not in NO_SOURCE_FLAG
 
 
-def test_geosphere_is_told_that_its_source_has_a_flag_that_is_not_read() -> None:
-    """GeoSphere's klima-v2 datasets have `<parameter>_flag` (q21): the note names it and the issue."""
-    note = source_flag_note("geosphere", "observation")
-    assert note is not None
-    assert note.startswith(NO_SOURCE_FLAG)
-    assert "_flag" in note
-    assert "q21" in note
-    assert "GH-4480" in note
-    assert set(SOURCE_FLAG_NOTES) == {"geosphere/observation"}
+def test_no_network_is_told_to_have_a_flag_that_is_not_read() -> None:
+    """The table of the sources whose flag is not read is empty: GeoSphere's `<parameter>_flag` is read (GH-4480)."""
+    assert SOURCE_FLAG_NOTES == {}
+    assert source_flag_note("geosphere", "observation") is None
 
 
 def test_the_note_is_said_exactly_where_the_legend_has_no_flag_of_the_source() -> None:
