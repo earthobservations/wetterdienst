@@ -323,8 +323,8 @@ def _reader(
 ) -> TimeseriesValues:
     """Build the values of ``stations`` stations numbered from 0, read from the cache directory ``cache``.
 
-    With ``late`` stations that begin after the window and ``closed`` ones that ended long before it, the stations are
-    all of the list, selected by no id: a station named by id is never left out for the window (GH-4426).
+    With ``closed`` stations (that ended long before the window) the stations are all of the list, selected by no id:
+    a station named by id is not left out for the end of its list (GH-4426).
     """
     ids = [f"{index:05d}" for index in range(stations)]
     stations_frame = _stations_frame(ids, [ids[index] for index in late], [ids[index] for index in closed])
@@ -339,7 +339,7 @@ def _reader(
         "end": dt.datetime(2010, 1, 1, tzinfo=ZoneInfo("UTC")),
     }
     request = DwdObservationRequest(parameters=PARAMETERS, settings=settings, **(window if late or closed else {}))
-    return (request.all() if late or closed else request.filter_by_station_id(ids)).values()
+    return (request.all() if closed else request.filter_by_station_id(ids)).values()
 
 
 def _files(upstream: _Upstream, count: int) -> Callable[[str], list[str]]:
@@ -550,18 +550,18 @@ def test_a_station_the_count_leaves_out_is_not_fetched_ahead(
     results.close()
 
 
-def test_a_station_named_by_id_is_fetched_ahead_whatever_the_window(
+def test_a_station_named_by_id_that_closed_is_fetched_ahead_and_one_that_began_late_is_not(
     upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A station that was asked for is read, so its files are fetched too, closed or not begun (GH-4426)."""
+    """The end of a list is no reason to leave out a station that was asked for; its start after the window is."""
     reader = _reader(monkeypatch, tmp_path, stations=4, urls_of=_files(upstream, 1), depth=2, closed=[1], late=[2])
     named = reader.sr.request.filter_by_station_id([f"{index:05d}" for index in range(4)]).values()
 
     results = named.query()
     next(results)
-    upstream.settle({0, 1, 2})
+    upstream.settle({0, 1, 3})
 
-    assert upstream.stations_asked() == {0, 1, 2}
+    assert upstream.stations_asked() == {0, 1, 3}
     results.close()
 
 

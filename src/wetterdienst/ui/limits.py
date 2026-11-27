@@ -123,8 +123,8 @@ def selected_station_count(stations: StationsResult) -> int:
 def check_station_count(count: int, limits: Limits, *, by_region: bool = False, in_window: bool = False) -> None:
     """Refuse a request that reads more stations than the limit, naming how to read fewer.
 
-    The count is of stations, once each whatever the datasets read for it. `in_window` is whether the window cut it to
-    the stations that can have data in it (`model.station_window`), which the text then says (GH-4426).
+    The count is of stations, once each whatever the datasets read for it. `in_window` is whether the window left out
+    stations of the selection (`model.station_window.window_cut_stations`), which the text then says (GH-4426).
 
     A selection by `region` reads every station its provider lists under it, which none of `rank`, `distance` or a box
     narrows: it is told fewer regions or the ids of the stations (GH-4418).

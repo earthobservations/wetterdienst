@@ -54,7 +54,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
     wide_schema,
 )
-from wetterdienst.model.station_window import NAMED_BY_ID, station_ids_read
+from wetterdienst.model.station_window import NAMED_BY_ID, station_ids_read, warn_left_out
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.cancellation import check as check_cancelled
 from wetterdienst.util.datetime import is_plausible_update, newest
@@ -584,6 +584,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         self._names = None
         ids = station_ids_read(self.sr) if self._window_rule_allowed else None
         self._read_ids = None if ids is None else frozenset(ids)
+        if ids is not None:
+            warn_left_out(self.sr, ids)
         groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
         ahead = self._fetch_ahead(groups)
         try:
@@ -966,14 +968,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def _skips_station(self, station_id: str, df_station_meta: pl.DataFrame) -> bool:
         """Whether the walk leaves this station out for the window: the one rule of the stations a window reads.
 
-        A station named by id is never left out (`NAMED_BY_ID`). Where the window cuts the selection, the station is
-        read if the stations the limit counted include it (`_read_ids`, from `station_ids_read`, the one rule of
-        `wetterdienst.model.station_window`), and a provider's own `_begins_after_window` may leave out one more. For
-        the selections the rule does not cut (a rank, a name) and a network that opted out of it (ECCC) it is
-        `_begins_after_window` alone, as it was.
+        Where the window cuts the selection, the station is read if the stations the limit counted include it
+        (`_read_ids`, from `station_ids_read`, the one rule of `wetterdienst.model.station_window`), and a provider's
+        own `_begins_after_window` may leave out one more. A station named by id is exempt from the end of the rule
+        alone (its list end is no reason to leave out a station that was asked for) and is left out only where its
+        list begins after the window, as it was. For the selections the rule does not cut (a rank, a name) and a network
+        that opted out of it (ECCC) it is `_begins_after_window` alone, as it was.
         """
-        if self.sr._stations_filter in NAMED_BY_ID:  # noqa: SLF001
-            return False
         if self._read_ids is not None and station_id not in self._read_ids:
             return True
         return self._begins_after_window(df_station_meta)

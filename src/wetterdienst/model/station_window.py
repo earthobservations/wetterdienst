@@ -35,9 +35,16 @@ import polars as pl
 
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.result import StationsFilter
+from wetterdienst.util.logging import get_one_line_logger
+from wetterdienst.util.response_warnings import STATIONS_OUTSIDE_WINDOW, warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.model.result import StationsResult
+
+log = get_one_line_logger(__name__)
+
+#: how many of the stations left out the warning names
+MAX_LISTED = 10
 
 #: how long before the start of a window a station's list end may lie and the station still be read for it. Longer than
 #: what a list's end lags a station that is still reporting (days for DWD's daily list), and a station that closed
@@ -99,3 +106,37 @@ def station_ids_read(stations: StationsResult) -> list[str] | None:
     end = cast("dt.datetime", stations.end)
     passing = df.filter(can_have_data_in_window(df, start, end))
     return passing.get_column("station_id").unique(maintain_order=True).to_list()
+
+
+def window_cut_stations(stations: StationsResult) -> bool:
+    """Say whether the rule left out at least one station of the selection: the count is then below the list."""
+    read = station_ids_read(stations)
+    return read is not None and len(read) < stations.df.get_column("station_id").n_unique()
+
+
+def warn_left_out(stations: StationsResult, read: list[str]) -> None:
+    """Tell, as one `stations-outside-window` warning, the stations of the selection the rule leaves out (GH-4426).
+
+    Without it a selection that the rule cuts to nothing is an answer with no rows and no word, which reads like a
+    request that failed. It says how many of how many, why (the list's own bounds), names the first ten, and what to
+    do to read them anyway: name them by id.
+    """
+    listed = stations.df.get_column("station_id").unique(maintain_order=True).to_list()
+    kept = set(read)
+    left = [station for station in listed if station not in kept]
+    if not left:
+        return
+    shown = left[:MAX_LISTED]
+    named = ", ".join(shown) + (f", and {len(left) - len(shown)} more" if len(left) > len(shown) else "")
+    many = len(left) > 1
+    resolutions = set(stations.df.get_column("resolution").to_list()) if "resolution" in stations.df.columns else set()
+    lag = STATION_END_LAG_ANNUAL.days if resolutions == {Resolution.ANNUAL.value} else STATION_END_LAG.days
+    warn_response(
+        log,
+        STATIONS_OUTSIDE_WINDOW,
+        f"{len(left)} of the {len(listed)} stations of the selection {'are' if many else 'is'} not read: "
+        f"{'their' if many else 'its'} station list ends more than {lag} days before the window or begins after it "
+        f"({named}), so {'they have' if many else 'it has'} no data in it by the list. Name the "
+        f"station{'s' if many else ''} by id (`stations`) to read {'them' if many else 'it'} anyway.",
+        stations=shown,
+    )

@@ -514,7 +514,7 @@ def test_the_example_regions_of_the_documents_are_regions_of_the_network_they_ar
 def test_the_limit_of_stations_tells_a_region_to_name_fewer_regions_or_the_stations(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Not `rank`, `distance` or a box, which no region takes; both texts say the count is of the window's stations."""
+    """Not `rank`, `distance` or a box, which no region takes; the other selections keep the text they had."""
     monkeypatch.setenv("WD_RESTAPI_MAX_STATIONS", "2")
     window = {"timestamp": WINDOW}
 
@@ -524,13 +524,12 @@ def test_the_limit_of_stations_tells_a_region_to_name_fewer_regions_or_the_stati
     assert by_region.status_code == by_all.status_code == 400
     assert (by_region.json()["limit"], by_region.json()["requested"]) == ("stations", 4)
     assert by_region.json()["detail"] == (
-        "This request reads 4 stations that can have data in the window, more than the 2 this server allows for one "
-        "request. A `region` selects every "
+        "This request reads 4 stations, more than the 2 this server allows for one request. A `region` selects every "
         "station its provider lists under it: name fewer regions, or the stations by their ids (`stations`). "
         "Request the rest in further calls."
     )
     assert by_all.json()["detail"] == (
-        "This request reads 8 stations that can have data in the window, more than the 2 this server allows for one "
-        "request. Name fewer stations, or narrow the selection: a smaller `rank`, a smaller `distance` or bounding "
-        "box. Request the rest in further calls."
+        "This request reads 8 stations, more than the 2 this server allows for one request. Name fewer stations, or "
+        "narrow the selection: a smaller `rank`, a smaller `distance` or bounding box. Request the rest in further "
+        "calls."
     )

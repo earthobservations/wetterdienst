@@ -401,6 +401,9 @@ what the answer is missing:
   `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
   below), `station-without-rows` (ids of `stations` that returned no rows while others did, see below),
+  `stations-outside-window` (stations of a selection that the window leaves out: their list ends more than 366 days, 732
+  for annual data, before the window or begins after it, so they are not read and the answer has none of their rows; how
+  many and the first ten; not told for ids, a `rank` or a `name`, see [Limits](#limits)),
   `no-alerts-for-place` (`alerts` asked for a place, a point or a name, that no warning of the snapshot is for: an
   answer, not an error, see [Alerts](../data/provider/dwd/alerts/index.md#a-place)), `no-storm-cells-for-place`
   (`storm_cells` asked for a place or a `min_severity` that leaves no cell of a scan that has some: an answer, not an
@@ -1841,14 +1844,22 @@ still counts it, and it is never the `station_window_end_buffer` of the request.
 North Sea that DWD's daily list holds, 114, are 50 for 2022-02-18 (`wind_gust_max`), and `all=true` of Geosphere's daily
 data for the last 365 days is about 504 stations where the list holds 1,102. What is counted is what is read: the
 walk skips the other stations, and the answer does not hold them (they had no data in the window by the list).
-Not cut by the window:
+The `metadata` of the answer says so in one `stations-outside-window` warning: how many of how many stations are not
+read, that their list ends more than 366 days (732 for annual data) before the window or begins after it, and the
+first ten by id. A selection the rule cuts to nothing is an answer with no rows and this warning, not one without a
+word. Not cut by the rule:
 
-- stations named by id (`stations`, `wmo_id`, `wigos_id`, `icao_id`): each is read, and one with no data in the
-  window is told by a `station-without-rows` warning in the `metadata` of the answer;
+- stations named by id (`stations`, `wmo_id`, `wigos_id`, `icao_id`): the end of their list is no reason to leave one
+  out, so each is read and counted, a closed one too (one whose list begins after the window is not read, as it was).
+  A named station with no rows is told by `station-without-rows` if another named station has rows, by
+  `parameter-without-rows` if none has, and by `file-skipped` if its file was let go;
 - a `rank`, which counts as its rank and is walked as it was;
+- a `name`, which `filter_by_name` has cut already with the `station_window_end_buffer` of the request (two days up to
+  daily, 62 for monthly, 732 for annual, or the option), not with the fixed lag;
 - a list that publishes no start or end (`noaa/ghcn` hourly, `imgw`): every station counts;
 - ECCC, whose list start is after the first value of most stations, so its list cannot say who has data: every
-  station counts.
+  station counts;
+- `interpolate` and `summarize`, which count the stations in reach by their own limit.
 
 The rows of `values` are an
 estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end

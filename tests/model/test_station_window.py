@@ -26,6 +26,7 @@ from wetterdienst.model.station_window import (
     STATION_END_LAG_ANNUAL,
     can_have_data_in_window,
     station_ids_read,
+    window_cut_stations,
 )
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
@@ -232,8 +233,12 @@ def test_the_estimate_of_rows_is_of_the_stations_read() -> None:
 # what the rule does not cut
 
 
-def test_explicit_ids_are_never_cut_by_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A station named by id is counted and read, closed or not started: the case that counted 0 stations."""
+def test_explicit_ids_are_not_cut_by_the_end_of_the_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station named by id is counted and read, closed or not: the case that counted 0 stations.
+
+    Only its end is no reason: one whose list begins after the window is left out as it was, so that no request is made
+    for it (a request per station at a provider that reads one file for each).
+    """
     request = _dwd(start="2022-02-18", end="2022-02-18")
     old = dt.datetime(1950, 1, 1, tzinfo=UTC)
     df = _frame(
@@ -250,7 +255,7 @@ def test_explicit_ids_are_never_cut_by_the_window(monkeypatch: pytest.MonkeyPatc
 
         assert station_ids_read(result) is None
         assert selected_station_count(result) == 3
-        assert _read_by_walk(result, monkeypatch) == ["00001", "00002", "00003"]
+        assert _read_by_walk(result, monkeypatch) == ["00001", "00002"]
 
 
 def test_a_station_named_by_id_with_no_data_in_the_window_is_told(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -322,6 +327,118 @@ def test_a_name_is_walked_by_the_start_of_the_list_alone(monkeypatch: pytest.Mon
 
     assert station_ids_read(result) is None
     assert _read_by_walk(result, monkeypatch) == ["00001"]
+
+
+# the warning: a selection the rule cuts is not an answer with no word
+
+
+def _warnings_of(result: StationsResult, monkeypatch: pytest.MonkeyPatch) -> tuple[list[str], list[dict[str, Any]]]:
+    begin_response()
+    read = _read_by_walk(result, monkeypatch)
+    return read, [w for w in recorded_warnings() if w["code"] == "stations-outside-window"]
+
+
+def test_a_selection_the_rule_cuts_to_nothing_is_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stations whose lists end in 2000 and 2005, asked for 2022: no rows, and the answer says why (GH-3539)."""
+    request = _dwd(start="2022-02-18", end="2022-02-18")
+    old = dt.datetime(1950, 1, 1, tzinfo=UTC)
+    df = _frame(
+        [("00001", old, dt.datetime(2000, 1, 1, tzinfo=UTC)), ("00002", old, dt.datetime(2005, 1, 1, tzinfo=UTC))],
+        resolution="daily",
+        dataset="climate_summary",
+    )
+    for selection in (StationsFilter.ALL, StationsFilter.BY_BBOX, StationsFilter.BY_DISTANCE):
+        read, (warning,) = _warnings_of(_result(request, df, selection), monkeypatch)
+
+        assert read == []
+        assert warning["stations"] == ["00001", "00002"]
+        assert warning["message"] == (
+            "2 of the 2 stations of the selection are not read: their station list ends more than 366 days before "
+            "the window or begins after it (00001, 00002), so they have no data in it by the list. Name the "
+            "stations by id (`stations`) to read them anyway."
+        )
+
+
+def test_the_warning_counts_and_names_the_few_and_says_one_station_in_the_singular(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Twelve of thirteen left out: ten are named and the rest counted; one of two is told in the singular."""
+    request = _dwd(start="2022-02-18", end="2022-02-18")
+    old = dt.datetime(1950, 1, 1, tzinfo=UTC)
+    closed = dt.datetime(2000, 1, 1, tzinfo=UTC)
+    df = _frame(
+        [("open", old, None), *[(f"c{i:02d}", old, closed) for i in range(12)]],
+        resolution="daily",
+        dataset="climate_summary",
+    )
+
+    read, (warning,) = _warnings_of(_result(request, df), monkeypatch)
+
+    assert read == ["open"]
+    assert warning["stations"] == [f"c{i:02d}" for i in range(10)]
+    assert warning["message"].startswith("12 of the 13 stations of the selection are not read: ")
+    assert "(c00, c01, c02, c03, c04, c05, c06, c07, c08, c09, and 2 more)" in warning["message"]
+
+    two = _frame([("open", old, None), ("c00", old, closed)], resolution="daily", dataset="climate_summary")
+    _, (single,) = _warnings_of(_result(request, two), monkeypatch)
+    assert single["message"].startswith("1 of the 2 stations of the selection is not read: its station list ends")
+    assert "so it has no data in it by the list. Name the station by id" in single["message"]
+
+
+def test_the_warning_says_732_days_for_annual_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The lag of annual data is two years, and so is what the text says."""
+    request = _dwd("annual/climate_summary/temperature_air_mean_2m", start="2022-01-01", end="2022-12-31")
+    old = dt.datetime(1950, 1, 1, tzinfo=UTC)
+    df = _frame([("00001", old, dt.datetime(2000, 1, 1, tzinfo=UTC))], resolution="annual", dataset="climate_summary")
+
+    _, (warning,) = _warnings_of(_result(request, df), monkeypatch)
+
+    assert "ends more than 732 days before the window" in warning["message"]
+
+
+def test_no_station_left_out_no_warning_and_none_where_the_rule_does_not_cut(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing is told where all stations are read, nor for a rank, a name, ids or a list with no bounds."""
+    request = _dwd(start="2022-02-18", end="2022-02-18")
+    old = dt.datetime(1950, 1, 1, tzinfo=UTC)
+    closed = dt.datetime(2000, 1, 1, tzinfo=UTC)
+    open_stations = _frame([("00001", old, None), ("00002", None, None)], resolution="daily", dataset="climate_summary")
+    mixed = _frame([("00001", old, None), ("00002", old, closed)], resolution="daily", dataset="climate_summary")
+
+    assert _warnings_of(_result(request, open_stations), monkeypatch)[1] == []
+    for selection in (StationsFilter.BY_RANK, StationsFilter.BY_NAME, StationsFilter.BY_STATION_ID):
+        assert _warnings_of(_result(request, mixed, selection, rank=2), monkeypatch)[1] == []
+
+
+def test_a_walk_that_switched_the_rule_off_tells_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`interpolate` and `summarize` read as they did."""
+    request = _dwd(start="2022-02-18", end="2022-02-18")
+    old = dt.datetime(1950, 1, 1, tzinfo=UTC)
+    df = _frame([("00001", old, dt.datetime(2000, 1, 1, tzinfo=UTC))], resolution="daily", dataset="climate_summary")
+    result = _result(request, df)
+    values = result.values()
+    values._window_rule_allowed = False  # noqa: SLF001
+    monkeypatch.setattr(type(values), "_collect_station_data", lambda *_: pl.DataFrame())
+    begin_response()
+
+    list(values.query())
+
+    assert [w for w in recorded_warnings() if w["code"] == "stations-outside-window"] == []
+
+
+def test_the_text_of_the_limit_names_the_window_only_where_it_cut_the_count() -> None:
+    """A list with no bounds, or a window that leaves every station, is counted as it was: no "can have data"."""
+    request = _dwd(start="2022-02-18", end="2022-02-18")
+    old = dt.datetime(1950, 1, 1, tzinfo=UTC)
+    uncut = _result(request, _frame([("00001", old, None), ("00002", None, None)], resolution="daily", dataset="x"))
+    cut = _result(
+        request,
+        _frame(
+            [("00001", old, None), ("00002", old, dt.datetime(2000, 1, 1, tzinfo=UTC))], resolution="daily", dataset="x"
+        ),
+    )
+
+    assert not window_cut_stations(uncut)
+    assert window_cut_stations(cut)
 
 
 # the opt-out

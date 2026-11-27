@@ -18,17 +18,15 @@ Types of changes:
 
 ### Changed
 
-- With a window (`timestamp`, `start` and `end`), the limit of stations of the REST API and MCP counts, and
-  `values` reads, only the stations that can have data in it: those whose list start is on or before the
-  window's end and whose list end is empty or at most 366 days before its start (732 for annual data).
-  The lag is fixed, not `station_window_end_buffer`. `all=true` of Geosphere's daily data for a year is about
-  504 stations where 1,102 were counted and read, and DWD's North Sea box on 2022-02-18 is 50 where 114 were.
-  The count is per station, not per dataset read, and the `limit-exceeded` text says so. Stations named by
-  id (`stations`, WMO, WIGOS, ICAO) are never cut by the window, and one with no data in it is told by
-  `station-without-rows`; a `rank` and ECCC (whose list start is after the first value of most stations)
-  are as they were, and `interpolate` and `summarize` read as before. A library `values().all()` for a
-  window no longer reads a station that closed more than a year before it: name the stations by id to read
-  every listed one (GH-4426)
+- **Breaking**: for `all`, a box, a distance, a region or `filter_by_sql` and a window, `values`
+  (the REST API, the library's `all()` and `query()`) reads, and the limit of stations counts, only
+  the stations that can have data in it: list start on or before the window's end, list end empty or
+  at most 366 days (732 annual) before its start, never `station_window_end_buffer`. A station whose
+  list end is stale by more than that returns no rows where it returned its data. Geosphere daily
+  `all=true` for a year is 504 stations, not 1,102; DWD's North Sea box on 2022-02-18 is 50, not
+  114. The new `stations-outside-window` warning says how many are left out; `stations_read` is
+  lower. Name the stations by id to read them: their list end is no reason to leave one out. Counted
+  per station; `rank`, `name`, ECCC, `interpolate` and `summarize` are as they were (GH-4426)
 - The compact answer of `values` with `with_metadata` lists in its quality legend only the kinds
   of flag and the codes that occur in its readings, with no `documentation` column, and has no
   legend where no reading has a flag. DWD's 18 readings of two precipitation parameters over nine
