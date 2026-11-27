@@ -39,7 +39,13 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
 
 _PARAMETERS = "daily/climate_summary/temperature_air_mean_2m,daily/precipitation_more/precipitation_amount"
-_VALUES = {"provider": "dwd", "network": "observation", "parameters": _PARAMETERS, "stations": "01048"}
+_VALUES = {
+    "provider": "dwd",
+    "network": "observation",
+    "parameters": _PARAMETERS,
+    "stations": "01048",
+    "format": "json",
+}
 _STATIONS = {"provider": "dwd", "network": "observation", "parameters": "daily/climate_summary", "all": "true"}
 _NOW = dt.datetime.now(dt.UTC).replace(minute=0, second=0, microsecond=0)
 
@@ -936,7 +942,7 @@ def test_one_row_is_told_in_the_singular() -> None:
 
 
 def test_the_instructions_window_their_values_examples_and_say_of_the_budget() -> None:
-    """No example of `values` reads a whole record, and the instructions tell the cut, its warning and csv with wide."""
+    """No example of `values` reads a whole record; the instructions tell the cut, its warning and the compact text."""
     from wetterdienst.ui.mcp import INSTRUCTIONS  # noqa: PLC0415
 
     calls = re.findall(r"values\((.*?)\)", INSTRUCTIONS, flags=re.DOTALL)
@@ -947,7 +953,9 @@ def test_the_instructions_window_their_values_examples_and_say_of_the_budget() -
     flat = " ".join(INSTRUCTIONS.split())
     assert "cut to 40,000 characters" in flat
     assert "`answer-truncated`" in flat
-    assert 'format="csv" with shape="wide"' in flat
+    assert "`values` answers compact text by default" in flat
+    assert 'format="json" returns JSON' in flat
+    assert "shape=" not in flat.replace('(shape="long" unless', "")
     assert len(INSTRUCTIONS) < 7800
 
 
@@ -963,8 +971,8 @@ def test_the_values_tool_recommends_a_window_and_the_rest_document_does_not() ->
             return {tool.name: tool.description or "" for tool in await client.list_tools()}
 
     descriptions = asyncio.run(listed())
-    advice = "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv"
-    assert descriptions["values"].rstrip().endswith("shape=wide (not with `value` in `filter` or `sort`).")
+    advice = "Give a `timestamp` window: an answer is cut to 40,000 characters. The text above describes the JSON"
+    assert descriptions["values"].rstrip().endswith("`quality_flags` tables.")
     assert advice in descriptions["values"]
     assert advice not in descriptions["stations"]
     paths = restapi.app.openapi()["paths"]

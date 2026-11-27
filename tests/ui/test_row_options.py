@@ -311,7 +311,9 @@ def _tool(arguments: dict[str, Any]) -> Any:  # noqa: ANN401
     async def call() -> Any:  # noqa: ANN401
         async with Client(build_mcp_server(app)) as client:
             return await client.call_tool(
-                "values", {**selection, "stations": "00001,00002,00003", **arguments}, raise_on_error=False
+                "values",
+                {**selection, "stations": "00001,00002,00003", "format": "json", **arguments},
+                raise_on_error=False,
             )
 
     return asyncio.run(call())

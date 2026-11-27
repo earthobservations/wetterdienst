@@ -886,7 +886,8 @@ What a request answers is a result, and the results are what a caller reads:
   the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
 - Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
   `to_csv`, `to_ndjson`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict`, `to_json`
-  and `to_format`, which has JSON and no other format. They are documented below.
+  and `to_format`, which has JSON and no other format. `ValuesResult` has `to_compact` besides, the [compact
+  format](compact.md). They are documented below.
 - **`FormattableResult` is what all of them can do**: a `typing.Protocol` of `to_dict`, `to_json` and `to_format`,
   importable from `wetterdienst.model.result`. The five results satisfy it, and so does the alerts result of
   `dwd/alerts`, without inheriting from it, so a function that writes whatever a request answered annotates its
@@ -942,6 +943,8 @@ format takes is a `TypeError` too, and the formats by surface are in the table o
 | `to_format` | `fmt`, `**kwargs` | the same | `fmt`, `**kwargs`: JSON only |
 
 `indent` defaults to 4 (`True` is 4, `False` or `None` writes the JSON on one line); `with_metadata` and `with_stations` default to `False`.
+`ValuesResult` alone has `to_compact(with_metadata=False)` and `to_format("compact")`, [the compact format](compact.md): the
+other results refuse `compact` from `to_format` as an unknown format, listing the ones they have.
 `with_stations` adds a `stations` block to the values results: `df_stations`, the stations that have a row in the result, one for each resolution, dataset and station that has rows (a row of nulls is a row). A station of the request that returned no rows is not in it, nor is one whose rows `filtered_by_date` or `filtered_by_sql` cut away, and the block is an empty list where no row is left; the stations of the request are `result.stations.df`. Where the wide shape merged several datasets of a resolution into one row, which names no dataset, it has an entry for each of the datasets. In `HistoryResult` it lists the stations of the request.
 `to_dict` and `to_ogc_feature_collection` return dictionaries typed as `StationsDict`, `ValuesDict`,
 `InterpolatedValuesDict`, `SummarizedValuesDict` and `HistoryDict`, and the `...OgcFeatureCollection` of each, which

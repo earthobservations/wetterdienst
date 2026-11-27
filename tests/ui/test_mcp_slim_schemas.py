@@ -47,6 +47,8 @@ pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
 
 #: the formats a tool answers: data
 DATA_FORMATS = {"json", "geojson", "csv", "ndjson"}
+#: `values` has the compact text beside them (GH-4445); the other tools get it as their builders land
+VALUES_FORMATS = DATA_FORMATS | {"compact"}
 
 
 @functools.cache
@@ -108,14 +110,14 @@ def test_no_tool_takes_an_option_that_only_rest_needs() -> None:
         assert not _REST_ONLY_ARGUMENTS & set(properties), name
         if "format" in properties:
             formats = set(properties["format"]["enum"])
-            assert formats <= DATA_FORMATS, name
+            assert formats <= VALUES_FORMATS, name
             assert formats, name
             # the description does not offer what the tool no longer answers
             for word in ("chart", "png", "html", "svg", "pdf", "image"):
                 assert word not in properties["format"]["description"].lower(), (name, word)
-    # the two listings offer all four formats of data
-    for name in ("values", "stations"):
-        assert set(tools[name].input_schema["properties"]["format"]["enum"]) == DATA_FORMATS, name
+    # the two listings offer the four formats of data, and `values` the compact text too
+    assert set(tools["stations"].input_schema["properties"]["format"]["enum"]) == DATA_FORMATS
+    assert set(tools["values"].input_schema["properties"]["format"]["enum"]) == VALUES_FORMATS
 
 
 def test_the_tools_keep_every_other_option_of_their_route() -> None:
@@ -369,7 +371,7 @@ def test_a_chart_format_is_refused_where_it_would_have_been_answered_with_an_ima
 
     assert result.is_error
     assert result.content[0].text == (
-        f"format={fmt} is not offered by the tool values, which answers json, geojson, csv or ndjson. "
+        f"format={fmt} is not offered by the tool values, which answers json, geojson, csv, ndjson or compact. "
         f"Charts are drawn by the REST API: /api/v1/values takes format={fmt}."
     )
     assert seen == []

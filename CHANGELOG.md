@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- `format=compact` of `values`: a text of a header and tables that holds what the JSON holds in a tenth of
+  the characters or less (licence, credit line, warnings and stations in the header, a table for each
+  station and dataset with the unit in its column line, flags as a default and the periods that differ).
+  REST (one body, `text/vnd.wetterdienst.compact`), command line, MCP tool, `ValuesResult.to_compact`. A
+  tool's compact answer is cut after whole timestamps, and its note does not offer `csv` with
+  `shape=wide`. Not frozen (the first line is
+  `# wetterdienst-compact/1 values`), see `docs/usage/compact.md`; the other tools follow (GH-4445)
 - The `counts` of a `stations` answer has `stations_matched`, the number of stations that match
   (also in the `end` line of NDJSON and the header `X-Wetterdienst-Stations-Matched`; of
   `station-ids` as well): `stations` is fewer where a `rank` or an MCP tool's budget cut the
@@ -48,6 +55,10 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the MCP `values` tool answers `compact` (a text of a header and tables, a tenth of the
+  JSON) when a call gives no `format`; its schema and the server instructions say so. A client that
+  parses the answer as JSON passes `format=json`, which the tool still offers. REST, the command
+  line and Python keep `json` as their default (GH-4445)
 - An MCP tool's error says more of what failed: the 502 for an answer a tool does not carry names
   the formats of the tool that was called (`interpolate` and `summarize` answer `json`, `geojson`
   or `csv`, no `ndjson`), and the text of a 500 ends with `Request id: <id>`, the one the server

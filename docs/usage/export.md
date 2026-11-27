@@ -192,6 +192,7 @@ take: a server answers the charts in it only where `WD_RESTAPI_PLOTTING=true` ([
 | `geojson` | yes | `.geojson` | all | all | all |
 | `csv` | yes | `.csv` | all | all | all |
 | `ndjson` | yes | `.jsonl`, `.ndjson` | stations, values | stations, values | stations, values |
+| `compact` | yes | no | values | values | values |
 | `html` | yes | no | all | all | no |
 | `png` | yes | no | all | all | no |
 | `jpg` | yes | no | all | all | no |
@@ -202,6 +203,11 @@ take: a server answers the charts in it only where `WD_RESTAPI_PLOTTING=true` ([
 | `feather` | no | `.feather` | no | no | no |
 | `zarr` | no | `.zarr` | no | no | no |
 | `nc` | no | `.nc` | no | no | no |
+
+`compact` is [a text of a header and tables](compact.md), written by `to_compact` of a values result (`ValuesResult`) and by
+`to_format("compact")` of it; the other results do not have it yet, so `to_format("compact")` of them is an
+`UnknownFormatError` listing the formats they have, and no other command, route or tool offers it. It is not a file: a
+`to_target` file is chosen by its extension, and none writes it.
 
 The five results and the alerts result of `dwd/alerts` satisfy `FormattableResult` (`wetterdienst.model.result`), a
 small `typing.Protocol` of `to_dict`, `to_json` and `to_format`, so that one function can write them all (the radar

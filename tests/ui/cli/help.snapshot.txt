@@ -1270,10 +1270,11 @@ Options:
                                   and parameters: for a short answer where many rows tie. What
                                   matched is still counted in metadata.search, and a rows-capped
                                   warning says how many are returned
-  --format [json|geojson|csv|ndjson|html|png|jpg|svg|pdf]
-                                  Output format: json, geojson, csv or ndjson (the metadata, a line
-                                  for each row, then the end) for data, html, png, jpg, svg or pdf
-                                  for a chart. Default: json
+  --format [json|geojson|csv|ndjson|compact|html|png|jpg|svg|pdf]
+                                  Output format: json, geojson, csv, ndjson or compact (ndjson: the
+                                  metadata, a line for each row, then the end; compact: a header and
+                                  a table for each station and dataset, one row a timestamp) for
+                                  data, html, png, jpg, svg or pdf for a chart. Default: json
   --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
   --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
   --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]

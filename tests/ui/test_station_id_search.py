@@ -107,7 +107,7 @@ def _mcp(kind: str, **query: str) -> list[str]:
 
     async def call() -> dict[str, Any]:
         async with Client(build_mcp_server(app)) as client:
-            result = await client.call_tool(kind, {**_SELECTION, **query})
+            result = await client.call_tool(kind, {**_SELECTION, **query, "format": "json"})
             answer = result.structured_content
             assert answer is not None
             return answer.get("result", answer)

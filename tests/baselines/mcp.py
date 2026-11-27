@@ -43,6 +43,11 @@ ACCEPTED_BREAKS: dict[str, str] = {
         "window, or ask the REST API); the REST API, the command line and Python keep all of them"
     )
     for name in ("skip_criteria", "skip_empty", "skip_threshold")
+} | {
+    'tool values: argument format: default changed from "json" to "compact"': (
+        "the MCP `values` tool answers the compact text when a call gives no `format` (GH-4445): a client that reads "
+        "JSON passes `format=json`, which the tool still offers; the REST API, the command line and Python keep `json`"
+    )
 }
 
 #: the keys of a schema that describe it for a reader and promise nothing

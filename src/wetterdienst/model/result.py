@@ -1066,6 +1066,9 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
     df: pl.DataFrame
     search: Searched | None = None
 
+    #: renders every format, the compact one included (GH-4445)
+    _FORMATS_NOT_RENDERED: ClassVar[frozenset[str]] = frozenset()
+
     def selected_rows(
         self,
         *,
@@ -1208,6 +1211,45 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         """
         return replace(super().filtered_by_sql(sql), search=None)
 
+    def _long_frame(self) -> pl.DataFrame:
+        """Give the values in the long shape, whatever shape the frame is in: a wide one is turned back, flags kept."""
+        if "parameter" in self.df.columns or self.df.is_empty():
+            return self.df
+        return self._lengthen(self.df, with_flags=True)
+
+    def to_compact(self, *, with_metadata: bool = False) -> str:
+        """Write the values as compact text: a header, the stations and a table of values for each series (GH-4445).
+
+        The text carries the provider, the licence, the credit line, what wetterdienst did to the data and the
+        warnings of the answer in its header, the unit of every parameter in its column line and the quality flags as
+        the default of a column and the periods that differ; the grammar is in `docs/usage/compact.md`. Warnings are
+        those recorded since the request began, as for `to_json`.
+
+        Args:
+            with_metadata: Add the settings the values were read with, the parameters with what they are relative to
+                and what the quality flags hold, as tables.
+
+        Returns:
+            The text, UTF-8, ending with a line `# end rows=N`
+
+        Raises:
+            ExportRefusedError: The result has no provider to describe (a bare result of a frame).
+
+        """
+        from wetterdienst.exceptions import ExportRefusedError  # noqa: PLC0415
+        from wetterdienst.io.file_metadata import metadata_block  # noqa: PLC0415
+        from wetterdienst.ui.render import ValuesSettings, _applied_settings, compact_values  # noqa: PLC0415
+
+        block = metadata_block(self, heavy=with_metadata)
+        if block is None:
+            msg = (
+                f"{type(self).__name__} has no provider to describe, which the compact format carries in its header; "
+                "it needs the result of a values request that the registry of Wetterdienst names"
+            )
+            raise ExportRefusedError(msg)
+        settings = _applied_settings(ValuesSettings, self.stations.options) if with_metadata else None
+        return compact_values(self, block, settings=settings)
+
     def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
         """Format values as OGC feature collection."""
         # The stations frame holds one row per resolution, dataset and station, so a feature is one
@@ -1280,7 +1322,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         rows = _chart_rows(df, self._unit_symbol_key().replace(self._unit_symbols()))
         return charts.values_chart(rows)
 
-    def _lengthen(self, df: pl.DataFrame) -> pl.DataFrame:
+    def _lengthen(self, df: pl.DataFrame, *, with_flags: bool = False) -> pl.DataFrame:
         """Turn a wide values frame back into the long one `to_plot` draws.
 
         Undoes what `TimeseriesValues._widen_df` did. A column is named after its dataset as well
@@ -1296,6 +1338,10 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         The rows are put in the order a long result holds them in, which is the order the plot
         lays its facets out and colours its stations in: station by station, as they were
         collected, and sorted within each station by resolution, dataset and parameter.
+
+        With `with_flags` the quality flags are kept, in a column `quality_flags`, and so is a reading with no value
+        that has some (the wide shape keeps what the source wrote in its place): the long shape of the answer, which
+        the compact format is written from.
         """
         datasets_by_resolution: dict[str, set[str]] = {}
         for parameter in self.stations.parameters:
@@ -1325,16 +1371,21 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
                     name = max(matches, key=len)
                     dataset = pl.lit(name)
                     parameter = column.removeprefix(f"{name}_")
-                series.append(
-                    df_resolution.filter(pl.col(column).is_not_null()).select(
-                        pl.col("station_id"),
-                        pl.col("resolution"),
-                        dataset.alias("dataset"),
-                        pl.lit(parameter).alias("parameter"),
-                        pl.col("timestamp"),
-                        pl.col(column).cast(pl.Float64).alias("value"),
-                    )
-                )
+                flags = f"{column}_quality_flags"
+                present = pl.col(column).is_not_null()
+                selected = [
+                    pl.col("station_id"),
+                    pl.col("resolution"),
+                    dataset.alias("dataset"),
+                    pl.lit(parameter).alias("parameter"),
+                    pl.col("timestamp"),
+                    pl.col(column).cast(pl.Float64).alias("value"),
+                ]
+                if with_flags:
+                    flagged = pl.col(flags) if flags in df.columns else pl.lit(None, dtype=pl.String)
+                    present = present | flagged.is_not_null()
+                    selected.append(flagged.alias("quality_flags"))
+                series.append(df_resolution.filter(present).select(selected))
         if not series:
             return pl.DataFrame()
         # the stations in the order they come in, and stable, so that a series keeps its timestamps' order

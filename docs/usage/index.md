@@ -15,6 +15,7 @@ to do.
 | [Find a station by id](station_ids.md) | one WMO number, WIGOS id or ICAO code at every provider that has it |
 | [Units](units.md) | the unit every quantity comes back in, and how to change it |
 | [Export](export.md) | writing a result to a file or a database |
+| [Compact format](compact.md) | a result as a text of a header and tables, a tenth of the JSON, for an assistant or a script |
 | [Settings and options](settings.md) | the host's settings and a request's options |
 
 ## From the command line, the REST API, an assistant or the app
@@ -55,6 +56,7 @@ station_history.md
 station_ids.md
 units.md
 export.md
+compact.md
 settings.md
 cli.md
 restapi.md

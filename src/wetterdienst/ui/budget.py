@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
+from wetterdienst.io.formats import COMPACT_MEDIA_TYPE
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.row_selection import MAX_TOOL_SERIES
 from wetterdienst.ui.mcp import structured_size
@@ -73,10 +74,11 @@ ANSWER_BUDGET = 40_000
 
 #: the formats whose body a model reads as data, which the budget holds: the formats of a tool. A chart (html, svg,
 #: png, jpg, pdf) is none of them, and is refused before the route is called (`ui.mcp`, GH-4318)
-BUDGETED_FORMATS = frozenset({"json", "geojson", "csv", "ndjson"})
+BUDGETED_FORMATS = frozenset({"json", "geojson", "csv", "ndjson", "compact"})
 
-#: the media types of the formats that have a sentence in front of their body (`ui.mcp.structured_size`)
-_MEDIA_TYPES = {"csv": "text/csv", "ndjson": "application/x-ndjson"}
+#: the media types of the formats whose body is carried as text (`ui.mcp.structured_size`): csv and ndjson have a
+#: sentence in front of it, the compact text none (GH-4445), and the size is that of `{"result": text}`
+_MEDIA_TYPES = {"csv": "text/csv", "ndjson": "application/x-ndjson", "compact": COMPACT_MEDIA_TYPE}
 
 #: the characters FastMCP adds around the JSON answer of a tool: `{"result":` and `}`
 _RESULT_WRAPPER = len('{"result":}')
@@ -171,8 +173,15 @@ def _has_shape(request: _ListRequest | _SeriesRequest) -> bool:
 
 
 def _wide_csv_hint(request: _ListRequest | _SeriesRequest) -> bool:
-    """Tell whether `format=csv` with `shape=wide` is still something to suggest: not where the request is that."""
-    return _has_shape(request) and not (request.format == "csv" and getattr(request, "shape", None) == "wide")
+    """Tell whether `format=csv` with `shape=wide` is still something to suggest: not where the request is that.
+
+    Nor for a compact answer, which is smaller than that and has no shape (GH-4445).
+    """
+    return (
+        _has_shape(request)
+        and request.format != "compact"
+        and not (request.format == "csv" and getattr(request, "shape", None) == "wide")
+    )
 
 
 def _narrowing(request: _ListRequest | _SeriesRequest) -> str:
@@ -367,15 +376,29 @@ def _fit_values(
     best = _largest(1, count_all - 1, fits, max(1, count_all * ANSWER_BUDGET // size)) if count_all > 1 else None
     if best is not None:
         return tried[best]
-    # one timestamp is more than the budget: cut through it, keeping what fits of its rows
+    # one timestamp is more than the budget: cut through it, keeping what fits of its rows. A compact text has a row for
+    # each timestamp of a station and dataset, with a cell for each parameter, so it is cut after whole series: the
+    # rows a series has at this timestamp are all kept or all left out, and no cell is empty for being cut
     rows = df.filter(pl.col("timestamp") == (stamps[0] if start else stamps[-1]))
+    # what a cut keeps for `n` of the `cuts`: the first n rows, or for a compact text the rows of the first n series (a
+    # station and a dataset), wherever they stand in the frame
+    keys = ["station_id", "resolution", "dataset"]
+    series = rows.select(keys).unique(maintain_order=True)
+    numbered = rows.with_row_index("_row")
+    compact = request.format == "compact"
+    cuts = list(range(1, max(2, series.height if compact else rows.height)))
     partial: dict[int, _Attempt] = {}
 
-    def fits_rows(count: int) -> bool:
-        partial[count] = attempt(rows.head(count), 1, within=rows.height)
-        return partial[count].size <= ANSWER_BUDGET
+    def kept_rows(n: int) -> pl.DataFrame:
+        if not compact:
+            return rows.head(n)
+        return numbered.join(series.head(n), on=keys, how="semi").sort("_row").drop("_row")
 
-    kept = _largest(1, max(1, rows.height - 1), fits_rows, max(1, rows.height * ANSWER_BUDGET // size))
+    def fits_rows(index: int) -> bool:
+        partial[index] = attempt(kept_rows(cuts[index - 1]), 1, within=rows.height)
+        return partial[index].size <= ANSWER_BUDGET
+
+    kept = _largest(1, len(cuts), fits_rows, max(1, len(cuts) * ANSWER_BUDGET // size))
     return partial[kept if kept is not None else 1]
 
 

@@ -105,7 +105,11 @@ These may change in a minor or a patch release, with a changelog entry where a c
 - which parameters a provider offers in a dataset: a provider can gain one, and one whose upstream source has ended is
   removed in a minor release, announced as **Breaking** (see [Which release a break takes](#which-release-a-break-takes));
   any other removal is a break;
-- the values: a reading is what the provider published; a provider that revises its data revises the answer.
+- the values: a reading is what the provider published; a provider that revises its data revises the answer;
+- the compact format (`format=compact`, `to_compact`, see [Compact format](compact.md)): its keys, its columns and
+  the text of its notes. The first line names `wetterdienst-compact/1`; a key or a column that is renamed raises the
+  version, one that is added does not, and a reader ignores what it does not know. The `format` value `compact`
+  itself, and that `values` answers it, are promised.
 
 ## Python API
 
@@ -286,7 +290,8 @@ The endpoint is `/mcp/v1`, and `/mcp` is its alias for the current version, as `
 are the REST routes, generated from them: a tool has the name given in the table of the [MCP page](mcp.md#the-tools),
 the arguments are the query parameters of its route with the same names but for those only REST needs (`pretty`, the
 size and scale of an image) and the skip options of `values`, which models did not use (see below), and the answer is
-the REST answer.
+the REST answer, but for the `values` tool, whose `format` defaults to `compact` where the REST API's is `json` (see
+below).
 
 - A breaking change of a tool (its name, an argument, the answer) comes with `/mcp/v2`, and `/mcp/v1` keeps serving the
   tools as they were for at least two minor releases, announced in the changelog.
@@ -297,7 +302,9 @@ the REST answer.
   data answer. A `width`, `height` or `scale` with a value and a `format` the tool does not offer (a chart format
   among them, which the tools no longer offer) are refused, naming the formats the tool answers. The same holds for
   `skip_empty`, `skip_threshold` and `skip_criteria` of `values` (GH-4471), dropped because models did not use them:
-  `null` or the value the server itself uses is let go, any other value is refused with what the server does. Those removals are breaks of `/mcp/v1` made before 1.0.0, **Breaking** in
+  `null` or the value the server itself uses is let go, any other value is refused with what the server does. The
+  `values` tool answers `compact` where a call gives no `format` (GH-4445); `format=json` gives the JSON, and the REST
+  API, the command line and Python keep `json`. Those changes are breaks of `/mcp/v1` made before 1.0.0, **Breaking** in
   the changelog and named in `ACCEPTED_BREAKS` of `tests/baselines/mcp.py`; after 1.0.0 they would be `/mcp/v2`.
 - The descriptions of the tools and the instructions the server gives are written for agents and are improved without
   a new version.

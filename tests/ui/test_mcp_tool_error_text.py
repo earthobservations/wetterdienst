@@ -216,7 +216,7 @@ def test_the_502_of_every_tool_names_the_formats_of_that_tool() -> None:
         )
     assert answers["interpolate"][0].endswith("interpolate answers json, geojson or csv.")
     assert answers["summarize"][0].endswith("summarize answers json, geojson or csv.")
-    assert answers["values"][0].endswith("values answers json, geojson, csv or ndjson.")
+    assert answers["values"][0].endswith("values answers json, geojson, csv, ndjson or compact.")
     assert answers["glossary"][0].endswith("glossary answers json.")
     assert "ndjson" not in answers["interpolate"][0] + answers["summarize"][0] + answers["station_ids"][0]
 
@@ -313,7 +313,7 @@ def test_an_answer_the_tool_does_not_carry_is_told_in_plain_words(media_type: st
         "values",
         502,
         f"The REST API answered {media_type}, which a tool does not carry: "
-        "values answers json, geojson, csv or ndjson.",
+        "values answers json, geojson, csv, ndjson or compact.",
     )
 
 
