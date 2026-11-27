@@ -18,15 +18,16 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: for `all`, a box, a distance, a region or `filter_by_sql` and a window, `values`
-  (the REST API, the library's `all()` and `query()`) reads, and the limit of stations counts, only
-  the stations that can have data in it: list start on or before the window's end, list end empty or
-  at most 366 days (732 annual) before its start, never `station_window_end_buffer`. A station whose
-  list end is stale by more than that returns no rows where it returned its data. Geosphere daily
-  `all=true` for a year is 504 stations, not 1,102; DWD's North Sea box on 2022-02-18 is 50, not
-  114. The new `stations-outside-window` warning says how many are left out; `stations_read` is
-  lower. Name the stations by id to read them: their list end is no reason to leave one out. Counted
-  per station; `rank`, `name`, ECCC, `interpolate` and `summarize` are as they were (GH-4426)
+- **Breaking**: for `all`, a box, a distance, a region or `filter_by_sql` and a window, `values` and
+  `statistics` (REST routes, MCP tools, the `values` and `statistics` commands, the library's
+  `all()` and `query()`) read, and the limit of stations counts, only the stations that can have
+  data in it: list start on or before the window's end, list end empty or at most 366 days (732
+  annual) before its start, never `station_window_end_buffer`. A station whose list end is stale by
+  more than that returns no rows where it returned its data. Geosphere daily `all=true` for a year
+  is 504 stations, not 1,102; DWD's North Sea box on 2022-02-18 is 50, not 114. The new
+  `stations-outside-window` warning says how many are left out; `stations_read` is lower. Name the
+  stations by id to read them (their list end is no reason to leave one out). Counted per station;
+  `rank`, `name`, ECCC, `interpolate` and `summarize` are as they were (GH-4426)
 - The compact answer of `values` with `with_metadata` lists in its quality legend only the kinds
   of flag and the codes that occur in its readings, with no `documentation` column, and has no
   legend where no reading has a flag. DWD's 18 readings of two precipitation parameters over nine

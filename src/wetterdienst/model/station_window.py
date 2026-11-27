@@ -19,11 +19,13 @@ walk of `TimeseriesValues` and its fetch-ahead (`_files_ahead`) all ask it, so t
   (`TimeseriesRequest.station_list_bounds_note`): ECCC's list start is after the first value for most stations, so the
   list cannot say who has data. Its stations are all counted, and the walk reads what it read before (its own
   `_begins_after_window`).
-- **Not cut.** A station *named by id* (`stations`, a WMO, WIGOS or ICAO id) is never cut by the window: it is read
-  and, with no data in the window, told (`station-without-rows`). A `rank` is as it was: counted as its rank, walked
-  by the start of the list alone (it stops when it has its stations, and a station without data in the window does
-  not take a place). A name is matched among the stations the window leaves (`filter_by_name`), by the buffer of the
-  request, and walked by the start of the list alone.
+- **Not cut.** A station *named by id* (`stations`, a WMO, WIGOS or ICAO id) is exempt from the end of the rule alone:
+  a closed one is read and, with no data in the window, told (`station-without-rows`, `parameter-without-rows`), but
+  one whose list begins after the window is left out by the walk's own `_begins_after_window`, as it was, so no request
+  is made for it. The count of the limit skips exactly those (`named_station_ids_read`, which asks the walk's
+  predicate). A `rank` is as it was: counted as its rank, walked by the start of the list alone (it stops when it has
+  its stations, and a station without data in the window does not take a place). A name is matched among the stations
+  the window leaves (`filter_by_name`), by the buffer of the request, and walked by the start of the list alone.
 """
 
 from __future__ import annotations
@@ -39,6 +41,8 @@ from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.response_warnings import STATIONS_OUTSIDE_WINDOW, warn_response
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from wetterdienst.model.result import StationsResult
 
 log = get_one_line_logger(__name__)
@@ -108,35 +112,91 @@ def station_ids_read(stations: StationsResult) -> list[str] | None:
     return passing.get_column("station_id").unique(maintain_order=True).to_list()
 
 
+def named_station_ids_read(stations: StationsResult) -> list[str] | None:
+    """Give the ids of the named stations the walk reads, in the order of the list, or None for any other selection.
+
+    A station named by id is exempt from the end of the rule, and left out by the walk only where its list begins after
+    the window: `TimeseriesValues._begins_after_window`, asked here, the walk's own predicate and not a copy, so
+    that the count is the reads. None where there is no window to begin after.
+    """
+    request = getattr(stations, "request", None)
+    if stations._stations_filter not in NAMED_BY_ID or getattr(request, "end", None) is None:  # noqa: SLF001
+        return None
+    values = stations.values()
+    return [
+        cast("str", station_id)
+        for (station_id,), meta in stations.df.group_by(["station_id"], maintain_order=True)
+        if not values._begins_after_window(meta)  # noqa: SLF001
+    ]
+
+
+def stations_read(stations: StationsResult) -> list[str] | None:
+    """Give the ids of the stations a window reads, by the rule or for the named stations, None where it cuts none."""
+    if stations._stations_filter in NAMED_BY_ID:  # noqa: SLF001
+        return named_station_ids_read(stations)
+    return station_ids_read(stations)
+
+
 def window_cut_stations(stations: StationsResult) -> bool:
-    """Say whether the rule left out at least one station of the selection: the count is then below the list."""
-    read = station_ids_read(stations)
+    """Say whether the window left out at least one station of the selection: the count is then below the list."""
+    read = stations_read(stations)
     return read is not None and len(read) < stations.df.get_column("station_id").n_unique()
 
 
-def warn_left_out(stations: StationsResult, read: list[str]) -> None:
+def _names(ids: list[str]) -> str:
+    shown = ids[:MAX_LISTED]
+    return ", ".join(shown) + (f", and {len(ids) - len(shown)} more" if len(ids) > len(shown) else "")
+
+
+def warn_left_out(
+    stations: StationsResult, read: list[str], begins_after_window: Callable[[pl.DataFrame], bool]
+) -> None:
     """Tell, as one `stations-outside-window` warning, the stations of the selection the rule leaves out (GH-4426).
 
     Without it a selection that the rule cuts to nothing is an answer with no rows and no word, which reads like a
-    request that failed. It says how many of how many, why (the list's own bounds), names the first ten, and what to
-    do to read them anyway: name them by id.
+    request that failed. It says how many of how many, why (the list's own bounds), and names the first ten of each
+    kind. Of the two kinds, the stations whose list ends before the window can be read by naming them by id, and the
+    ones whose list begins after it (`begins_after_window`, the walk's predicate) cannot: the advice is for the first.
     """
     listed = stations.df.get_column("station_id").unique(maintain_order=True).to_list()
     kept = set(read)
     left = [station for station in listed if station not in kept]
     if not left:
         return
-    shown = left[:MAX_LISTED]
-    named = ", ".join(shown) + (f", and {len(left) - len(shown)} more" if len(left) > len(shown) else "")
-    many = len(left) > 1
+    late_ids = {
+        station_id
+        for (station_id,), meta in stations.df.group_by(["station_id"], maintain_order=True)
+        if station_id not in kept and begins_after_window(meta)
+    }
+    ended = [station for station in left if station not in late_ids]
+    late = [station for station in left if station in late_ids]
     resolutions = set(stations.df.get_column("resolution").to_list()) if "resolution" in stations.df.columns else set()
     lag = STATION_END_LAG_ANNUAL.days if resolutions == {Resolution.ANNUAL.value} else STATION_END_LAG.days
-    warn_response(
-        log,
-        STATIONS_OUTSIDE_WINDOW,
-        f"{len(left)} of the {len(listed)} stations of the selection {'are' if many else 'is'} not read: "
-        f"{'their' if many else 'its'} station list ends more than {lag} days before the window or begins after it "
-        f"({named}), so {'they have' if many else 'it has'} no data in it by the list. Name the "
-        f"station{'s' if many else ''} by id (`stations`) to read {'them' if many else 'it'} anyway.",
-        stations=shown,
-    )
+    total, count = len(listed), len(left)
+    if total == 1:
+        head = "The one station of the selection is not read"
+    else:
+        head = f"{count} of the {total} stations of the selection {'are' if count > 1 else 'is'} not read"
+    ends = f"ends more than {lag} days before the window"
+    begins = "begins after the window"
+    one = count == 1
+    its, it_has, it = ("its", "it has", "it") if one else ("their", "they have", "them")
+    if not late:
+        message = (
+            f"{head}: {its} station list {ends} ({_names(ended)}), so {it_has} no data in it by the list. "
+            f"Name the station{'' if one else 's'} by id (`stations`) to read {it} anyway."
+        )
+    elif not ended:
+        message = (
+            f"{head}: {its} station list {begins} ({_names(late)}), so {it_has} no data in it by the list. "
+            f"Naming {it} by id does not read {it}."
+        )
+    else:
+        few = len(ended) == 1
+        message = (
+            f"{head}: {len(ended)} whose station list {ends} ({_names(ended)}), and {len(late)} whose list {begins} "
+            f"({_names(late)}); by the list they have no data in it. Name the station{'' if few else 's'} that ended "
+            f"by id (`stations`) to read {'it' if few else 'them'} anyway; a station whose list {begins} is not read "
+            "even then."
+        )
+    warn_response(log, STATIONS_OUTSIDE_WINDOW, message, stations=left[:MAX_LISTED])

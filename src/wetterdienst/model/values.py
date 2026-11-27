@@ -585,7 +585,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         ids = station_ids_read(self.sr) if self._window_rule_allowed else None
         self._read_ids = None if ids is None else frozenset(ids)
         if ids is not None:
-            warn_left_out(self.sr, ids)
+            warn_left_out(self.sr, ids, self._begins_after_window)
         groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
         ahead = self._fetch_ahead(groups)
         try:

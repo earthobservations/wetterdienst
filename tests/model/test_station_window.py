@@ -254,8 +254,33 @@ def test_explicit_ids_are_not_cut_by_the_end_of_the_list(monkeypatch: pytest.Mon
         result = _result(request, df, selection)
 
         assert station_ids_read(result) is None
-        assert selected_station_count(result) == 3
+        # the count is the reads: the station that begins after the window is not counted, as the walk skips it
+        assert selected_station_count(result) == 2
         assert _read_by_walk(result, monkeypatch) == ["00001", "00002"]
+        assert window_cut_stations(result)
+
+
+def test_the_count_of_named_ids_asks_the_predicate_of_the_walk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ECCC skips a named station by FIRST_DATE, which the list start does not say: the count follows the walk's."""
+    request = EcccObservationRequest(
+        parameters=[("daily", "data")], start="2022-02-18", end="2022-02-18", settings=Settings(cache_disable=True)
+    )
+    old = dt.datetime(1950, 1, 1, tzinfo=UTC)
+    df = _frame([("1", old, None), ("2", old, None)], resolution="daily", dataset="data")
+    request._collection_bounds = pl.DataFrame(  # noqa: SLF001
+        {
+            "station_id": ["1", "2"],
+            "resolution": ["daily", "daily"],
+            "dataset": ["data", "data"],
+            "first_date": [dt.datetime(1960, 1, 1, tzinfo=UTC), dt.datetime(2030, 1, 1, tzinfo=UTC)],
+            "last_date": [None, None],
+        },
+        schema_overrides={"first_date": pl.Datetime(time_zone="UTC"), "last_date": pl.Datetime(time_zone="UTC")},
+    )
+    result = _result(request, df, StationsFilter.BY_STATION_ID)
+
+    assert _read_by_walk(result, monkeypatch) == ["1"]
+    assert selected_station_count(result) == 1
 
 
 def test_a_station_named_by_id_with_no_data_in_the_window_is_told(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -354,8 +379,8 @@ def test_a_selection_the_rule_cuts_to_nothing_is_told(monkeypatch: pytest.Monkey
         assert warning["stations"] == ["00001", "00002"]
         assert warning["message"] == (
             "2 of the 2 stations of the selection are not read: their station list ends more than 366 days before "
-            "the window or begins after it (00001, 00002), so they have no data in it by the list. Name the "
-            "stations by id (`stations`) to read them anyway."
+            "the window (00001, 00002), so they have no data in it by the list. Name the stations by id "
+            "(`stations`) to read them anyway."
         )
 
 
@@ -383,6 +408,41 @@ def test_the_warning_counts_and_names_the_few_and_says_one_station_in_the_singul
     _, (single,) = _warnings_of(_result(request, two), monkeypatch)
     assert single["message"].startswith("1 of the 2 stations of the selection is not read: its station list ends")
     assert "so it has no data in it by the list. Name the station by id" in single["message"]
+    one = _frame([("c00", old, closed)], resolution="daily", dataset="climate_summary")
+    _, (alone,) = _warnings_of(_result(request, one), monkeypatch)
+    assert alone["message"].startswith("The one station of the selection is not read: its station list ends")
+
+
+def test_the_warning_gives_the_advice_only_for_the_stations_that_ended(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A named station whose list begins after the window is not read: only a closed one is told to be named."""
+    request = _dwd(start="2022-02-18", end="2022-02-18")
+    old = dt.datetime(1950, 1, 1, tzinfo=UTC)
+    future = dt.datetime(2030, 1, 1, tzinfo=UTC)
+    df = _frame(
+        [("open", old, None), ("ended", old, dt.datetime(2000, 1, 1, tzinfo=UTC)), ("late", future, None)],
+        resolution="daily",
+        dataset="climate_summary",
+    )
+
+    _, (both,) = _warnings_of(_result(request, df), monkeypatch)
+    assert both["stations"] == ["ended", "late"]
+    assert both["message"] == (
+        "2 of the 3 stations of the selection are not read: 1 whose station list ends more than 366 days before the "
+        "window (ended), and 1 whose list begins after the window (late); by the list they have no data in it. Name "
+        "the station that ended by id (`stations`) to read it anyway; a station whose list begins after the window is "
+        "not read even then."
+    )
+
+    only_ended = df.filter(pl.col("station_id") != "late")
+    _, (ended,) = _warnings_of(_result(request, only_ended), monkeypatch)
+    assert "Name the station by id (`stations`) to read it anyway." in ended["message"]
+
+    only_late = df.filter(pl.col("station_id") != "ended")
+    _, (late,) = _warnings_of(_result(request, only_late), monkeypatch)
+    assert late["message"] == (
+        "1 of the 2 stations of the selection is not read: its station list begins after the window (late), so it has "
+        "no data in it by the list. Naming it by id does not read it."
+    )
 
 
 def test_the_warning_says_732_days_for_annual_data(monkeypatch: pytest.MonkeyPatch) -> None:

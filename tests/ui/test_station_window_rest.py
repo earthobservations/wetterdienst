@@ -120,4 +120,4 @@ def test_a_selection_the_rule_cuts_to_nothing_is_an_answer_with_a_warning(read: 
     assert body["metadata"]["counts"]["stations"] == 0
     (warning,) = [w for w in body["metadata"]["warnings"] if w["code"] == "stations-outside-window"]
     assert warning["stations"] == ["00007"]
-    assert "1 of the 1 stations of the selection is not read" in warning["message"]
+    assert "The one station of the selection is not read" in warning["message"]

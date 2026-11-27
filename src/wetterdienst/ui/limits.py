@@ -106,16 +106,17 @@ def selected_station_count(stations: StationsResult) -> int:
     A ranked selection stops at its `rank`, whatever the list holds. Every other selection is counted by the rule the
     walk reads by (`station_ids_read`), so the count is the stations read: a station that closed more than a year
     before the window is not counted, and is not read. A station is counted once, however many of the requested
-    datasets it has: the unit is the station, not the dataset read. Stations named by id are all counted, a network
-    that opted out of the rule (ECCC) as well.
+    datasets it has: the unit is the station, not the dataset read. Stations named by id are exempt from the end of
+    the rule and counted unless their list begins after the window, which the walk skips (`named_station_ids_read`);
+    every station of a network that opted out of the rule (ECCC) is counted.
     """
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
-    from wetterdienst.model.station_window import station_ids_read  # noqa: PLC0415
+    from wetterdienst.model.station_window import stations_read  # noqa: PLC0415
 
     count = stations.df.get_column("station_id").n_unique()
     if stations._stations_filter is StationsFilter.BY_RANK and stations._rank:  # noqa: SLF001
         return min(count, stations._rank)  # noqa: SLF001
-    if (read := station_ids_read(stations)) is not None:
+    if (read := stations_read(stations)) is not None:
         return len(read)
     return count
 
@@ -380,10 +381,10 @@ def _station_ids_read(stations: StationsResult) -> pl.Series:
     """Give the ids of the stations a selection reads, in the order of the list: the window's, or a rank's."""
     import polars as pl  # noqa: PLC0415
 
-    from wetterdienst.model.station_window import station_ids_read  # noqa: PLC0415
+    from wetterdienst.model.station_window import stations_read  # noqa: PLC0415
 
     ids = stations.df.get_column("station_id").unique(maintain_order=True)
-    if (read := station_ids_read(stations)) is not None:
+    if (read := stations_read(stations)) is not None:
         return pl.Series(ids.name, read, dtype=ids.dtype)
     if (count := selected_station_count(stations)) < ids.len():
         return ids.head(count)
