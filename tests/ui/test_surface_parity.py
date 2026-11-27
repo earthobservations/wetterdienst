@@ -1810,6 +1810,7 @@ def _surfaces(parameters: str) -> dict[str, list[dict[str, Any]]]:
                     "parameters": parameters,
                     "stations": "00001",
                     "timestamp": "2020-05",
+                    "format": "json",
                 },
             )
             return result.structured_content

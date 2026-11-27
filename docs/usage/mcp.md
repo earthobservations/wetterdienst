@@ -118,11 +118,12 @@ only `values` and `stations` offer, and `compact`, which only `values` offers ([
 requires is then one sentence about the answer: its media type and size in bytes, and the licence, the attribution,
 the note on what wetterdienst did to the data and the warnings that the REST API sends in headers for these formats
 (the same in the `_meta` of the result, under `wetterdienst`), followed by the body itself, since a client may hand the
-model the structured content alone. The default is `json`, which the assistant reads without further ado, and a long
-`csv` goes through the context of the assistant. The structured content of a `compact` answer is the text alone, with
+model the structured content alone. The default of `values` is `compact` (the other tools answer `json`; REST, the
+command line and Python keep `json` for `values` too); `format=json` asks for the JSON, and a long `csv` goes through
+the context of the assistant. The structured content of a `compact` answer is the text alone, with
 no sentence in front: its header carries the licence, the credit line, the processing note and the warnings
-(the `_meta` of the result has them too). It is about a tenth of the JSON, so `format=compact` is what to ask for
-a long series; the default of the tool stays `json`.
+(the `_meta` of the result has them too). It is about a tenth of the JSON, so a long series fits in the answer budget.
+A client that parses the answer of `values` as JSON passes `format=json`.
 
 ### What a tool does not take
 

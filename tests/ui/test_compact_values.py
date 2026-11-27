@@ -348,17 +348,47 @@ def _tool_arguments(**extra: Any) -> dict[str, Any]:  # noqa: ANN401
     return {**_BASE, **extra}
 
 
-def test_a_tool_answers_json_by_default_and_the_text_when_asked_with_the_body_twice_and_no_sentence() -> None:
-    """The default stays JSON (decided after the benchmark); the text is the content and the structured content."""
+def test_a_tool_answers_the_text_without_a_format_and_json_when_asked_with_the_body_twice_and_no_sentence() -> None:
+    """The default of the tool is the text (GH-4445): the content and the structured content; `format=json` is JSON."""
     default = _call("values", _tool_arguments())
     text = _call("values", _tool_arguments(format="compact"))
+    as_json = _call("values", _tool_arguments(format="json"))
 
-    assert not default.is_error
-    assert default.structured_content["result"]["values"]
+    assert not default.is_error, default.content
     assert not text.is_error, text.content
+    assert default.content[0].text == default.structured_content["result"] == _rest().text
+    assert default.structured_content == text.structured_content
     assert text.content[0].text == text.structured_content["result"] == _rest().text
     assert "The answer is" not in text.structured_content["result"]
     assert text.meta["wetterdienst"]["license"] == "CC-BY-4.0"
+    assert not as_json.is_error, as_json.content
+    assert as_json.structured_content["result"]["values"]
+
+
+def test_rest_cli_and_python_keep_json_as_the_default_of_values() -> None:
+    """Only the tool changed its default: a request without `format` is JSON everywhere else."""
+    response = TestClient(app).get("/api/values", params=_BASE)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json()["values"]
+    assert json.loads(_cli().output)["values"]
+
+
+def test_a_default_answer_of_a_tool_is_cut_as_one_that_asks_for_the_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The budget and the cut read the format the route answered in, which is the same with or without the name."""
+    _big(monkeypatch)
+    arguments = _tool_arguments(timestamp="2018/2020", stations="00001,00002,00003")
+
+    default = _call("values", arguments)
+    named = _call("values", {**arguments, "format": "compact"})
+
+    assert not default.is_error, default.content
+    assert default.structured_content == named.structured_content
+    assert default.content[0].text == named.content[0].text
+    parsed = parse(default.content[0].text)
+    assert [code for code, _ in parsed.warnings() if code == "answer-truncated"] == ["answer-truncated"]
+    assert _size(default.content[0].text) <= ANSWER_BUDGET
 
 
 def _big(monkeypatch: pytest.MonkeyPatch, count: int = 3) -> None:
@@ -559,8 +589,12 @@ def test_the_values_tool_describes_the_text_in_a_sentence_and_the_instructions_s
             return {tool.name: tool for tool in await client.list_tools()}
 
     tools = asyncio.run(listed())
-    assert "format=compact" in tools["values"].description
-    assert "compact" in tools["values"].input_schema["properties"]["format"]["description"]
+    assert "compact text unless you pass format=json" in tools["values"].description
+    assert tools["values"].input_schema["properties"]["format"]["default"] == "compact"
+    assert "Default of this tool: compact" in tools["values"].input_schema["properties"]["format"]["description"]
+    assert tools["stations"].input_schema["properties"]["format"]["default"] == "json"
+    assert "compact text by default" in INSTRUCTIONS
+    assert 'format="json"' in INSTRUCTIONS
     assert "compact" not in tools["stations"].description
     assert "compact" not in tools["stations"].input_schema["properties"]["format"]["description"]
     assert INSTRUCTIONS.count("compact") == 1

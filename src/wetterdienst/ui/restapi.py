@@ -153,7 +153,7 @@ from wetterdienst.ui.limits import (
     limits_of,
     selected_station_count,
 )
-from wetterdienst.ui.mcp import is_tool_request
+from wetterdienst.ui.mcp import VALUES_TOOL_FORMAT, is_tool_request
 from wetterdienst.ui.middleware import RequestContextMiddleware, request_timeout, timeout_detail
 from wetterdienst.ui.problems import (
     PROBLEM_MEDIA_TYPE,
@@ -2545,6 +2545,9 @@ def values(
     """
     # a row option given twice is malformed whatever the format: refused first, and it reads nothing
     _refuse_repeated_row_options(http_request)
+    if is_tool_request(http_request.scope) and "format" not in request.model_fields_set:
+        # the tool's own default, which the schema the tool lists says too; REST, the CLI and Python keep json (GH-4445)
+        request = request.model_copy(update={"format": VALUES_TOOL_FORMAT})
     _refuse_disabled_chart(request)
     begin_response()
     _refuse_oversized_chart(request)

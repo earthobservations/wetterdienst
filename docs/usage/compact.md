@@ -11,7 +11,7 @@ reads the answer in its context, or a script that has no use for the JSON's keys
 | REST API | `GET /api/values?...&format=compact`, answered as `text/vnd.wetterdienst.compact; charset=utf-8`, one body (held to `rows`, not streamed) |
 | Command line | `wetterdienst values ... --format=compact` |
 | Python | `ValuesResult.to_compact(with_metadata=False)`, or `to_format("compact")` |
-| MCP | the `values` tool with `format=compact`; the default of the tool is still `json` |
+| MCP | the `values` tool, which answers `compact` when a call gives no `format` (its schema says so); `format=json` asks for the JSON |
 
 On the live instance (2026-11-25) 264 hourly rows of one
 parameter are 50,258 characters of JSON and 6,623 of compact text (-87 %); 89 days of 14 parameters are 229,554 and

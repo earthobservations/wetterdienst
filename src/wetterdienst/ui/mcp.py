@@ -71,6 +71,12 @@ _ASGI_BASE_URL = "http://wetterdienst.local"
 _TOOL_REQUEST_SCOPE_KEY = "wetterdienst.mcp_tool_request"
 
 
+#: the `format` a call of the `values` tool gets when it gives none (GH-4445). Only a tool's request (`is_tool_request`)
+#: is answered in it, in the route of `values`; the tool's schema says so too (`_slim_format`). REST, the command
+#: line and Python keep `json`.
+VALUES_TOOL_FORMAT = "compact"
+
+
 def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
     """Tell whether an ASGI request is an MCP tool's in-process request to the REST app.
 
@@ -329,8 +335,9 @@ comma-separated. `interpolate` and `summarize` take one reference `station`.
 hourly/air_temperature, hourly/precipitation.
 
 ## Reading results
-- By default (shape="long" unless the server is configured otherwise, format="json") `values` \
-returns JSON with a `values` array of \
+- `values` answers compact text by default (a table for each station and dataset, a row for each timestamp, \
+units in the column line); format="json" returns JSON (shape="long" unless the server is configured otherwise) \
+with a `values` array of \
 {station_id, resolution, dataset, parameter, timestamp, value, quality_flags}, grouped by station, then by \
 resolution, dataset and parameter, in time order within each group (not when `filter`, `sort` or `first` \
 choose the rows). `quality_flags` is null or the \
@@ -342,8 +349,7 @@ single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters
 warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
 hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \
 (timestamp="2026-07-25T12") for one reading. A station's latest day is its `end_timestamp` from `stations` \
-where it has one; null means no end given, not data up to today. For a long series, \
-format="compact" is 5-10x smaller.
+where it has one; null means no end given, not data up to today.
 - An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
 matches, or ids in the `stations` argument the network has no station for (left out of the list; the \
 rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or try another \
@@ -357,7 +363,7 @@ matches and `values` the one best match; `rank` asks for another number.
     -> station_id "01975"
   values(provider="dwd", network="observation",
          parameters="daily/climate_summary/temperature_air_mean_2m", stations="01975", timestamp="2026-07-25")
-    -> item ≈ {"timestamp": "2026-07-25T00:00:00.000000+00:00", "value": 19.2}  (19.2 °C)
+    -> row 2026-07-25,19.2  (19.2 °C)
 """
 
 # Non-data endpoints that only add noise to an agent's tool list.
@@ -470,6 +476,25 @@ def _answers_of_tools(spec: dict[str, Any]) -> dict[str, str]:
     return answers
 
 
+def _slim_format(parameter: dict[str, Any], *, tool: str | None) -> None:
+    """Leave a tool's `format` its data formats, and give the `values` tool the default of its own (GH-4445).
+
+    The description loses the offer of a chart. The default of `values` is `VALUES_TOOL_FORMAT`, which its route
+    answers for a tool's request that gives no `format`; the schema and the description say so for the model.
+    """
+    schema = parameter.get("schema", {})
+    if "enum" in schema:
+        schema["enum"] = [fmt for fmt in schema["enum"] if fmt not in _CHART_FORMATS]
+    for holder in (schema, parameter):
+        if "description" in holder:
+            holder["description"] = _CHART_CLAUSE.sub("", holder["description"])
+    if tool == "values":
+        schema["default"] = VALUES_TOOL_FORMAT
+        for holder in (schema, parameter):
+            if "description" in holder:
+                holder["description"] += f" Default of this tool: {VALUES_TOOL_FORMAT}; ask for json."
+
+
 def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
     """Copy the OpenAPI document of the REST API without the query parameters no tool takes (GH-4318).
 
@@ -488,12 +513,7 @@ def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
                 if parameter.get("in") == "query" and parameter.get("name") in _REST_ONLY_ARGUMENTS:
                     continue
                 if parameter.get("in") == "query" and parameter.get("name") == "format":
-                    schema = parameter.get("schema", {})
-                    if "enum" in schema:
-                        schema["enum"] = [fmt for fmt in schema["enum"] if fmt not in _CHART_FORMATS]
-                    for holder in (schema, parameter):
-                        if "description" in holder:
-                            holder["description"] = _CHART_CLAUSE.sub("", holder["description"])
+                    _slim_format(parameter, tool=_TOOL_NAMES.get(operation.get("operationId")))
                 kept.append(parameter)
             operation["parameters"] = kept
     return slim
@@ -546,11 +566,12 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
 
 
 # The sentence that ends the description of the `values` tool, which only the tool has: the answer of a tool is cut to
-# `ui.budget.ANSWER_BUDGET` characters, and the compact format holds several times more of a series in them (GH-4445).
+# `ui.budget.ANSWER_BUDGET` characters, and the compact format, which is the tool's default (`VALUES_TOOL_FORMAT`),
+# holds several times more of a series in them (GH-4445).
 _VALUES_WINDOW_ADVICE = (
-    "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=compact, a text "
-    "with a table for each station and dataset (a row for each timestamp, the unit in the column line, an empty cell "
-    "for no value, flags as the table's default and the periods that differ)."
+    "Give a `timestamp` window: an answer is cut to 40,000 characters. The answer is compact text unless you pass "
+    "format=json (the JSON described above): a table for each station and dataset, a row for each timestamp, the unit "
+    "in the column line, an empty cell for no value, flags as the table's default and the periods that differ."
 )
 
 # The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same

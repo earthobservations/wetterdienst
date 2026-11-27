@@ -5193,6 +5193,7 @@ def test_mcp_values_tool_reports_the_settings_it_used(monkeypatch: pytest.Monkey
                     "parameters": "daily/climate_summary/temperature_air_mean_2m",
                     "stations": "01048",
                     "with_metadata": True,
+                    "format": "json",
                 },
             )
             return response.structured_content
