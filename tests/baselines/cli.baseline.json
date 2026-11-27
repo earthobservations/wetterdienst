@@ -1320,8 +1320,7 @@
             "json",
             "pdf",
             "png",
-            "svg",
-            "webp"
+            "svg"
           ],
           "min": null,
           "max": null,
@@ -2768,8 +2767,7 @@
             "ndjson",
             "pdf",
             "png",
-            "svg",
-            "webp"
+            "svg"
           ],
           "min": null,
           "max": null,
@@ -4326,8 +4324,7 @@
             "json",
             "pdf",
             "png",
-            "svg",
-            "webp"
+            "svg"
           ],
           "min": null,
           "max": null,
@@ -5115,6 +5112,7 @@
           "flag_value": null,
           "type": "choice",
           "choices": [
+            "compact",
             "csv",
             "geojson",
             "html",
@@ -5123,8 +5121,7 @@
             "ndjson",
             "pdf",
             "png",
-            "svg",
-            "webp"
+            "svg"
           ],
           "min": null,
           "max": null,
@@ -6190,5 +6187,5 @@
       }
     }
   },
-  "x-release": "0.200.0"
+  "x-release": "0.201.0"
 }

@@ -47,6 +47,7 @@
     "restapi_max_rows",
     "restapi_max_stations",
     "restapi_max_stream_rows",
+    "restapi_plotting",
     "restapi_timeout",
     "use_certifi"
   ],
@@ -224,5 +225,5 @@
   "point_lookup_exports": {
     "dwd/kostra": "wetterdienst.provider.dwd.kostra.DwdKostraRequest"
   },
-  "x-release": "0.200.0"
+  "x-release": "0.201.0"
 }
