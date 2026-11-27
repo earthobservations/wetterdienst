@@ -401,6 +401,10 @@ what the answer is missing:
   `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
   below), `station-without-rows` (ids of `stations` that returned no rows while others did, see below),
+  `stations-outside-window` (stations of a selection that the window leaves out: their list ends more than 366 days, 732
+  for annual data, before the window or begins after it, so they are not read and the answer has none of their rows; how
+  many and the first ten, and that naming by id reads the ones whose list ended, not the ones whose list begins after
+  the window; not told for ids, a `rank` or a `name`, see [Limits](#limits)),
   `no-alerts-for-place` (`alerts` asked for a place, a point or a name, that no warning of the snapshot is for: an
   answer, not an error, see [Alerts](../data/provider/dwd/alerts/index.md#a-place)), `no-storm-cells-for-place`
   (`storm_cells` asked for a place or a `min_severity` that leaves no cell of a scan that has some: an answer, not an
@@ -1819,7 +1823,7 @@ far" in its `detail`. It names the limit, its value and what the request comes t
 
 | `limit` | Setting | Default | What it bounds |
 | --- | --- | --- | --- |
-| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many. For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
+| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads, counted per station, not per dataset read; a `rank` counts as that many, and a request with a `timestamp` counts the stations that can have data in it (see below). For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
 | `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations`; also the rows a `filter` or `first` of `values` holds |
 | `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values`; what a `filter` or `first` of `values` reads, where it is the larger of this and `rows` |
 | `groups` | `WD_RESTAPI_MAX_GROUPS` | 50,000 | the groups of an answer of [`statistics`](#statistics) |
@@ -1832,7 +1836,36 @@ none. The default of 100 stations is the number `request.stations.ids` of the `m
 `GET /api/version` reports the values of the instance as `limits` (`max_stations`, `max_rows`, `max_stream_rows`, `max_groups`,
 the `timeout` in seconds and `max_concurrent`), so a client can size its requests before one is refused.
 
-The stations are counted from the selection, which the server holds already. The rows of `values` are an
+The stations are counted from the selection, which the server holds already, **per station**: a station asked for
+three datasets is one station, though three datasets are read for it. A request with a `timestamp` counts, and reads,
+only the stations that **can have data in the window**, by the start and the end their list publishes: a station
+counts if its list start is on or before the end of the window, and its list end is empty or lies at most 366 days
+before the start of the window (732 for annual data). The lag is fixed, so that a list that ends a station days late
+still counts it, and it is never the `station_window_end_buffer` of the request. So the stations of a box on the
+North Sea that DWD's daily list holds, 114, are 50 for 2022-02-18 (`wind_gust_max`), and `all=true` of Geosphere's daily
+data for the last 365 days is about 504 stations where the list holds 1,102. What is counted is what is read: the
+walk skips the other stations, and the answer does not hold them (they had no data in the window by the list).
+The `metadata` of the answer says so in one `stations-outside-window` warning: how many of how many stations are not
+read, whether their list ends more than 366 days (732 for annual data) before the window or begins after it
+(naming them by id reads the first kind only), and the first ten by id. A selection the rule cuts to nothing is an answer with no rows and this warning, not one without a
+word. Not cut by the rule:
+
+- stations named by id (`stations`, `wmo_id`, `wigos_id`, `icao_id`): the end of their list is no reason to leave one
+  out, so each is read and counted, a closed one too. One whose list begins after the window is not read, as it was,
+  and not counted (the count is the reads). A named station that was read and has no rows is told by
+  `station-without-rows` if another named station has rows, and by `file-skipped` if its file was let go; where no
+  named station has rows, `parameter-without-rows` names only the stations that were read, so a named station that
+  begins after the window is not mentioned there (`stations-outside-window` is not told for ids), while
+  `station-without-rows` does name it where another has rows;
+- a `rank`, which counts as its rank and is walked as it was;
+- a `name`, which `filter_by_name` has cut already with the `station_window_end_buffer` of the request (two days up to
+  daily, 62 for monthly, 732 for annual, or the option), not with the fixed lag;
+- a list that publishes no start or end (`noaa/ghcn` hourly, `imgw`): every station counts;
+- ECCC, whose list start is after the first value of most stations, so its list cannot say who has data: every
+  station counts;
+- `interpolate` and `summarize`, which count the stations in reach by their own limit.
+
+The rows of `values` are an
 estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end
 of its record, within the `timestamp` of the request, times the parameters asked for (once for each timestamp in the
 wide `shape`). Where the provider reads per period (DWD does), `periods=recent` narrows it to what that release

@@ -479,6 +479,15 @@ class EcccObservationRequest(TimeseriesRequest):
 
     _endpoint = "https://api.weather.gc.ca"
 
+    # The start of the list is the first date of a collection, which follows the temperature and not every series: it is
+    # after the station's first value for 996 of 1,685 hourly stations (read 2026-11-27), and 27174 has hourly
+    # precipitation from 2007 and HLY_FIRST_DATE 2013-12-10. So the list cannot say who has data in a window: every
+    # station is counted, and the walk skips by FIRST_DATE (`EcccObservationValues._begins_after_window`) as before
+    station_list_bounds_hold = False
+    station_list_bounds_note = (
+        "the list start of a collection is after the first value of most stations (FIRST_DATE is the better bound)"
+    )
+
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
 

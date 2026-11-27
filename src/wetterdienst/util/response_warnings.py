@@ -143,6 +143,12 @@ POSITIONS_UNAVAILABLE = "positions-unavailable"
 #: with the number of stations and the first of them (`note_source_fallback`); a 429 is never one
 SOURCE_FALLBACK = "source-fallback"
 
+#: the code of the warning that tells a selection was cut by the window (`model.station_window`, GH-4426): the stations
+#: whose list ends more than the lag before the window (366 days, 732 for annual data) or begins after it are not read,
+#: and the answer holds none of their rows. It says how many, and names the first ten. Not told for a `rank` or a
+#: `name`, which the rule does not cut, nor for stations named by id, which its end does not cut
+STATIONS_OUTSIDE_WINDOW = "stations-outside-window"
+
 
 class SkipCause(Enum):
     """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.
