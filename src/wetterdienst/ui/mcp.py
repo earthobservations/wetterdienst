@@ -343,7 +343,7 @@ resolution, dataset and parameter, in time order within each group (not when `fi
 choose the rows). `quality_flags` is null or the \
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
-A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
+In JSON a parameter's LATEST timestamp is the LAST item of its group, not of the array.
 - Always give `values` a `timestamp` window and a \
 single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters, with an `answer-truncated` \
 warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
@@ -492,7 +492,9 @@ def _slim_format(parameter: dict[str, Any], *, tool: str | None) -> None:
         schema["default"] = VALUES_TOOL_FORMAT
         for holder in (schema, parameter):
             if "description" in holder:
-                holder["description"] += f" Default of this tool: {VALUES_TOOL_FORMAT}; ask for json."
+                holder["description"] += (
+                    f" Default of this tool: {VALUES_TOOL_FORMAT}; pass json only when the JSON is needed."
+                )
 
 
 def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
@@ -569,9 +571,12 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
 # `ui.budget.ANSWER_BUDGET` characters, and the compact format, which is the tool's default (`VALUES_TOOL_FORMAT`),
 # holds several times more of a series in them (GH-4445).
 _VALUES_WINDOW_ADVICE = (
-    "Give a `timestamp` window: an answer is cut to 40,000 characters. The answer is compact text unless you pass "
-    "format=json (the JSON described above): a table for each station and dataset, a row for each timestamp, the unit "
-    "in the column line, an empty cell for no value, flags as the table's default and the periods that differ."
+    "Give a `timestamp` window: an answer is cut to 40,000 characters. The text above describes the JSON; by default "
+    "this tool answers compact text instead (pass format=json for the JSON): a table for each station and dataset, "
+    "a row for each timestamp, the unit in the column line, an empty cell for no value, flags as the table's default "
+    "and the periods that differ in a `flags` table. In it the last row of a table is its latest timestamp, "
+    "`metadata.search` is the `search` header lines and the `search series` table, and `with_metadata` adds the "
+    "`parameters` (unit, aggregation, timestamp_position) and `quality_flags` tables."
 )
 
 # The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same
@@ -1025,7 +1030,9 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport, answers: Mapping[str, str] 
                 # argument made the route answer)
                 await response.aclose()
                 # what the tool that was called answers: `interpolate` and `summarize` have no ndjson (GH-4469)
-                answers_of_tool = (answers or {}).get(request.url.path, "a tool answers json, geojson, csv or ndjson")
+                answers_of_tool = (answers or {}).get(
+                    request.url.path, "a tool answers json, geojson, csv, ndjson or compact"
+                )
                 text = f"The REST API answered {media_type}, which a tool does not carry: {answers_of_tool}."
                 # plain text, as the REST app answers a tool's failures: FastMCP quotes a JSON string
                 return httpx2.Response(

@@ -606,6 +606,27 @@ def test_a_tool_is_held_to_the_rows_limit_in_every_format_and_told_what_works(mo
             assert streaming not in text
 
 
+def test_a_tool_is_held_to_the_rows_limit_in_the_compact_format_as_in_the_others(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The text is one body held to `rows`, asked for by name or by default, with the same refusal (GH-4445)."""
+    _over_the_row_limit(monkeypatch)
+    by_name = {**_VALUES, "format": "compact"}
+    by_default = {key: value for key, value in _VALUES.items() if key != "format"}
+
+    answers = _calls(restapi.app, [("values", by_name), ("values", by_default)])
+    asked_as_json = _calls(restapi.app, [("values", {**_VALUES, "format": "json"})])
+
+    for result, _ in answers:
+        assert result.is_error
+        text = result.content[0].text
+        assert "more than the 1,000 this server sends as one answer" in text
+        assert "Ask for a shorter `timestamp` window, fewer `parameters` or fewer stations." in text
+        for streaming in ("ndjson", "csv", "stream"):
+            assert streaming not in text
+    assert answers[0][0].content[0].text == answers[1][0].content[0].text == asked_as_json[0][0].content[0].text
+
+
 def test_the_stations_tool_is_held_to_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     """A listing through a tool is one body too: over `rows` it is refused in csv and ndjson, saying what works."""
     monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "10")

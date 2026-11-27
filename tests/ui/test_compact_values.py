@@ -365,7 +365,7 @@ def test_a_tool_answers_the_text_without_a_format_and_json_when_asked_with_the_b
     assert as_json.structured_content["result"]["values"]
 
 
-def test_rest_cli_and_python_keep_json_as_the_default_of_values() -> None:
+def test_rest_and_the_cli_keep_json_as_the_default_of_values() -> None:
     """Only the tool changed its default: a request without `format` is JSON everywhere else."""
     response = TestClient(app).get("/api/values", params=_BASE)
 
@@ -589,7 +589,7 @@ def test_the_values_tool_describes_the_text_in_a_sentence_and_the_instructions_s
             return {tool.name: tool for tool in await client.list_tools()}
 
     tools = asyncio.run(listed())
-    assert "compact text unless you pass format=json" in tools["values"].description
+    assert "pass format=json for the JSON" in tools["values"].description
     assert tools["values"].input_schema["properties"]["format"]["default"] == "compact"
     assert "Default of this tool: compact" in tools["values"].input_schema["properties"]["format"]["description"]
     assert tools["stations"].input_schema["properties"]["format"]["default"] == "json"

@@ -146,7 +146,7 @@ keeps working where it can. Where the tool's route took the option:
   else to a model: `interpolate` and `summarize` name `elevation` for a `height`, the height of the point above sea
   level, which let go would have been ignored.
 - a `format` that the tool does not offer is a tool error that names the formats the tool answers (`format=png is not
-  offered by the tool values, which answers json, geojson, csv or ndjson. Charts are drawn by the REST API:
+  offered by the tool values, which answers json, geojson, csv, ndjson or compact. Charts are drawn by the REST API:
   /api/v1/values takes format=png.`, or `This server draws no charts.` where the server has charts off), whether it
   is a chart format (also in capitals, or with spaces round it) or any
   other, such as `ndjson` for `interpolate`; so is a list of formats with such a one in it. Nothing is requested from

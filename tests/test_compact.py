@@ -505,6 +505,52 @@ def test_with_metadata_adds_the_settings_and_the_tables_of_the_parameters_and_th
     assert "very long" not in text
 
 
+def _quality_block(provider: str, network: str, datasets: list[str] | None = None) -> dict:
+    """Give a block with the `quality` of a network as `with_metadata` writes it: its legend and its note."""
+    from wetterdienst.model.quality_legend import quality_legend, source_flag_note  # noqa: PLC0415
+
+    block = copy.deepcopy(BLOCK)
+    block["quality"] = {
+        "column": "quality_flags",
+        "format": "One string per reading.",
+        "source_flags": [],
+        "legend": [entry.model_dump(mode="json") for entry in quality_legend(provider, network, datasets)],
+        "source_flag_note": source_flag_note(provider, network),
+    }
+    return block
+
+
+def test_the_note_of_a_source_flag_the_library_does_not_carry_is_an_attribute_of_the_legend() -> None:
+    """`dwd/mosmix` has no flag of the source: the JSON says so in `source_flag_note`, and so does the text."""
+    block = _quality_block("dwd", "mosmix")
+    assert block["quality"]["source_flag_note"]
+
+    parsed = parse(write([], [], block=block, stations=[]))
+    legend = parsed.table("quality_flags legend")
+
+    assert legend.attribute("source_flag_note") == block["quality"]["source_flag_note"]
+    assert [row[0] for row in legend.rows] == [e["kind"] for e in block["quality"]["legend"]]
+    assert "codes" not in parsed.tables[-1].heading
+
+
+def test_a_network_that_carries_a_flag_of_the_source_has_no_note_and_its_codes_are_a_table() -> None:
+    """DWD's QN levels are the codes of the source's own flag: a row each, with the kind empty for that flag."""
+    block = _quality_block("dwd", "observation", ["daily/climate_summary"])
+    assert block["quality"]["source_flag_note"] is None
+    expected = [(c["code"], c["meaning"]) for e in block["quality"]["legend"] if e["kind"] is None for c in e["codes"]]
+    assert expected
+
+    parsed = parse(write([], [], block=block, stations=[]))
+
+    assert parsed.table("quality_flags legend").attribute("source_flag_note") is None
+    codes = parsed.table("quality_flags codes")
+    assert codes.columns == ["kind", "code", "meaning"]
+    assert [(row[1], row[2]) for row in codes.rows if row[0] is None] == expected
+    documented = [e for e in block["quality"]["legend"] if e.get("documentation")]
+    legend = parsed.table("quality_flags legend")
+    assert [row[3] for row in legend.rows if row[3]] == [e["documentation"] for e in documented]
+
+
 # --- hostile text --------------------------------------------------------------------------------------------------
 
 

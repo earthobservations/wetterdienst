@@ -637,14 +637,29 @@ def _metadata_tables(block: Mapping[str, Any]) -> list[Table]:
             )
         )
     if quality := block.get("quality"):
+        attributes = [("column", text_value(f"{quality['column']}: {quality['format']}"))]
+        if quality.get("source_flag_note"):
+            # said where this library carries no flag of the source, as the JSON's `source_flag_note` does
+            attributes.append(("source_flag_note", text_value(quality["source_flag_note"])))
         tables.append(
             Table(
                 "quality_flags legend",
-                ["kind", "written", "meaning"],
-                [[cell(e["kind"]), cell(e["written"]), cell(e["meaning"])] for e in quality["legend"]],
-                [("column", text_value(f"{quality['column']}: {quality['format']}"))],
+                ["kind", "written", "meaning", "documentation"],
+                [
+                    [cell(e["kind"]), cell(e["written"]), cell(e["meaning"]), cell(e.get("documentation"))]
+                    for e in quality["legend"]
+                ],
+                attributes,
             )
         )
+        # the codes of a flag the source documents as a closed set (DWD's QN levels): a row for each code
+        codes = [
+            [cell(e["kind"]), cell(c["code"]), cell(c["meaning"])]
+            for e in quality["legend"]
+            for c in e.get("codes") or ()
+        ]
+        if codes:
+            tables.append(Table("quality_flags codes", ["kind", "code", "meaning"], codes))
         if quality.get("source_flags"):
             tables.append(
                 Table(

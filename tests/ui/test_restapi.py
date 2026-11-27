@@ -2384,6 +2384,7 @@ def test_mcp_values_tool_returns_data() -> None:
                     "parameters": "daily/climate_summary/temperature_air_mean_2m",
                     "stations": "01975",
                     "periods": "recent",
+                    "format": "json",
                 },
             )
             return result.data

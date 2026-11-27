@@ -111,7 +111,7 @@ is written as a JSON string, so that no text of the provider or of a warning can
 | `values <resolution>/<dataset> parameter=<name>` | a sorted answer of several stations: the readings of one parameter in the order of the answer, `station_id`, `timestamp` and the parameter (`parameter=` only where the answer has several) |
 | `flags <resolution>/<dataset> station=<id> (exceptions)` | the periods in which the readings of that table have other flags than its default (with a `station_id` column in the table of a sorted answer of several stations) |
 | `search series` | with a row option: for each station and parameter, from when to when it was searched and how many values matched |
-| `parameters`, `quality_flags legend`, `source quality flags` | with `with_metadata`: what each parameter is, what the tokens of `quality_flags` mean, what the source's own flags mean (the long descriptions of the parameters are left out: see `coverage` and `glossary`) |
+| `parameters`, `quality_flags legend`, `quality_flags codes`, `source quality flags` | with `with_metadata`: what each parameter is, what the tokens of `quality_flags` mean (the legend has the `source_flag_note` as an attribute where the library carries no flag of the source, and `quality_flags codes` has a row for each code of a flag the source documents as a closed set, such as DWD's QN levels), what the source's own flags mean (the long descriptions of the parameters are left out: see `coverage` and `glossary`) |
 
 A word of a heading that has a space, a quote or anything a line cannot hold is a JSON string.
 
