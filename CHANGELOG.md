@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.201.0] - 2026-11-27
+
 ### Added
 
 - `format=compact` of `values`: a text of a header and tables that holds what the JSON holds in a tenth of
@@ -59,6 +61,13 @@ Types of changes:
   JSON) when a call gives no `format`; its schema and the server instructions say so. A client that
   parses the answer as JSON passes `format=json`, which the tool still offers. REST, the command
   line and Python keep `json` as their default (GH-4445)
+- **Breaking**: the MCP tool `values` no longer takes `skip_empty`, `skip_threshold` and
+  `skip_criteria`. A call that sends one as `null`, or as the value the server itself uses (its
+  `WD_TS_SKIP_*`, by default `false`, `0.95`, `min`), is answered as one without it; any other value
+  is a tool error that says what the server does. To get stations left out, count each station's
+  readings against what the window holds and drop those below the share you want, or call the REST
+  API (`/api/v1/values?skip_empty=true`). The input schemas of the tools are 718 of 57,504
+  characters shorter. REST, the command line and Python are unchanged (GH-4471)
 - An MCP tool's error says more of what failed: the 502 for an answer a tool does not carry names
   the formats of the tool that was called (`interpolate` and `summarize` answer `json`, `geojson`
   or `csv`, no `ndjson`), and the text of a 500 ends with `Request id: <id>`, the one the server
@@ -191,13 +200,6 @@ Types of changes:
   The input schemas of the tools of 0.199.0 are 3,173 of 54,101 characters shorter (the options'
   share is 3,441). REST, the command line and Python are unchanged: ask the REST API for a chart
   (GH-4318)
-- **Breaking**: the MCP tool `values` no longer takes `skip_empty`, `skip_threshold` and
-  `skip_criteria`. A call that sends one as `null`, or as the value the server itself uses (its
-  `WD_TS_SKIP_*`, by default `false`, `0.95`, `min`), is answered as one without it; any other value
-  is a tool error that says what the server does. To get stations left out, count each station's
-  readings against what the window holds and drop those below the share you want, or call the REST
-  API (`/api/v1/values?skip_empty=true`). The input schemas of the tools are 718 of 57,504
-  characters shorter. REST, the command line and Python are unchanged (GH-4471)
 
 ### Fixed
 
@@ -8787,7 +8789,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.200.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.201.0...HEAD
+[0.201.0]: https://github.com/earthobservations/wetterdienst/compare/v0.200.0...v0.201.0
 [0.200.0]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...v0.200.0
 [0.199.0]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...v0.199.0
 [0.198.0]: https://github.com/earthobservations/wetterdienst/compare/v0.197.0...v0.198.0

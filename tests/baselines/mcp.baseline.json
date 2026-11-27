@@ -1763,9 +1763,10 @@
             "json",
             "geojson",
             "csv",
-            "ndjson"
+            "ndjson",
+            "compact"
           ],
-          "default": "json"
+          "default": "compact"
         },
         "timestamp": {
           "anyOf": [
@@ -1805,25 +1806,6 @@
               "type": "null"
             }
           ]
-        },
-        "skip_empty": {
-          "type": "boolean",
-          "default": false
-        },
-        "skip_threshold": {
-          "type": "number",
-          "maximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "default": 0.95
-        },
-        "skip_criteria": {
-          "type": "string",
-          "enum": [
-            "min",
-            "mean",
-            "max"
-          ],
-          "default": "min"
         },
         "drop_nulls": {
           "type": "boolean",
@@ -2026,5 +2008,5 @@
       ]
     }
   },
-  "x-release": "0.200.0"
+  "x-release": "0.201.0"
 }
