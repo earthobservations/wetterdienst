@@ -5929,13 +5929,16 @@ def test_openapi_with_malformed_server_settings_is_built_without_them(
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_mcp_tool_settings_defaults_are_the_servers(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The MCP tools, built from the schema, give the server's value as a settings argument's default (GH-2393)."""
+    """The MCP tools, built from the schema, give the server's value as a settings argument's default (GH-2393).
+
+    The arguments only REST has (the skip options among them, GH-4471) are not the tools', so not compared.
+    """
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
     from fastmcp import Client  # noqa: PLC0415
 
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+    from wetterdienst.ui.mcp import _REST_ONLY_ARGUMENTS, build_mcp_server  # noqa: PLC0415
 
     for name, value in _SERVER_SETTINGS_ENV.items():
         monkeypatch.setenv(name, value)
@@ -5948,8 +5951,13 @@ def test_mcp_tool_settings_defaults_are_the_servers(monkeypatch: pytest.MonkeyPa
 
     tools = asyncio.run(_tools())
     for tool in ("values", "interpolate", "summarize"):
-        expected = _SCHEMA_SERVER_DEFAULTS[f"/api/v1/{tool}"]
+        expected = {
+            name: value
+            for name, value in _SCHEMA_SERVER_DEFAULTS[f"/api/v1/{tool}"].items()
+            if name not in _REST_ONLY_ARGUMENTS
+        }
         assert {name: tools[tool][name]["default"] for name in expected} == expected
+        assert not _REST_ONLY_ARGUMENTS & tools[tool].keys()
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")

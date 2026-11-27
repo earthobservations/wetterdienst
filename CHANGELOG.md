@@ -167,6 +167,13 @@ Types of changes:
   The input schemas of the tools of 0.199.0 are 3,173 of 54,101 characters shorter (the options'
   share is 3,441). REST, the command line and Python are unchanged: ask the REST API for a chart
   (GH-4318)
+- **Breaking**: the MCP tool `values` no longer takes `skip_empty`, `skip_threshold` and
+  `skip_criteria`. A call that sends one as `null`, or as the value the server itself uses (its
+  `WD_TS_SKIP_*`, by default `false`, `0.95`, `min`), is answered as one without it; any other value
+  is a tool error that says what the server does. To get stations left out, count each station's
+  readings against what the window holds and drop those below the share you want, or call the REST
+  API (`/api/v1/values?skip_empty=true`). The input schemas of the tools are 718 of 57,504
+  characters shorter. REST, the command line and Python are unchanged (GH-4471)
 
 ### Fixed
 
