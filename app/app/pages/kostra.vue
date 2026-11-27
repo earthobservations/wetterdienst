@@ -11,7 +11,7 @@ import ProviderCredit from '~/components/ProviderCredit.vue'
 import SegmentedControl from '~/components/SegmentedControl.vue'
 import ToolPlaceholder from '~/components/ToolPlaceholder.vue'
 import UseMyLocation from '~/components/UseMyLocation.vue'
-import { cellCorners, KOSTRA_UNITS, linkPoint, pointText, queryOfPoint, roundLinkCoordinate } from '~/utils/kostra'
+import { cellCorners, KOSTRA_UNITS, linkPoint, pointText, queryOfPoint } from '~/utils/kostra'
 
 // The Heavy-rainfall tool (GH-4500): DWD's design rainfall (KOSTRA-DWD-2020) of a point in Germany, the rain of a duration that comes
 // back every N years, which drains and retention basins are sized with. The point is chosen by a place's name (`PlaceField`), "Use my
@@ -68,7 +68,7 @@ function setPoint(at: Point, from: Source) {
 }
 
 function onPlace(place: PlaceMatch) {
-  const at = { latitude: roundLinkCoordinate(place.latitude), longitude: roundLinkCoordinate(place.longitude) }
+  const at = { latitude: place.latitude, longitude: place.longitude }
   setPoint(at, 'place')
   placeName.value = [place.name, place.region].filter(Boolean).join(', ')
   moveTo(at)
@@ -79,11 +79,10 @@ function onPosition(at: Point) {
   moveTo(at)
 }
 function onPick(at: Point) {
-  const rounded = { latitude: roundLinkCoordinate(at.latitude), longitude: roundLinkCoordinate(at.longitude) }
-  setPoint(rounded, 'map')
+  setPoint(at, 'map')
   // a cell is 5 km: at the zoom of a country it is a dot, so the map comes in to where it is seen; nearer in it stays where it is
   if (mapZoom.value < CLICK_ZOOM - 1)
-    moveTo(rounded, CLICK_ZOOM)
+    moveTo(at, CLICK_ZOOM)
 }
 
 // a link opens on its point
@@ -269,6 +268,8 @@ const pointSummary = computed(() => {
 @media screen and (width < 40rem) {
   .kostra-stage {
     margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+    /* a grid item with a negative margin is not stretched by it: the width is said */
+    width: calc(100% + var(--bleed-start) + var(--bleed-end));
   }
 }
 .kostra-card {

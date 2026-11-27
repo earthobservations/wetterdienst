@@ -44,7 +44,7 @@ const rows = computed(() => KOSTRA_DURATIONS.map((minutes, durationIndex) => ({
           <th scope="col" class="kostra-corner">
             {{ t('kostra.duration.heading') }}
           </th>
-          <th v-for="years in KOSTRA_RETURN_PERIODS" :key="years" scope="col" class="kostra-head" :data-years="years">
+          <th v-for="years in KOSTRA_RETURN_PERIODS" :key="years" scope="col" class="kostra-col" :data-years="years">
             <span class="sr-only">{{ t('kostra.returnPeriodYears', { count: years }) }}</span>
             <span aria-hidden="true">{{ years }}</span>
           </th>
@@ -82,7 +82,13 @@ const rows = computed(() => KOSTRA_DURATIONS.map((minutes, durationIndex) => ({
 
 <style>
 .kostra-table-scroll {
+  /* a flex item of the page's column: with no min-width it grows to the table's own width, and the page scrolls sideways */
+  min-width: 0;
+  width: 100%;
   max-width: 100%;
+  /* the box the table's visually hidden texts (`sr-only`, which are absolute) are placed in and clipped by: without it they lie beyond the
+     window's edge in a table that scrolls, and the page scrolls sideways for them */
+  position: relative;
   overflow-x: auto;
   border: 1px solid var(--ui-border);
   border-radius: calc(var(--ui-radius) * 2);

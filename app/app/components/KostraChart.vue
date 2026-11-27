@@ -46,6 +46,18 @@ const legend = computed(() => KOSTRA_RETURN_PERIODS.map((years, index) => ({ yea
 
 // ---- the readout ---------------------------------------------------------------------------------------------------
 
+/** The readout's width with a margin, and the plot's margins: where the readout fits beside a crosshair */
+const READOUT_PX = 160 + 16
+/**
+ * Where the readout is docked: in the corner the curves leave free, which is the upper left for the depth (it rises with the duration) and the upper
+ * right for the intensity (it falls), and in the other only where the crosshair is under it, so that it never covers the values it reads
+ */
+function readoutSide(crosshair: number): 'start' | 'end' {
+  const free = props.quantity === 'depth' ? 'start' : 'end'
+  const under = free === 'start' ? crosshair < 48 + READOUT_PX : crosshair > width.value - 14 - READOUT_PX
+  return under ? (free === 'start' ? 'end' : 'start') : free
+}
+
 const readout = computed(() => {
   if (cursor.value === null || dismissed.value)
     return null
@@ -57,8 +69,7 @@ const readout = computed(() => {
       colour: curveColour(row.colourIndex, theme.value.dark),
       text: row.value === null ? t('kostra.noValue') : format(row.value, 1),
     })),
-    // docked on the side the crosshair is not on, so that it never covers the values it reads
-    side: pixelOfDuration(minutes, width.value) > width.value / 2 ? 'start' as const : 'end' as const,
+    side: readoutSide(pixelOfDuration(minutes, width.value)),
   }
 })
 
@@ -222,6 +233,11 @@ defineExpose({ cursor, select, renderFailed, width })
       </ul>
     </div>
 
+    <!-- what the vertical axis is, in the words of the switch above: the chart has the numbers and this has their name and unit -->
+    <p class="kostra-axis-title" data-testid="kostra-axis-title">
+      {{ t(`kostra.quantity.${quantity}`) }} ({{ unit }})
+    </p>
+
     <div v-if="renderFailed" ref="chartNotice" class="flex flex-wrap items-center justify-center gap-3 py-8 text-red-600 dark:text-red-400">
       <span :key="renderFailures" role="alert" class="font-medium">{{ t('kostra.chartNotDrawn') }}</span>
       <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" data-testid="kostra-chart-retry" @click="render()" />
@@ -317,6 +333,11 @@ defineExpose({ cursor, select, renderFailed, width })
   width: 1rem;
   height: 3px;
   border-radius: 2px;
+}
+.kostra-axis-title {
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--ui-text-muted);
 }
 .kostra-stage {
   position: relative;

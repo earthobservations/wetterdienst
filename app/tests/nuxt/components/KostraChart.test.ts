@@ -12,7 +12,7 @@ import { depthOf, kostraAnswer } from '../../helpers/kostra-answer'
 const echarts = vi.hoisted(() => {
   const chart = { on: vi.fn(), resize: vi.fn(), setOption: vi.fn(), getDom: vi.fn(), dispose: vi.fn() }
   const state = { loadFails: false }
-  const init = vi.fn((element: HTMLElement) => {
+  const init = vi.fn((element: HTMLElement, ..._rest: unknown[]) => {
     chart.getDom.mockReturnValue(element)
     return chart
   })
@@ -95,6 +95,14 @@ describe('the chart', () => {
     expect(items[0]!.querySelector<HTMLElement>('.kostra-swatch')!.style.background).not.toBe(items[8]!.querySelector<HTMLElement>('.kostra-swatch')!.style.background)
   })
 
+  it('names its vertical axis with the quantity and its unit, and follows the switch', async () => {
+    const shown = await showChart()
+    const title = () => document.body.querySelector('[data-testid="kostra-axis-title"]')!.textContent!.trim()
+    expect(title()).toBe('Depth (mm)')
+    await shown.setProps({ quantity: 'intensity' })
+    await vi.waitFor(() => expect(title()).toBe('Intensity (l/(s·ha))'))
+  })
+
   it('is one stop of the keyboard, named for what it shows and described by the note the page gives', async () => {
     await showChart({ describedBy: 'note-id' })
     expect(stage().getAttribute('tabindex')).toBe('0')
@@ -122,6 +130,26 @@ describe('the readout', () => {
     // and the chart is given the crosshair at the same duration
     await vi.waitFor(() => expect(lastOption().series.map((item: any) => item.id)).toContain('cursor-line'))
     expect(lastOption().series.find((item: any) => item.id === 'cursor-line').data[0][0]).toBe(Math.log10(KOSTRA_DURATIONS[hour]!))
+  })
+
+  it('is docked at the upper left for the depth, where the curves are low, and at the right only where the crosshair is under it', async () => {
+    await showChart()
+    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(60, 800) }))
+    await vi.waitFor(() => expect(readout()).not.toBeNull())
+    expect(readout()!.classList.contains('kostra-readout-start')).toBe(true)
+    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(5, 800) }))
+    await vi.waitFor(() => expect(readout()!.classList.contains('kostra-readout-end')).toBe(true))
+    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(10080, 800) }))
+    await vi.waitFor(() => expect(readout()!.classList.contains('kostra-readout-start')).toBe(true))
+  })
+
+  it('is docked at the upper right for the intensity, which falls with the duration, and at the left only where the crosshair is under it', async () => {
+    await showChart({ quantity: 'intensity' })
+    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(60, 800) }))
+    await vi.waitFor(() => expect(readout()).not.toBeNull())
+    expect(readout()!.classList.contains('kostra-readout-end')).toBe(true)
+    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(10080, 800) }))
+    await vi.waitFor(() => expect(readout()!.classList.contains('kostra-readout-start')).toBe(true))
   })
 
   it('goes when the pointer leaves, but not a touch: a tap stays until it is closed', async () => {

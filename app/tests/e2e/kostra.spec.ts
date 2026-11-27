@@ -32,6 +32,9 @@ test.describe('the heavy rainfall on a wide screen', () => {
     await expect(table).toBeVisible()
     await expect(table.locator('tbody tr')).toHaveCount(22)
     await expect(table.locator('thead th[data-years]')).toHaveCount(9)
+    // the nine return periods head the columns, side by side in one row (a class of the page's own once stacked them)
+    const tops = await table.locator('thead th[data-years]').evaluateAll(cells => cells.map(cell => Math.round(cell.getBoundingClientRect().top)))
+    expect(new Set(tops).size).toBe(1)
     await expect(table.locator('tbody tr').first().locator('th')).toHaveText('5 min')
     await expect(table.locator('tbody tr').last().locator('th')).toHaveText('7 d')
     await expect(table.locator('tr[data-minutes="60"] td[data-years="100"] .kostra-uncertainty')).toContainText('±12 %')
@@ -95,9 +98,10 @@ test.describe('the heavy rainfall on a wide screen', () => {
     await expect(note).toContainText('There is no design rainfall for this point')
     await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(page.getByTestId('kostra-table')).toHaveCount(0)
-    // and a click inside the grid leaves it
-    await page.getByRole('application', { name: en.kostra.mapLabel }).click({ position: { x: 200, y: 120 } })
-    await expect(page.getByTestId('kostra-table')).toBeVisible()
+    // the map is at the point, so a click there is another point outside the grid: it is in the link, and is told the same way
+    await page.getByRole('application', { name: en.kostra.mapLabel }).click({ position: { x: 100, y: 100 } })
+    await expect(page).not.toHaveURL(/lat=40&/)
+    await expect(note).toBeVisible()
   })
 
   test('is in the dark page too: the table and the curves are drawn in the colours of the night', async ({ page, baseURL }) => {

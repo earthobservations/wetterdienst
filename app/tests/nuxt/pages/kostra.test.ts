@@ -207,7 +207,7 @@ describe('choosing a point', () => {
     await shown(wrapper)
     expect(asked).toEqual([{ latitude: '51.0493', longitude: '13.7381' }])
     expect(byId(wrapper, 'kostra-point').text()).toBe('Chosen point: Dresden, Saxony, Germany (51.0493, 13.7381)')
-    expect(stage.props.goTo).toMatchObject({ latitude: 51.0493, longitude: 13.7381, zoom: 11 })
+    expect(stage.props.goTo).toMatchObject({ latitude: 51.0493286, longitude: 13.7381437, zoom: 11 })
   })
 
   it('by "Use my location": the position (rounded by the browser) goes to the link, the map goes to it, and the status says so', async () => {

@@ -11,7 +11,9 @@ function t(key: string, named: Record<string, unknown> = {}) {
 }
 const table = parseKostra(kostraAnswer())!
 
-function option(overrides: Partial<Parameters<typeof buildKostraOption>[0]> = {}) {
+/** The option as a plain object: the test reads it by the ids and the keys ECharts takes, which its union of series does not offer */
+interface Loose { series: any[], xAxis: any, yAxis: any }
+function option(overrides: Partial<Parameters<typeof buildKostraOption>[0]> = {}): Loose {
   return buildKostraOption({
     table,
     quantity: 'depth',
@@ -22,7 +24,7 @@ function option(overrides: Partial<Parameters<typeof buildKostraOption>[0]> = {}
     format: (value, digits) => value.toFixed(digits),
     durationLabel: minutes => durationLabel(minutes, t),
     ...overrides,
-  })
+  }) as Loose
 }
 
 describe('the curves', () => {
@@ -42,11 +44,11 @@ describe('the curves', () => {
   it('rise with the duration, and the longer the return period the higher the curve', () => {
     const { series } = option()
     for (const curve of series) {
-      const depths = curve.data.map(point => point[1] as number)
+      const depths = curve.data.map((point: number[]) => point[1] as number)
       expect([...depths].sort((a, b) => a - b)).toEqual(depths)
     }
     for (let i = 1; i < 9; i++) {
-      series[i]!.data.forEach((point, at) => expect(point[1] as number).toBeGreaterThan(series[i - 1]!.data[at]![1] as number))
+      series[i]!.data.forEach((point: number[], at: number) => expect(point[1] as number).toBeGreaterThan(series[i - 1]!.data[at]![1] as number))
     }
   })
 
@@ -81,14 +83,14 @@ describe('the axes', () => {
 
   it('is labelled in min, h and d at ticks of its own: 5 min, 15 min, 1 h, 6 h, 1 d and 7 d on a wide chart', () => {
     const { xAxis } = option({ width: 800 })
-    const labels = xAxis.axisLabel.customValues.map(value => xAxis.axisLabel.formatter(value))
+    const labels = xAxis.axisLabel.customValues.map((value: number) => xAxis.axisLabel.formatter(value))
     expect(labels).toEqual(['5 min', '15 min', '1 h', '6 h', '1 d', '7 d'])
     expect(xAxis.axisTick.customValues).toEqual(xAxis.axisLabel.customValues)
   })
 
   it('is labelled at fewer ticks on a phone, where 5 and 15 minutes would run together', () => {
     const { xAxis } = option({ width: 360 })
-    expect(xAxis.axisLabel.customValues.map(value => xAxis.axisLabel.formatter(value))).toEqual(['5 min', '1 h', '6 h', '1 d', '7 d'])
+    expect(xAxis.axisLabel.customValues.map((value: number) => xAxis.axisLabel.formatter(value))).toEqual(['5 min', '1 h', '6 h', '1 d', '7 d'])
     expect(kostraTicks(519)).toHaveLength(5)
     expect(kostraTicks(520)).toHaveLength(6)
   })
