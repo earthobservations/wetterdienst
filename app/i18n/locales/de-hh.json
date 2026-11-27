@@ -308,7 +308,8 @@
       "about": "Över dat Open-Source-Projekt Wetterdienst un de Lüüd, de dat plegen.",
       "support": "Ünnerstütt Wetterdienst: meld een Fehler, bring Code bi oder spend.",
       "map": "Een Kaart vun de Stationen vun den Düütschen Wedderdeenst: Söök di een Station oder een Punkt ut un kiek Utsicht, Klimastrepen un Meetweerten dorto an.",
-      "radar": "Dat Regenradar vun den DWD över Düütschland as Loop vun de leetsten twee Stünnen mit de Utsicht för de nächsten twee un de Dunnerwedder-Zellen dorop."
+      "radar": "Dat Regenradar vun den DWD över Düütschland as Loop vun de leetsten twee Stünnen mit de Utsicht för de nächsten twee un de Dunnerwedder-Zellen dorop.",
+      "kostra": "De Bemeetnisregen (KOSTRA) vun den DWD för jeden Punkt in Düütschland: wo veel Regen in 5 Minuten bit 7 Dag fallt un wo faken, as Tabell un as Kurven, in mm oder l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Methoden",
     "support": "Ünnerstütten",
     "map": "Kaart",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Starkregen"
   },
   "shell": {
     "skipToContent": "Na'n Inholt springen",
@@ -418,7 +420,8 @@
       "airport": "Flogplatz"
     },
     "placesCredit": "{osm} ({licence}) · Oorten över {photon}",
-    "placesFailed": "Oorten leten sik jüst nich söken. Schriev wieder, dat noch mal to versöken."
+    "placesFailed": "Oorten leten sik jüst nich söken. Schriev wieder, dat noch mal to versöken.",
+    "more": "Mehr"
   },
   "header": {
     "github": "GitHub",
@@ -771,7 +774,8 @@
     "forecast": "Söök na een Station oder söök een op de Kaart ut – denn gifft dat de Utsicht.",
     "explorer": "Söök Parameter ut, denn een Station oder een Punkt – per Söök oder op de Kaart – un klick op „Wiesen“, denn warrt de Daten laadt.",
     "stripes": "Söök na een Station oder söök een op de Kaart ut un klick op „Wiesen“ – denn gifft dat Klimastrepen.",
-    "history": "Söök na Stationen oder söök se op de Kaart ut un klick op „Wiesen“ – denn warrt ehr Chronik laadt."
+    "history": "Söök na Stationen oder söök se op de Kaart ut un klick op „Wiesen“ – denn warrt ehr Chronik laadt.",
+    "kostra": "Söök na een Oort, bruuk dien Standort oder klick op de Kaart, un denn süchst du den Bemeetnisregen vun dat Punkt"
   },
   "meteogram": {
     "title": "Wedderutsicht",
@@ -1205,7 +1209,8 @@
     "nearest": "Neegste Station: {name}, {distance} vun dien Standort af.",
     "noneNear": "In de Neg vun dien Standort is keen Station funnen worrn.",
     "lookupFailed": "De neegste Station leet sik nich afropen. Versöök dat noch mal oder bruuk dat Söken.",
-    "here": "Fraagt warrt na {name}, de Station {distance} vun dien Standort af."
+    "here": "Fraagt warrt na {name}, de Station {distance} vun dien Standort af.",
+    "noteKostra": "Op ungefähr 1 km rundt un bruukt, üm de Regentabell vun siene Rasterzell optoropen un de Kaart dorop to zentreren. He steiht nich in de Adress vun de Siet un blifft blots in disse Browser bewahrt, wenn du dat Höken sett'st."
   },
   "place": {
     "fieldLabel": "Oort söken",
@@ -1657,5 +1662,55 @@
     "periods": "Tietrüüm",
     "colMissingCount": "Tahl fehlend",
     "noneFound": "För de utsöchten Stationen gifft dat keen Chronik."
+  },
+  "kostra": {
+    "title": "Starkregen",
+    "subtitle": "De Bemeetnisregen (KOSTRA) vun den DWD för en Punkt in Düütschland: wo veel Regen in 5 Minuten bit 7 Dag fallt un wo faken",
+    "aboutButton": "Över Starkregen",
+    "about1": "De Bemeetnisregen seggt, wo veel Regen een Schuur vun en bestimmte Duer bringt, de in'n Dörchschnitt all so un so veel Johr wedderkummt: en Regen vun 1 Stünn mit een Wedderkehr-Tietruum vun 100 Johr is een 100-jöhrigen Regen. Mit disse Weerten warrt Kanäle, Torüchholbecken un Dörchlööt bemeten.",
+    "about2": "De Weerten kaamt ut KOSTRA-DWD-2020, de statistische Utwertung vun de lange Regenmeetrieg vun Düütschland dör den DWD, op en Raster ut 5-km-Zellen. De Tabell höört to de Zell, in de de Punkt liggt: en Schätzen för en Flach vun 25 km², keen Meten an'n Punkt.",
+    "about3": "De Regenhööcht is de Regen, de wiel de Duer fallt, in mm (1 mm sünd 1 Liter je Quadratmeter). De Regenstärk is dorsülvige Regen as Rate, in Liter je Sekunn un Hektar. De DWD gifft bi elkeen Wert en Toleranz in Prozent an, de de Tabell dorünner wiest.",
+    "aboutSources": "Quell un Methood:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, Rasterdaten",
+    "pointTitle": "Punkt utsöken",
+    "placeLabel": "Na en Oort söken",
+    "mapHint": "Oder klick op de Kaart, üm en Punkt uttosöken.",
+    "pointLabel": "Utsöchten Punkt",
+    "pointPosition": "Dien Standort, rundt: {point}",
+    "pointMap": "Op de Kaart: {point}",
+    "positionUsed": "Dien Standort is nu de Punkt. He steiht nich in de Adress vun de Siet.",
+    "mapLabel": "Kaart, üm den Punkt för den Bemeetnisregen uttosöken. Een Klick söcht en Punkt ut; de 5-km-Zell vun dat DWD-Raster, in de he liggt, is ummrandt.",
+    "pointMarker": "Utsöchten Punkt",
+    "loading": "De Tabellen vun den DWD warrt leest … de eerste Afroop duert en poor Sekunnen.",
+    "outside": "För disse Punkt gifft dat keen Bemeetnisregen. Dat Raster vun den DWD deckt Düütschland un en Rand vun ungefähr 10 km dorüm af un gifft op See keen Weerten. Söök en annern Punkt ut.",
+    "failed": "De Bemeetnisregen leet sik nich laden.",
+    "resultTitle": "Bemeetnisregen vun den utsöchten Punkt",
+    "resultHeading": "Bemeetnisregen",
+    "cell": "DWD-Rasterzell {cell}, Mitt {centre}",
+    "quantitySwitch": "Regen wiesen as",
+    "quantity": {
+      "depth": "Regenhööcht",
+      "intensity": "Regenstärk"
+    },
+    "estimateNote": "Disse Weerten sünd Schätzen vun den DWD för de 5-km-Zell, in de de Punkt liggt, keen Meten an'n Punkt.",
+    "uncertaintyNote": "Ünner elkeen Wert: de Unseekerheit vun den DWD in Plus-Minus-Prozent. De Weerten sünd Statistiken vun vergahn Regen, keen Vörutsaag.",
+    "uncertaintyLabel": "Unseekerheit",
+    "noValue": "keen Wert",
+    "tableLabel": "Tabell vun den Bemeetnisregen; schuuvt na de Siet",
+    "tableCaption": "{quantity} in {unit}: 22 Duerstufen vun en Regen na 9 Wedderkehr-Tietruüm",
+    "chartLabel": "Diagramm: {quantity} in {unit} över de Duer vun den Regen, een Kurv för elk Wedderkehr-Tietruum. Mit de Piiltasten leest du de Weerten vun en Duerstuf.",
+    "chartNotDrawn": "Dat Diagramm leet sik nich tekenen.",
+    "returnPeriodLegend": "Wedderkehr-Tietruum (Johren)",
+    "returnPeriodHeading": "Wedderkehr-Tietruum in Johren",
+    "returnPeriodYears": "{count} Johr | {count} Johren",
+    "duration": {
+      "heading": "Duerstuf",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} d"
+    },
+    "copyLink": "Link to dissen Punkt koperen",
+    "linkCopied": "Link kopeert.",
+    "linkNotCopied": "De Link leet sik nich koperen."
   }
 }

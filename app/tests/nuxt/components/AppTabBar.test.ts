@@ -4,7 +4,7 @@ import AppTabBar from '~/components/AppTabBar.vue'
 import { useSettings } from '~/composables/useSettings'
 import { useTabBar } from '~/composables/useTabBar'
 
-// The navigation of the narrow layout (GH-3650, GH-3846, GH-3851, GH-3788): six tools and the Menu are seven items, more than a
+// The navigation of the narrow layout (GH-3650, GH-3846, GH-3851, GH-3788): seven tools and the Menu are eight items, more than a
 // tab bar holds, so the bar has four tools, which the reader chooses (Forecast, Explorer, Stripes and Radar until
 // they do), and the Menu. The Menu's tab is marked on every page that is reached through its sheet and has no tab:
 // a tool that is not in the bar, the reference and the project's pages, the settings. The home page and the legal
@@ -34,7 +34,7 @@ function choose(order: unknown) {
 
 const DEFAULT_BAR = ['Forecast', 'Explorer', 'Climate stripes', 'Radar', 'Menu']
 // Radar left out of the bar for the map
-const WITH_MAP = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map']
+const WITH_MAP = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map', 'kostra']
 
 describe('the tab bar of the narrow layout', () => {
   it('has Forecast, Explorer, Stripes and Radar and the Menu until the reader chooses', async () => {
@@ -65,16 +65,16 @@ describe('the tab bar of the narrow layout', () => {
     const links = (sheet: Element) => [...sheet.querySelectorAll('section')[0]!.querySelectorAll('a')]
     const toolItems = (sheet: Element) => [...sheet.querySelectorAll<HTMLElement>('li[data-tool]')]
 
-    it('has all six tools, the Home page and the link to the chooser, with the default choice', async () => {
+    it('has all seven tools, the Home page and the link to the chooser, with the default choice', async () => {
       const tools = links(await openSheet())
-      expect(tools.map(link => link.textContent!.replace(/, (in the bar|only in the Menu)$/, '').trim())).toEqual(['Home', 'Forecast', 'Explorer', 'Climate stripes', 'Radar', 'History', 'Map', 'Arrange tools'])
-      expect(tools.map(link => link.getAttribute('href'))).toEqual(['/', '/meteogram', '/explorer', '/stripes', '/radar', '/history', '/map', '/settings#bar'])
+      expect(tools.map(link => link.textContent!.replace(/, (in the bar|only in the Menu)$/, '').trim())).toEqual(['Home', 'Forecast', 'Explorer', 'Climate stripes', 'Radar', 'History', 'Map', 'Heavy rainfall', 'Arrange tools'])
+      expect(tools.map(link => link.getAttribute('href'))).toEqual(['/', '/meteogram', '/explorer', '/stripes', '/radar', '/history', '/map', '/kostra', '/settings#bar'])
     })
 
     it('lists the tools in the order the reader chose, the four of the bar first, then the others', async () => {
       const sheet = await openSheet(['radar', 'history', 'forecast', 'explorer', 'stripes'])
-      expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['radar', 'history', 'forecast', 'explorer', 'stripes', 'map'])
-      expect(toolItems(sheet).map(item => item.querySelector('a')!.getAttribute('href'))).toEqual(['/radar', '/history', '/meteogram', '/explorer', '/stripes', '/map'])
+      expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['radar', 'history', 'forecast', 'explorer', 'stripes', 'map', 'kostra'])
+      expect(toolItems(sheet).map(item => item.querySelector('a')!.getAttribute('href'))).toEqual(['/radar', '/history', '/meteogram', '/explorer', '/stripes', '/map', '/kostra'])
       // the home page leads and the link to the chooser follows the tools
       expect(links(sheet).map(link => link.getAttribute('href')).at(0)).toBe('/')
       expect(links(sheet).map(link => link.getAttribute('href')).at(-1)).toBe('/settings#bar')
@@ -83,15 +83,15 @@ describe('the tab bar of the narrow layout', () => {
     it('follows setOrder while it is open, as the bar does', async () => {
       const { setOrder } = useTabBar()
       const sheet = await openSheet()
-      expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
-      setOrder(['history', 'stripes', 'explorer', 'forecast', 'radar', 'map'])
-      await vi.waitFor(() => expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['history', 'stripes', 'explorer', 'forecast', 'radar', 'map']))
+      expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map', 'kostra'])
+      setOrder(['history', 'stripes', 'explorer', 'forecast', 'radar', 'map', 'kostra'])
+      await vi.waitFor(() => expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['history', 'stripes', 'explorer', 'forecast', 'radar', 'map', 'kostra']))
     })
 
     it('marks the four tools of the bar with the bar\'s line, the others with the lighter one, and has no heading or rule between them', async () => {
       const sheet = await openSheet(['stripes', 'history', 'radar', 'forecast', 'explorer'])
       const groups = toolItems(sheet).map(item => [item.dataset.tool, item.querySelector('a')!.dataset.group])
-      expect(groups).toEqual([['stripes', 'bar'], ['history', 'bar'], ['radar', 'bar'], ['forecast', 'bar'], ['explorer', 'menu'], ['map', 'menu']])
+      expect(groups).toEqual([['stripes', 'bar'], ['history', 'bar'], ['radar', 'bar'], ['forecast', 'bar'], ['explorer', 'menu'], ['map', 'menu'], ['kostra', 'menu']])
       for (const item of toolItems(sheet)) {
         const link = item.querySelector('a')!
         expect(item.dataset.group, 'the group is on the link only').toBeUndefined()
@@ -109,11 +109,11 @@ describe('the tab bar of the narrow layout', () => {
     it('says in visually hidden text which tools are in the bar and which only in the Menu', async () => {
       const sheet = await openSheet(['stripes', 'history', 'radar', 'forecast', 'explorer'])
       const hidden = toolItems(sheet).map(item => item.querySelector('.sr-only')!.textContent!.trim())
-      expect(hidden).toEqual([', in the bar', ', in the bar', ', in the bar', ', in the bar', ', only in the Menu', ', only in the Menu'])
+      expect(hidden).toEqual([', in the bar', ', in the bar', ', in the bar', ', in the bar', ', only in the Menu', ', only in the Menu', ', only in the Menu'])
       // the link's name is the tool, then where it is
       expect(toolItems(sheet).at(0)!.querySelector('a')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('Climate stripes, in the bar')
       // the other links of the sheet say nothing of the kind
-      expect(sheet.querySelectorAll('.sr-only')).toHaveLength(6)
+      expect(sheet.querySelectorAll('.sr-only')).toHaveLength(7)
     })
   })
 
@@ -220,7 +220,7 @@ describe('the tab bar of the narrow layout', () => {
       await vi.waitFor(() => expect(tabs(wrapper)).toEqual(['History', 'Forecast', 'Explorer', 'Climate stripes', 'Menu']))
       expect(menuButton(wrapper).attributes('aria-current')).toBeUndefined()
       expect(current(wrapper)).toEqual(['/history'])
-      useSettings().settings.value.tabBar = ['forecast', 'explorer', 'stripes', 'radar', 'history', 'map']
+      useSettings().settings.value.tabBar = ['forecast', 'explorer', 'stripes', 'radar', 'history', 'map', 'kostra']
       await vi.waitFor(() => expect(tabs(wrapper)).toEqual(DEFAULT_BAR))
       expect(menuButton(wrapper).attributes('aria-current')).toBe('true')
     })

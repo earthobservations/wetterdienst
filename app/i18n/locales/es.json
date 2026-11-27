@@ -308,7 +308,8 @@
       "about": "Sobre el proyecto de código abierto Wetterdienst y las personas que lo mantienen.",
       "support": "Apoyar Wetterdienst: informar de un problema, aportar código o donar.",
       "map": "Un mapa de las estaciones del Servicio Meteorológico Alemán: elige una estación o un punto cualquiera para ver su pronóstico, sus franjas climáticas y sus mediciones.",
-      "radar": "El radar de precipitación del DWD sobre Alemania como bucle de las dos últimas horas, con el pronóstico de las dos siguientes y las celdas de tormenta encima."
+      "radar": "El radar de precipitación del DWD sobre Alemania como bucle de las dos últimas horas, con el pronóstico de las dos siguientes y las celdas de tormenta encima.",
+      "kostra": "La lluvia de diseño (KOSTRA) del DWD para cualquier punto de Alemania: cuánta lluvia cae en 5 minutos a 7 días y con qué frecuencia, en tabla y en curvas, en mm o l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Métodos",
     "support": "Ayuda",
     "map": "Mapa",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Lluvias intensas"
   },
   "shell": {
     "skipToContent": "Saltar al contenido",
@@ -418,7 +420,8 @@
       "airport": "Aeropuerto"
     },
     "placesCredit": "{osm} ({licence}) · lugares a través de {photon}",
-    "placesFailed": "No se pudieron buscar lugares en este momento. Sigue escribiendo para volver a intentarlo."
+    "placesFailed": "No se pudieron buscar lugares en este momento. Sigue escribiendo para volver a intentarlo.",
+    "more": "Más"
   },
   "header": {
     "github": "GitHub",
@@ -771,7 +774,8 @@
     "forecast": "Busca una estación o elige una en el mapa para ver su pronóstico",
     "explorer": "Selecciona parámetros, luego elige una estación o un punto, con la búsqueda o en el mapa, y haz clic en «Mostrar» para cargar los datos",
     "stripes": "Busca una estación o elige una en el mapa y haz clic en «Mostrar» para crear franjas climáticas",
-    "history": "Busca estaciones o elígelas en el mapa y haz clic en «Mostrar» para cargar su historial"
+    "history": "Busca estaciones o elígelas en el mapa y haz clic en «Mostrar» para cargar su historial",
+    "kostra": "Busca un lugar, usa tu ubicación o haz clic en el mapa para ver la lluvia de diseño de ese punto"
   },
   "meteogram": {
     "title": "Pronóstico del tiempo",
@@ -1205,7 +1209,8 @@
     "nearest": "Estación más cercana: {name}, a {distance} de tu ubicación.",
     "noneNear": "No se encontró ninguna estación cerca de tu ubicación.",
     "lookupFailed": "No se pudo buscar la estación más cercana. Inténtalo de nuevo o usa la búsqueda.",
-    "here": "Se pregunta por {name}, la estación a {distance} de tu ubicación."
+    "here": "Se pregunta por {name}, la estación a {distance} de tu ubicación.",
+    "noteKostra": "Redondeada a aproximadamente 1 km y usada para consultar la tabla de lluvia de su celda y centrar el mapa en ella. No se escribe en la dirección de la página y solo se queda en este navegador si marcas la casilla."
   },
   "place": {
     "fieldLabel": "Buscar un lugar",
@@ -1657,5 +1662,55 @@
     "periods": "Periodos",
     "colMissingCount": "Número de valores faltantes",
     "noneFound": "No se ha encontrado ningún historial para las estaciones seleccionadas."
+  },
+  "kostra": {
+    "title": "Lluvias intensas",
+    "subtitle": "La lluvia de diseño (KOSTRA) del DWD para un punto de Alemania: cuánta lluvia cae en 5 minutos a 7 días y con qué frecuencia",
+    "aboutButton": "Sobre las lluvias intensas",
+    "about1": "La lluvia de diseño dice cuánta lluvia aporta un aguacero de una duración dada que vuelve, por término medio, cada tantos años: una lluvia de 1 hora con un periodo de retorno de 100 años es una lluvia centenaria. Con estos valores se dimensionan desagües, balsas de retención y obras de drenaje.",
+    "about2": "Los valores son los de KOSTRA-DWD-2020, el análisis estadístico que hace el DWD de las largas series de pluviómetros de Alemania, en una cuadrícula de celdas de 5 km. La tabla es la de la celda que contiene el punto: una estimación para una superficie de 25 km², no una medición en el punto.",
+    "about3": "La altura de lluvia es la lluvia que cae durante la duración, en mm (1 mm es 1 litro por metro cuadrado). La intensidad es la misma lluvia como caudal, en litros por segundo y hectárea. El DWD da con cada valor una tolerancia en porcentaje, que la tabla muestra debajo.",
+    "aboutSources": "Fuente y método:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, datos de cuadrícula",
+    "pointTitle": "Elegir el punto",
+    "placeLabel": "Buscar un lugar",
+    "mapHint": "O haz clic en el mapa para elegir un punto.",
+    "pointLabel": "Punto elegido",
+    "pointPosition": "Tu ubicación, redondeada: {point}",
+    "pointMap": "En el mapa: {point}",
+    "positionUsed": "Tu ubicación es ahora el punto. No se escribe en la dirección de la página.",
+    "mapLabel": "Mapa para elegir el punto de la lluvia de diseño. Un clic elige un punto; la celda de 5 km de la cuadrícula del DWD que lo contiene aparece delimitada.",
+    "pointMarker": "Punto elegido",
+    "loading": "Leyendo las tablas del DWD … la primera consulta tarda unos segundos.",
+    "outside": "No hay lluvia de diseño para este punto. La cuadrícula del DWD cubre Alemania y un borde de unos 10 km a su alrededor, y no da valores en el mar. Elige otro punto.",
+    "failed": "No se pudo cargar la lluvia de diseño.",
+    "resultTitle": "Lluvia de diseño del punto elegido",
+    "resultHeading": "Lluvia de diseño",
+    "cell": "Celda {cell} de la cuadrícula del DWD, centro {centre}",
+    "quantitySwitch": "Mostrar la lluvia como",
+    "quantity": {
+      "depth": "Altura",
+      "intensity": "Intensidad"
+    },
+    "estimateNote": "Estos valores son estimaciones del DWD para la celda de 5 km que contiene el punto, no mediciones en el punto.",
+    "uncertaintyNote": "Debajo de cada valor: la incertidumbre del DWD en porcentaje, más o menos. Los valores son estadísticas de lluvias pasadas, no un pronóstico.",
+    "uncertaintyLabel": "incertidumbre",
+    "noValue": "sin valor",
+    "tableLabel": "Tabla de la lluvia de diseño; se desplaza hacia los lados",
+    "tableCaption": "{quantity} en {unit}: 22 duraciones de lluvia por 9 periodos de retorno",
+    "chartLabel": "Gráfico: {quantity} en {unit} según la duración de la lluvia, una curva por periodo de retorno. Las teclas de flecha leen los valores de una duración.",
+    "chartNotDrawn": "No se pudo dibujar el gráfico.",
+    "returnPeriodLegend": "Periodo de retorno (años)",
+    "returnPeriodHeading": "Periodo de retorno en años",
+    "returnPeriodYears": "{count} año | {count} años",
+    "duration": {
+      "heading": "Duración",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} d"
+    },
+    "copyLink": "Copiar el enlace a este punto",
+    "linkCopied": "Enlace copiado.",
+    "linkNotCopied": "No se pudo copiar el enlace."
   }
 }

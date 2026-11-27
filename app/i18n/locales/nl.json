@@ -308,7 +308,8 @@
       "about": "Over het open-sourceproject Wetterdienst en de mensen die het onderhouden.",
       "support": "Ondersteun Wetterdienst: meld een probleem, draag code bij of doneer.",
       "map": "Een kaart van de stations van de Duitse weerdienst: kies een station of een willekeurig punt voor de verwachting, de klimaatstrepen en de metingen.",
-      "radar": "De neerslagradar van de DWD boven Duitsland als lus van de afgelopen twee uur, met de verwachting voor de komende twee en de onweerscellen erbovenop."
+      "radar": "De neerslagradar van de DWD boven Duitsland als lus van de afgelopen twee uur, met de verwachting voor de komende twee en de onweerscellen erbovenop.",
+      "kostra": "De ontwerpneerslag (KOSTRA) van de DWD voor elk punt in Duitsland: hoeveel regen er valt in 5 minuten tot 7 dagen en hoe vaak, als tabel en als krommen, in mm of l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Methoden",
     "support": "Ondersteuning",
     "map": "Kaart",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Zware regenval"
   },
   "shell": {
     "skipToContent": "Naar de inhoud",
@@ -418,7 +420,8 @@
       "airport": "Luchthaven"
     },
     "placesCredit": "{osm} ({licence}) · plaatsen via {photon}",
-    "placesFailed": "Plaatsen konden nu niet worden gezocht. Blijf typen om het opnieuw te proberen."
+    "placesFailed": "Plaatsen konden nu niet worden gezocht. Blijf typen om het opnieuw te proberen.",
+    "more": "Meer"
   },
   "header": {
     "github": "GitHub",
@@ -771,7 +774,8 @@
     "forecast": "Zoek een station of kies er een op de kaart om de verwachting te zien",
     "explorer": "Selecteer parameters, kies dan een station of een punt, via zoeken of op de kaart, en klik op “Tonen” om gegevens te laden",
     "stripes": "Zoek een station of kies er een op de kaart en klik op “Tonen” om klimaatstrepen te maken",
-    "history": "Zoek stations of kies ze op de kaart en klik op “Tonen” om hun geschiedenis te laden"
+    "history": "Zoek stations of kies ze op de kaart en klik op “Tonen” om hun geschiedenis te laden",
+    "kostra": "Zoek een plaats, gebruik je locatie of klik op de kaart om de ontwerpneerslag van dat punt te zien"
   },
   "meteogram": {
     "title": "Weersverwachting",
@@ -1205,7 +1209,8 @@
     "nearest": "Dichtstbijzijnde station: {name}, {distance} van je locatie.",
     "noneNear": "Er is geen station gevonden in de buurt van je locatie.",
     "lookupFailed": "Het dichtstbijzijnde station kon niet worden opgezocht. Probeer het opnieuw of gebruik het zoeken.",
-    "here": "De vraag gaat over {name}, het station op {distance} van je locatie."
+    "here": "De vraag gaat over {name}, het station op {distance} van je locatie.",
+    "noteKostra": "Afgerond op ongeveer 1 km en gebruikt om de neerslagtabel van de bijbehorende rastercel op te zoeken en de kaart erop te centreren. Ze wordt niet in het adres van de pagina gezet en blijft alleen in deze browser staan als je het vakje aanvinkt."
   },
   "place": {
     "fieldLabel": "Zoek een plaats",
@@ -1657,5 +1662,55 @@
     "periods": "Perioden",
     "colMissingCount": "Aantal ontbrekend",
     "noneFound": "Voor de geselecteerde stations is geen geschiedenis gevonden."
+  },
+  "kostra": {
+    "title": "Zware regenval",
+    "subtitle": "De ontwerpneerslag (KOSTRA) van de DWD voor een punt in Duitsland: hoeveel regen er valt in 5 minuten tot 7 dagen, en hoe vaak",
+    "aboutButton": "Over zware regenval",
+    "about1": "De ontwerpneerslag zegt hoeveel regen een bui van een bepaalde duur brengt die gemiddeld om de zoveel jaar terugkeert: een regen van 1 uur met een herhalingstijd van 100 jaar is een regen die eens in de 100 jaar valt. Met deze waarden worden riolen, bergingsbassins en duikers gedimensioneerd.",
+    "about2": "De waarden zijn die van KOSTRA-DWD-2020, de statistische analyse door de DWD van de lange regenmeterreeksen van Duitsland, op een raster van cellen van 5 km. De tabel is die van de cel waarin het punt ligt: een schatting voor een gebied van 25 km², geen meting op het punt.",
+    "about3": "De regendiepte is de regen die tijdens de duur valt, in mm (1 mm is 1 liter per vierkante meter). De intensiteit is dezelfde regen als snelheid, in liter per seconde en hectare. De DWD geeft bij elke waarde een tolerantie in procenten, die de tabel eronder toont.",
+    "aboutSources": "Bron en methode:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, rastergegevens",
+    "pointTitle": "Kies het punt",
+    "placeLabel": "Zoek een plaats",
+    "mapHint": "Of klik op de kaart om een punt te kiezen.",
+    "pointLabel": "Gekozen punt",
+    "pointPosition": "Je locatie, afgerond: {point}",
+    "pointMap": "Op de kaart: {point}",
+    "positionUsed": "Je locatie is nu het punt. Ze wordt niet in het adres van de pagina gezet.",
+    "mapLabel": "Kaart om het punt van de ontwerpneerslag te kiezen. Een klik kiest een punt; de cel van 5 km van het raster van de DWD waarin het ligt, is omlijnd.",
+    "pointMarker": "Gekozen punt",
+    "loading": "De tabellen van de DWD worden gelezen … het eerste verzoek duurt een paar seconden.",
+    "outside": "Voor dit punt is er geen ontwerpneerslag. Het raster van de DWD omvat Duitsland en een rand van ongeveer 10 km eromheen, en geeft op zee geen waarden. Kies een ander punt.",
+    "failed": "De ontwerpneerslag kon niet worden geladen.",
+    "resultTitle": "Ontwerpneerslag van het gekozen punt",
+    "resultHeading": "Ontwerpneerslag",
+    "cell": "DWD-rastercel {cell}, middelpunt {centre}",
+    "quantitySwitch": "Toon de regen als",
+    "quantity": {
+      "depth": "Neerslaghoeveelheid",
+      "intensity": "Intensiteit"
+    },
+    "estimateNote": "Deze waarden zijn schattingen van de DWD voor de cel van 5 km waarin het punt ligt, geen metingen op het punt.",
+    "uncertaintyNote": "Onder elke waarde: de onzekerheid van de DWD in plus-minus procenten. De waarden zijn statistieken van regen uit het verleden, geen voorspelling.",
+    "uncertaintyLabel": "onzekerheid",
+    "noValue": "geen waarde",
+    "tableLabel": "Tabel van de ontwerpneerslag; scrolt zijwaarts",
+    "tableCaption": "{quantity} in {unit}: 22 duren van een regen naar 9 herhalingstijden",
+    "chartLabel": "Grafiek: {quantity} in {unit} tegen de duur van de regen, één kromme per herhalingstijd. Met de pijltoetsen lees je de waarden van een duur.",
+    "chartNotDrawn": "De grafiek kon niet worden getekend.",
+    "returnPeriodLegend": "Herhalingstijd (jaren)",
+    "returnPeriodHeading": "Herhalingstijd in jaren",
+    "returnPeriodYears": "{count} jaar | {count} jaar",
+    "duration": {
+      "heading": "Duur",
+      "minutes": "{n} min",
+      "hours": "{n} u",
+      "days": "{n} d"
+    },
+    "copyLink": "Link naar dit punt kopiëren",
+    "linkCopied": "Link gekopieerd.",
+    "linkNotCopied": "De link kon niet worden gekopieerd."
   }
 }

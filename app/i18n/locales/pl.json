@@ -308,7 +308,8 @@
       "about": "O projekcie open source Wetterdienst i osobach, które go utrzymują.",
       "support": "Wesprzyj Wetterdienst: zgłoś problem, dodaj kod lub przekaż darowiznę.",
       "map": "Mapa stacji Niemieckiej Służby Meteorologicznej: wybierz stację lub dowolny punkt, aby zobaczyć jego prognozę, paski klimatyczne i pomiary.",
-      "radar": "Radar opadów DWD nad Niemcami jako pętla z ostatnich dwóch godzin z prognozą na kolejne dwie i komórkami burzowymi na wierzchu."
+      "radar": "Radar opadów DWD nad Niemcami jako pętla z ostatnich dwóch godzin z prognozą na kolejne dwie i komórkami burzowymi na wierzchu.",
+      "kostra": "Opad miarodajny (KOSTRA) DWD dla dowolnego punktu w Niemczech: ile deszczu spada w ciągu od 5 minut do 7 dni i jak często, w tabeli i na krzywych, w mm lub l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Metody",
     "support": "Wsparcie",
     "map": "Mapa",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Ulewy"
   },
   "shell": {
     "skipToContent": "Przejdź do treści",
@@ -418,7 +420,8 @@
       "airport": "Lotnisko"
     },
     "placesCredit": "{osm} ({licence}) · miejsca przez {photon}",
-    "placesFailed": "Nie udało się teraz wyszukać miejsc. Pisz dalej, aby spróbować ponownie."
+    "placesFailed": "Nie udało się teraz wyszukać miejsc. Pisz dalej, aby spróbować ponownie.",
+    "more": "Więcej"
   },
   "header": {
     "github": "GitHub",
@@ -771,7 +774,8 @@
     "forecast": "Wyszukaj stację lub wybierz ją na mapie, aby zobaczyć jej prognozę",
     "explorer": "Wybierz parametry, a następnie stację lub punkt, wyszukując albo na mapie, i kliknij „Pokaż”, aby wczytać dane",
     "stripes": "Wyszukaj stację lub wybierz ją na mapie i kliknij „Pokaż”, aby utworzyć paski klimatyczne",
-    "history": "Wyszukaj stacje lub wybierz je na mapie i kliknij „Pokaż”, aby wczytać ich historię"
+    "history": "Wyszukaj stacje lub wybierz je na mapie i kliknij „Pokaż”, aby wczytać ich historię",
+    "kostra": "Wyszukaj miejsce, użyj swojej lokalizacji albo kliknij mapę, aby zobaczyć opad miarodajny dla tego punktu"
   },
   "meteogram": {
     "title": "Prognoza pogody",
@@ -1205,7 +1209,8 @@
     "nearest": "Najbliższa stacja: {name}, {distance} od Twojej lokalizacji.",
     "noneNear": "W pobliżu Twojej lokalizacji nie znaleziono żadnej stacji.",
     "lookupFailed": "Nie udało się wyszukać najbliższej stacji. Spróbuj ponownie lub użyj wyszukiwania.",
-    "here": "Pytanie dotyczy miejsca {name}, stacji oddalonej o {distance} od Twojej lokalizacji."
+    "here": "Pytanie dotyczy miejsca {name}, stacji oddalonej o {distance} od Twojej lokalizacji.",
+    "noteKostra": "Zaokrąglona do około 1 km i używana do wyszukania tabeli opadów jej komórki siatki oraz do wyśrodkowania mapy na niej. Nie trafia do adresu strony i zostaje w tej przeglądarce tylko wtedy, gdy zaznaczysz pole."
   },
   "place": {
     "fieldLabel": "Znajdź miejsce",
@@ -1657,5 +1662,55 @@
     "periods": "Okresy",
     "colMissingCount": "Liczba braków",
     "noneFound": "Nie znaleziono historii dla wybranych stacji."
+  },
+  "kostra": {
+    "title": "Ulewy",
+    "subtitle": "Opad miarodajny (KOSTRA) DWD dla punktu w Niemczech: ile deszczu spada w ciągu od 5 minut do 7 dni i jak często",
+    "aboutButton": "O ulewach",
+    "about1": "Opad miarodajny mówi, ile deszczu przynosi opad o danym czasie trwania, który wraca średnio co tyle a tyle lat: deszcz trwający 1 godzinę z okresem powrotu 100 lat to deszcz stuletni. Według tych wartości wymiaruje się kanalizację, zbiorniki retencyjne i przepusty.",
+    "about2": "Wartości pochodzą z KOSTRA-DWD-2020, statystycznej analizy długich serii pomiarów deszczomierzy w Niemczech wykonanej przez DWD, na siatce komórek o boku 5 km. Tabela dotyczy komórki, w której leży punkt: to oszacowanie dla obszaru 25 km², a nie pomiar w punkcie.",
+    "about3": "Wysokość opadu to deszcz, który spada w czasie trwania, w mm (1 mm to 1 litr na metr kwadratowy). Natężenie to ten sam deszcz jako tempo, w litrach na sekundę i hektar. DWD podaje przy każdej wartości tolerancję w procentach, którą tabela pokazuje pod nią.",
+    "aboutSources": "Źródło i metoda:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, dane siatkowe",
+    "pointTitle": "Wybierz punkt",
+    "placeLabel": "Wyszukaj miejsce",
+    "mapHint": "Albo kliknij mapę, aby wybrać punkt.",
+    "pointLabel": "Wybrany punkt",
+    "pointPosition": "Twoja lokalizacja, zaokrąglona: {point}",
+    "pointMap": "Na mapie: {point}",
+    "positionUsed": "Twoja lokalizacja jest teraz punktem. Nie trafia do adresu strony.",
+    "mapLabel": "Mapa do wyboru punktu opadu miarodajnego. Kliknięcie wybiera punkt; komórka siatki DWD o boku 5 km, w której leży, jest obrysowana.",
+    "pointMarker": "Wybrany punkt",
+    "loading": "Odczytywanie tabel DWD … pierwsze zapytanie trwa kilka sekund.",
+    "outside": "Dla tego punktu nie ma opadu miarodajnego. Siatka DWD obejmuje Niemcy i pas około 10 km wokół nich, a na morzu nie podaje wartości. Wybierz inny punkt.",
+    "failed": "Nie udało się wczytać opadu miarodajnego.",
+    "resultTitle": "Opad miarodajny wybranego punktu",
+    "resultHeading": "Opad miarodajny",
+    "cell": "Komórka {cell} siatki DWD, środek {centre}",
+    "quantitySwitch": "Pokaż deszcz jako",
+    "quantity": {
+      "depth": "Wysokość opadu",
+      "intensity": "Natężenie"
+    },
+    "estimateNote": "Te wartości to oszacowania DWD dla komórki o boku 5 km, w której leży punkt, a nie pomiary w punkcie.",
+    "uncertaintyNote": "Pod każdą wartością: niepewność DWD w procentach, plus minus. Wartości to statystyki dawnych deszczów, a nie prognoza.",
+    "uncertaintyLabel": "niepewność",
+    "noValue": "brak wartości",
+    "tableLabel": "Tabela opadu miarodajnego; przewija się na boki",
+    "tableCaption": "{quantity} w {unit}: 22 czasy trwania deszczu według 9 okresów powrotu",
+    "chartLabel": "Wykres: {quantity} w {unit} w zależności od czasu trwania deszczu, jedna krzywa dla każdego okresu powrotu. Strzałkami odczytasz wartości dla danego czasu trwania.",
+    "chartNotDrawn": "Nie udało się narysować wykresu.",
+    "returnPeriodLegend": "Okres powrotu (lata)",
+    "returnPeriodHeading": "Okres powrotu w latach",
+    "returnPeriodYears": "{count} rok | {count} lata | {count} lat",
+    "duration": {
+      "heading": "Czas trwania",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} d"
+    },
+    "copyLink": "Skopiuj link do tego punktu",
+    "linkCopied": "Skopiowano link.",
+    "linkNotCopied": "Nie udało się skopiować linku."
   }
 }

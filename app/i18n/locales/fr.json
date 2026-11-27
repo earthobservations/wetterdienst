@@ -308,7 +308,8 @@
       "about": "À propos du projet open source Wetterdienst et des personnes qui le maintiennent.",
       "support": "Soutenir Wetterdienst : signaler un problème, contribuer du code ou faire un don.",
       "map": "Une carte des stations du Service météorologique allemand : choisis une station ou un point quelconque pour voir ses prévisions, ses bandes climatiques et ses mesures.",
-      "radar": "Le radar de précipitations du DWD sur l'Allemagne en boucle des deux dernières heures, avec la prévision des deux prochaines et les cellules orageuses par-dessus."
+      "radar": "Le radar de précipitations du DWD sur l'Allemagne en boucle des deux dernières heures, avec la prévision des deux prochaines et les cellules orageuses par-dessus.",
+      "kostra": "Les précipitations de projet (KOSTRA) du DWD pour tout point en Allemagne : combien de pluie tombe en 5 minutes à 7 jours et à quelle fréquence, en tableau et en courbes, en mm ou en l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Méthodes",
     "support": "Aide",
     "map": "Carte",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Fortes pluies"
   },
   "shell": {
     "skipToContent": "Aller au contenu",
@@ -418,7 +420,8 @@
       "airport": "Aéroport"
     },
     "placesCredit": "{osm} ({licence}) · lieux via {photon}",
-    "placesFailed": "Les lieux n'ont pas pu être recherchés pour le moment. Continue à taper pour réessayer."
+    "placesFailed": "Les lieux n'ont pas pu être recherchés pour le moment. Continue à taper pour réessayer.",
+    "more": "Plus"
   },
   "header": {
     "github": "GitHub",
@@ -771,7 +774,8 @@
     "forecast": "Recherche une station ou choisis-en une sur la carte pour voir sa prévision",
     "explorer": "Sélectionne des paramètres, puis choisis une station ou un point, par la recherche ou sur la carte, et clique sur « Afficher » pour charger les données",
     "stripes": "Recherche une station ou choisis-en une sur la carte, puis clique sur « Afficher » pour créer des bandes climatiques",
-    "history": "Recherche des stations ou choisis-les sur la carte, puis clique sur « Afficher » pour charger leur historique"
+    "history": "Recherche des stations ou choisis-les sur la carte, puis clique sur « Afficher » pour charger leur historique",
+    "kostra": "Recherche un lieu, utilise ta position ou clique sur la carte pour voir les précipitations de projet de ce point"
   },
   "meteogram": {
     "title": "Prévisions météo",
@@ -1205,7 +1209,8 @@
     "nearest": "Station la plus proche : {name}, à {distance} de ta position.",
     "noneNear": "Aucune station n'a été trouvée près de ta position.",
     "lookupFailed": "La station la plus proche n'a pas pu être recherchée. Réessaie ou utilise la recherche.",
-    "here": "La question porte sur {name}, la station à {distance} de ta position."
+    "here": "La question porte sur {name}, la station à {distance} de ta position.",
+    "noteKostra": "Arrondie à environ 1 km et utilisée pour retrouver le tableau de pluie de sa maille et centrer la carte dessus. Elle n'est pas écrite dans l'adresse de la page et ne reste dans ce navigateur que si tu coches la case."
   },
   "place": {
     "fieldLabel": "Trouver un lieu",
@@ -1657,5 +1662,55 @@
     "periods": "Périodes",
     "colMissingCount": "Nombre de valeurs manquantes",
     "noneFound": "Aucun historique trouvé pour les stations sélectionnées."
+  },
+  "kostra": {
+    "title": "Fortes pluies",
+    "subtitle": "Les précipitations de projet (KOSTRA) du DWD pour un point en Allemagne : combien de pluie tombe en 5 minutes à 7 jours, et à quelle fréquence",
+    "aboutButton": "À propos des fortes pluies",
+    "about1": "Les précipitations de projet disent quelle quantité de pluie apporte une averse d'une durée donnée qui revient, en moyenne, tous les tant d'années : une pluie d'1 heure de période de retour 100 ans est une pluie centennale. On dimensionne avec ces valeurs les réseaux d'assainissement, les bassins de rétention et les ouvrages de franchissement.",
+    "about2": "Les valeurs sont celles de KOSTRA-DWD-2020, l'analyse statistique des longues séries de pluviomètres de l'Allemagne par le DWD, sur une grille de mailles de 5 km. Le tableau est celui de la maille qui contient le point : une estimation pour une surface de 25 km², pas une mesure au point.",
+    "about3": "La hauteur de pluie est la pluie qui tombe pendant la durée, en mm (1 mm correspond à 1 litre par mètre carré). L'intensité est la même pluie exprimée en débit, en litres par seconde et par hectare. Le DWD donne une tolérance en pourcentage avec chaque valeur, que le tableau affiche en dessous.",
+    "aboutSources": "Source et méthode :",
+    "aboutDwdLink": "DWD : KOSTRA-DWD-2020, données de grille",
+    "pointTitle": "Choisir le point",
+    "placeLabel": "Rechercher un lieu",
+    "mapHint": "Ou clique sur la carte pour choisir un point.",
+    "pointLabel": "Point choisi",
+    "pointPosition": "Ta position, arrondie : {point}",
+    "pointMap": "Sur la carte : {point}",
+    "positionUsed": "Ta position est maintenant le point. Elle n'est pas écrite dans l'adresse de la page.",
+    "mapLabel": "Carte pour choisir le point des précipitations de projet. Un clic choisit un point ; la maille de 5 km de la grille du DWD qui le contient est entourée.",
+    "pointMarker": "Point choisi",
+    "loading": "Lecture des tableaux du DWD … la première requête prend quelques secondes.",
+    "outside": "Il n'y a pas de précipitations de projet pour ce point. La grille du DWD couvre l'Allemagne et une bordure d'environ 10 km autour, et ne donne pas de valeurs en mer. Choisis un autre point.",
+    "failed": "Les précipitations de projet n'ont pas pu être chargées.",
+    "resultTitle": "Précipitations de projet du point choisi",
+    "resultHeading": "Précipitations de projet",
+    "cell": "Maille {cell} de la grille du DWD, centre {centre}",
+    "quantitySwitch": "Afficher la pluie en",
+    "quantity": {
+      "depth": "Hauteur",
+      "intensity": "Intensité"
+    },
+    "estimateNote": "Ces valeurs sont des estimations du DWD pour la maille de 5 km qui contient le point, pas des mesures au point.",
+    "uncertaintyNote": "Sous chaque valeur : l'incertitude du DWD en pourcentage, plus ou moins. Les valeurs sont des statistiques de pluies passées, pas une prévision.",
+    "uncertaintyLabel": "incertitude",
+    "noValue": "pas de valeur",
+    "tableLabel": "Tableau des précipitations de projet ; défile latéralement",
+    "tableCaption": "{quantity} en {unit} : 22 durées de pluie selon 9 périodes de retour",
+    "chartLabel": "Graphique : {quantity} en {unit} selon la durée de la pluie, une courbe par période de retour. Les touches fléchées lisent les valeurs d'une durée.",
+    "chartNotDrawn": "Le graphique n'a pas pu être dessiné.",
+    "returnPeriodLegend": "Période de retour (années)",
+    "returnPeriodHeading": "Période de retour en années",
+    "returnPeriodYears": "{count} an | {count} ans",
+    "duration": {
+      "heading": "Durée",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} j"
+    },
+    "copyLink": "Copier le lien vers ce point",
+    "linkCopied": "Lien copié.",
+    "linkNotCopied": "Le lien n'a pas pu être copié."
   }
 }

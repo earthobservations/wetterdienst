@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- `[Heavy rainfall]` A new tool at `/kostra`: DWD's design rainfall (KOSTRA-DWD-2020) of a point in
+  Germany, chosen by a place's name, "Use my location" or a click on the map. It shows 22 durations
+  by 9 return periods as depth or intensity with DWD's uncertainty, a curve for each return period
+  and the 5 km cell on the map; a point outside DWD's grid is told in words. A searched or clicked
+  point is kept in the link (`?lat=&lon=`); a position is not, and "Copy link to this point" makes
+  a link with it on a press. The privacy policy says what is sent where (GH-4500).
+- `[Navigation]` The header of the wide layout measures its tool tabs in the reader's language at
+  the width it has, and the tabs that do not fit go into a "More" menu, so that the seven tools
+  fit at 1024, 1280 and 1440 px in every language (GH-4500).
 - `[Forecast]` A "UV & pollen" panel below the chart of a station in Germany (by the country's
   border: a station in Strasbourg, Salzburg, Basel or Venlo has none), for today, tomorrow and the
   day after: DWD's UV index of the nearest of its 38 places within 100 km, with the WHO's class in

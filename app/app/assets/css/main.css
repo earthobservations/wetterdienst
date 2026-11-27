@@ -135,6 +135,9 @@
      4.8:1 against a card). Held to those ratios by `tests/unit/button-contrast.test.ts`. */
   --color-tile-map: #7c3aed;
   --color-tile-map-night: #9a79f8;
+  /* The seventh tile, the heavy rainfall's (GH-4500): a green, hue 94, in the widest gap of the colour wheel left (the sun's 44 to the wind's
+     teal at 174), 50 degrees from the nearest. As the sun's and the wind's it is a light fill with the navy glyph, by day and at night. */
+  --color-tile-lime: #6cbf2a;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -597,6 +600,32 @@
   visibility: hidden;
   font-weight: 700;
   user-select: none;
+  pointer-events: none;
+}
+
+/* The row of the header's tabs fills the room between the logo and the search, which is what the tabs that fit are measured against
+   (`AppHeader.vue`); it is not seen until they have been measured, so that the row does not jump. The copy of the row they are measured in
+   is out of the flow and not seen, and takes no room and no scroll. */
+.app-nav {
+  min-width: 0;
+}
+@media (min-width: 64rem) {
+  .app-nav {
+    flex: 1 1 0;
+  }
+}
+.app-nav-pending {
+  visibility: hidden;
+}
+/* the copy is rendered only from 64 rem, where the tabs are (`AppHeader.vue`): a row that is 800 px wide must not be in a phone's page */
+.nav-measure {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  width: max-content;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -1143,6 +1172,10 @@
 }
 .dark .tile-map {
   --tile-fill: var(--color-tile-map-night);
+  --tile-glyph: var(--color-ink-950);
+}
+.tile-lime {
+  --tile-fill: var(--color-tile-lime);
   --tile-glyph: var(--color-ink-950);
 }
 .tile-navy {

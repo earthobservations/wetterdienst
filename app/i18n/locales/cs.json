@@ -308,7 +308,8 @@
       "about": "O open source projektu Wetterdienst a lidech, kteří ho spravují.",
       "support": "Podpoř Wetterdienst: nahlas chybu, přispěj kódem nebo daruj.",
       "map": "Mapa stanic Německé meteorologické služby: vyber stanici nebo libovolný bod a uvidíš její předpověď, klimatické pruhy a měření.",
-      "radar": "Srážkový radar DWD nad Německem jako smyčka posledních dvou hodin s předpovědí na další dvě a bouřkovými buňkami navrchu."
+      "radar": "Srážkový radar DWD nad Německem jako smyčka posledních dvou hodin s předpovědí na další dvě a bouřkovými buňkami navrchu.",
+      "kostra": "Návrhové srážky (KOSTRA) DWD pro libovolný bod v Německu: kolik deště spadne za 5 minut až 7 dní a jak často, v tabulce i na křivkách, v mm nebo l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Metody",
     "support": "Podpora",
     "map": "Mapa",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Přívalové deště"
   },
   "shell": {
     "skipToContent": "Přejít na obsah",
@@ -418,7 +420,8 @@
       "airport": "Letiště"
     },
     "placesCredit": "{osm} ({licence}) · místa přes {photon}",
-    "placesFailed": "Místa se teď nepodařilo vyhledat. Piš dál a zkus to znovu."
+    "placesFailed": "Místa se teď nepodařilo vyhledat. Piš dál a zkus to znovu.",
+    "more": "Více"
   },
   "header": {
     "github": "GitHub",
@@ -771,7 +774,8 @@
     "forecast": "Vyhledej stanici nebo ji vyber na mapě a uvidíš její předpověď",
     "explorer": "Vyber parametry, pak stanici nebo bod, vyhledáním nebo na mapě, a kliknutím na „Zobrazit“ načti data",
     "stripes": "Vyhledej stanici nebo ji vyber na mapě a kliknutím na „Zobrazit“ vytvoř klimatické pruhy",
-    "history": "Vyhledej stanice nebo je vyber na mapě a kliknutím na „Zobrazit“ načti jejich historii"
+    "history": "Vyhledej stanice nebo je vyber na mapě a kliknutím na „Zobrazit“ načti jejich historii",
+    "kostra": "Vyhledej místo, použij svou polohu nebo klikni na mapu a uvidíš návrhové srážky tohoto bodu"
   },
   "meteogram": {
     "title": "Předpověď počasí",
@@ -1205,7 +1209,8 @@
     "nearest": "Nejbližší stanice: {name}, {distance} od tvé polohy.",
     "noneNear": "V blízkosti tvé polohy nebyla nalezena žádná stanice.",
     "lookupFailed": "Nejbližší stanici se nepodařilo vyhledat. Zkus to znovu nebo použij vyhledávání.",
-    "here": "Dotaz se týká místa {name}, stanice {distance} od tvé polohy."
+    "here": "Dotaz se týká místa {name}, stanice {distance} od tvé polohy.",
+    "noteKostra": "Zaokrouhlená na zhruba 1 km a použitá k vyhledání tabulky srážek její buňky a k vystředění mapy na ni. Nezapisuje se do adresy stránky a v tomto prohlížeči zůstane, jen když zaškrtneš políčko."
   },
   "place": {
     "fieldLabel": "Najít místo",
@@ -1657,5 +1662,55 @@
     "periods": "Období",
     "colMissingCount": "Počet chybějících",
     "noneFound": "Pro vybrané stanice nebyla nalezena žádná historie."
+  },
+  "kostra": {
+    "title": "Přívalové deště",
+    "subtitle": "Návrhové srážky (KOSTRA) DWD pro bod v Německu: kolik deště spadne za 5 minut až 7 dní a jak často",
+    "aboutButton": "O přívalových deštích",
+    "about1": "Návrhové srážky říkají, kolik deště přinese přívalová srážka dané doby trvání, která se vrací v průměru jednou za tolik a tolik let: déšť trvající 1 hodinu s dobou opakování 100 let je stoletý déšť. Podle těchto hodnot se navrhují kanalizace, retenční nádrže a propustky.",
+    "about2": "Hodnoty pocházejí z KOSTRA-DWD-2020, statistické analýzy dlouhých řad měření srážkoměrů v Německu, kterou provedl DWD, na síti buněk o straně 5 km. Tabulka patří buňce, v níž bod leží: je to odhad pro plochu 25 km², nikoli měření v bodě.",
+    "about3": "Úhrn srážek je déšť, který spadne za dobu trvání, v mm (1 mm je 1 litr na metr čtvereční). Intenzita je tentýž déšť jako rychlost, v litrech za sekundu a hektar. DWD uvádí u každé hodnoty toleranci v procentech, kterou tabulka zobrazuje pod ní.",
+    "aboutSources": "Zdroj a metoda:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, mřížková data",
+    "pointTitle": "Vyber bod",
+    "placeLabel": "Vyhledat místo",
+    "mapHint": "Nebo klikni na mapu a vyber bod.",
+    "pointLabel": "Vybraný bod",
+    "pointPosition": "Tvá poloha, zaokrouhlená: {point}",
+    "pointMap": "Na mapě: {point}",
+    "positionUsed": "Tvá poloha je nyní bodem. Nezapisuje se do adresy stránky.",
+    "mapLabel": "Mapa pro výběr bodu návrhových srážek. Kliknutí vybere bod; buňka sítě DWD o straně 5 km, v níž leží, je ohraničena.",
+    "pointMarker": "Vybraný bod",
+    "loading": "Čtou se tabulky DWD … první dotaz trvá několik sekund.",
+    "outside": "Pro tento bod nejsou návrhové srážky. Síť DWD pokrývá Německo a pás zhruba 10 km kolem něj a na moři hodnoty neuvádí. Vyber jiný bod.",
+    "failed": "Návrhové srážky se nepodařilo načíst.",
+    "resultTitle": "Návrhové srážky vybraného bodu",
+    "resultHeading": "Návrhové srážky",
+    "cell": "Buňka {cell} sítě DWD, střed {centre}",
+    "quantitySwitch": "Zobrazit déšť jako",
+    "quantity": {
+      "depth": "Úhrn",
+      "intensity": "Intenzita"
+    },
+    "estimateNote": "Tyto hodnoty jsou odhady DWD pro buňku o straně 5 km, v níž bod leží, nikoli měření v bodě.",
+    "uncertaintyNote": "Pod každou hodnotou: nejistota DWD v procentech, plus minus. Hodnoty jsou statistiky minulých dešťů, nikoli předpověď.",
+    "uncertaintyLabel": "nejistota",
+    "noValue": "žádná hodnota",
+    "tableLabel": "Tabulka návrhových srážek; posouvá se do stran",
+    "tableCaption": "{quantity} v {unit}: 22 dob trvání deště podle 9 dob opakování",
+    "chartLabel": "Graf: {quantity} v {unit} podle doby trvání deště, jedna křivka pro každou dobu opakování. Šipkami přečteš hodnoty pro danou dobu trvání.",
+    "chartNotDrawn": "Graf se nepodařilo vykreslit.",
+    "returnPeriodLegend": "Doba opakování (roky)",
+    "returnPeriodHeading": "Doba opakování v letech",
+    "returnPeriodYears": "{count} rok | {count} roky | {count} let",
+    "duration": {
+      "heading": "Doba trvání",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} d"
+    },
+    "copyLink": "Zkopírovat odkaz na tento bod",
+    "linkCopied": "Odkaz zkopírován.",
+    "linkNotCopied": "Odkaz se nepodařilo zkopírovat."
   }
 }

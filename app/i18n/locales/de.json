@@ -308,7 +308,8 @@
       "about": "Über das Open-Source-Projekt Wetterdienst und die Menschen, die es pflegen.",
       "support": "Wetterdienst unterstützen: Fehler melden, Code beitragen oder spenden.",
       "map": "Eine Karte der Stationen des Deutschen Wetterdienstes: Wähle eine Station oder einen beliebigen Punkt und sieh Vorhersage, Klimastreifen und Messwerte dazu.",
-      "radar": "Das Niederschlagsradar des DWD über Deutschland als Schleife der letzten zwei Stunden mit der Vorhersage der nächsten zwei und den Gewitterzellen darüber."
+      "radar": "Das Niederschlagsradar des DWD über Deutschland als Schleife der letzten zwei Stunden mit der Vorhersage der nächsten zwei und den Gewitterzellen darüber.",
+      "kostra": "Der Bemessungsniederschlag (KOSTRA) des DWD für jeden Punkt in Deutschland: wie viel Regen in 5 Minuten bis 7 Tagen fällt und wie oft, als Tabelle und als Kurven, in mm oder l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Methoden",
     "support": "Unterstützen",
     "map": "Karte",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Starkregen"
   },
   "shell": {
     "skipToContent": "Zum Inhalt springen",
@@ -418,7 +420,8 @@
       "airport": "Flughafen"
     },
     "placesCredit": "{osm} ({licence}) · Orte über {photon}",
-    "placesFailed": "Orte konnten gerade nicht gesucht werden. Weitertippen versucht es erneut."
+    "placesFailed": "Orte konnten gerade nicht gesucht werden. Weitertippen versucht es erneut.",
+    "more": "Mehr"
   },
   "header": {
     "github": "GitHub",
@@ -771,7 +774,8 @@
     "forecast": "Suche nach einer Station oder wähle eine auf der Karte, um ihre Vorhersage zu sehen",
     "explorer": "Wähle Parameter, dann eine Station oder einen Punkt, per Suche oder auf der Karte, und klicke auf „Anzeigen“, um Daten zu laden",
     "stripes": "Suche nach einer Station oder wähle eine auf der Karte und klicke auf „Anzeigen“, um Klimastreifen zu erstellen",
-    "history": "Suche nach Stationen oder wähle sie auf der Karte und klicke auf „Anzeigen“, um ihren Verlauf zu laden"
+    "history": "Suche nach Stationen oder wähle sie auf der Karte und klicke auf „Anzeigen“, um ihren Verlauf zu laden",
+    "kostra": "Suche nach einem Ort, nutze deinen Standort oder klicke auf die Karte, um den Bemessungsniederschlag dieses Punkts zu sehen"
   },
   "meteogram": {
     "title": "Wettervorhersage",
@@ -1205,7 +1209,8 @@
     "nearest": "Nächste Station: {name}, {distance} von deinem Standort entfernt.",
     "noneNear": "In der Nähe deines Standorts wurde keine Station gefunden.",
     "lookupFailed": "Die nächste Station konnte nicht abgefragt werden. Versuche es erneut oder nutze die Suche.",
-    "here": "Gefragt wird nach {name}, der Station {distance} von deinem Standort entfernt."
+    "here": "Gefragt wird nach {name}, der Station {distance} von deinem Standort entfernt.",
+    "noteKostra": "Auf etwa 1 km gerundet und genutzt, um die Niederschlagstabelle seiner Rasterzelle abzurufen und die Karte auf ihn zu zentrieren. Er steht nicht in der Adresse der Seite und bleibt nur in diesem Browser, wenn du das Häkchen setzt."
   },
   "place": {
     "fieldLabel": "Ort suchen",
@@ -1657,5 +1662,55 @@
     "periods": "Zeiträume",
     "colMissingCount": "Anzahl fehlend",
     "noneFound": "Für die gewählten Stationen wurde kein Verlauf gefunden."
+  },
+  "kostra": {
+    "title": "Starkregen",
+    "subtitle": "Der Bemessungsniederschlag (KOSTRA) des DWD für einen Punkt in Deutschland: wie viel Regen in 5 Minuten bis 7 Tagen fällt und wie oft",
+    "aboutButton": "Über Starkregen",
+    "about1": "Der Bemessungsniederschlag sagt, wie viel Regen ein Niederschlag einer bestimmten Dauer bringt, der im Mittel alle so und so viele Jahre wiederkehrt: ein Regen von 1 Stunde mit einem Wiederkehrintervall von 100 Jahren ist ein 100-jähriger Regen. Mit diesen Werten werden Kanäle, Rückhaltebecken und Durchlässe bemessen.",
+    "about2": "Die Werte stammen aus KOSTRA-DWD-2020, der statistischen Auswertung der langen Regenmessreihen Deutschlands durch den DWD, auf einem Raster aus 5-km-Zellen. Die Tabelle gehört zu der Zelle, in der der Punkt liegt: eine Schätzung für eine Fläche von 25 km², keine Messung am Punkt.",
+    "about3": "Die Regenhöhe ist der Regen, der während der Dauerstufe fällt, in mm (1 mm sind 1 Liter pro Quadratmeter). Die Regenspende ist derselbe Regen als Rate, in Litern pro Sekunde und Hektar. Der DWD gibt zu jedem Wert eine Toleranz in Prozent an, die die Tabelle darunter zeigt.",
+    "aboutSources": "Quelle und Methode:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, Rasterdaten",
+    "pointTitle": "Punkt wählen",
+    "placeLabel": "Nach einem Ort suchen",
+    "mapHint": "Oder klicke auf die Karte, um einen Punkt zu wählen.",
+    "pointLabel": "Gewählter Punkt",
+    "pointPosition": "Dein Standort, gerundet: {point}",
+    "pointMap": "Auf der Karte: {point}",
+    "positionUsed": "Dein Standort ist jetzt der Punkt. Er steht nicht in der Adresse der Seite.",
+    "mapLabel": "Karte zur Wahl des Punkts für den Bemessungsniederschlag. Ein Klick wählt einen Punkt; die 5-km-Zelle des DWD-Rasters, in der er liegt, ist umrandet.",
+    "pointMarker": "Gewählter Punkt",
+    "loading": "Die Tabellen des DWD werden gelesen … die erste Abfrage dauert einige Sekunden.",
+    "outside": "Für diesen Punkt gibt es keinen Bemessungsniederschlag. Das Raster des DWD deckt Deutschland und einen Rand von etwa 10 km darum ab und gibt auf See keine Werte an. Wähle einen anderen Punkt.",
+    "failed": "Der Bemessungsniederschlag konnte nicht geladen werden.",
+    "resultTitle": "Bemessungsniederschlag des gewählten Punkts",
+    "resultHeading": "Bemessungsniederschlag",
+    "cell": "DWD-Rasterzelle {cell}, Mittelpunkt {centre}",
+    "quantitySwitch": "Regen anzeigen als",
+    "quantity": {
+      "depth": "Regenhöhe",
+      "intensity": "Regenspende"
+    },
+    "estimateNote": "Diese Werte sind Schätzungen des DWD für die 5-km-Zelle, in der der Punkt liegt, keine Messungen am Punkt.",
+    "uncertaintyNote": "Unter jedem Wert: die Unsicherheit des DWD in Plus-Minus-Prozent. Die Werte sind Statistiken vergangener Regen, keine Vorhersage.",
+    "uncertaintyLabel": "Unsicherheit",
+    "noValue": "kein Wert",
+    "tableLabel": "Tabelle des Bemessungsniederschlags; scrollt seitwärts",
+    "tableCaption": "{quantity} in {unit}: 22 Dauerstufen eines Regens nach 9 Wiederkehrintervallen",
+    "chartLabel": "Diagramm: {quantity} in {unit} über der Dauer des Regens, eine Kurve für jedes Wiederkehrintervall. Mit den Pfeiltasten liest du die Werte einer Dauerstufe.",
+    "chartNotDrawn": "Das Diagramm konnte nicht gezeichnet werden.",
+    "returnPeriodLegend": "Wiederkehrintervall (Jahre)",
+    "returnPeriodHeading": "Wiederkehrintervall in Jahren",
+    "returnPeriodYears": "{count} Jahr | {count} Jahre",
+    "duration": {
+      "heading": "Dauerstufe",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} d"
+    },
+    "copyLink": "Link zu diesem Punkt kopieren",
+    "linkCopied": "Link kopiert.",
+    "linkNotCopied": "Der Link konnte nicht kopiert werden."
   }
 }

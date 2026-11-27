@@ -19,13 +19,15 @@ import { ApiFailure, defaultHandlers, mockBackend } from './accessibility/mock-b
 // Each page is loaded once and measured at every width.
 
 const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl', 'de-hh', 'it', 'fr'] as const
-const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/glossary', '/measurement', '/methods', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
+const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/kostra', '/glossary', '/measurement', '/methods', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
 // every language the app has, and the pages that failed at a phone's width (GH-3845, GH-3858)
 const ALL_LANGUAGES = ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const
 const OTHER_LANGUAGES = ALL_LANGUAGES.filter(language => !(LONG_LANGUAGES as readonly string[]).includes(language))
 const REFLOW_PAGES = ['/stripes', '/history', '/settings']
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 800 },
+  // the widest step of the header, where it carries the search's word and the support heart (90 rem) and its tabs are the longest
+  { name: 'wide desktop', width: 1440, height: 900 },
   // the narrowest window with the tools in the header (64 rem), where their names are tightest (GH-3518)
   { name: 'small desktop', width: 1024, height: 768 },
   { name: 'phone', width: 320, height: 844 },

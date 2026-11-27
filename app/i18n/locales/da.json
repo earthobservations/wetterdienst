@@ -308,7 +308,8 @@
       "about": "Om open source-projektet Wetterdienst og de mennesker, der vedligeholder det.",
       "support": "Støt Wetterdienst: meld en fejl, bidrag med kode eller doner.",
       "map": "Et kort over stationerne hos Tysklands vejrtjeneste: vælg en station eller et vilkårligt punkt og se dens udsigt, klimastriber og målinger.",
-      "radar": "DWD's nedbørsradar over Tyskland som et loop af de seneste to timer med udsigten for de næste to og tordencellerne ovenpå."
+      "radar": "DWD's nedbørsradar over Tyskland som et loop af de seneste to timer med udsigten for de næste to og tordencellerne ovenpå.",
+      "kostra": "DWD's dimensioneringsnedbør (KOSTRA) for ethvert punkt i Tyskland: hvor meget regn der falder på 5 minutter til 7 dage, og hvor ofte, som tabel og som kurver, i mm eller l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Metoder",
     "support": "Support",
     "map": "Kort",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Skybrud"
   },
   "shell": {
     "skipToContent": "Gå til indhold",
@@ -418,7 +420,8 @@
       "airport": "Lufthavn"
     },
     "placesCredit": "{osm} ({licence}) · steder via {photon}",
-    "placesFailed": "Steder kunne ikke søges lige nu. Skriv videre for at prøve igen."
+    "placesFailed": "Steder kunne ikke søges lige nu. Skriv videre for at prøve igen.",
+    "more": "Mere"
   },
   "header": {
     "github": "GitHub",
@@ -771,7 +774,8 @@
     "forecast": "Søg efter en station eller vælg en på kortet for at se dens udsigt",
     "explorer": "Vælg parametre, vælg derefter en station eller et punkt, via søgning eller på kortet, og klik på “Vis” for at indlæse data",
     "stripes": "Søg efter en station eller vælg en på kortet, og klik derefter på “Vis” for at oprette klimastriber",
-    "history": "Søg efter stationer eller vælg dem på kortet, og klik derefter på “Vis” for at indlæse deres historik"
+    "history": "Søg efter stationer eller vælg dem på kortet, og klik derefter på “Vis” for at indlæse deres historik",
+    "kostra": "Søg efter et sted, brug din placering, eller klik på kortet for at se dimensioneringsnedbøren for punktet"
   },
   "meteogram": {
     "title": "Vejrudsigt",
@@ -1205,7 +1209,8 @@
     "nearest": "Nærmeste station: {name}, {distance} fra din placering.",
     "noneNear": "Der blev ikke fundet nogen station i nærheden af din placering.",
     "lookupFailed": "Den nærmeste station kunne ikke slås op. Prøv igen, eller brug søgningen.",
-    "here": "Der spørges om {name}, stationen {distance} fra din placering."
+    "here": "Der spørges om {name}, stationen {distance} fra din placering.",
+    "noteKostra": "Afrundet til omkring 1 km og brugt til at slå nedbørstabellen op for dens gittercelle og til at centrere kortet på den. Den skrives ikke i sidens adresse og bliver kun i denne browser, hvis du sætter hak."
   },
   "place": {
     "fieldLabel": "Find et sted",
@@ -1657,5 +1662,55 @@
     "periods": "Perioder",
     "colMissingCount": "Antal manglende",
     "noneFound": "Der blev ikke fundet nogen historik for de valgte stationer."
+  },
+  "kostra": {
+    "title": "Skybrud",
+    "subtitle": "DWD's dimensioneringsnedbør (KOSTRA) for et punkt i Tyskland: hvor meget regn der falder på 5 minutter til 7 dage, og hvor ofte",
+    "aboutButton": "Om skybrud",
+    "about1": "Dimensioneringsnedbøren fortæller, hvor meget regn et regnskyl af en given varighed bringer, som vender tilbage i gennemsnit hvert så og så mange år: en regn på 1 time med en gentagelsesperiode på 100 år er en 100-årsregn. Med disse værdier dimensioneres kloakker, forsinkelsesbassiner og rørunderføringer.",
+    "about2": "Værdierne er fra KOSTRA-DWD-2020, DWD's statistiske analyse af Tysklands lange målerækker fra nedbørsmålere, på et gitter af celler på 5 km. Tabellen er for den celle, som punktet ligger i: et skøn for et areal på 25 km², ikke en måling i punktet.",
+    "about3": "Nedbørsdybden er den regn, der falder i løbet af varigheden, i mm (1 mm er 1 liter pr. kvadratmeter). Intensiteten er den samme regn som en rate, i liter pr. sekund og hektar. DWD angiver en tolerance i procent for hver værdi, som tabellen viser under den.",
+    "aboutSources": "Kilde og metode:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, gitterdata",
+    "pointTitle": "Vælg punktet",
+    "placeLabel": "Søg efter et sted",
+    "mapHint": "Eller klik på kortet for at vælge et punkt.",
+    "pointLabel": "Valgt punkt",
+    "pointPosition": "Din placering, afrundet: {point}",
+    "pointMap": "På kortet: {point}",
+    "positionUsed": "Din placering er nu punktet. Den skrives ikke i sidens adresse.",
+    "mapLabel": "Kort til at vælge punktet for dimensioneringsnedbøren. Et klik vælger et punkt; den celle på 5 km i DWD's gitter, som det ligger i, er optegnet.",
+    "pointMarker": "Valgt punkt",
+    "loading": "Læser DWD's tabeller … den første forespørgsel tager et par sekunder.",
+    "outside": "Der er ingen dimensioneringsnedbør for dette punkt. DWD's gitter dækker Tyskland og en kant på omkring 10 km uden om og giver ingen værdier på havet. Vælg et andet punkt.",
+    "failed": "Dimensioneringsnedbøren kunne ikke indlæses.",
+    "resultTitle": "Dimensioneringsnedbør for det valgte punkt",
+    "resultHeading": "Dimensioneringsnedbør",
+    "cell": "DWD-gittercelle {cell}, centrum {centre}",
+    "quantitySwitch": "Vis regnen som",
+    "quantity": {
+      "depth": "Nedbørsmængde",
+      "intensity": "Intensitet"
+    },
+    "estimateNote": "Disse værdier er DWD's skøn for den celle på 5 km, som punktet ligger i, ikke målinger i punktet.",
+    "uncertaintyNote": "Under hver værdi: DWD's usikkerhed i plus-minus procent. Værdierne er statistik over tidligere regn, ikke en prognose.",
+    "uncertaintyLabel": "usikkerhed",
+    "noValue": "ingen værdi",
+    "tableLabel": "Tabel over dimensioneringsnedbøren; kan rulles sidelæns",
+    "tableCaption": "{quantity} i {unit}: 22 varigheder af en regn efter 9 gentagelsesperioder",
+    "chartLabel": "Diagram: {quantity} i {unit} mod regnens varighed, en kurve for hver gentagelsesperiode. Med piletasterne læser du værdierne for en varighed.",
+    "chartNotDrawn": "Diagrammet kunne ikke tegnes.",
+    "returnPeriodLegend": "Gentagelsesperiode (år)",
+    "returnPeriodHeading": "Gentagelsesperiode i år",
+    "returnPeriodYears": "{count} år | {count} år",
+    "duration": {
+      "heading": "Varighed",
+      "minutes": "{n} min",
+      "hours": "{n} t",
+      "days": "{n} d"
+    },
+    "copyLink": "Kopiér link til dette punkt",
+    "linkCopied": "Link kopieret.",
+    "linkNotCopied": "Linket kunne ikke kopieres."
   }
 }

@@ -8,7 +8,7 @@ import { nextTick } from 'vue'
 // loads a module of its own. Every test starts with the empty storage of tests/setup/storage.ts; the tests here put a
 // storage of their own over it, one they can make fail, and give the shared one back afterwards.
 
-const DEFAULT_BAR = ['forecast', 'explorer', 'stripes', 'radar', 'history', 'map']
+const DEFAULT_BAR = ['forecast', 'explorer', 'stripes', 'radar', 'history', 'map', 'kostra']
 
 function memoryStorage() {
   const items = new Map<string, string>()
@@ -103,16 +103,16 @@ describe('the settings where the storage fails', () => {
   it('repair a choice that names a tool that is gone, or too few, and keep what else is stored', async () => {
     storage.setItem('wd_settings', JSON.stringify({ version: 1, friendlyLabels: false, tabBar: ['satellite', 'history'] }))
     const { settings } = await freshSettings()
-    expect(settings.value.tabBar).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map'])
+    expect(settings.value.tabBar).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map', 'kostra'])
     expect(settings.value.friendlyLabels).toBe(false)
   })
 
   it('keep a choice in the storage, which the next load reads', async () => {
     const first = await freshSettings()
-    first.settings.value.tabBar = ['stripes', 'radar', 'explorer', 'forecast', 'history', 'map']
+    first.settings.value.tabBar = ['stripes', 'radar', 'explorer', 'forecast', 'history', 'map', 'kostra']
     await nextTick()
-    expect(JSON.parse(storage.getItem('wd_settings')!).tabBar).toEqual(['stripes', 'radar', 'explorer', 'forecast', 'history', 'map'])
+    expect(JSON.parse(storage.getItem('wd_settings')!).tabBar).toEqual(['stripes', 'radar', 'explorer', 'forecast', 'history', 'map', 'kostra'])
     const next = await freshSettings()
-    expect(next.settings.value.tabBar).toEqual(['stripes', 'radar', 'explorer', 'forecast', 'history', 'map'])
+    expect(next.settings.value.tabBar).toEqual(['stripes', 'radar', 'explorer', 'forecast', 'history', 'map', 'kostra'])
   })
 })

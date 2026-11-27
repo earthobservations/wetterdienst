@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test'
 import { REFERENCE } from '../../app/utils/sections'
 import { mockBackend } from './accessibility/mock-backend'
 
-// The shell of the app (GH-3518): the header with the six tools and the reference, the search, the tab bar and the
+// The shell of the app (GH-3518): the header with the seven tools and the reference, the search, the tab bar and the
 // menu sheet of the narrow layout, the skip link, and the one frame every page sits in. The backend is the
 // accessibility spec's mock, so nothing here reaches a provider.
 
@@ -28,11 +28,19 @@ async function open(page: Page, baseURL: string, path: string, language = 'en') 
 test.describe('the wide header', () => {
   test.use({ viewport: { width: 1280, height: 800 } })
 
-  test('names the tools as tabs and marks the one of the page', async ({ page, baseURL }) => {
+  test('names the tools as tabs and marks the one of the page, the tabs that do not fit being in the More menu (GH-4500)', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/stripes')
     const nav = page.getByRole('navigation', { name: en.shell.mainNav })
-    for (const key of ['meteogram', 'explorer', 'stripes', 'history', 'map'])
-      await expect(nav.getByRole('link', { name: en.nav[key], exact: true })).toBeVisible()
+    const keys = ['meteogram', 'explorer', 'stripes', 'radar', 'history', 'map', 'kostra']
+    // every tool is a tab of the row or an item of the More menu, one click away
+    const names = await nav.locator('ul > li > a.nav-tab').allInnerTexts()
+    const more = nav.getByTestId('nav-more-button')
+    if (await more.count()) {
+      await more.click()
+      names.push(...await nav.getByTestId('nav-more-panel').locator('a span.font-semibold').allInnerTexts())
+      await page.keyboard.press('Escape')
+    }
+    expect(names.map(name => name.trim())).toEqual(keys.map(key => en.nav[key]))
     await expect(nav.getByRole('link', { name: en.nav.stripes, exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1)
     // the tab bar of the narrow layout is not there at this width
@@ -462,7 +470,7 @@ test.describe('the narrow layout', () => {
     const box = await bar.boundingBox()
     expect(box!.y + box!.height).toBeGreaterThan(844 - 2)
     await expect(bar.getByRole('link', { name: en.nav.meteogram })).toHaveAttribute('aria-current', 'page')
-    // four tools and the Menu (GH-3650), the Radar in the fourth place (GH-3788); History and the map are in the Menu's sheet
+    // four tools and the Menu (GH-3650), the Radar in the fourth place (GH-3788); History, the map and the heavy rainfall (GH-4500) are in the Menu's sheet
     expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.header.menu])
     // the page keeps the bar's height free at its foot, so its last line is not under the bar
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
@@ -478,6 +486,16 @@ test.describe('the narrow layout', () => {
     await expect(sheet).toBeVisible()
     await sheet.getByRole('link', { name: en.nav.providers }).click()
     await expect(page).toHaveURL(/\/providers$/)
+    await expect(sheet).toBeHidden()
+  })
+
+  test('has the heavy rainfall among the tools of its sheet, and opens it', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    await page.getByRole('button', { name: en.header.menu, exact: true }).click()
+    const sheet = page.getByRole('dialog', { name: en.header.menu })
+    await sheet.getByRole('link', { name: en.nav.kostra }).click()
+    await expect(page).toHaveURL(/\/kostra$/)
+    await expect(page.getByRole('heading', { level: 1, name: en.kostra.title })).toBeVisible()
     await expect(sheet).toBeHidden()
   })
 
@@ -502,7 +520,7 @@ test.describe('a tool on a phone', () => {
 
   // the result column of the workbench is no wider than the page: the forecast's row of day cards scrolls in its own
   // box, and a chart or a table in theirs (WCAG 1.4.10)
-  for (const path of ['/meteogram?station=01001&compact=true', '/meteogram?station=01001', '/stripes?kind=temperature&station=00011']) {
+  for (const path of ['/meteogram?station=01001&compact=true', '/meteogram?station=01001', '/stripes?kind=temperature&station=00011', '/kostra', '/kostra?lat=50.7313&lon=13.7516', '/kostra?lat=40&lon=3']) {
     test(`does not scroll sideways: ${path}`, async ({ page, baseURL }) => {
       await open(page, baseURL!, path)
       await page.waitForLoadState('networkidle').catch(() => {})
@@ -532,7 +550,7 @@ test.describe('the frame', () => {
   test('puts the title of every page on one line with the logo', async ({ page, baseURL }) => {
     test.setTimeout(120_000)
     const lefts: Record<string, number> = {}
-    for (const path of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/providers', '/glossary', '/measurement', '/methods', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']) {
+    for (const path of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/kostra', '/providers', '/glossary', '/measurement', '/methods', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']) {
       await open(page, baseURL!, path)
       const logo = await page.getByRole('banner').getByRole('link', { name: 'Wetterdienst' }).locator('img').boundingBox()
       const title = page.getByRole('heading', { level: 1 })
