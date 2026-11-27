@@ -38,8 +38,8 @@ from wetterdienst.exceptions import (
     CredentialRejectedError,
     DateRequiredError,
     DownloadError,
-    ImageTimeoutError,
     ImageTooLargeError,
+    ImageTooManyPointsError,
     MissingDependencyError,
     MissingTimeIntervalError,
     NoInternetError,
@@ -50,7 +50,7 @@ from wetterdienst.exceptions import (
     UpstreamError,
     WetterdienstError,
 )
-from wetterdienst.io.formats import COMPACT_MEDIA_TYPE, FORMATS, renders_with_kaleido
+from wetterdienst.io.formats import COMPACT_MEDIA_TYPE, FORMATS, is_image
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.group_statistics import GroupsOverLimitError
 from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
@@ -194,6 +194,7 @@ from wetterdienst.ui.render import (
 )
 from wetterdienst.ui.response_metadata import (
     API_VERSION,
+    EstimateMetadata,
     ResponseMetadata,
     Search,
     StationIdsMetadata,
@@ -636,11 +637,12 @@ def _credential_rejected_on_the_server(e: CredentialRejectedError, request: Base
     )
 
 
-#: the longest side, in pixels once `scale` is applied, of an image this server renders. Chromium
-#: renders it for as long as it takes and holds the whole canvas: 14000 x 10000 px took 18 s, and
-#: 28000 x 20000 px 30 s and then an empty body that was answered with a 200 (GH-2765)
+#: the longest side, in pixels once `scale` is applied, of an image this server renders. The renderer holds the
+#: whole canvas and draws it for as long as it takes: 14000 x 10000 px took 18 s in the browser the images were
+#: drawn with before vl-convert, and 28000 x 20000 px 30 s and then an empty body that was answered with a 200
+#: (GH-2765)
 _MAX_IMAGE_SIDE = 8192
-#: the size plotly renders at when a request names none
+#: the size an image is drawn at when a request names none
 _DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT = 700, 500
 
 
@@ -648,9 +650,9 @@ def _refuse_oversized_image(width: int | None, height: int | None, scale: float 
     """Refuse an image larger than `_MAX_IMAGE_SIDE` on a side, with a 400, before anything is fetched.
 
     The request fields only have to be positive, and the caller is whoever can reach the API: each
-    image request starts its own browser, so the size it paints is theirs to choose. The library
+    image request draws its own canvas, so the size it paints is theirs to choose. The library
     and the CLI, whose caller is the host's own user, are not limited. The MCP tools are this API's
-    routes, so they are limited with it. A size left out is plotly's default, which is what is
+    routes, so they are limited with it. A size left out is the default size, which is what is
     measured here: the height of a chart of several parameters is 300 px for each, known only once
     they are collected, and is measured then, by `check_image_size` (`_refuse_oversized_render`).
     """
@@ -669,7 +671,8 @@ _CHARTS_DISABLED_HEADERS = {"Cache-Control": "no-store"}
 def _refuse_disabled_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
     """Refuse a chart format with a 403 before anything is read, where the server draws no charts (GH-4461).
 
-    Every image starts a Chrome on the server, so `WD_RESTAPI_PLOTTING` is off by default (`Settings.restapi_plotting`).
+    vl-convert draws a chart in the server's process, one at a time, which takes time and memory (11 s and 1.3 GB at
+    100,000 points): `WD_RESTAPI_PLOTTING` is off by default (`Settings.restapi_plotting`).
     This is the first thing a handler does: no station is looked up, nothing is downloaded, and the plotting libraries
     are not imported. The request is validated by then, and `values` has refused a row option given twice (which reads
     nothing), so a request that is malformed is the 422 first; a chart that is also too large is told that charts are
@@ -701,7 +704,7 @@ def _refuse_disabled_chart(request: StationsRequest | ValuesRequest | Interpolat
 
 def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
     """Refuse the size of a chart in an image format, see `_refuse_oversized_image`."""
-    if renders_with_kaleido(request.format):
+    if is_image(request.format):
         _refuse_oversized_image(request.width, request.height, request.scale)
 
 
@@ -709,8 +712,8 @@ def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | Interpola
 async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) -> Response:
     """Answer a chart whose own height makes the image too large with a 400, as `_refuse_oversized_image` does.
 
-    Raised by `check_image_size` once the figure is built, since a chart of several parameters is
-    300 px tall for each, and before the browser is started.
+    Raised by `check_image_size` once the chart is built, since a chart of several parameters is
+    300 px tall for each, and before it is drawn.
     """
     log.info(f"Refused {request.url.path}: {exc}")
     return _problem_response(
@@ -718,6 +721,24 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
         400,
         f"{exc} Lower scale, give a smaller height, or ask for fewer parameters.",
         ProblemKind.IMAGE_TOO_LARGE,
+    )
+
+
+@app.exception_handler(ImageTooManyPointsError)
+async def _refuse_too_many_points(request: Request, exc: ImageTooManyPointsError) -> Response:
+    """Answer a chart of more points than the server draws with a 400 of the kind `limit-exceeded` (GH-3238).
+
+    Raised once the chart is built, which is where its points are counted, and before it is drawn. The page is a
+    chart as well, since it embeds the points.
+    """
+    log.info(f"Refused {request.url.path}: {exc}")
+    narrow = "Ask for fewer stations or parameters, or a shorter `timestamp` window."
+    return _problem_response(
+        request,
+        400,
+        f"{exc} {narrow} The Python API and the command line draw any number.",
+        ProblemKind.LIMIT_EXCEEDED,
+        extra={"limit": "image_points", "maximum": exc.max_points, "requested": exc.points},
     )
 
 
@@ -732,7 +753,6 @@ _MEDIA_TYPES = {
     "html": "text/html",
     "png": "image/png",
     "jpg": "image/jpeg",
-    "webp": "image/webp",
     "svg": "image/svg+xml",
     "pdf": "application/pdf",
 }
@@ -742,7 +762,7 @@ _MEDIA_TYPES = {
 #: given a `<base>` to re-point its links, nor send a form (GH-3349)
 _PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
 #: the policy of an SVG answer, which a browser shows as a document where its address is opened, and runs script in:
-#: no script and no request, styles in the file, images only inlined. That is all a chart written by Kaleido has;
+#: no script and no request, styles in the file, images only inlined. That is all a chart written by vl-convert has;
 #: its `url(#...)` is a clip path of its own. Not for `html`, which is a script by design, and not for `pdf`, whose
 #: viewer a policy breaks
 _SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
@@ -797,22 +817,22 @@ class _ValuesWithSettingsOgcFeatureCollection(_ValuesOgcFeatureCollectionBody):
 
 
 class _InterpolatedValuesWithSettingsDict(_InterpolatedValuesDictBody):
-    metadata: ResponseMetadata
+    metadata: EstimateMetadata
     settings: NotRequired[InterpolationSettings]
 
 
 class _InterpolatedValuesWithSettingsOgcFeatureCollection(_InterpolatedValuesOgcFeatureCollectionBody):
-    metadata: ResponseMetadata
+    metadata: EstimateMetadata
     settings: NotRequired[InterpolationSettings]
 
 
 class _SummarizedValuesWithSettingsDict(_SummarizedValuesDictBody):
-    metadata: ResponseMetadata
+    metadata: EstimateMetadata
     settings: NotRequired[SummarySettings]
 
 
 class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectionBody):
-    metadata: ResponseMetadata
+    metadata: EstimateMetadata
     settings: NotRequired[SummarySettings]
 
 
@@ -1272,7 +1292,7 @@ def version() -> VersionAnswer:
 
     `plotting` says whether the instance draws charts: `WD_RESTAPI_PLOTTING` (`Settings.restapi_plotting`, off by
     default) is read for every request, as the refusal reads it, so a client learns before it asks for a chart
-    (`format=html`, `png`, `jpg`, `webp`, `svg` or `pdf`) whether it would get the 403 `charts-disabled`.
+    (`format=html`, `png`, `jpg`, `svg` or `pdf`) whether it would get the 403 `charts-disabled`.
 
     `limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`
     and `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or
@@ -1464,7 +1484,7 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             },
             "limit": {
                 "type": "string",
-                "enum": ["stations", "rows", "stream_rows", "groups", "series"],
+                "enum": ["stations", "rows", "stream_rows", "groups", "series", "image_points"],
                 "description": "Of `limit-exceeded`: the limit the request passes.",
             },
             "maximum": {"type": "integer", "description": "Of `limit-exceeded`: the value of that limit."},
@@ -2122,15 +2142,21 @@ def _stream_response(
     )
 
 
-def _stream_end(stations: int, rows: int, search: Callable[[], dict[str, Any]] | None = None) -> dict[str, Any]:
+def _stream_end(
+    stations: int,
+    rows: int,
+    search: Callable[[], dict[str, Any]] | None = None,
+    *,
+    matched: int | None = None,
+) -> dict[str, Any]:
     """Give the `end` line of a stream: what was sent, and every warning raised while it was.
 
     `search` gives what the row options searched where the stream has them: it is known only at the end, so the line
-    that ends the stream carries it, as it carries the warnings.
+    that ends the stream carries it, as it carries the warnings. `matched` is the stations a listing found.
     """
     # the search first: it may say that `max_rows` cut the answer, a warning the line carries
     report = search() if search is not None else None
-    return ndjson_end(stations, rows, recorded_warnings(), report)
+    return ndjson_end(stations, rows, recorded_warnings(), report, matched=matched)
 
 
 def _stream_stations(
@@ -2143,7 +2169,7 @@ def _stream_stations(
             ndjson_head(metadata),
             frames,
             lambda df: cast("list[dict[str, Any]]", replace(stations, df=df).to_dict()["stations"]),
-            _stream_end,
+            lambda stations_, rows_: _stream_end(stations_, rows_, matched=metadata.counts.stations_matched),
             _stream_failure(request, "stream stations"),
         )
         return _stream_response(chunks, NDJSON_MEDIA_TYPE, metadata, ndjson=True)
@@ -2837,21 +2863,6 @@ def _quota_exhausted(e: ProviderRateLimitError, what: str) -> HTTPException:
     )
 
 
-def _image_timeout(e: ImageTimeoutError, what: str) -> HTTPException:
-    """Answer a chart whose browser did not finish in time with a 504 of the kind `image-timeout` (GH-3723).
-
-    No provider is involved and the request was well formed: the renderer of this server did not answer, was closed,
-    and the same request can succeed on a retry, so the client is told that and nothing of the server's machine. The
-    seconds are the server's own limit and go to the log.
-    """
-    log.warning(f"Failed to {what}: {e}")
-    return ProblemError(
-        504,
-        "The image was not rendered in time. The request was valid; try again later.",
-        ProblemKind.IMAGE_TIMEOUT,
-    )
-
-
 def _server_error(e: Exception) -> HTTPException:
     """Answer a failure that is the server's with a 500 that names its type and nothing else (GH-2767).
 
@@ -2920,8 +2931,6 @@ def _server_side_failure(e: Exception, request: BaseModel, what: str) -> HTTPExc
         return _credential_rejected_on_the_server(e, request, what)
     if isinstance(e, ConfigurationError):
         return _configuration_missing_on_the_server(e, what)
-    if isinstance(e, ImageTimeoutError):
-        return _image_timeout(e, what)
     if isinstance(e, UpstreamError):
         return _upstream_failure(e, what)
     if failure_status(e) == 501:

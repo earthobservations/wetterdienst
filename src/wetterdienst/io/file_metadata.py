@@ -75,7 +75,12 @@ def metadata_block(
     provider, _, network = Wetterdienst._network_of(type(stations.request)).partition("/")  # noqa: SLF001
     if not network:
         return None
-    return metadata_to_dict(result_metadata(result, provider=provider, network=network, heavy=heavy))
+    # a list of stations says how many stations matched, which a `rank` may have left more of than it lists
+    return metadata_to_dict(
+        result_metadata(
+            result, provider=provider, network=network, heavy=heavy, matched=isinstance(result, StationsResult)
+        )
+    )
 
 
 def block_attributes(block: dict[str, Any]) -> dict[str, str]:

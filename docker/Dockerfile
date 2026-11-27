@@ -49,13 +49,13 @@ ENV UV_NO_DEV=1
 ENV UV_LINK_MODE=copy
 ENV UV_PROJECT_ENVIRONMENT=/usr/local
 
-# Install chromium -> required for kaleido png export, curl for health checks, and the ecCodes
+# Install curl for health checks, and the ecCodes
 # library (with its definitions, libeccodes-data) that the eccodes bindings of the `bufr` extra
 # load to decode BUFR -- the lock installs the bindings only. The dev stage installs in place, so it
 # also has the compiler and the HDF5 headers (which bring the HDF5 library h5py links to) that the
 # build stage has
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data \
+    apt-get install -y --no-install-recommends curl libeccodes0 libeccodes-data \
     build-essential libhdf5-dev pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
@@ -81,12 +81,12 @@ CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:7890", "--reload"]
 # Final stage
 FROM python:3.15-slim-trixie@sha256:044d5bd747976e21f8bc4d746c3479b19a84bb8ae6261b802acdd26b29036c93
 
-# Install chromium -> required for kaleido png export, curl for health checks, and the ecCodes
+# Install curl for health checks, and the ecCodes
 # library (with its definitions, libeccodes-data) that the eccodes bindings of the `bufr` extra
 # load to decode BUFR -- the lock installs the bindings only. libhdf5-310 and libhdf5-hl-310 are the
 # HDF5 libraries that h5py, built from source in the build stage, links to
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data \
+    apt-get install -y --no-install-recommends curl libeccodes0 libeccodes-data \
     libhdf5-310 libhdf5-hl-310 && \
     rm -rf /var/lib/apt/lists/*
 
@@ -94,11 +94,11 @@ RUN apt-get update && \
 COPY --from=build /usr/local/lib/python3.15/site-packages /usr/local/lib/python3.15/site-packages
 COPY --from=build /usr/local/bin /usr/local/bin
 
-# Run unprivileged: the server parses what the network gives it, and starts a Chromium for every
-# chart (kaleido runs it without its sandbox), so a flaw in either should not be root's (GH-2770).
+# Run unprivileged: the server parses what the network gives it, and draws every chart in its own process
+# (vl-convert, no browser, GH-3238), so a flaw in either should not be root's (GH-2770).
 # The home directory is where the cache goes, /home/wetterdienst/.cache/wetterdienst; a volume
 # kept across runs is mounted there, or anywhere with WD_CACHE_DIR pointing to it. The directory
-# is made here, with ~/.cache above it (Chromium and matplotlib keep theirs there), owned by the
+# is made here, with ~/.cache above it (matplotlib keeps its own there), owned by the
 # user, so that a new named volume mounted there takes its owner
 # (a volume that an earlier, root image filled keeps root as its owner: chown it to 10001 once, see
 # docs/usage/docker.md; until then the cache is kept in a temporary directory, GH-2860)
@@ -116,7 +116,7 @@ EXPOSE 7890
 # health state. The probe asks the port the server listens on (Coolify starts it on 3000, the image on
 # 7890), for a server on all interfaces or on loopback: it reads the listening TCP sockets of the
 # container (state 0A in /proc/net/tcp and tcp6, the port is hex), tries them from the lowest port up,
-# and is healthy when `/health` answers on any of them, so a socket of Chromium or another process that
+# and is healthy when `/health` answers on any of them, so a socket of another process that
 # is no HTTP server is skipped. A server bound to one container address is not reached as `localhost`,
 # and a container that shares the network namespace of the host or of another container (--network
 # host) lists the sockets of others: the probe is for a container that runs one server. awk (mawk of

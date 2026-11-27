@@ -311,6 +311,11 @@ def _parameter_key(name: str) -> int:
     return sum(map(ord, name))
 
 
+def _flag_code(i: int) -> int:
+    """Return the quality flag the archive of `_serve_archive_of_parameters` gives its reading `i`."""
+    return 10 + i % 3
+
+
 def _serve_archive_of_parameters(
     monkeypatch: pytest.MonkeyPatch,
     step: timedelta,
@@ -321,8 +326,8 @@ def _serve_archive_of_parameters(
 
     The upstream API counts timestamps times parameters, and so does this: it fails above 1,000,000
     data points. Reading ``i`` of a parameter is ``i + 1e6 * _parameter_key(parameter)``, so a reading
-    that landed on another parameter or timestamp shows. Returns the window, the parameters and the dataset
-    of each request.
+    that landed on another parameter or timestamp shows. Each parameter has its flag (`<parameter>_flag`), which counts
+    as a parameter too. Returns the window, the parameters (flags included) and the dataset of each request.
     """
     requests = []
 
@@ -342,8 +347,14 @@ def _serve_archive_of_parameters(
         last = (min(end, archive_end) - archive_start) // step
         timestamps = [archive_start + i * step for i in range(first, last + 1)]
         parameters = {
-            # the API answers in alphabetical order, whatever the order asked for
-            name: {"data": [float(i + 1e6 * _parameter_key(name)) for i in range(first, last + 1)]}
+            # the API answers in alphabetical order, whatever the order asked for; the flag of a reading is one of the
+            # codes 10, 11 and 12 by its timestamp, so that a flag that landed on another timestamp shows
+            name: {
+                "data": [
+                    _flag_code(i) if name.endswith("_flag") else float(i + 1e6 * _parameter_key(name))
+                    for i in range(first, last + 1)
+                ]
+            }
             for name in sorted(names)
         }
         body = {
@@ -416,8 +427,9 @@ def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
     )
     names = [parameter.name_original for parameter in request.parameters]
     df = request.filter_by_station_id("4821").values().all().df
-    # every request asks for every parameter, and there are few enough of them
-    assert all(sorted(asked) == sorted(names) for _, _, asked, _ in requests)
+    # every request asks for every parameter and its flag, and there are few enough requests
+    flags = [f"{name}_flag" for name in names]
+    assert all(sorted(asked) == sorted([*names, *flags]) for _, _, asked, _ in requests)
     assert len(requests) == n_requests <= 240
     # a window starts inside the archive, so a reading on a boundary is among those checked
     assert n_requests == 1 or any(archive_start < begin < archive_end for begin, _, _, _ in requests)
@@ -427,6 +439,10 @@ def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
         series = df.filter(pl.col("parameter") == name).sort("timestamp")
         assert series.get_column("timestamp").to_list() == [archive_start + i * step for i in range(expected)]
         assert series.get_column("value").to_list() == [float(i + 1e6 * _parameter_key(name)) for i in range(expected)]
+        # the flag of each reading is its own, the first token whatever a check adds after it (`suspect:range`), also
+        # across the windows
+        first = series.get_column("quality_flags").str.split(",").list.first().to_list()
+        assert first == [str(_flag_code(i)) for i in range(expected)]
 
 
 def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -446,8 +462,8 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
     )
     df = request.filter_by_station_id("4821").values().all().df
     assert [(names, dataset) for _, _, names, dataset in requests] == [
-        (["tl", "rf"], "klima-v2-1h"),
-        (["rf"], "klima-v2-10min"),
+        (["tl", "rf", "tl_flag", "rf_flag"], "klima-v2-1h"),
+        (["rf", "rf_flag"], "klima-v2-10min"),
     ]
     assert df.group_by("resolution", "parameter").len().sort("resolution", "parameter").rows() == [
         ("10_minutes", "rf", 49),
@@ -556,7 +572,7 @@ def test_geosphere_observation_stations_carry_the_wmo_number(monkeypatch: pytest
     ]
 
 
-def _serve_values(monkeypatch: pytest.MonkeyPatch, series: dict[str, list[float]]) -> None:
+def _serve_values(monkeypatch: pytest.MonkeyPatch, series: dict[str, list[float | None]]) -> None:
     """Serve the station list and a data response with these series, three days from 2024-01-08."""
 
     def _download(url: str, **_kwargs: object) -> File:
@@ -565,7 +581,9 @@ def _serve_values(monkeypatch: pytest.MonkeyPatch, series: dict[str, list[float]
         names = parse_qs(urlparse(url).query)["parameters"][0].split(",")
         body = {
             "timestamps": ["2024-01-08T00:00+00:00", "2024-01-09T00:00+00:00", "2024-01-10T00:00+00:00"],
-            "features": [{"properties": {"parameters": {name: {"data": series[name]} for name in names}}}],
+            "features": [
+                {"properties": {"parameters": {name: {"data": series.get(name, [None] * 3)} for name in names}}}
+            ],
         }
         return File(url=url, content=BytesIO(json.dumps(body).encode()), status=200)
 
@@ -701,3 +719,118 @@ def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_directio
         "wind_direction_gust_max": [(12.0, None), (0.0, None), (356.0, None)],
         "wind_speed_mean": [(0.3, None), (0.0, None), (0.5, None)],
     }
+
+
+def _requested(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """Record the parameters of each data request, after `_serve_values` or an archive served them."""
+    asked: list[list[str]] = []
+    serve = api.download_file
+
+    def _download(url: str, **kwargs: object) -> File:
+        if not url.endswith("/metadata/stations"):
+            asked.append(parse_qs(urlparse(url).query)["parameters"][0].split(","))
+        return serve(url, **kwargs)
+
+    monkeypatch.setattr(api, "download_file", _download)
+    return asked
+
+
+def _daily_request(*parameters: str) -> GeosphereObservationRequest:
+    return GeosphereObservationRequest(
+        parameters=[("daily", "data", parameter) for parameter in parameters],
+        start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+
+
+def test_geosphere_observation_values_are_asked_for_with_their_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the request holds each parameter and its `<parameter>_flag`, in the one request (GH-4480).
+
+    The metadata of every klima-v2 dataset lists the flag of a parameter under the parameter's name and `_flag`
+    (`tlmax` and `tlmax_flag`), with the code list q21.
+    """
+    _serve_values(monkeypatch, {"tlmax": [1.0, 2.0, 3.0], "tlmax_flag": [20, 20, 20]})
+    asked = _requested(monkeypatch)
+    _daily_request("temperature_air_max_2m").filter_by_station_id("4821").values().all()
+    assert asked == [["tlmax", "tlmax_flag"]]
+
+
+def test_geosphere_observation_the_flag_of_the_source_leads_the_quality_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that each value carries its own flag as the plain code, before the `raw:` token (GH-4480).
+
+    Station 5904 in klima-v2-1d for 2024-01-08 to 2024-01-12 (read 2026-11-26) has ``rr`` [0.8, -1.0, -1.0, 0.0, -1.0]
+    and ``rr_flag`` [20, 20, 20, 20, 20]; the other codes of q21, 12 and 22 and a flag the source leaves empty (null),
+    are served on the three days of the helper. The flag is the number the source writes, never ``20.0``.
+    """
+    _serve_values(
+        monkeypatch,
+        {
+            "rr": [0.8, -1.0, 0.0],
+            "rr_flag": [20, 12, None],
+            "tlmax": [1.0, 2.5, 3.0],
+            # a response that has a gap in a column writes its whole numbers with a decimal
+            "tlmax_flag": [10.0, 22.0, 0.0],
+        },
+    )
+    df = _daily_request("precipitation_amount", "temperature_air_max_2m").filter_by_station_id("4821").values().all().df
+    rows = {
+        parameter: group.sort("timestamp").select("value", "quality_flags").rows()
+        for (parameter,), group in df.group_by("parameter", maintain_order=True)
+    }
+    assert rows == {
+        "precipitation_amount": [(0.8, "20"), (0.0, "12,raw:-1.0"), (0.0, None)],
+        "temperature_air_max_2m": [(1.0, "10"), (2.5, "22"), (3.0, "0")],
+    }
+
+
+def test_geosphere_observation_a_value_without_a_flag_has_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a flag the source leaves out or leaves null (q21 "undefiniert") is no token, for every value (GH-4480).
+
+    The answer may not have the flag at all (an archive that serves the values only), which leaves the values as
+    they were, and the flag of a value that has none is null, which is no ``None`` or ``nan`` text.
+    """
+    _serve_values(monkeypatch, {"tlmax": [1.0, None, 3.0], "tlmax_flag": [None, None, None]})
+    df = _daily_request("temperature_air_max_2m").filter_by_station_id("4821").values().all().df.sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [(1.0, None), (None, None), (3.0, None)]
+
+    def _download(url: str, **_kwargs: object) -> File:
+        if url.endswith("/metadata/stations"):
+            return File(url=url, content=BytesIO(_STATIONS), status=200)
+        body = {
+            "timestamps": ["2024-01-08T00:00+00:00", "2024-01-09T00:00+00:00"],
+            "features": [{"properties": {"parameters": {"tlmax": {"data": [1.0, 2.0]}}}}],
+        }
+        return File(url=url, content=BytesIO(json.dumps(body).encode()), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+    df = _daily_request("temperature_air_max_2m").filter_by_station_id("4821").values().all().df.sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [(1.0, None), (2.0, None)]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "parameter", "original"),
+    [
+        ("10_minutes", "humidity_relative", "rf"),
+        ("hourly", "humidity_relative", "rf"),
+        ("monthly", "humidity_relative_mean", "rf_mittel"),
+    ],
+)
+def test_geosphere_observation_flags_come_with_every_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+    parameter: str,
+    original: str,
+) -> None:
+    """Test that the four datasets (here three more than the daily) read the flag the same way (GH-4480)."""
+    _serve_values(monkeypatch, {original: [80.0, 81.0, 82.0], f"{original}_flag": [12, 12, 10]})
+    request = GeosphereObservationRequest(
+        parameters=[(resolution, "data", parameter)],
+        start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = request.filter_by_station_id("4821").values().all().df.sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [(80.0, "12"), (81.0, "12"), (82.0, "10")]

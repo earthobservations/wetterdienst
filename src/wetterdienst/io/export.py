@@ -4,24 +4,20 @@
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import logging
 import os
-import signal
-import subprocess
-import time
 from abc import abstractmethod
-from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 
 import polars as pl
 
-from wetterdienst.exceptions import ImageTimeoutError, ImageTooLargeError
+from wetterdienst.exceptions import ImageTooLargeError, ImageTooManyPointsError, UnknownFormatError
+from wetterdienst.io import charts
 from wetterdienst.io.file_metadata import require_block, write_sidecar
-from wetterdienst.io.formats import FORMATS, find_format, refuse_unknown_arguments
+from wetterdienst.io.formats import FORMATS, IMAGE_FORMATS, find_format, refuse_unknown_arguments
 from wetterdienst.io.sinks import join_list_columns, write_to_target
 from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.renamed import RefusesRenamedMembers
@@ -31,264 +27,97 @@ from wetterdienst.util.json_util import dumps_json, json_indent
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
 
-    import plotly.graph_objs as go
+    import altair as alt
 
     from wetterdienst.io.formats import Format
 
 log = logging.getLogger(__name__)
 
 
-#: how a chart written as html carries plotly.js: inline (`True`, about 4.8 MB, and the page works offline) or from the
-#: CDN (`"cdn"`, a few kilobytes). Inline unless the request is an MCP tool's, whose answer an assistant reads (GH-3464)
-HTML_PLOTLYJS: ContextVar[bool | str] = ContextVar("wetterdienst_html_plotlyjs", default=True)
+#: how a chart written as html carries Vega: inline (`True`, about 1 MB, and the page works offline) or from the CDN
+#: (`False`, a few kilobytes). Inline unless the request is an MCP tool's, whose answer an assistant reads (GH-3464)
+HTML_INLINE: ContextVar[bool] = ContextVar("wetterdienst_html_inline", default=True)
 
 
-def figure_to_html(fig: go.Figure) -> str:
-    """Write a figure as an html page, with plotly.js as `HTML_PLOTLYJS` says."""
-    return fig.to_html(include_plotlyjs=HTML_PLOTLYJS.get())
-
-
-#: the size plotly renders a figure at when neither the figure nor the caller names one
-_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT = 700, 500
+def chart_to_html(chart: alt.TopLevelMixin) -> str:
+    """Write a chart as an html page, with Vega inline or from the CDN as `HTML_INLINE` says."""
+    return charts.chart_to_html(chart, inline=HTML_INLINE.get())
 
 
 def check_image_size(
-    fig: go.Figure, width: int | None, height: int | None, scale: float | None, max_side: int | None
+    chart: alt.TopLevelMixin, width: int | None, height: int | None, scale: float | None, max_side: int | None
 ) -> None:
-    """Raise `ImageTooLargeError` when the image of `fig` would have a side over `max_side` pixels.
+    """Raise `ImageTooLargeError` when the image of `chart` would have a side over `max_side` pixels.
 
-    Measured as the browser will paint it: a size the caller gives wins over the figure's own, which
-    wins over plotly's default, and `scale` multiplies the result. Nothing is checked without
-    `max_side`, which is what the library and the CLI do.
+    Measured as it will be drawn: a size the caller gives wins over the chart's own, which is the default size
+    of its kind (a chart of rows is `charts.ROW_HEIGHT` pixels high for each), and `scale` multiplies the result. The
+    size asked for is checked first, which costs nothing; then the size the picture really has, since a chart of rows
+    too small for its labels is the smallest that holds them, which can be far more than was asked for (`width=1`,
+    `height=1` and `scale=8192` would be 753,000 pixels wide).
+    Nothing is checked without `max_side`, which is what the library and the CLI do.
     """
     if max_side is None:
         return
     factor = 1 if scale is None else scale
-    rendered_width = (width or fig.layout.width or _DEFAULT_IMAGE_WIDTH) * factor
-    rendered_height = (height or fig.layout.height or _DEFAULT_IMAGE_HEIGHT) * factor
+    default_width, default_height = charts.default_size(chart)
+    rendered_width = (width or default_width) * factor
+    rendered_height = (height or default_height) * factor
     if max(rendered_width, rendered_height) > max_side:
         raise ImageTooLargeError(rendered_width, rendered_height, max_side)
+    drawn_width, drawn_height = charts.drawn_size(chart, width, height)
+    if max(drawn_width, drawn_height) * factor > max_side:
+        raise ImageTooLargeError(drawn_width * factor, drawn_height * factor, max_side)
 
 
-def require_kaleido() -> None:
-    """Say what to install where Kaleido, which renders a plotly figure as an image, is not.
+def check_image_points(chart: alt.TopLevelMixin, max_points: int | None) -> None:
+    """Raise `ImageTooManyPointsError` when `chart` would draw more than `max_points` points.
 
-    Plotly's own `Figure.to_image` raises a `RuntimeError` with its own advice, which the command
-    line prints as a traceback and the REST API answers with a 500. `render_image` does not go through it
-    (GH-3723), but the surfaces ask for Kaleido first all the same, before they fetch anything: its absence is
-    a `MissingDependencyError`, as that of every other package an extra installs.
+    The points are the rows of the data of the chart, which a page embeds as well. Nothing is checked without
+    `max_points`, which is what the library and the CLI do.
     """
-    import_optional("kaleido", "Rendering an image", extra="plotting")
-
-
-#: seconds a chart has to be opened and drawn in, the start of its Chrome included (GH-3723). An export takes about
-#: 1.5 s on a warm machine and 4 s when cold; the heaviest the REST API lets through (a PDF of 8192 x 8192 px with
-#: 100000 points) took 24 to 31 s. Kaleido bounds only the drawing, 90 s by default: the start and the navigation of
-#: its browser have no limit of their own, which is where a stuck export waited for ever. The close is not under it:
-#: it has `_CLOSE_GRACE`
-IMAGE_TIMEOUT = 120.0
-#: seconds the browser has to close after the render ended, and the render's task to notice that it is gone. A
-#: browser that is still there after that is killed with its process group (`_make_sure_it_is_gone`), so a render
-#: that timed out returns within about 10 s of its timeout
-_CLOSE_GRACE = 5.0
-#: seconds `open()` has, after the clock ran out, to have the process of the browser started and kept (see
-#: `_let_the_process_start`); starting it takes a few hundredths of a second, a quarter of a second on a slow runner
-_START_GRACE = 2.0
-
-
-def _kill_group(process: Any) -> None:  # noqa: ANN401
-    """Kill a browser process and, where the system has them, everything in its process group.
-
-    A kill that fails is told and not raised: it comes after the render has an answer (an image or a timeout), which
-    it must not replace. On macOS `killpg` on a group whose leader is a zombie that nobody has reaped yet raises
-    `PermissionError`; on Windows `taskkill` may be missing or slow.
-    """
-    try:
-        if os.name == "nt":
-            subprocess.run(  # noqa: S603
-                ["taskkill", "/F", "/T", "/PID", str(process.pid)],  # noqa: S607
-                capture_output=True,
-                timeout=6,
-                check=False,
-            )
-            return
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            process.kill()
-    except (OSError, subprocess.SubprocessError) as e:
-        log.warning(f"The browser of an image could not be killed: {e!r}")
-
-
-async def _let_the_process_start(browser: Any, work: asyncio.Future[bytes]) -> None:  # noqa: ANN401
-    """Wait until choreographer holds the process of the browser, if its start is under way (GH-3723).
-
-    `Browser.open` starts the process in a thread and keeps the `Popen` it returns once the thread is done. A clock
-    that ran out in between cancels the wait for the thread, which goes on: the process is started after the close,
-    and nothing holds it to kill (a Chrome with no reader of its pipe ends itself when it has started, a stuck one
-    would not). The cancel therefore waits for the process to be kept, a moment at most.
-    """
-    deadline = time.monotonic() + _START_GRACE
-    while not hasattr(browser, "subprocess") and not work.done() and time.monotonic() < deadline:  # noqa: ASYNC110
-        await asyncio.sleep(0.05)
-
-
-async def _make_sure_it_is_gone(browser: Any) -> None:  # noqa: ANN401
-    """Kill the browser if closing it did not end it.
-
-    choreographer's `close` ends a browser that does not answer, but a `close` that was given up on after the grace
-    may have been cancelled before its own kill, and a cancelled wait there counts as closed. Whatever process is
-    still not reaped is killed here, so that no Chrome outlives the call. A process that was reaped is left alone: its
-    id may belong to another by now.
-    """
-    process = getattr(browser, "subprocess", None)
-    if process is None or process.poll() is not None:
+    if max_points is None:
         return
-    log.warning("The browser of an image did not end when it was closed, and is killed.")
-    _kill_group(process)
-    for _ in range(50):
-        if process.poll() is not None:
-            return
-        await asyncio.sleep(0.1)
+    points = charts.count_points(chart)
+    if points > max_points:
+        raise ImageTooManyPointsError(points, max_points)
 
 
-async def _draw_in_a_browser(
-    kaleido: Any,  # noqa: ANN401 -- the module, optional
-    fig: dict[str, Any],
-    opts: dict[str, Any],
-    kopts: dict[str, Any],
-    topojson: str | None,
-    seconds: float,
-) -> bytes:
-    """Start a Chrome and draw the figure in `seconds`, or raise `ImageTimeoutError`; close the Chrome in any case.
+def require_vl_convert() -> None:
+    """Say what to install where vl-convert, which renders a chart as an image, is not.
 
-    What `kaleido.calc_fig` does, with the one thing it does not: a clock on the start and the drawing. Kaleido
-    bounds the drawing and nothing around it. The browser is closed whatever happens (a timeout, an error, Ctrl-C),
-    and killed if closing it does not end it, so no Chrome outlives the call; closing it also ends what the drawing
-    still waits for, so that a drawing stuck on a browser that does not answer cannot hold the close back.
+    The surfaces ask for it first, before they fetch anything: its absence is a `MissingDependencyError`, as that of
+    every other package an extra installs.
     """
-    browser = kaleido.Kaleido(n=1, timeout=seconds, **kopts)
-    work = asyncio.ensure_future(_open_and_draw(browser, fig, opts, topojson))
-    try:
-        done, _ = await asyncio.wait({work}, timeout=seconds)
-        if not done:
-            raise ImageTimeoutError(seconds)
-        if work.cancelled():
-            # the browser ended under the drawing, and choreographer cancelled what waited for it: a
-            # `CancelledError` is no `Exception`, and would pass every handler of a request
-            msg = "The browser that draws the image ended before it was done."
-            raise RuntimeError(msg)
-        try:
-            return work.result()
-        except TimeoutError as e:
-            # a wait of Kaleido's or choreographer's own that ran out first (a page that was not ready in 30 s)
-            raise ImageTimeoutError(None) from e
-    finally:
-        await _let_the_process_start(browser, work)
-        work.cancel()
-        # not `wait_for`: choreographer swallows the cancellation of its own wait and goes on to its kill, which takes
-        # 9 s more; the browser is given the grace, and killed after it
-        closing = asyncio.ensure_future(browser.close())
-        await asyncio.wait({closing}, timeout=_CLOSE_GRACE)
-        await _make_sure_it_is_gone(browser)
-        closing.cancel()
-        await asyncio.wait({closing, work}, timeout=_CLOSE_GRACE)
-        if closing.done() and not closing.cancelled() and (error := closing.exception()) is not None:
-            log.warning(f"The browser of an image did not close cleanly: {error!r}")
-        if work.done() and not work.cancelled():
-            work.exception()  # read, so that asyncio does not report it as never retrieved
-
-
-async def _open_and_draw(browser: Any, fig: dict[str, Any], opts: dict[str, Any], topojson: str | None) -> bytes:  # noqa: ANN401
-    await browser.open()
-    return await browser.calc_fig(fig, opts=opts, topojson=topojson)
-
-
-def _run(coroutine: Coroutine[Any, Any, bytes]) -> bytes:
-    """Run a coroutine to its end from sync code, in a thread of its own where the caller already has a loop."""
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(coroutine)
-    with ThreadPoolExecutor(max_workers=1) as pool:  # a notebook: its loop is running, and this call blocks it
-        return cast("bytes", pool.submit(asyncio.run, coroutine).result())
-
-
-def _draw(
-    fig: go.Figure,
-    fmt: str,
-    width: int | None,
-    height: int | None,
-    scale: float | None,
-    timeout: float,
-) -> bytes:
-    """Draw a figure with Kaleido under a clock, as `Figure.to_image` does without one (GH-3723).
-
-    plotly's `to_image` has no way to bound the start of the browser, and a Chrome that does not start leaves it
-    waiting, so the figure is handed to Kaleido here, with the options plotly would give it
-    (`plotly.io.defaults`: the request header that OpenStreetMap's tile policy asks for, the size and the scale
-    among them).
-
-    A Kaleido server that the caller started (`kaleido.start_sync_server`) is theirs: it keeps one browser for
-    many images and `Figure.to_image` is how it is reached, so that is what is called.
-    """
-    kaleido = import_optional("kaleido", "Rendering an image", extra="plotting")
-    server = getattr(kaleido, "_global_server", None)
-    if server is not None and server.is_running():
-        return fig.to_image(format=fmt, width=width, height=height, scale=scale)
-
-    from kaleido.errors import ChromeNotFoundError  # noqa: PLC0415 -- the `plotting` extra
-    from plotly.io import defaults  # noqa: PLC0415 -- the `plotting` extra
-
-    kopts = {
-        name: value
-        for name, value in (
-            ("plotlyjs", defaults.plotlyjs),
-            ("mathjax", defaults.mathjax),
-            ("headers", getattr(defaults, "headers", None)),  # plotly before 6.8 has none
-        )
-        if value
-    }
-    # the size and the scale as plotly resolves them: the argument, the figure's own layout, its template's, the default
-    fig_dict = fig.to_dict()
-    layout = fig_dict.get("layout", {})
-    template_layout = layout.get("template", {}).get("layout", {})
-    opts = {
-        "format": fmt or defaults.default_format,
-        "width": width or layout.get("width") or template_layout.get("width") or defaults.default_width,
-        "height": height or layout.get("height") or template_layout.get("height") or defaults.default_height,
-        "scale": scale or defaults.default_scale,
-    }
-    try:
-        return _run(_draw_in_a_browser(kaleido, fig_dict, opts, kopts, defaults.topojson, timeout))
-    except ChromeNotFoundError as e:
-        # plotly says the same, as a `RuntimeError`, with its own advice
-        raise RuntimeError(str(e)) from e
+    import_optional("vl_convert", "Rendering an image", extra="plotting")
 
 
 def render_image(
-    fig: go.Figure,
+    chart: alt.TopLevelMixin,
     fmt: str,
     *,
     width: int | None = None,
     height: int | None = None,
     scale: float | None = None,
-    timeout: float | None = None,
+    max_side: int | None = None,
 ) -> bytes:
-    """Render a figure as an image of `fmt` by Kaleido, in at most `timeout` seconds, `IMAGE_TIMEOUT` if none (GH-3723).
+    """Render a chart as an image of `fmt` with vl-convert, in this process, with no browser, exactly as large as asked.
 
-    The one call every surface makes for an image, in place of `fig.to_image`: a stuck browser ends in an
-    `ImageTimeoutError` after the time, and the browser and its processes are closed, instead of the caller waiting
-    for ever (the REST API's own timeout answers the client and leaves the thread to wait as long as Chrome does).
+    The one call every surface makes for an image. The picture is `width` x `height` pixels (the default size of the
+    chart for what is left out) times `scale`: a PNG and a JPG have that many pixels, an SVG says it in its root, and
+    the page of a PDF is that many points at 96 pixels to the inch (700 x 500 pixels are 525 x 375 points).
 
     Raises:
-        ImageTimeoutError: the render, its start included, did not end in `timeout` seconds.
-        MissingDependencyError: Kaleido is not installed.
+        UnknownFormatError: `fmt` is no image format.
+        MissingDependencyError: Altair or vl-convert is not installed.
+        ImageTooLargeError: a side of the picture, as drawn and `scale` applied, is more than `max_side` pixels, where
+            that is given (the library and the command line give none).
 
     """
-    return _draw(fig, fmt, width, height, scale, IMAGE_TIMEOUT if timeout is None else timeout)
+    if fmt not in IMAGE_FORMATS:
+        raise UnknownFormatError(fmt, IMAGE_FORMATS)
+    return charts.render(chart, fmt, width=width, height=height, scale=scale, max_side=max_side)
 
 
 def _taken_by(method: Callable[..., object], kwargs: Mapping[str, Any]) -> dict[str, Any]:
@@ -451,26 +280,27 @@ class ExportMixin(RefusesRenamedMembers):
         return self._iso_datetimes().write_ndjson()
 
     @abstractmethod
-    def to_plot(self) -> go.Figure:
-        """Create a plotly figure from the DataFrame."""
+    def to_plot(self) -> alt.TopLevelMixin:
+        """Create an Altair chart from the DataFrame."""
 
     @abstractmethod
     def _to_image(
         self,
-        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        fmt: Literal["html", "png", "jpg", "svg", "pdf"],
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
+        max_points: int | None = None,
     ) -> bytes | str:
-        """Create an image from the plotly figure."""
+        """Create an image from the Altair chart."""
 
     def to_image(self, **kwargs: Any) -> bytes | str:  # noqa: ANN401
-        """Create an image from the plotly figure.
+        """Create an image from the Altair chart, or an html page.
 
         Args:
-            **kwargs: The arguments of the image creation method: `fmt`, `width`, `height`, `scale`
-                and `max_side`. Any other is a `TypeError`.
+            **kwargs: The arguments of the image creation method: `fmt`, `width`, `height`, `scale`,
+                `max_side` and `max_points`. Any other is a `TypeError`.
 
         Returns:
             Image data as bytes or string

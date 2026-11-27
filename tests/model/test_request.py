@@ -735,7 +735,7 @@ def test_discover_refuses_a_resolution_or_dataset_the_provider_does_not_have() -
     ):
         DwdObservationRequest.discover(resolutions="foo")
     with pytest.raises(
-        MetadataNotFoundError, match=r"Dataset 'foo' not found in DwdObservationMetadata.*Available datasets"
+        MetadataNotFoundError, match=r"Dataset 'foo' not found in DwdObservationMetadata.*Closest datasets"
     ):
         DwdObservationRequest.discover(datasets="foo")
     # a dataset of another resolution is not found in the one asked for

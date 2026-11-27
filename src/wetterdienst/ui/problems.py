@@ -86,7 +86,6 @@ class ProblemKind(StrEnum):
     UPSTREAM_TIMEOUT = "upstream-timeout"
     UPSTREAM_QUOTA_EXHAUSTED = "upstream-quota-exhausted"
     REQUEST_TIMEOUT = "request-timeout"
-    IMAGE_TIMEOUT = "image-timeout"
     INTERNAL_ERROR = "internal-error"
 
 
@@ -113,13 +112,13 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
     ProblemKind.LIMIT_EXCEEDED: ProblemSpec(
         400,
         "The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, "
-        "`stream_rows`, `groups` or `series`), `maximum` its value and `requested` what the request comes to; `detail` "
-        "says how to narrow it.",
+        "`stream_rows`, `groups`, `series` or `image_points`), `maximum` its value and `requested` what the request "
+        "comes to; `detail` says how to narrow it.",
     ),
     ProblemKind.IMAGE_TOO_LARGE: ProblemSpec(400, "A chart would be longer than 8192 px on a side."),
     ProblemKind.CHARTS_DISABLED: ProblemSpec(
         403,
-        "The request asks for a chart (`html`, `png`, `jpg`, `webp`, `svg` or `pdf`) and this server draws none "
+        "The request asks for a chart (`html`, `png`, `jpg`, `svg` or `pdf`) and this server draws none "
         "(`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, "
         "or ask whoever runs the server to switch charts on.",
     ),
@@ -178,11 +177,6 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         504,
         "The server did not answer within its request timeout. Narrow the request, or retry it: what the server "
         "had fetched is cached.",
-    ),
-    ProblemKind.IMAGE_TIMEOUT: ProblemSpec(
-        504,
-        "The browser that draws a chart as an image did not finish in time and was closed. The request was valid; "
-        "retry it. Whoever runs the server should look at Chrome if it keeps happening.",
     ),
     ProblemKind.INTERNAL_ERROR: ProblemSpec(500, "The server's own error, a defect. The cause is in the server log."),
 }
@@ -334,6 +328,8 @@ def problem_response(
     into the tool error. Before 4.1.5 it wrote a body that is JSON as Python does (a dict as its repr); from 4.1.5 it
     writes it with `json.dumps`, so a JSON string would read with quotes and escapes for its line breaks, and a body
     that merely parses as JSON is rewritten (`1.50` comes out `1.5`). A body that is no JSON is appended as it is.
+    The text of a 500 ends with the request id (`Request id: <id>`), which the problem of another request carries as
+    `request_id`: the cause is in the server log, and the user has the id to quote to the operator (GH-4469).
     """
     from wetterdienst.ui.mcp import is_tool_request  # noqa: PLC0415
 
@@ -343,6 +339,9 @@ def problem_response(
         # the id is what ties the log to the answer a caller reports
         log.warning(f"Request {request_id} failed with a {status_code}: {(kind or default_kind(status_code)).value}.")
     if is_tool_request(scope):
-        return PlainTextResponse(detail, status_code=status_code, headers=given)
+        # the id is in the problem a REST client gets (`request_id`) and in the log; a tool's text has no field for it,
+        # so a 500, whose cause only the log has, ends with it, for the user to quote to the operator (GH-4469)
+        text = f"{detail} Request id: {request_id}" if status_code == 500 else detail
+        return PlainTextResponse(text, status_code=status_code, headers=given)
     body = problem_body(status_code, detail, kind or default_kind(status_code), request_id, errors=errors, extra=extra)
     return JSONResponse(body, status_code=status_code, headers=given, media_type=PROBLEM_MEDIA_TYPE)

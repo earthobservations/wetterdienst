@@ -349,12 +349,20 @@ def test_coverage_resolution_1_minute() -> None:
     ("option", "message"),
     [
         ("--resolutions=foo", "Resolution 'foo' not found in DwdObservationMetadata. Available resolutions: "),
-        ("--datasets=foo", "Dataset 'foo' not found in DwdObservationMetadata. Available datasets: "),
+        ("--datasets=foo", "Dataset 'foo' not found in DwdObservationMetadata. Closest datasets: "),
+        (
+            "--datasets=air_temperature --resolutions=daily",
+            (
+                "Dataset 'air_temperature' not found in DwdObservationMetadata for resolutions daily. "
+                "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily. "
+                "Available datasets: "
+            ),
+        ),
     ],
 )
 def test_coverage_of_a_resolution_or_dataset_that_does_not_exist_is_a_usage_error(option: str, message: str) -> None:
     """Test a name the network does not have is a one-line usage error, not an empty answer (GH-2636)."""
-    result = CliRunner().invoke(cli, ["coverage", "--provider=dwd", "--network=observation", option])
+    result = CliRunner().invoke(cli, ["coverage", "--provider=dwd", "--network=observation", *option.split()])
 
     assert result.exit_code == 2, result.output
     error = result.stderr.split("\n\nError: ")[-1]

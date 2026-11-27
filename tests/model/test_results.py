@@ -264,7 +264,7 @@ def test_the_fields_of_the_results_are_the_ones_the_library_promises() -> None:
     """What each of the five results holds, in the order it is declared (a constructor takes them by keyword)."""
     fields = {cls.__name__: [field.name for field in dataclasses.fields(cls)] for cls in _RESULTS}
     assert fields == {
-        "StationsResult": ["df", "request", "_df_all", "_stations_filter", "_rank"],
+        "StationsResult": ["df", "request", "_df_all", "_stations_filter", "_rank", "_matched"],
         "ValuesResult": ["df", "stations", "data_updated_at", "search"],
         "InterpolatedValuesResult": ["df", "stations", "data_updated_at", "latlon", "elevation"],
         "SummarizedValuesResult": ["df", "stations", "data_updated_at", "latlon", "elevation"],
@@ -273,9 +273,9 @@ def test_the_fields_of_the_results_are_the_ones_the_library_promises() -> None:
 
 
 def test_how_the_stations_were_selected_is_private_to_the_library() -> None:
-    """`df_all`, `stations_filter` and `rank` are the library's (GH-3128): the stations have no public name for them."""
+    """`df_all`, `stations_filter`, `rank` and `matched` are the library's (GH-3128, GH-4472): no public names."""
     stations = _stations()
-    for name in ("df_all", "stations_filter", "rank"):
+    for name in ("df_all", "stations_filter", "rank", "matched"):
         assert not hasattr(stations, name)
         assert hasattr(stations, f"_{name}")
         with pytest.raises(TypeError, match="unexpected keyword argument"):

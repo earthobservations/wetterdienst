@@ -32,7 +32,6 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     ConfigurationError,
     DateRequiredError,
-    ImageTimeoutError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,
     NoInternetError,
@@ -297,17 +296,17 @@ _CHARTS_NEED_THE_SETTING = (
     "answers a chart format with a 403."
 )
 _FormatField = Annotated[
-    Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
+    Literal["json", "geojson", "csv", "html", "png", "jpg", "svg", "pdf"],
     Field(
-        description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."
+        description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf)."
         + _CHARTS_NEED_THE_SETTING
     ),
 ]
 # of the stations and values requests, whose csv is streamed too, and which have a stream of their own (GH-3065)
 _StreamFormatField = Annotated[
-    Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
+    Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "svg", "pdf"],
     Field(
-        description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
+        description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, "
         "svg, pdf)."
         + _CHARTS_NEED_THE_SETTING
         + " Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
@@ -318,10 +317,10 @@ _StreamFormatField = Annotated[
 # of the values request alone, which has the compact format beside the stations' formats (GH-4445): the compact text of
 # the other tools is added to their own field as they get it, so that no route lists a format it refuses
 _ValuesFormatField = Annotated[
-    Literal["json", "geojson", "csv", "ndjson", "compact", "html", "png", "jpg", "webp", "svg", "pdf"],
+    Literal["json", "geojson", "csv", "ndjson", "compact", "html", "png", "jpg", "svg", "pdf"],
     Field(
         description="Output format: data (json, geojson, csv, ndjson, compact) or a rendered chart (html, png, jpg, "
-        "webp, svg, pdf)."
+        "svg, pdf)."
         + _CHARTS_NEED_THE_SETTING
         + " `compact` is a text with a header and a table for each station and dataset, a row for each timestamp and "
         "the unit in the column line, about a tenth of the JSON. Over the REST API, ndjson and csv are streamed "
@@ -2630,7 +2629,6 @@ def failure_status(e: BaseException) -> int:
         NoInternetError                      503  no connection to the provider could be made
         ProviderRateLimitError               503  a 429 of the provider, or the key's quota is used up
         UpstreamError after a timeout        504  the provider did not answer in time
-        ImageTimeoutError                    504  the browser that draws an image did not finish in time
         any other UpstreamError              502  the provider failed, or sent what the parser does not expect
         anything else                        500  our bug
 
@@ -2649,8 +2647,7 @@ def failure_status(e: BaseException) -> int:
     (GH-4046, GH-4048). Any other
     `UpstreamError` -- a `DownloadError`, a file in a layout the parser does not expect -- is the
     provider's, not the caller's to fix and not a defect of ours: a 502, or a 504 where the failure
-    underneath (its `__cause__`) was a timeout. An `ImageTimeoutError` is a 504 as well: no provider is involved,
-    the server's own renderer did not answer, and the same request can succeed on a retry (GH-3723). What is left
+    underneath (its `__cause__`) was a timeout. What is left
     is a 500, an unclassified `WetterdienstError` among it, so a class added to the hierarchy without a place here is
     the server's error until it is given one.
 
@@ -2668,8 +2665,6 @@ def failure_status(e: BaseException) -> int:
         return 501
     if isinstance(e, (NoInternetError, ProviderRateLimitError)):
         return 503
-    if isinstance(e, ImageTimeoutError):
-        return 504
     if isinstance(e, UpstreamError):
         return 504 if timed_out(e) else 502
     return 500
@@ -3259,8 +3254,11 @@ def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
 
     if stations._stations_filter is StationsFilter.BY_RANK and stations._rank:  # noqa: SLF001
         df = stations.df
-        closest = df.get_column("station_id").unique(maintain_order=True).head(stations._rank)  # noqa: SLF001
-        return replace(stations, df=df.filter(pl.col("station_id").is_in(closest.to_list())))
+        located = df.get_column("station_id").unique(maintain_order=True)
+        closest = located.head(stations._rank).to_list()  # noqa: SLF001
+        kept = df.filter(pl.col("station_id").is_in(closest))
+        # the stations answer says how many matched: every station that could be ranked (GH-4472)
+        return replace(stations, df=kept, _matched=located.len())
     return stations
 
 

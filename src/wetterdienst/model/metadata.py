@@ -7,7 +7,7 @@ from __future__ import annotations
 import difflib
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, TypeVar, cast
 
@@ -278,7 +278,13 @@ def _spot_name(name: str) -> str | None:
 
 
 def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | None) -> str:
-    """Name what a parameter the dataset does not have is called there, or return nothing.
+    """Name what a parameter the dataset does not have is called there, or return nothing (see `_renamed_to`)."""
+    renamed = _renamed_to(item, canonical, dataset)
+    return renamed[1] if renamed else ""
+
+
+def _renamed_to(item: str, canonical: Iterable[str], dataset: DatasetModel | None) -> tuple[str, str] | None:
+    """Name what a parameter the dataset does not have is called there: the new name and the sentence, or None.
 
     Looked up in this order, and only where the dataset has the name offered, so that the hint
     never sends a caller to a parameter that is not there:
@@ -307,21 +313,21 @@ def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | N
         )
         new = in_dataset.get(item)
         if new in names:
-            return f" It was renamed to '{new}' in this dataset."
+            return new, f" It was renamed to '{new}' in this dataset."
     new = RENAMED_PARAMETERS.get(item)
     if new in names:
         # a name this dataset had, renamed for 1.0: say so rather than guess at a near spelling
-        return f" It was renamed to '{new}'."
+        return new, f" It was renamed to '{new}'."
     # the name it was renamed to everywhere is one the dataset lacks and renamed again: follow it once
     new = in_dataset.get(new) if new else None
     if new in names:
-        return f" It was renamed to '{new}'."
+        return new, f" It was renamed to '{new}'."
     spot = _spot_name(item)
     # a daily or coarser `_mean_` is a mean of the interval where the source says so, not a renamed one
     coarse = dataset is not None and dataset.resolution is not None and dataset.resolution.name in _COARSE_RESOLUTIONS
     if spot in names and not coarse:
-        return f" It is named '{spot}' here, a reading at one moment, not a mean."
-    return ""
+        return spot, f" It is named '{spot}' here, a reading at one moment, not a mean."
+    return None
 
 
 # the leading tokens of a parameter name that say which quantity it is: `temperature_dew`
@@ -349,7 +355,7 @@ def _split_error_prefix(name: str) -> tuple[bool, list[str]]:
     return False, tokens
 
 
-def _keeps_the_quantity(item: str, candidate: str) -> bool:
+def _keeps_the_quantity(item: str, candidate: str, *, strict: bool = False) -> bool:
     """Say whether `candidate` leads with the same quantity as `item`, up to a misspelled token.
 
     The difflib guess is made over the whole name, and a long name that differs in its first tokens
@@ -362,6 +368,10 @@ def _keeps_the_quantity(item: str, candidate: str) -> bool:
 
     A name of one token (`rsk`, a source's own code, or `pressure`) has no quantity tokens to compare, and a missing
     underscore (`windspeed`) is a typo of the whole name, not of a token.
+
+    A `strict` check, which orders the names of a message, does not let a name of one token (`visibility`) pass for
+    any quantity: it must be the leading token of the other name, or what the other name starts with without its
+    underscores (GH-4466). The lenient one gates a hint, which is a guess the caller weighs.
     """
     if item.replace("_", "") == candidate.replace("_", ""):
         return True
@@ -370,7 +380,10 @@ def _keeps_the_quantity(item: str, candidate: str) -> bool:
     if item_error != candidate_error:
         return False
     if len(item_tokens) == 1 or len(candidate_tokens) == 1:
-        return True
+        if not strict:
+            return True
+        single, other = (item_tokens, candidate_tokens) if len(item_tokens) == 1 else (candidate_tokens, item_tokens)
+        return _same_token(single[0], other[0]) or "".join(other).startswith(single[0])
     leading = zip(item_tokens[:_QUANTITY_TOKENS], candidate_tokens[:_QUANTITY_TOKENS], strict=False)
     if not all(_same_token(a, b) for a, b in leading):
         return False
@@ -383,34 +396,253 @@ def _names_a_gust(tokens: list[str]) -> bool:
     return any(_same_token(token, _GUST_TOKEN) for token in tokens)
 
 
-def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: DatasetModel | None = None) -> str:
-    """Build the message for a name that no model matched.
+# What the error of an unknown name spends on the names it offers (GH-4466). Its readers are people and models, and
+# fastmcp cuts a tool error's text at 1,000 characters, so a dataset of 210 parameters (`noaa/ghcn`: 8,148
+# characters) cannot list them all: the closest come first, then how many there are and where the rest is. A list that
+# fits in `_NAMES_BUDGET` characters is listed whole, closest first; else the closest `_NAMES_SHOWN` that fit are.
+_NAMES_SHOWN = 10
+_NAMES_BUDGET = 400
+#: the longest text an unknown name is held to (the cut of a tool error): the test measures every network against it
+UNKNOWN_NAME_LIMIT = 1000
+# the whole corrected strings a hint offers at most
+_HINTS_SHOWN = 2
+# what `TimeseriesRequest` adds to the problems of a request that has other parameters that resolve
+_ON_UNKNOWN_HINT_LENGTH = 65
+# where the names are, said once at the end of the problems of a request of several unknown names
+_COVERAGE_TAIL = "`coverage` lists all the names"
 
-    Names a close match where there is one, because the common failure is a typo or a name taken
-    from another provider, and the available-names list alone leaves the user to spot the
-    difference themselves. A parameter's close match has to be of the same quantity (see
-    `_keeps_the_quantity`); where it is not, nothing is guessed. A parameter that is called
-    something else in this dataset is answered with its name there instead of a guess (see
-    `_renamed_hint`); `dataset` is the one a parameter was looked up in.
+
+def _label(model: _NamedModel) -> str:
+    """Write a model as it is listed: its name, and for a parameter or a resolution the source's own after a slash.
+
+    A dataset is listed by its name alone: its source name is a path (`climate_indices/kl`) that reads as part of it.
+    """
+    if isinstance(model, DatasetModel):
+        return model.name
+    return f"{model.name}/{model.name_original}" if model.name != model.name_original else model.name
+
+
+def _closeness(item: str, model: _NamedModel) -> float:
+    """Say how close a name is to a model's, by either of its names, from 0 to 1.
+
+    Compared as `difflib.get_close_matches` does (the candidate first), whose answer the hint is, so that the closest
+    name is always the first of the names that follow it.
+    """
+    return max(difflib.SequenceMatcher(None, name, item).ratio() for name in _names(model))
+
+
+def _ranked(item: str, models: list[_NamedModel], bucket: Callable[[_NamedModel], int]) -> list[_NamedModel]:
+    """Order models closest first: by `bucket` (lower is nearer), then by similarity, then by name, to be stable."""
+    return sorted(models, key=lambda model: (bucket(model), -round(_closeness(item, model), 6), model.name))
+
+
+def _names_text(kind: str, ranked: list[_NamedModel], budget: int) -> str:
+    """List the names of a not-found message, closest first, within `budget` characters, none for a `budget` of 0.
+
+    Whole as `Available <kind>: ...` where they fit, else the closest ones and how many there are in all, with where
+    they are listed: `coverage` is a command, a route and a tool on every surface.
+    """
+    if budget <= 0:
+        return ""
+    labels = [_label(model) for model in ranked]
+    total = len(labels)
+    if sum(len(label) + 2 for label in labels) <= budget:
+        return f" Available {kind}: {', '.join(labels)}"
+    shown: list[str] = []
+    used = 0
+    for label in labels[:_NAMES_SHOWN]:
+        if shown and used + len(label) + 2 > budget:
+            break
+        shown.append(label)
+        used += len(label) + 2
+    return f" Closest {kind}: {', '.join(shown)} ({total} in all; `coverage` lists them all)"
+
+
+def _whole_strings(item: str, datasets: Iterable[DatasetModel], parameter: str) -> list[tuple[DatasetModel, str]]:
+    """Write `resolution/dataset/parameter` for each of `datasets` that has the parameter, closest dataset first.
+
+    The name a caller took from another provider's form (`daily/climate_summary/temperature_air_mean_2m` at SMHI,
+    whose one dataset is `data`) is the right parameter in the wrong dataset, and the whole string is what to write
+    instead (GH-4466). The parameter is looked up by either of its names and without the aliases, which tell the
+    caller they were used; a quality flag cannot be requested, so it is no answer. Where no dataset has it by that
+    name, the datasets that have it under another are offered with that one: a name renamed for 1.0, or the reading
+    at one moment that a sub-daily `_mean_` became (`_renamed_to`, which words the rename of a dataset itself).
+    """
+    datasets = [dataset for dataset in datasets if dataset.resolution is not None]
+    found_in: dict[int, tuple[DatasetModel, str]] = {}
+    for dataset in datasets:
+        found = _find(dataset.parameters, parameter)
+        if found is not None and not is_quality_flag(found):
+            found_in[id(dataset)] = (dataset, found.name)
+    if not found_in:
+        for dataset in datasets:
+            renamed = _renamed_to(parameter, {offered.name.lower() for offered in dataset}, dataset)
+            if renamed is not None:
+                found_in[id(dataset)] = (dataset, renamed[0])
+    order = _ranked(item, [dataset for dataset, _ in found_in.values()], lambda _model: 0)
+    return [
+        (dataset, f"{dataset.resolution.name}/{dataset.name}/{found_in[id(dataset)][1]}")
+        for dataset in order
+        if isinstance(dataset, DatasetModel)
+    ]
+
+
+def _of_other_resolutions(
+    item: str, parameter: str | None, elsewhere: Iterable[ResolutionModel]
+) -> tuple[str, list[tuple[DatasetModel, str]]]:
+    """Say which of the resolutions `elsewhere` have a dataset named `item`, and write its strings for `parameter`.
+
+    The sentence is empty where none has it, and names the dataset as the metadata does, with what was written where
+    that is another name (the source's: `air_temperature` is `temperature_air`), so that it agrees with the strings and
+    the list of names; the strings are those of the datasets that have the parameter (GH-4481).
+    """
+    found = [(resolution, _find(resolution.datasets, item)) for resolution in elsewhere]
+    of_other = [(resolution, dataset) for resolution, dataset in found if isinstance(dataset, DatasetModel)]
+    if not of_other:
+        return "", []
+    names = [resolution.name for resolution, _ in of_other]
+    listed = f"{', '.join(names[:-1])} and {names[-1]}" if len(names) > 1 else names[0]
+    whole = _whole_strings(item, [dataset for _, dataset in of_other], parameter.strip().lower()) if parameter else []
+    name = of_other[0][1].name
+    written = f" (written '{item}')" if item != name.lower() else ""
+    return f" '{name}'{written} is a dataset of {listed}.", whole
+
+
+def _said_of_other_resolutions(
+    sentence: str, strings: list[tuple[DatasetModel, str]], room: int, *, has_hint: bool = False
+) -> str:
+    """Write the sentence of `_of_other_resolutions` and, in the `room` the hint has left, the strings of the dataset.
+
+    They follow a hint that is already there (the spelling of this resolution, or its whole strings) as what is
+    written in the other resolutions; where there is none they are the hint.
+    """
+    offered = " or ".join(f"'{text}'" for _, text in strings[: max(room, 0)])
+    if not sentence or not offered:
+        return sentence
+    return f"{sentence} There: {offered}." if has_hint else f"{sentence} Did you mean {offered}?"
+
+
+def _hint_and_names(
+    kind: str,
+    item: str,
+    models: Iterable[_NamedModel],
+    dataset: DatasetModel | None = None,
+    parameter: str | None = None,
+    budget: int = _NAMES_BUDGET,
+    hints: int = _HINTS_SHOWN,
+    elsewhere: Iterable[ResolutionModel] = (),
+) -> tuple[str, str]:
+    """Write what follows the name in the message of a name that no model matched: a hint, and the names.
+
+    The hint names a close match where there is one, because the common failure is a typo or a name taken
+    from another provider, and the list of names alone leaves the user to spot the difference themselves.
+    Looked up in this order:
+
+    1. a parameter that is called something else in this dataset is answered with its name there, not a guess
+       (`_renamed_hint`; `dataset` is the one a parameter was looked up in);
+    2. the whole string of the parameter where another dataset of the resolution has it, by this name or the one it
+       was renamed to there (`_whole_strings`): for a dataset that is not found, the `parameter` that went with it,
+       or the name itself where it is the parameter written in the place of the dataset (`daily/temperature_air_2m`);
+       for a parameter that is not found, the parameter itself (`daily/data/temperature_air_mean_2m`, GH-4466);
+    3. the closest name by spelling. A parameter's or a dataset's has to be of the same quantity (see
+       `_keeps_the_quantity`); where it is not, nothing is guessed.
+
+    A dataset that is not found but is one of another resolution (`daily/air_temperature`, a dataset of `hourly` and
+    `10_minutes`) is said to be that (`_of_other_resolutions`), after the hint of this resolution (its whole strings or
+    the spelling), and with the whole strings of the dataset of that name where it has the `parameter` and the hint
+    has room (`_said_of_other_resolutions`, GH-4481). `elsewhere` are the resolutions it was not asked in; the
+    metadata is not reached from a resolution, so the caller that has it passes them.
+
+    The names follow closest first: what the hint names, then the datasets that have the parameter, then the names of
+    the same quantity (`_keeps_the_quantity`, strict), then the others, each by spelling. `budget` is the characters
+    of the names (none for 0) and `hints` how many whole strings are offered at most.
     """
     models = list(models)
     candidates = sorted({name for model in models for name in _names(model)})
     item_search = str(item).strip().lower()
-    suggestion = (
+    renamed = (
         _renamed_hint(item_search, {model.name.lower() for model in models}, dataset) if kind == "parameters" else ""
     )
+    suggestion = renamed
     if kind == "resolutions" and RENAMED_RESOLUTIONS.get(item_search) in candidates:
         suggestion = f" It was renamed to '{RENAMED_RESOLUTIONS[item_search]}'."
+    named_by_rename = re.search(r"'([^']+)'", renamed)
+    hinted = {named_by_rename.group(1)} if named_by_rename else set()
+    holders: set[str] = set()
+    offered_here = 0
+    where_it_is, whole_there = (
+        _of_other_resolutions(item_search, parameter, elsewhere) if kind == "datasets" else ("", [])
+    )
+    wanted = parameter.strip().lower() if parameter else item_search if kind != "resolutions" else None
+    if not suggestion and wanted:
+        # the datasets of the resolution that have the name: the dataset that was not found is not among them
+        siblings = (
+            [model for model in models if isinstance(model, DatasetModel)]
+            if kind == "datasets"
+            else list(dataset.resolution.datasets if dataset is not None and dataset.resolution is not None else [])
+        )
+        whole = _whole_strings(item_search, [other for other in siblings if other is not dataset], wanted)
+        holders = {holder.name for holder, _ in whole}
+        if whole:
+            # the resolution that was asked for first: another resolution reads other values
+            suggestion = " Did you mean " + " or ".join(f"'{text}'" for _, text in whole[:hints]) + "?"
+            offered_here = min(len(whole), hints)
     if not suggestion:
-        if kind == "parameters":
+        if kind != "resolutions":
             # a near spelling of another quantity is no hint, the list of available names is the answer then
             candidates = [candidate for candidate in candidates if _keeps_the_quantity(item_search, candidate)]
         close = difflib.get_close_matches(item_search, candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
         suggestion = f" Did you mean '{close[0]}'?" if close else ""
-    available = ", ".join(
-        f"{model.name}/{model.name_original}" if model.name != model.name_original else model.name for model in models
-    )
-    return f"'{item}'.{suggestion} Available {kind}: {available}"
+        hinted = set(close)
+    suggestion += _said_of_other_resolutions(where_it_is, whole_there, hints - offered_here, has_hint=bool(suggestion))
+
+    def bucket(model: _NamedModel) -> int:
+        if hinted & set(_names(model)):
+            return 0
+        if kind == "resolutions":
+            return 1
+        if model.name in holders:
+            return 1
+        return 2 if _keeps_the_quantity(item_search, model.name.lower(), strict=True) else 3
+
+    return suggestion, _names_text(kind, _ranked(item_search, models, bucket), budget)
+
+
+def _not_found(
+    kind: str,
+    item: str,
+    models: Iterable[_NamedModel],
+    dataset: DatasetModel | None = None,
+    parameter: str | None = None,
+    budget: int = _NAMES_BUDGET,
+    hints: int = _HINTS_SHOWN,
+    elsewhere: Iterable[ResolutionModel] = (),
+) -> str:
+    """Build the message for a name that no model matched: the name, a hint, and the names closest to it.
+
+    See `_hint_and_names`; `parameter` is the parameter that was asked for with a dataset that is not found, `budget`
+    the characters the names may take, `hints` how many whole strings the hint offers and `elsewhere` the resolutions
+    a dataset that is not found may be one of.
+    """
+    suggestion, names = _hint_and_names(kind, item, models, dataset, parameter, budget, hints, elsewhere)
+    return f"'{item}'.{suggestion}{names}"
+
+
+def unknown_name_message(
+    kind: str,
+    item: str,
+    where: str,
+    models: Iterable[_NamedModel],
+    budget: int = _NAMES_BUDGET,
+    elsewhere: Iterable[ResolutionModel] = (),
+) -> str:
+    """Build the message of a resolution or a dataset that a network does not have, as `discover()` raises it.
+
+    `elsewhere` are the resolutions of the network that were left out of the search, one of which may have the dataset.
+    """
+    suggestion, names = _hint_and_names(kind, item, models, budget=budget, elsewhere=elsewhere)
+    noun = "Resolution" if kind == "resolutions" else "Dataset"
+    return f"{noun} '{item}' not found in {where}.{suggestion}{names}"
 
 
 def is_quality_flag(parameter: ParameterModel) -> bool:
@@ -1010,19 +1242,34 @@ class MetadataModel(BaseModel):
         """Iterate over all resolutions."""
         return iter(self.resolutions)
 
-    def search_parameter(self, parameter_search: ParameterSearch) -> list[ParameterModel]:
+    def search_parameter(
+        self, parameter_search: ParameterSearch, budget: int = _NAMES_BUDGET, hints: int = _HINTS_SHOWN
+    ) -> list[ParameterModel]:
         """Search for a parameter in the metadata.
 
         Raises a ``KeyError`` naming the part that did not match -- resolution, dataset or
-        parameter -- with the names that would have matched, so a caller that drops the request
-        can say why it dropped it.
+        parameter -- with the names closest to it, so a caller that drops the request
+        can say why it dropped it. `budget` is the number of characters the names may take (none for 0) and `hints` how
+        many whole strings the hint offers at most.
         """
         resolution = _find(self.resolutions, parameter_search.resolution)
         if resolution is None:
-            raise KeyError(_not_found("resolutions", parameter_search.resolution, self.resolutions))
+            raise KeyError(
+                _not_found("resolutions", parameter_search.resolution, self.resolutions, budget=budget, hints=hints)
+            )
         dataset = _find(resolution.datasets, parameter_search.dataset)
         if dataset is None:
-            raise KeyError(_not_found("datasets", parameter_search.dataset, resolution.datasets))
+            raise KeyError(
+                _not_found(
+                    "datasets",
+                    parameter_search.dataset,
+                    resolution.datasets,
+                    parameter=parameter_search.parameter,
+                    budget=budget,
+                    hints=hints,
+                    elsewhere=[other for other in self.resolutions if other is not resolution],
+                )
+            )
         if not parameter_search.parameter:
             # iterating the dataset leaves out its quality flags, see DatasetModel.__iter__
             return [*dataset]
@@ -1032,7 +1279,9 @@ class MetadataModel(BaseModel):
         if parameter is None:
             parameter = dataset._aliased(parameter_search.parameter)  # noqa: SLF001
         if parameter is None:
-            raise KeyError(_not_found("parameters", parameter_search.parameter, dataset, dataset))
+            raise KeyError(
+                _not_found("parameters", parameter_search.parameter, dataset, dataset, budget=budget, hints=hints)
+            )
         if is_quality_flag(parameter):
             msg = (
                 f"'{parameter_search.parameter}' is a quality flag. Quality flags are returned in the "
@@ -1218,6 +1467,47 @@ def _entries(parameters: _PARAMETER_TYPE) -> list[str | Iterable[str] | DatasetM
     return entries
 
 
+def _problem_of(parameter_search: ParameterSearch, metadata: MetadataModel, budget: int, hints: int) -> str | None:
+    """Say a search that finds nothing as one problem of `parse_parameters`, with the names and hints given, or None."""
+    try:
+        metadata.search_parameter(parameter_search, budget=budget, hints=hints)
+    except KeyError as e:
+        return f"{parameter_search.concat()} not found in {metadata.name}: {e.args[0]}"
+    return None
+
+
+def _fit_problems(problems: list[str], unknown: dict[int, ParameterSearch], metadata: MetadataModel) -> list[str]:
+    """Bring the problems of a request under the limit of an error text, as they are where they are (GH-4466).
+
+    The text of a request with one unknown name is short, but each of several brings its prefix, its hint and its
+    names, and fastmcp cuts what passes 1,000 characters. Where they do not fit with the hint a request adds
+    (`_ON_UNKNOWN_HINT_LENGTH`), each step is measured again: the lists of names go, with one `coverage` at the end,
+    then the second whole string of a hint, and last only the first problems stay, with how many more there were.
+    """
+    # under the limit, as the cut is of 1,000 and over
+    room = UNKNOWN_NAME_LIMIT - _ON_UNKNOWN_HINT_LENGTH - 1
+
+    def size(texts: list[str]) -> int:
+        return len("; ".join(texts))
+
+    if size(problems) <= room:
+        return problems
+    shortened = problems
+    for hints in (_HINTS_SHOWN, 1):
+        shortened = list(problems)
+        for place, parameter_search in unknown.items():
+            shortened[place] = _problem_of(parameter_search, metadata, 0, hints) or problems[place]
+        if size([*shortened, _COVERAGE_TAIL]) <= room:
+            return [*shortened, _COVERAGE_TAIL]
+    kept = shortened
+    for count in range(len(shortened), 0, -1):
+        left = len(shortened) - count
+        kept = [*shortened[:count], *([f"and {left} more unknown names"] if left else []), _COVERAGE_TAIL]
+        if size(kept) <= room:
+            break
+    return kept
+
+
 def parse_parameters(
     parameters: _PARAMETER_TYPE,
     metadata: MetadataModel,
@@ -1239,6 +1529,9 @@ def parse_parameters(
     parameters_found = []
     seen = set()
     problems = []
+    # the problems that are an unknown name, by their place in `problems`: said again, shorter, where together they
+    # pass the limit of an error text (GH-4466)
+    unknown: dict[int, ParameterSearch] = {}
     for parameter in entries:
         try:
             parameter_search = ParameterSearch.parse(parameter)
@@ -1248,6 +1541,7 @@ def parse_parameters(
             problems.append(f"{parameter!r} could not be parsed as a parameter: {e.args[0]}")
             continue
         except KeyError as e:
+            unknown[len(problems)] = parameter_search
             problems.append(f"{parameter_search.concat()} not found in {metadata.name}: {e.args[0]}")
             continue
         for parameter_found in found:
@@ -1262,7 +1556,7 @@ def parse_parameters(
                 seen.add(key)
                 parameters_found.append(parameter_found)
     if problems and on_unknown == "raise":
-        error = InvalidParameterError("; ".join(problems))
+        error = InvalidParameterError("; ".join(_fit_problems(problems, unknown, metadata)))
         error.resolved = bool(parameters_found)
         raise error
     # warned about once the whole request is read, so that a request with one bad entry among

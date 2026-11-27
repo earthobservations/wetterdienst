@@ -254,7 +254,13 @@ what the answer is missing:
   `by_distance`, `by_bbox` or `by_sql`), `count` the stations in the answer and `ids` their `station_id`, for an
   answer of up to 100 stations; for one of more `ids` is `null`, so a listing of a whole network does not carry
   its ids a second time, and `count` is how many there are. To have the ids of a large answer, read the
-  `station_id` column of its body.
+  `station_id` column of its body. The answers of `interpolate` and `summarize` have two members more:
+  `elevation`, the elevation in metres of the point the values were made for (the one given; a point named by a
+  `station` has that station's own, which is what the answer is made at unless another is given; `null` for none), and
+  `elevation_corrected`, the parameters (`resolution/dataset/parameter`) whose readings were brought from each
+  station's height to it, which are the quantities that fall with height (air temperature at 2 m, the dew point) and
+  only where there is an elevation. An empty list says the values are the stations' readings as they came, and a
+  parameter that is not in it was not corrected, whatever `elevation` says. No other answer has them.
 - **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache
   is not told.
 - **`data_updated_at`** is when the source last updated the data of the answer, in UTC: the newest such date over the
@@ -315,7 +321,11 @@ what the answer is missing:
   and 5 minute precipitation of the historical period, and a forecast counts where one of its steps is in the answer.
 
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
-  the wide shape), the stations listed, or the histories.
+  the wide shape), the stations listed, or the histories. The answer of `stations` has `stations_matched` too, the
+  stations that match the request: `stations` is fewer where a `rank` kept the nearest (or best) of them or, for an
+  MCP tool, the 40,000-character budget cut the list (`answer-truncated`), and equal to it where nothing was cut, so
+  that "how many stations are there" is a number, not a sentence of the note. It is in the `end` line of
+  `format=ndjson` as well; the answer of [`station-ids`](station_ids.md) has it, no other.
 - **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
   a GeoJSON position, the elevation in metres above mean sea level.
 - **`warnings`** is what the answer is missing but did not fail on, so that a partial answer can be told
@@ -649,9 +659,13 @@ the terms are those of each provider it lists.
   first), how it is `written` (`zone:<mez|mez-1973-75|mez-local-mean-time|woz>`, `raw:<text>`), its
   `meaning` and, where the source documents a closed set, its `codes` with their meanings (DMI's
   `validity:true` and `validity:false`, IMGW's `8`, `9`, `Z` and `11`, CHMI's quality `0` to `5`, the
-  MADIS flags of the NWS). Where the source tells the codes itself (DWD's QN levels, Frost's
-  `qualityCode`, GHCN's flags) the `meaning` names whose they are, and `codes` is `null`. The legend is
-  empty for a network whose readings carry no flag (LHMT, MeteoSwiss, WSV).
+  MADIS flags of the NWS, Hub'Eau's and Frost's codes; for DWD's observation network the QN levels of the
+  datasets read, in DWD's words with the description they are from, and for a dataset DWD describes no levels
+  of, a `meaning` that says so and `codes` `null`). Where the source tells the codes itself (GHCN's
+  flags) the `meaning` names whose they are, and `codes` is `null`. A network whose legend has no flag of the
+  source has `source_flag_note`, which says that this library carries none (`null` where it does), so
+  the first token of its `quality_flags` is none of the source's codes; for a source that does publish
+  one that is not read yet it says so (none is now: GeoSphere's `<parameter>_flag` is read).
 
 A format with no body to put the block in carries the same in headers, and so does every JSON answer:
 
@@ -666,9 +680,11 @@ A format with no body to put the block in carries the same in headers, and so do
 | `X-Wetterdienst-Attribution` | the credit line; left out without one |
 | `X-Wetterdienst-Processing` | `processing_note` |
 | `X-Wetterdienst-Stations`, `X-Wetterdienst-Rows` | the `counts` |
+| `X-Wetterdienst-Stations-Matched` | `counts.stations_matched`, of a list of stations only |
 | `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
 | `X-Wetterdienst-Truncated` | the message of the `answer-truncated` warning of an MCP tool's answer; left out otherwise |
 | `X-Wetterdienst-Forecast-From-Now` | the message of the `forecast-from-now` warning of an MCP tool's forecast answer; left out otherwise |
+| `X-Wetterdienst-Elevation`, `X-Wetterdienst-Elevation-Corrected` | `request.elevation` and `request.elevation_corrected` (comma-separated) of `interpolate` and `summarize`; each left out where it is `null` or empty |
 
 A text with more than ASCII in it (a credit line such as "© Météo-France"), or a character a header cannot
 carry, is percent-encoded UTF-8;
@@ -1716,7 +1732,7 @@ older one is refused with an error that says so. These restrictions are defence 
 ## Charts
 
 A server draws no charts until its operator says so: `WD_RESTAPI_PLOTTING` (`restapi_plotting`) is off by default. A
-request for a chart format of `stations`, `values`, `interpolate` or `summarize` (`format=html`, `png`, `jpg`, `webp`,
+request for a chart format of `stations`, `values`, `interpolate` or `summarize` (`format=html`, `png`, `jpg`,
 `svg` or `pdf`, under `/api` and `/api/v1`) is then refused with a 403 problem of the kind `charts-disabled`, before
 anything is read: no station is looked up, nothing is downloaded and no plotting library is loaded. `detail` names the
 formats the route answers and says that the operator can switch charts on, and the `errors` entry for `format` has
@@ -1745,10 +1761,18 @@ a network that is not served, is told that charts are off, not to lower the `sca
 `width`, `height` and `scale` of a request in a data format are ignored, as they were. The OpenAPI document is the same
 for every server: `format` keeps its chart values, and its description says that a chart needs the setting.
 
-Each image costs the server a Chrome that Kaleido starts for it (see [Image size](#image-size) for the limits and the
-time it is given), which is why a public server keeps charts off. With `WD_RESTAPI_PLOTTING=true` the answers are what
-they were. The library, the command line (`--format=png`) and the web app, which draws its own charts in the browser,
-are not affected, and the MCP tools offer no chart. The index page and the web app link to none.
+A chart is drawn by vl-convert in the process of the server, one at a time, and a server that draws charts spends
+time and memory on them, which is why a public server keeps them off. Measured (2026-11-26): vl-convert 2 draws in a
+worker thread of its own and does not hold the interpreter, so the server goes on answering while a chart renders. On
+a real `uvicorn` with one worker `/health` was answered in a median 1 ms during renders of a month of values, of the
+station map and of a chart of 100,000 points, and waited at most 0.1 s with one chart of 100,000 points rendering, 0.5 s
+with four and 1.2 s with sixteen. The charts render one after another in that one worker, so a chart waits for those
+before it: about 0.3 s for a month of values, 1.5 s for the station map and 11 s for a chart of 100,000 points (1.3 GB).
+Sixteen of the last took more than the default [request timeout](#timeout) of 60 seconds, which answered 11 of them
+`504`. A station map made some requests wait up to 0.6 s (four at once) and 3 s (sixteen), which was not traced to a
+cause. See [Image size](#image-size) for the limits. With `WD_RESTAPI_PLOTTING=true` the answers are what they were.
+The library, the command line (`--format=png`) and the web app, which draws its own charts in the browser, are not
+affected, and the MCP tools offer no chart. The index page and the web app link to none.
 
 ```shell
 WD_RESTAPI_PLOTTING=true wetterdienst restapi --listen 0.0.0.0:7890
@@ -1757,19 +1781,19 @@ docker run --env WD_RESTAPI_PLOTTING=true --publish=7890:7890 ghcr.io/earthobser
 
 ## Image size
 
-Where the server [draws charts](#charts), a chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused
-with a 400 when a side of the image is longer than 8192 px, `scale` applied. A chart of several parameters is 300 px tall for each, and is measured as drawn.
-The limit holds for the REST API; the library and the CLI have none (the MCP tools draw no chart).
+Where the server [draws charts](#charts), a chart in an image format (`png`, `jpg`, `svg`, `pdf`) is refused with a 400
+when a side of the image is longer than 8192 px, `scale` applied. A chart of several parameters is 300 px tall for each,
+and is measured as drawn. The limit holds for the REST API; the library and the CLI have none (the MCP tools draw no
+chart).
 
-A chart is drawn by a Chrome that Kaleido starts for the image, and the start of that browser and the
-drawing have 120 seconds, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets
-through, a PDF of 8192 x 8192 px with 100000 points, took 24 to 31). A browser that does not finish is closed, and
-killed with its processes if closing it does not end it, and the request is a 504 problem of the kind
-`image-timeout` with `Retry-After`. The drawing is not a station or a file, so the [request timeout](#timeout)
-does not cut it: a stuck Chrome keeps its thread and its place in the
-[limit on requests served at once](#concurrency) until the drawing's own limit ends it, at most
-about 130 seconds (the limit and up to 10 seconds to close the browser), not for ever. Under the default request
-timeout of 60 seconds the client is answered `request-timeout` first, and the work ends on its own after that.
+A chart is drawn to an image by vl-convert, in the process of the server: there is no browser to start. The image is
+exactly as large as `width` and `height` say, `scale` times as large: a request for 700 x 500 px is an image of
+700 x 500 px. A normal image takes 0.1 to 1 second, but the time and the memory grow with the points the chart draws:
+a chart of 100,000 points took 11 s and 1.3 GB here, and the one after it waits for it. Hence a chart of more than
+100,000 points, an image or the page (`format=html` embeds every point), is refused with a 400 of the kind
+`limit-exceeded` (`limit` is `image_points`) once the data is read and before anything is drawn; `detail` says to ask
+for fewer stations or parameters, or a shorter `timestamp` window. The Python API and the command line have none: they
+draw what they are given, as many rows as there are.
 
 ## Limits
 
@@ -1800,6 +1824,7 @@ far" in its `detail`. It names the limit, its value and what the request comes t
 | `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values`; what a `filter` or `first` of `values` reads, where it is the larger of this and `rows` |
 | `groups` | `WD_RESTAPI_MAX_GROUPS` | 50,000 | the groups of an answer of [`statistics`](#statistics) |
 | `series` | none (100) | 100 | the series (stations times parameters) of a `statistics` request, which an answer lists |
+| `image_points` | none | 100,000 | the points of a chart, an image (`png`, `jpg`, `svg`, `pdf`) or the page (`format=html`, which embeds them), counted from the rows the chart is drawn from once the data is read. A fixed limit, see [Image size](#image-size) |
 
 The host sets them with the settings of the same names (`restapi_max_stations`, ...; see [Settings](settings.md)),
 and `0` switches a limit off. They hold for the REST API and the MCP tools; the library and the command line have
@@ -2027,8 +2052,9 @@ and what follows is for an instance that others can reach (the
   the `svg` answers only, which need no script or request: not with data answers, the `html` chart (a script by
   design), `pdf`, or `/docs` and `/redoc`, which load their own from a CDN. Other headers (HSTS, a
   `Referrer-Policy`, a policy for those answers) are for the reverse proxy to add.
-- **Charts.** Every image starts a Chrome on the server, so [charts](#charts) are off until you set
-  `WD_RESTAPI_PLOTTING=true`; a public server is better off without them.
+- **Charts.** A chart is drawn by vl-convert in the server's process, one at a time, and takes time and memory (11 s
+  and 1.3 GB at 100,000 points), so [charts](#charts) are off until you set `WD_RESTAPI_PLOTTING=true`; a public server
+  is better off without them.
 - **SQL.** The REST API and the MCP tools take no SQL any more, see [SQL filters](#sql-filters); a server started with
   `WD_RESTAPI_SQL=true` warns once and runs without it.
 - **Limits.** The [limits](#limits) are the ones you set. How to set them, and what raising one costs, is on
@@ -2105,10 +2131,10 @@ entry for each invalid parameter, where `loc` names it:
 | Status | When |
 | --- | --- |
 | 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have (the whole request is refused, and `detail` names each unknown one), a point out of range, a `Host` or an MCP `Origin` the server does not answer to ([Allowed hosts](#allowed-hosts)) |
-| 403 | a chart (`format` `html`, `png`, `jpg`, `webp`, `svg` or `pdf`) of `stations`, `values`, `interpolate` or `summarize`, which a server draws only with `WD_RESTAPI_PLOTTING=true` ([Charts](#charts)); `detail` names the formats it answers |
+| 403 | a chart (`format` `html`, `png`, `jpg`, `svg` or `pdf`) of `stations`, `values`, `interpolate` or `summarize`, which a server draws only with `WD_RESTAPI_PLOTTING=true` ([Charts](#charts)); `detail` names the formats it answers |
 | 404 | what the request names does not exist: a provider, network, a resolution or dataset of `/api/coverage`, station, forecast run, or a path |
 | 405 | the method is not allowed for the path |
-| 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several; or a map of stations (`format` `html`, `png`, `jpg`, `webp`, `svg` or `pdf`) none of which has a position (`dwd/derived`'s `monthly/climate_correction_factor`, `dwd/pollen`), where `detail` says to ask for `json`, `csv` or `geojson` and `errors` has the entry for `format` |
+| 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several; or a map of stations (`format` `html`, `png`, `jpg`, `svg` or `pdf`) none of which has a position (`dwd/derived`'s `monthly/climate_correction_factor`, `dwd/pollen`), where `detail` says to ask for `json`, `csv` or `geojson` and `errors` has the entry for `format` |
 | 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
 | 502 | the data provider failed or sent an answer the server cannot read: a download that was refused or cut short, a file in a layout it does not expect; the request was valid and can be retried |
 | 503 | the server could not reach the data provider (no network connection), or it is working on as many requests as it allows ([Concurrency](#concurrency)); the request was valid and can be retried, the body says so and does not name the provider's address |
@@ -2126,9 +2152,9 @@ are these, and a kind keeps its status:
 | --- | --- | --- |
 | `urn:wetterdienst:problem:invalid-parameters` | 422 | A query parameter is unknown, malformed or invalid, or a selection that needs exactly one of several does not. `errors` has an entry for each invalid parameter. |
 | `urn:wetterdienst:problem:request-refused` | 400 | The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range. |
-| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows`, `groups` or `series`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
+| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows`, `groups`, `series` or `image_points`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
 | `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
-| `urn:wetterdienst:problem:charts-disabled` | 403 | The request asks for a chart (`html`, `png`, `jpg`, `webp`, `svg` or `pdf`) and this server draws none (`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, or ask whoever runs the server to switch charts on. |
+| `urn:wetterdienst:problem:charts-disabled` | 403 | The request asks for a chart (`html`, `png`, `jpg`, `svg` or `pdf`) and this server draws none (`WD_RESTAPI_PLOTTING`, off by default). Nothing was read. Ask for one of the data formats `detail` names, or ask whoever runs the server to switch charts on. |
 | `urn:wetterdienst:problem:host-not-allowed` | 400 | The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists. |
 | `urn:wetterdienst:problem:origin-not-allowed` | 400 | The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint. |
 | `urn:wetterdienst:problem:not-found` | 404 | What the request names does not exist: a station, a forecast run, a resolution or dataset, or a path. |
@@ -2146,7 +2172,6 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:upstream-quota-exhausted` | 503 | The data provider refused the request because the quota or the rate limit of the key this server uses is used up for now. The key is accepted and the request was valid; retry it after `Retry-After`. |
 | `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
 | `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |
-| `urn:wetterdienst:problem:image-timeout` | 504 | The browser that draws a chart as an image did not finish within `120` seconds and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening. |
 | `urn:wetterdienst:problem:internal-error` | 500 | The server's own error, a defect. The cause is in the server log. |
 
 Every problem has `instance`, `urn:wetterdienst:request:<id>`, and `request_id`, the id of the request. The id

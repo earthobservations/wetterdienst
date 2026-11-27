@@ -449,7 +449,6 @@ def test_cli_stations_geojson_pretty_true(json_dumps_mock: MagicMock) -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )

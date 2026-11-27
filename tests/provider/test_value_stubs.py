@@ -100,6 +100,15 @@ def test_a_stub_source_leaves_no_sentinel_in_the_values(
     assert carried == [], f"{stub.provider}: the sentinel {carried} reached the output"
 
 
+@pytest.mark.parametrize("stub", [stub for stub in STUBS if stub.flagged], ids=lambda stub: stub.provider)
+def test_the_flag_of_the_source_stays_beside_its_value(stub: ValueStub, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Serve the flags of the source with the null rows kept, and find each on its row, ahead of any `raw:` token."""
+    df = stub.build(monkeypatch, drop_nulls=False)
+    rows = df.select("parameter", "value", "quality_flags").rows()
+    for row in stub.flagged:
+        assert row in rows, f"{stub.provider}: no row {row}, got {sorted(set(rows), key=str)}"
+
+
 @pytest.mark.parametrize("stub", STUBS, ids=lambda stub: stub.provider)
 def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
     stub: ValueStub,
@@ -110,7 +119,7 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
     The default drops the rows without a value, and with them their flags: a caller sees the text with
     `drop_nulls=False` or in the wide shape.
     """
-    assert stub.tokens or stub.suspects, (
+    assert stub.tokens or stub.suspects or stub.flagged, (
         f"{stub.provider}: a stub of a reader that maps a sentinel names the tokens it must carry"
     )
     df = stub.build(monkeypatch, drop_nulls=False)

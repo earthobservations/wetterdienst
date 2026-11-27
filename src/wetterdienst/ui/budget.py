@@ -73,7 +73,7 @@ log = logging.getLogger(__name__)
 ANSWER_BUDGET = 40_000
 
 #: the formats whose body a model reads as data, which the budget holds: the formats of a tool. A chart (html, svg,
-#: png, jpg, webp, pdf) is none of them, and is refused before the route is called (`ui.mcp`, GH-4318)
+#: png, jpg, pdf) is none of them, and is refused before the route is called (`ui.mcp`, GH-4318)
 BUDGETED_FORMATS = frozenset({"json", "geojson", "csv", "ndjson", "compact"})
 
 #: the media types of the formats whose body is carried as text (`ui.mcp.structured_size`): csv and ndjson have a
@@ -661,6 +661,8 @@ def fit_stations(
         return content, metadata
     if result._stations_filter in _SMALL_SELECTIONS or result.df.get_column("station_id").n_unique() < 2:  # noqa: SLF001
         return _leave_block_out(result, request, render) or (content, metadata)
+    # the stations the selection found stay in the answer's counts when the stations are cut (GH-4472)
+    result = replace(result, _matched=metadata.counts.stations_matched)
     asked = request
     chosen = _fit_stations(result, asked, render, size, lead="", honest=False)
     if chosen.size > ANSWER_BUDGET and (
@@ -725,6 +727,7 @@ def fit_station_ids(
         cut = replace(
             result,
             df=result.df.head(count),
+            matched=total,
             warnings=[*result.warnings, {"code": ANSWER_TRUNCATED, "message": note}],
         )
         body, block = render(cut)

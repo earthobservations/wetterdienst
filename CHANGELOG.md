@@ -25,24 +25,103 @@ Types of changes:
   tool's compact answer is cut after whole timestamps, and its instructions recommend it for a long series
   in place of `csv` with `shape=wide`; the tool's default stays `json`. Not frozen (the first line is
   `# wetterdienst-compact/1 values`), see `docs/usage/compact.md`; the other tools follow (GH-4445)
+- The `counts` of a `stations` answer has `stations_matched`, the number of stations that match
+  (also in the `end` line of NDJSON and the header `X-Wetterdienst-Stations-Matched`; of
+  `station-ids` as well): `stations` is fewer where a `rank` or an MCP tool's budget cut the
+  list, and equal where nothing was cut (GH-4472)
 - `GET /api/version` (and `/api/v1/version`) has `plotting`, whether the server draws charts
   (`WD_RESTAPI_PLOTTING`, read per request), so a client learns it before it asks for one and gets
   the 403 `charts-disabled` (GH-4467)
+- The `metadata.request` block of `interpolate` and `summarize` has `elevation`, the elevation the
+  values were made at (null for none), and `elevation_corrected`, the parameters whose readings
+  were brought to it (empty where none was); the headers of a CSV and the block written beside a
+  file have them too. It tells that `elevation` was applied (GH-4473)
+- The `quality` legend of `with_metadata` lists DWD's QN levels of the datasets read in DWD's own
+  words, with the description they are from (`1` only formal control ... `9` not all parameters
+  corrected ... `10` quality control finished; the 10 minute data list `1` to `3`), and says where
+  DWD describes none (sub-daily, annual); where datasets list different levels it says which
+  lists which, and for the urban hourly data it says that the description lists 1 and 2 while the
+  data carry 3. The DUETT, Hub'Eau (`code_qualification_obs`) and Frost (`qualityCode`) legends
+  list their codes with the document too, and `source_flag_note` says where this library carries
+  no quality flag of the source. About 600 more characters per hourly or daily DWD answer
+  (GH-4474)
+- GeoSphere's quality flag of each parameter (`<parameter>_flag` of `klima-v2-10min`, `-1h`,
+  `-1d` and `-1m`, code list q21) is the first token of `quality_flags` (`12`, `20,raw:-1.0`),
+  null where the source has none. The `quality` legend of `with_metadata` lists the codes in
+  GeoSphere's words (`0` ungeprüfte Daten, `10` automatisch geprüft ... `22` manuell geprüft
+  (original)) with the metadata that defines them, and its `source_flag_note` is null now. The
+  flags come in the requests of the values, so a response from GeoSphere is about twice as large
+  (GH-4480)
 
 ### Changed
 
+- An MCP tool's error says more of what failed: the 502 for an answer a tool does not carry names
+  the formats of the tool that was called (`interpolate` and `summarize` answer `json`, `geojson`
+  or `csv`, no `ndjson`), and the text of a 500 ends with `Request id: <id>`, the one the server
+  log names (the REST problem has it as `request_id`), to quote to the operator (GH-4469)
 - **Breaking**: the REST API draws no charts unless its operator sets `WD_RESTAPI_PLOTTING=true`
-  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `webp`, `svg` or
-  `pdf` on `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
-  `charts-disabled`, before anything is read, that names the formats the server answers. Every
-  image starts a Chrome on the server. On your own server set the variable to keep the charts, or
-  ask for `json`, `geojson` or `csv`. The library, the command line, the MCP tools and the web app
-  are unchanged (GH-4461)
+  (`Settings.restapi_plotting`, off by default). `format=html`, `png`, `jpg`, `svg` or `pdf` on
+  `stations`, `values`, `interpolate` and `summarize` is then a 403 problem of the kind
+  `charts-disabled`, before anything is read, that names the formats the server answers. Charts
+  take the server's time and memory: they render one after another (11 s and 1.3 GB for a chart of
+  100,000 points). On your own server set the variable to keep the charts, or ask for `json`,
+  `geojson` or `csv`. The library, the command line, the MCP tools and the web app are unchanged
+  (GH-4461)
+- **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for
+  values, a `LayerChart` for the station map), no longer a Plotly figure. The `plotting` extra is
+  `altair` and `vl-convert-python` now, with no Chrome. Where you called Plotly methods
+  on the figure (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image
+  exactly `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a
+  Vega-Embed page with zoom and pan along time. vl-convert has no wheel for musllinux, Windows
+  ARM64 or a free-threaded Python (GH-3238)
+- **Breaking**: `webp` is no longer an image format: REST `format=`, `--format` and `to_format`
+  take `html`, `png`, `jpg`, `svg` and `pdf`. Ask for `png` and convert it (GH-3238)
+- **Breaking**: `ImageTimeoutError`, the REST problem `image-timeout`, `render_image(timeout=)`
+  and `IMAGE_TIMEOUT` are removed: there is no browser that can hang. Drop the
+  `except ImageTimeoutError` and any match on `image-timeout`, and the `timeout=` of
+  `render_image`. `require_kaleido` is `require_vl_convert` (GH-3238)
+- Where REST charts are on, a chart of more than 100,000 points (an image or `html`, which embeds
+  them) is refused with a 400 `limit-exceeded`, `limit` `image_points`: a render of that many
+  takes 11 s and 1.3 GB of vl-convert's one worker. A chart too small for its labels is measured
+  as it is drawn, so `scale` cannot take an image past the 8192 px of `image-too-large`. The Python
+  API and the CLI have no limit (GH-3238)
+- Images are drawn in the process by vl-convert, in 0.1 to 1 s where Kaleido started a Chrome for
+  each: the Docker image installs none. They are exactly `width` x `height` pixels (times
+  `scale`). The look changes: Liberation Sans for all text, and the station map draws the country
+  borders of Natural Earth 1:50m (shipped, nothing fetched) where it drew OpenStreetMap tiles, and
+  its labels are placed by Vega, the most crowded station first, on 8 sides at up to 24 px from the
+  dot (a label that fits nowhere is left out of a picture; the page keeps every name in its
+  tooltip) (GH-3238)
+- The `plotting` extra needs `vl-convert-python>=2.0.0rc7,<3`, a release candidate (pip and uv
+  take it from the specifier): vl-convert 2 renders in a worker and does not hold the interpreter,
+  so the server answers while a chart renders, and Vega's label transform works in it. Its
+  settings are the process's: a theme or locale of your own changes our images, and the allowed
+  addresses are none for a render and yours again after. The floor is 2.0.0 when it is out (GH-4095)
 - The `mcp` extra needs `fastmcp>=4.2.4` (was 4.1.2), which the Docker image and an environment
   synced from `uv.lock` now hold. The text of a tool error is as before. FastMCP cuts the text of
   an upstream error at 1,000 characters (`… (truncated)`) from 4.1.5, so the list of available
   parameters in the answer to a wrong parameter name is shortened for providers with many (`dwd`
   `mosmix`, `noaa` `ghcn`); `coverage` lists them all (GH-4384)
+- The error of an unknown resolution, dataset or parameter name names the closest names first,
+  then how many there are and that `coverage` lists them all, in under 1,000 characters (`noaa`
+  `ghcn` was 8,148), also for several unknown names in one request. A parameter in another
+  provider's form, an old name, or one written in the dataset's place gets the whole corrected
+  string: `daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`, is
+  `daily/data/temperature_air_mean_2m`. The "renamed to" texts are as before (GH-4466)
+- The error of a dataset that exists only at another resolution says so: `daily/air_temperature`
+  at `dwd/observation` is "`temperature_air` (written `air_temperature`) is a dataset of
+  10_minutes, hourly and subdaily", after the hint of the resolution asked for, which stays. Where
+  the parameter is given, the whole strings of it there follow (`10_minutes/temperature_air/
+  temperature_air_2m`, resolutions in the order of the metadata), still under 1,000 characters
+  (GH-4481)
+- The floor of rapidfuzz is 3.7.0 (was 3.1.0): from 3.1 to 3.6 `import rapidfuzz.process` imports
+  numpy, which wetterdienst does not depend on and does not need to match station names; from 3.7
+  rapidfuzz no longer loads it through wetterdienst's name search (GH-4491)
+
+### Fixed
+
+- A command that drew an image no longer hangs when it exits: the images are drawn without
+  Kaleido, so there is no Chrome to close (GH-3742)
 
 ### Security
 
@@ -101,6 +180,13 @@ Types of changes:
   The input schemas of the tools of 0.199.0 are 3,173 of 54,101 characters shorter (the options'
   share is 3,441). REST, the command line and Python are unchanged: ask the REST API for a chart
   (GH-4318)
+- **Breaking**: the MCP tool `values` no longer takes `skip_empty`, `skip_threshold` and
+  `skip_criteria`. A call that sends one as `null`, or as the value the server itself uses (its
+  `WD_TS_SKIP_*`, by default `false`, `0.95`, `min`), is answered as one without it; any other value
+  is a tool error that says what the server does. To get stations left out, count each station's
+  readings against what the window holds and drop those below the share you want, or call the REST
+  API (`/api/v1/values?skip_empty=true`). The input schemas of the tools are 718 of 57,504
+  characters shorter. REST, the command line and Python are unchanged (GH-4471)
 
 ### Fixed
 

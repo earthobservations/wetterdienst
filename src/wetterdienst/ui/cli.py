@@ -24,7 +24,6 @@ from wetterdienst.exceptions import (
     CredentialRejectedError,
     DateRequiredError,
     ExportRefusedError,
-    ImageTimeoutError,
     InvalidTimeIntervalError,
     MetadataNotFoundError,
     MissingDependencyError,
@@ -158,10 +157,6 @@ def _remember_quiet(ctx: click.Context, param: click.Parameter, value: bool) -> 
     return value
 
 
-#: the loggers of the libraries behind an image, which write what they cleaned up as the interpreter ends
-_IMAGE_LIBRARIES = ("choreographer", "kaleido")
-
-
 class _QuietFilter(logging.Filter):
     """Let a handler write errors, the warnings about the answer and `NOTHING_WRITTEN`: what `--quiet` leaves."""
 
@@ -179,8 +174,7 @@ def _apply_log_level(*, debug: bool) -> None:
     rest: the progress (logged at INFO), the other warnings of the package and everything the libraries underneath
     write below ERROR. The levels of the root logger and of `wetterdienst` are set to INFO (`station-skipped` is
     logged there) and the handlers they have are given a filter for the rest, both for the length of the command.
-    The libraries that draw an image (`choreographer`, `kaleido`) write their INFO lines when the interpreter ends,
-    after the command, so they are kept at WARNING for good. The data on stdout, a usage error that click writes
+    The data on stdout, a usage error that click writes
     itself and the exit code are untouched. With `--debug` it is a usage error, which of the two wins is not for
     the command to guess.
     """
@@ -195,8 +189,6 @@ def _apply_log_level(*, debug: bool) -> None:
     levels = [logger.level for logger in loggers]
     handlers = list({id(h): h for logger in loggers for h in logger.handlers}.values())
     quiet = _QuietFilter()
-    for name in _IMAGE_LIBRARIES:
-        logging.getLogger(name).setLevel(logging.WARNING)
     for logger in loggers:
         logger.setLevel(logging.INFO)
     for handler in handlers:
@@ -682,7 +674,7 @@ values_format_opt = click.option(
     f"compact: a header and a table for each station and dataset, one row a timestamp) "
     f"for data, {_or_list(names_of('chart'))} for a chart. Default: json",
 )
-# the size of a chart, for --format of html, png, jpg, webp, svg or pdf
+# the size of a chart, for --format of html, png, jpg, svg or pdf
 width_opt = click.option("--width", type=click.IntRange(min=1), help="Width of a rendered chart in pixels.")
 height_opt = click.option("--height", type=click.IntRange(min=1), help="Height of a rendered chart in pixels.")
 scale_opt = click.option(
@@ -1733,11 +1725,6 @@ class _Cli(_Group):
         except MissingDependencyError as e:
             # whatever the command was doing when it reached for a package that is not installed,
             # such as rendering an image: the message names what to install, and is the whole of it
-            log.error(str(e))  # noqa: TRY400
-            sys.exit(1)
-        except ImageTimeoutError as e:
-            # whatever image the command was drawing: the browser did not finish, and was closed. One line, as
-            # for an outage, where a traceback says nothing the line does not (GH-3723)
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
         except NoStationPositionsError as e:

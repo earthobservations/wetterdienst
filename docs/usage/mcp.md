@@ -127,12 +127,13 @@ a long series; the default of the tool stays `json`.
 ### What a tool does not take
 
 A tool is its REST route without the options that only the REST API needs, which a model reading JSON cannot use and
-which were part of the tool list of every session: `pretty`, the `width`, `height` and `scale` of an image, and the
-formats of a chart (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`). Nothing else is dropped (the `left`, `right`, `top` and
-`bottom` of a station box are arguments of the tools as they were). Charts are gone from the tools: a client that needs
-a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`, `/interpolate` and `/summarize` with
-`format=png` and the like where its operator has switched charts on (`WD_RESTAPI_PLOTTING=true`, off by default, see
-[Charts](restapi.md#charts)), as do the command line and Python, which are unchanged.
+which were part of the tool list of every session (the skip options of `values` are named below): `pretty`, the `width`,
+`height` and `scale` of an image, and the formats of a chart (`html`, `png`, `jpg`, `svg`, `pdf`). Nothing else is
+dropped (the `left`, `right`, `top` and `bottom` of a station box are arguments of the tools as they were). Charts are
+gone from the tools: a client that needs a picture calls the REST API, which draws one at `/api/v1/stations`, `/values`,
+`/interpolate` and `/summarize` with `format=png` and the like where its operator has switched charts on
+(`WD_RESTAPI_PLOTTING=true`, off by default, see [Charts](restapi.md#charts)), as do the command line and Python, which
+are unchanged.
 
 A call that still sends one of the options is answered like this, so that a client written for an earlier release
 keeps working where it can. Where the tool's route took the option:
@@ -156,6 +157,17 @@ keeps working where it can. Where the tool's route took the option:
 
 The option is an unknown argument, refused as above, for a tool whose route never took it (`pretty` for `glossary`).
 All the refusals of a call are one error.
+
+`values` does not take `skip_empty`, `skip_threshold` and `skip_criteria` either: models did not use them (asked to
+leave out the stations without a temperature, they left them out themselves), and they were part of the tool list of
+every session. What the tool does with them is what the server does: its `WD_TS_SKIP_EMPTY`, `WD_TS_SKIP_THRESHOLD`
+and `WD_TS_SKIP_CRITERIA`, by default no station left out. A call that sends one as `null`, or as the value the server
+itself uses (`skip_empty=false`, `skip_threshold=0.95` and `skip_criteria="min"` on a server with the defaults; a
+boolean also as text such as `no` or `off`), is answered as one without it. Any other value is a tool error that says
+what the server does, since the call would be answered with that and not with what it asked for. A station with no
+rows is left out anyway; to leave out those below a share of the window, count each station's readings against what
+the window holds and drop those below the share you want, or call the REST API, which takes the options
+(`/api/v1/values?skip_empty=true`), as do the command line and Python, which are unchanged.
 
 ## A forecast starts at now
 
@@ -219,6 +231,12 @@ An answer over the budget is cut, not refused, and says so:
 - **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
   required, so it is always the start of the window that is kept and the next window continues it. They have no
   `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
+  The `metadata.request` of their answers (cut ones too) says the `elevation` they were made at and which parameters
+  were corrected for it (`elevation_corrected`), so a value is told as corrected for the height or not. A `csv` has no
+  block, so there they are the headers `X-Wetterdienst-Elevation` and `X-Wetterdienst-Elevation-Corrected`, the sentence
+  of the tool ("Elevation: 1500.0 m. Corrected for the elevation: ...") and `wetterdienst.elevation` and
+  `wetterdienst.elevation_corrected` in the `_meta` of the result; a header is left out where there is no elevation or
+  no parameter was corrected.
 - **`stations`** with `name` is never cut: it asks for a few stations. Otherwise (`all`, a bounding
   box, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
   `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it. A `distance` is cut too, as a wide one lists
@@ -263,8 +281,11 @@ rows returned of the total, the range kept, the `timestamp` window to ask for th
 ending where the caller's window did) and the ways to ask for less: a narrower `timestamp`, fewer parameters, and
 `format=csv` with `shape=wide`, which is five to six times smaller than the long JSON. For `csv`, which has no block, it
 is the `X-Wetterdienst-Truncated` header too and a sentence of the tool that tells it in words, never a row of the body.
-`metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
-(the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
+`metadata.counts.rows` is the number of rows returned, not of those that were cut. A list of `stations` (and of
+`station_ids`) says how many stations match as a number, `metadata.counts.stations_matched`, next to
+`counts.stations`, the ones returned. A `csv` has no block, so there it is the `X-Wetterdienst-Stations-Matched` header,
+the sentence of the tool ("Stations matched: 700.") and `wetterdienst.stations_matched` in the `_meta` of the result,
+whether the list was cut or not. The block that `with_metadata` adds (the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
 parameters. It counts toward the budget and is kept: the rows (timestamps, or the stations of a `rank`, a `distance`
 or a listing) are cut to make room for it. Only where not even one timestamp or station fits with it, and one fits
 without it, is it left out, the always-present `metadata` stays, and the note says how many characters it was and that

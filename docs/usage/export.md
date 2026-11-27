@@ -196,7 +196,6 @@ take: a server answers the charts in it only where `WD_RESTAPI_PLOTTING=true` ([
 | `html` | yes | no | all | all | no |
 | `png` | yes | no | all | all | no |
 | `jpg` | yes | no | all | all | no |
-| `webp` | yes | no | all | all | no |
 | `svg` | yes | no | all | all | no |
 | `pdf` | yes | no | all | all | no |
 | `xlsx` | no | `.xlsx` | no | no | no |
@@ -226,7 +225,7 @@ and `wetterdienst storm-cells --target` as the alerts have them, a scan with no 
 
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for
-GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV and NDJSON. A name that is none of
+GeoJSON, `width`, `height`, `scale`, `max_side` and `max_points` for a chart, and none for CSV and NDJSON. A name that is none of
 these is a `TypeError` listing them. A format it does not know is an `UnknownFormatError`, which names the format and lists the
 supported ones; it is a `KeyError` and a `ValueError` both, so either `except` catches it.
 

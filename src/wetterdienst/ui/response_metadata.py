@@ -23,13 +23,15 @@ from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by pydantic
+from wetterdienst.metadata.parameter_table import PARAMETERS, Aggregation
 from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
 from wetterdienst.model.processing_note import STATION_IDS_NOTE, processing_note
-from wetterdienst.model.quality_legend import QualityKind, quality_legend
+from wetterdienst.model.quality_legend import QualityKind, quality_legend, source_flag_note
 from wetterdienst.model.result import (
+    InterpolatedValuesResult,
     StationsFilter,
     StationsResult,
+    SummarizedValuesResult,
     _License,
     _metadata_of,
     _Producer,
@@ -117,12 +119,37 @@ class ResolvedRequest(BaseModel):
     )
 
 
+class EstimateRequest(ResolvedRequest):
+    """What `interpolate` and `summarize` were asked for: the request as resolved, and the elevation of the point."""
+
+    elevation: float | None = Field(
+        description="The elevation of the point the values were made for, in metres above mean sea level: the "
+        "`elevation` the request gave; where it gave none and named the point by a `station`, that station's own "
+        "elevation, which is what the answer is made at unless another is given. Null where there is none: the "
+        "readings are those of the stations as they came.",
+    )
+    elevation_corrected: list[str] = Field(
+        description="The parameters (`resolution/dataset/parameter`) whose readings were brought from each station's "
+        "elevation to `elevation` before they were used: the quantities that fall with height (air temperature at 2 m "
+        "and the dew point), and only where `elevation` is not null. Empty where there are none, which says that the "
+        "values are the stations' readings as they came. The other parameters are not corrected whatever `elevation` "
+        "says.",
+    )
+
+
 class Counts(BaseModel):
     """How much the answer holds."""
 
     model_config = ConfigDict(extra="forbid")
 
     stations: int = Field(description="The stations in the answer; 0 for one that is not about stations.")
+    stations_matched: int | None = Field(
+        default=None,
+        description="Only in the answer of `stations`: how many stations match the request. `stations` is fewer where "
+        "the answer was cut: by `rank` (the nearest `rank` of the stations that could be ranked, the best `rank` of "
+        "the names that matched) or, for a tool's answer, to the budget of 40,000 characters (`answer-truncated`). "
+        "Equal to `stations` where nothing was cut; absent from every other answer.",
+    )
     rows: int = Field(
         description="The rows of `values` (one per timestamp in the wide shape, one per value in the long "
         "one), the stations listed, the histories, the issues, the alerts or the storm cells.",
@@ -192,7 +219,15 @@ class Quality(BaseModel):
     )
     legend: list[QualityKind] = Field(
         description="What the tokens of `quality_flags` mean for this network, in the order of the column: the "
-        "source's own flag, its further kinds, and `raw` last. Empty for a network whose readings carry no flag.",
+        "source's own flag, its further kinds, and `raw` last. For DWD's observation network the source's own flag "
+        "(the quality level QN) lists the levels of the datasets read, with DWD's words and the documents they are "
+        "from.",
+    )
+    source_flag_note: str | None = Field(
+        default=None,
+        description="Said where this library carries no quality flag of the source, so that `quality_flags` holds "
+        "only its own tokens (a source may still publish one that is not read yet, which the note says); null "
+        "where it carries one.",
     )
 
 
@@ -303,6 +338,10 @@ class StationIdsCounts(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     stations: int = Field(description="How many stations (rows) the answer has.")
+    stations_matched: int = Field(
+        description="How many stations the search found: more than `stations` where a tool's answer was cut to its "
+        "budget of 40,000 characters (`answer-truncated`), and equal to it otherwise.",
+    )
     providers: int = Field(description="How many providers have a station in it.")
     networks_searched: int = Field(description="How many networks were asked.")
     networks_answered: int = Field(description="How many of them read their list.")
@@ -575,6 +614,12 @@ class ResponseMetadata(BaseModel):
     quality: Quality | None = Field(default=None, description="With `with_metadata` only.")
 
 
+class EstimateMetadata(ResponseMetadata):
+    """The `metadata` block of the answer of `interpolate` and `summarize`: that of `values`, with the elevation."""
+
+    request: EstimateRequest
+
+
 class StatisticsMetadata(ResponseMetadata):
     """The `metadata` block of the answer of `statistics`: that of `values`, with the search of the groups."""
 
@@ -617,15 +662,46 @@ def response_metadata(
     """Build the block of the answer to `request`, which `result` is the result of.
 
     `heavy` adds the units and the quality legend, and is what `with_metadata` of the request asks for
-    by default. `rows` is given where the answer holds something other than the rows of the result's frame.
+    by default. `rows` is given where the answer holds something other than the rows of the result's frame. The
+    answer to a `stations` request says how many stations match (`counts.stations_matched`), no other does.
     """
+    from wetterdienst.ui.core import StationsRequest  # noqa: PLC0415
+
     return result_metadata(
         result,
         provider=request.provider,
         network=request.network,
         heavy=request.with_metadata if heavy is None else heavy,
         rows=rows,
+        matched=isinstance(request, StationsRequest),
     )
+
+
+def _stations_matched(result: StationsResult | _ValuesResult[Any, Any], listed: int) -> int | None:
+    """Give how many stations the selection of a stations result found: its own count, or the `listed` ones."""
+    if not isinstance(result, StationsResult):
+        return None
+    # never fewer than the stations listed
+    return listed if result._matched is None else max(result._matched, listed)  # noqa: SLF001
+
+
+def _with_elevation(
+    block: ResponseMetadata, result: InterpolatedValuesResult | SummarizedValuesResult
+) -> EstimateMetadata:
+    """Give the block of an estimate the elevation it was made at, and what of it was corrected for (GH-4473).
+
+    The elevation is the one the result was made at, which a point named by a station has without being given one.
+    What is corrected is the parameter's own: the table declares a `lapse_rate` for the quantities that fall with
+    height, and the correction is made where there is an elevation.
+    """
+    elevation = result.elevation
+    corrected = _unique(
+        f"{p.dataset.resolution.name}/{p.dataset.name}/{p.name}"
+        for p in result.stations.parameters
+        if elevation is not None and PARAMETERS[p.name].lapse_rate
+    )
+    request = EstimateRequest(**block.request.model_dump(), elevation=elevation, elevation_corrected=corrected)
+    return EstimateMetadata.model_validate({**dict(block), "request": request})
 
 
 def result_metadata(
@@ -635,10 +711,13 @@ def result_metadata(
     network: str,
     heavy: bool,
     rows: int | None = None,
+    matched: bool = False,
 ) -> ResponseMetadata:
     """Build the block of an answer made from `result` when the request does not name the provider and network.
 
-    `response_metadata` is this for the requests that name them.
+    `response_metadata` is this for the requests that name them. `matched` adds `counts.stations_matched`, for the
+    answer that lists the stations of a `StationsResult`: the stations the selection found, which are more than the
+    ones in `result.df` where a `rank` or the budget of a tool's answer cut them (GH-4472).
     """
     stations = result if isinstance(result, StationsResult) else result.stations
     frame = result.df if isinstance(result, StationsResult) else result.df_stations
@@ -666,17 +745,25 @@ def result_metadata(
                 ids=ids if len(ids) <= MAX_LISTED_STATION_IDS else None,
             ),
         ),
-        counts=Counts(stations=len(ids), rows=result.df.height if rows is None else rows),
+        counts=Counts(
+            stations=len(ids),
+            stations_matched=_stations_matched(result, len(ids)) if matched else None,
+            rows=result.df.height if rows is None else rows,
+        ),
         crs=Crs(),
         warnings=recorded_warnings(),
     )
+    if isinstance(result, InterpolatedValuesResult | SummarizedValuesResult):
+        block = _with_elevation(block, result)
     searched = None if isinstance(result, StationsResult) else getattr(result, "search", None)
     if searched is not None:
         block.search = Search.model_validate(searched.to_dict())
     if heavy:
         block.parameters = parameter_infos(stations)
+        read_datasets = list({id(p.dataset): p.dataset for p in parameters}.values())
         block.quality = Quality(
-            legend=quality_legend(provider, network),
+            legend=quality_legend(provider, network, [f"{d.resolution.name}/{d.name}" for d in read_datasets]),
+            source_flag_note=source_flag_note(provider, network),
             source_flags=[
                 SourceQualityFlag(
                     resolution=dataset.resolution.name,
@@ -684,7 +771,7 @@ def result_metadata(
                     name_original=flag.name_original,
                     description=flag.description,
                 )
-                for dataset in {id(p.dataset): p.dataset for p in parameters}.values()
+                for dataset in read_datasets
                 for flag in dataset.parameters
                 if is_quality_flag(flag)
             ],
@@ -953,6 +1040,7 @@ def station_ids_metadata(result: StationIdSearchResult) -> StationIdsMetadata:
         ),
         counts=StationIdsCounts(
             stations=result.df.height,
+            stations_matched=result.df.height if result.matched is None else result.matched,
             providers=len(providers),
             networks_searched=len(searched),
             networks_answered=sum(network.status == "searched" for network in searched),
@@ -970,6 +1058,7 @@ def station_ids_headers(metadata: StationIdsMetadata) -> Mapping[str, str]:
         "X-Wetterdienst-Schema-Version": metadata.schema_version,
         "X-Wetterdienst-Retrieved-At": metadata.retrieved_at,
         "X-Wetterdienst-Stations": str(metadata.counts.stations),
+        "X-Wetterdienst-Stations-Matched": str(metadata.counts.stations_matched),
     }
     if metadata.providers:
         headers["X-Wetterdienst-Provider"] = _header_text(", ".join(p.name_english for p in metadata.providers))
@@ -996,13 +1085,38 @@ def station_ids_headers(metadata: StationIdsMetadata) -> Mapping[str, str]:
 
 def metadata_to_dict(metadata: ResponseMetadata) -> dict[str, Any]:
     """Write the block as the JSON of an answer has it: the heavy parts only where they were asked for."""
-    exclude = {name for name in (*_HEAVY, "search") if getattr(metadata, name) is None}
+    exclude: dict[str, Any] = {name: True for name in (*_HEAVY, "search") if getattr(metadata, name) is None}
+    # only the answer of `stations` has it
+    if metadata.counts.stations_matched is None:
+        exclude["counts"] = {"stations_matched"}
     return metadata.model_dump(mode="json", exclude=exclude)
 
 
 def _header_text(value: str) -> str:
     """Write a header value that may carry more than ASCII (an attribution) as percent-encoded UTF-8."""
     return quote(value, safe=" ,.:;/()-_@=+'!*&")
+
+
+def _count_headers(counts: Counts) -> dict[str, str]:
+    """Write the `counts` of a block as headers: the stations and the rows, and how many stations matched if it says."""
+    headers = {"X-Wetterdienst-Stations": str(counts.stations)}
+    if counts.stations_matched is not None:
+        headers["X-Wetterdienst-Stations-Matched"] = str(counts.stations_matched)
+    headers["X-Wetterdienst-Rows"] = str(counts.rows)
+    return headers
+
+
+def _elevation_headers(metadata: ResponseMetadata) -> dict[str, str]:
+    """Write the elevation of an estimate (`interpolate`, `summarize`) as headers, as a CSV has no block (GH-4473)."""
+    request = metadata.request
+    if not isinstance(request, EstimateRequest):
+        return {}
+    headers = {}
+    if request.elevation is not None:
+        headers["X-Wetterdienst-Elevation"] = str(request.elevation)
+    if request.elevation_corrected:
+        headers["X-Wetterdienst-Elevation-Corrected"] = ",".join(request.elevation_corrected)
+    return headers
 
 
 def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
@@ -1017,8 +1131,7 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
         "X-Wetterdienst-Schema-Version": metadata.schema_version,
         "X-Wetterdienst-Retrieved-At": metadata.retrieved_at,
         "X-Wetterdienst-Provider": _header_text(provider["name_english"]),
-        "X-Wetterdienst-Stations": str(metadata.counts.stations),
-        "X-Wetterdienst-Rows": str(metadata.counts.rows),
+        **_count_headers(metadata.counts),
     }
     if metadata.data_updated_at is not None:
         headers["X-Wetterdienst-Data-Updated-At"] = metadata.data_updated_at
@@ -1047,7 +1160,7 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
     # the same for a forecast answer that starts at now (GH-4025)
     if started := next((w["message"] for w in metadata.warnings if w["code"] == FORECAST_FROM_NOW), None):
         headers["X-Wetterdienst-Forecast-From-Now"] = _header_text(started)
-    return headers
+    return headers | _elevation_headers(metadata)
 
 
 def catalogue_headers(metadata: CatalogueMetadata) -> Mapping[str, str]:
