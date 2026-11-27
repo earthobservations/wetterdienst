@@ -210,14 +210,65 @@ describe('choosing a point', () => {
     expect(stage.props.goTo).toMatchObject({ latitude: 51.0493286, longitude: 13.7381437, zoom: 11 })
   })
 
-  it('by "Use my location": the position (rounded by the browser) goes to the link, the map goes to it, and the status says so', async () => {
+  it('by "Use my location": the position (rounded by the browser) is the point, the map goes to it, the status says so, and the link does not hold it', async () => {
     const wrapper = await mountKostra()
     wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
-    await vi.waitFor(() => expect(queryOfRoute()).toMatchObject({ lat: '50.73', lon: '13.75' }))
     await shown(wrapper)
-    expect(wrapper.findComponent(UseMyLocation).props('status')).toBe('Your position is the point now.')
+    expect(asked).toEqual([{ latitude: '50.73', longitude: '13.75' }])
+    expect(wrapper.findComponent(UseMyLocation).props('status')).toBe('Your position is the point now. It is not written to the address of the page.')
     expect(byId(wrapper, 'kostra-point').text()).toBe('Chosen point: Your position, rounded: 50.7300, 13.7500')
     expect(stage.props.goTo).toMatchObject({ latitude: 50.73, longitude: 13.75 })
+    expect(stage.props.position).toEqual({ latitude: 50.73, longitude: 13.75 })
+    // the position is in the page's memory and nowhere in the address
+    expect(queryOfRoute().lat).toBeUndefined()
+    expect(queryOfRoute().lon).toBeUndefined()
+    expect(useRouter().currentRoute.value.fullPath).toBe('/kostra')
+  })
+
+  it('by "Use my location" over a point of the link: the point is taken out of the link, so that the address holds nothing of the position or of the point before it', async () => {
+    const wrapper = await mountKostra(`?lat=${ZINNWALD.lat}&lon=${ZINNWALD.lon}&lang=en`)
+    await shown(wrapper)
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 53.55, longitude: 9.99 })
+    await vi.waitFor(() => expect(queryOfRoute().lat).toBeUndefined())
+    expect(queryOfRoute().lon).toBeUndefined()
+    // what else the link says stays
+    expect(queryOfRoute().lang).toBe('en')
+    await vi.waitFor(() => expect(asked.at(-1)).toEqual({ latitude: '53.55', longitude: '9.99' }))
+    expect(stage.props.position).toEqual({ latitude: 53.55, longitude: 9.99 })
+  })
+
+  it('by "Use my location" a second time at the same rounded place: the table is not asked for again', async () => {
+    const wrapper = await mountKostra()
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await shown(wrapper)
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(asked).toHaveLength(1)
+  })
+
+  it('by a click or a place after "Use my location": that point is in the link again, and the position is gone', async () => {
+    const wrapper = await mountKostra()
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await shown(wrapper)
+    wrapper.findComponent(PlaceField).vm.$emit('pick', { id: 'N1', name: 'Dresden', kind: 'city', region: null, latitude: 51.0493, longitude: 13.7381 })
+    await vi.waitFor(() => expect(queryOfRoute()).toMatchObject({ lat: '51.0493', lon: '13.7381' }))
+    await vi.waitFor(() => expect(asked.at(-1)).toEqual({ latitude: '51.0493', longitude: '13.7381' }))
+    expect(stage.props.position).toEqual({ latitude: 51.0493, longitude: 13.7381 })
+  })
+
+  it('a link that comes to the page while it holds a position (the back button) is the point now', async () => {
+    const wrapper = await mountKostra()
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await shown(wrapper)
+    await useRouter().replace({ query: { lat: '48.137', lon: '11.575' } })
+    await vi.waitFor(() => expect(asked.at(-1)).toEqual({ latitude: '48.137', longitude: '11.575' }))
+    expect(byId(wrapper, 'kostra-point').text()).toBe('Chosen point: 48.1370, 11.5750')
+    expect(wrapper.findComponent(UseMyLocation).props('status')).toBe('')
+    // the position is gone, not set aside: with the link empty again the page is as at the start, and the old position does not come back
+    await useRouter().replace({ query: {} })
+    await vi.waitFor(() => expect(byId(wrapper, 'tool-placeholder').exists()).toBe(true))
+    expect(stage.props.position).toBeNull()
   })
 
   it('by a click: the status of the position is gone, since the point is no longer it', async () => {
@@ -240,6 +291,82 @@ describe('choosing a point', () => {
     stage.emit!('pick', { latitude: 53.56, longitude: 9.98, tolerance: 1, tap: 1, disc: 1 })
     await vi.waitFor(() => expect(queryOfRoute().lat).toBe('53.56'))
     expect(stage.props.goTo.count).toBe(1)
+  })
+})
+
+describe('the link to the point', () => {
+  const writes: string[] = []
+  let clipboardFails = false
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+  beforeEach(() => {
+    writes.length = 0
+    clipboardFails = false
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          if (clipboardFails)
+            throw new Error('denied')
+          writes.push(text)
+        },
+      },
+    })
+  })
+  afterEach(() => {
+    if (originalClipboard)
+      Object.defineProperty(navigator, 'clipboard', originalClipboard)
+    else
+      delete (navigator as any).clipboard
+  })
+
+  it('is a button of the panel while there is a point, and not before', async () => {
+    const wrapper = await mountKostra()
+    expect(byId(wrapper, 'kostra-copy-link').exists()).toBe(false)
+    await mapReady()
+    stage.emit!('pick', { latitude: 53.55, longitude: 9.99, tolerance: 1, tap: 1, disc: 1 })
+    await vi.waitFor(() => expect(byId(wrapper, 'kostra-copy-link').exists()).toBe(true))
+    expect(byId(wrapper, 'kostra-copy-link').text()).toBe('Copy link to this point')
+  })
+
+  it('copies nothing until it is pressed: a point chosen, a position found and a link opened write nothing to the clipboard', async () => {
+    const wrapper = await mountKostra(`?lat=${ZINNWALD.lat}&lon=${ZINNWALD.lon}`)
+    await shown(wrapper)
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await vi.waitFor(() => expect(asked.at(-1)).toEqual({ latitude: '50.73', longitude: '13.75' }))
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(writes).toEqual([])
+    expect(byId(wrapper, 'kostra-link-status').text()).toBe('')
+  })
+
+  it('copies, on a press, the link with the position, which the address of the page does not hold, and says so', async () => {
+    const wrapper = await mountKostra()
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await shown(wrapper)
+    await byId(wrapper, 'kostra-copy-link').trigger('click')
+    await vi.waitFor(() => expect(writes).toHaveLength(1))
+    expect(writes[0]).toBe(`${window.location.origin}/kostra?lat=50.73&lon=13.75`)
+    await vi.waitFor(() => expect(byId(wrapper, 'kostra-link-status').text()).toBe('Link copied.'))
+    // the address of the page is as it was
+    expect(queryOfRoute().lat).toBeUndefined()
+  })
+
+  it('copies the link of a point chosen on the map as the address holds it, with what else the link says', async () => {
+    const wrapper = await mountKostra(`?lat=${ZINNWALD.lat}&lon=${ZINNWALD.lon}&lang=en`)
+    await shown(wrapper)
+    await byId(wrapper, 'kostra-copy-link').trigger('click')
+    await vi.waitFor(() => expect(writes).toHaveLength(1))
+    expect(writes[0]).toBe(`${window.location.origin}/kostra?lat=50.7313&lon=13.7516&lang=en`)
+  })
+
+  it('says so where the clipboard refuses, and the next point takes the words away', async () => {
+    clipboardFails = true
+    const wrapper = await mountKostra(`?lat=${ZINNWALD.lat}&lon=${ZINNWALD.lon}`)
+    await shown(wrapper)
+    await byId(wrapper, 'kostra-copy-link').trigger('click')
+    await vi.waitFor(() => expect(byId(wrapper, 'kostra-link-status').text()).toBe('The link could not be copied.'))
+    await mapReady()
+    stage.emit!('pick', { latitude: 53.55, longitude: 9.99, tolerance: 1, tap: 1, disc: 1 })
+    await vi.waitFor(() => expect(byId(wrapper, 'kostra-link-status').text()).toBe(''))
   })
 })
 

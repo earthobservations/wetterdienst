@@ -93,10 +93,10 @@ describe('privacy policy texts', () => {
     expect(places).toMatch(code === 'de' ? /auf dem Radar/ : /on the radar/)
     expect(sending).toMatch(code === 'de' ? /Auf dem Radar wird Ihr Standort nur als Markierung angezeigt und die Karte auf ihn zentriert; auch dort werden die Koordinaten nicht an das Backend gesendet/ : /On the radar your position is only shown as a marker and the map centred on it; the coordinates are not sent to the backend there either/)
     // the map's tiles of that section are asked from OpenStreetMap on the radar as on the map
-    expect(sending).toMatch(code === 'de' ? /auf der Karte oder auf dem Radar, lädt Ihr Browser jedoch die Kartenkacheln dieses Ausschnitts von tile\.openstreetmap\.org/ : /on the map or on the radar, however, your browser fetches the map tiles of that area from tile\.openstreetmap\.org/)
+    expect(sending).toMatch(code === 'de' ? /auf der Karte, auf dem Radar oder auf der Starkregen-Seite, lädt Ihr Browser jedoch die Kartenkacheln dieses Ausschnitts von tile\.openstreetmap\.org/ : /on the map, on the radar or on the heavy-rainfall page, however, your browser fetches the map tiles of that area from tile\.openstreetmap\.org/)
     // the section on the third parties says the map's tiles are asked for on the radar too, which the sentence above points to
     const tiles = texts[code as keyof typeof texts].sections.find(s => s.id === 'third-parties')!.items!.find(item => /tile\.openstreetmap\.org/.test(item))!
-    expect(tiles).toMatch(code === 'de' ? /oder die Karte des Radars/ : /or the radar's map/)
+    expect(tiles).toMatch(code === 'de' ? /die Karte des Radars oder die Karte der Starkregen-Seite/ : /the radar's map or the map of the heavy-rainfall page/)
     // the tick and "Forget" are there as on the map
     expect(storing!.match(code === 'de' ? /auf dem Radar/g : /on the radar/g)).toHaveLength(2)
   })

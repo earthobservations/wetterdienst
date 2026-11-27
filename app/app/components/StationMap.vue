@@ -509,7 +509,7 @@ function centreOnCell() {
   owner.setView([view.latitude, view.longitude], view.zoom, { animate: !reducedMotion.value })
 }
 
-/** The cell of the Heavy-rainfall tool (GH-4500): a square outline in the marks' pane, under the point's ring; it takes no click, so a click inside it picks a point */
+/** The cell of the Heavy-rainfall tool (GH-4500): a square outline in the marks' pane, always under the point's ring and dot; it takes no click, so a click inside it picks a point */
 function drawBox() {
   if (!map)
     return
@@ -518,6 +518,8 @@ function drawBox() {
   if (!props.box?.length)
     return
   boxLayer = L.polygon(props.box as L.LatLngExpression[], { color: NAVY, weight: 2.5, fillColor: SUN, fillOpacity: 0.3, lineJoin: 'miter', interactive: false, pane: MARKS_PANE }).addTo(map)
+  // a box drawn again after the point (a click picks the point, and the cell of the answer comes after it) is under the ring and the dot, not over them
+  boxLayer.bringToBack()
 }
 
 /** The reader's own position: a ring round a dot, in navy, which no station's mark is (the yellow disc, the white ring) */

@@ -420,7 +420,8 @@
       "airport": "Letiště"
     },
     "placesCredit": "{osm} ({licence}) · místa přes {photon}",
-    "placesFailed": "Místa se teď nepodařilo vyhledat. Piš dál a zkus to znovu."
+    "placesFailed": "Místa se teď nepodařilo vyhledat. Piš dál a zkus to znovu.",
+    "more": "Více"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "V blízkosti tvé polohy nebyla nalezena žádná stanice.",
     "lookupFailed": "Nejbližší stanici se nepodařilo vyhledat. Zkus to znovu nebo použij vyhledávání.",
     "here": "Dotaz se týká místa {name}, stanice {distance} od tvé polohy.",
-    "noteKostra": "Zaokrouhlená na zhruba 1 km a použitá jen k vyhledání tabulky srážek její buňky. V tomto prohlížeči zůstane, jen když zaškrtneš políčko."
+    "noteKostra": "Zaokrouhlená na zhruba 1 km a použitá jen k vyhledání tabulky srážek její buňky. Nezapisuje se do adresy stránky a v tomto prohlížeči zůstane, jen když zaškrtneš políčko."
   },
   "place": {
     "fieldLabel": "Najít místo",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Vybraný bod",
     "pointPosition": "Tvá poloha, zaokrouhlená: {point}",
     "pointMap": "Na mapě: {point}",
-    "positionUsed": "Tvá poloha je nyní bodem.",
+    "positionUsed": "Tvá poloha je nyní bodem. Nezapisuje se do adresy stránky.",
     "mapLabel": "Mapa pro výběr bodu návrhových srážek. Kliknutí vybere bod; buňka sítě DWD o straně 5 km, v níž leží, je ohraničena.",
     "pointMarker": "Vybraný bod",
     "loading": "Čtou se tabulky DWD … první dotaz trvá několik sekund.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} h",
       "days": "{n} d"
-    }
+    },
+    "copyLink": "Zkopírovat odkaz na tento bod",
+    "linkCopied": "Odkaz zkopírován.",
+    "linkNotCopied": "Odkaz se nepodařilo zkopírovat."
   }
 }

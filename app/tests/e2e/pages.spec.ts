@@ -389,7 +389,12 @@ test.describe('Heavy Rainfall Page', () => {
   test('should navigate to the heavy-rainfall tool from the header', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
-    await page.getByRole('navigation').getByRole('link', { name: 'Heavy rainfall', exact: true }).click()
+    // a tab of the header, or an item of its More menu where the tab does not fit the row (GH-4500)
+    const nav = page.getByRole('navigation')
+    await expect(nav.locator('.nav-tab').first()).toBeVisible()
+    if (await nav.getByTestId('nav-more-button').count())
+      await nav.getByTestId('nav-more-button').click()
+    await nav.getByRole('link', { name: 'Heavy rainfall' }).click()
 
     await expect(page).toHaveURL(/\/kostra$/)
     await expect(page.getByRole('heading', { name: 'Heavy rainfall', level: 1 })).toBeVisible()

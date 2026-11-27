@@ -36,8 +36,17 @@ const StationMap = defineAsyncComponent({
 
 // ---- the point -----------------------------------------------------------------------------------------------------
 
-/** The point of the link: the page's one source of it */
-const point = computed(() => linkPoint(route.query))
+/**
+ * The point of the link (`?lat=&lon=`), which holds a point the reader searched for or clicked on the map, so that the page can be shared
+ */
+const linked = computed(() => linkPoint(route.query))
+/**
+ * The position from "Use my location": kept in the memory of this page only and never written to the link (the reader's own place is not put into an
+ * address that is copied, bookmarked and kept in a history; a link to it is made by "Copy link to this point", on the reader's press). A reload is without it.
+ */
+const ownPoint = ref<Point | null>(null)
+/** The point the page is about: the link's where it has one, else the position's */
+const point = computed(() => linked.value ?? ownPoint.value)
 
 /** How the point was chosen, for what the panel says of it: a link says nothing, a place has its name, the map and the position are told as that */
 type Source = 'link' | 'place' | 'map' | 'position'
@@ -64,8 +73,27 @@ function setPoint(at: Point, from: Source) {
   if (from !== 'place')
     placeName.value = ''
   // replaced, not pushed: each point is not a page of the history, and the link always holds the one in view
+  if (from === 'position') {
+    // the position is in this page's memory and out of the link: a point the link held before is taken out of it
+    ownPoint.value = at
+    const { lat: _lat, lon: _lon, ...rest } = route.query
+    void router.replace({ query: rest }).catch(() => {})
+    return
+  }
+  ownPoint.value = null
   void router.replace({ query: { ...route.query, ...queryOfPoint(at) } }).catch(() => {})
 }
+
+// a link that comes to the page while it holds a position (the back button, a link opened in the page) is the point now, and the position is gone
+watch(linked, (now) => {
+  if (!now)
+    return
+  ownPoint.value = null
+  if (source.value === 'position') {
+    source.value = 'link'
+    positionStatus.value = ''
+  }
+})
 
 function onPlace(place: PlaceMatch) {
   const at = { latitude: place.latitude, longitude: place.longitude }
@@ -92,6 +120,28 @@ if (point.value)
 // ---- the answer ----------------------------------------------------------------------------------------------------
 
 const kostra = useKostra(point)
+
+// ---- the link to the point, on a press --------------------------------------------------------------------------------
+
+/** What was told of the last press of "Copy link to this point": a status, polite, and gone with the next point */
+const linkStatus = ref('')
+async function copyLink() {
+  const at = point.value
+  if (!at)
+    return
+  // the address of this page with the point, written only here, to the clipboard, on the reader's press
+  const href = `${window.location.origin}${router.resolve({ path: route.path, query: { ...route.query, ...queryOfPoint(at) } }).href}`
+  try {
+    await navigator.clipboard.writeText(href)
+    linkStatus.value = t('kostra.linkCopied')
+  }
+  catch {
+    linkStatus.value = t('kostra.linkNotCopied')
+  }
+}
+watch(() => point.value ? `${point.value.latitude},${point.value.longitude}` : null, () => {
+  linkStatus.value = ''
+})
 const table = computed(() => kostra.table.value)
 const corners = computed(() => table.value ? cellCorners(table.value.cell) : null)
 const status = computed(() => kostra.status.value)
@@ -156,9 +206,15 @@ const pointSummary = computed(() => {
           <p v-if="point" class="kostra-point" role="status" data-testid="kostra-point">
             <span class="font-semibold">{{ t('kostra.pointLabel') }}{{ t('common.colon') }}</span> {{ pointSummary }}
           </p>
+          <div v-if="point" class="flex flex-col items-start gap-1.5">
+            <UButton type="button" color="neutral" variant="outline" size="sm" icon="i-ph-link" :label="t('kostra.copyLink')" data-testid="kostra-copy-link" @click="copyLink" />
+            <p class="kostra-note empty:sr-only" role="status" data-testid="kostra-link-status">
+              {{ linkStatus }}
+            </p>
+          </div>
         </section>
 
-        <div class="kostra-stage" data-testid="kostra-stage-map">
+        <div class="kostra-map-stage" data-testid="kostra-stage-map">
           <ClientOnly>
             <StationMap
               :stations="[]"
@@ -252,21 +308,21 @@ const pointSummary = computed(() => {
     gap: 2rem;
   }
 }
-.kostra-stage {
+.kostra-map-stage {
   position: relative;
   isolation: isolate;
   min-width: 0;
   height: clamp(16rem, 46dvh, 22rem);
 }
 @media (min-width: 72rem) {
-  .kostra-stage {
+  .kostra-map-stage {
     height: auto;
     min-height: 22rem;
   }
 }
 /* the narrow layout runs edge to edge: the map has the window's width */
 @media screen and (width < 40rem) {
-  .kostra-stage {
+  .kostra-map-stage {
     margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
     /* a grid item with a negative margin is not stretched by it: the width is said */
     width: calc(100% + var(--bleed-start) + var(--bleed-end));

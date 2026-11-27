@@ -59,3 +59,87 @@ describe('the tool tabs of the header', () => {
     expect(wrapper.findAll('nav ul a[aria-current="page"]').map(link => link.attributes('href'))).toEqual(['/radar'])
   })
 })
+
+// The tabs that do not fit go into the "More" menu (GH-4500). The test's document has no layout, so the widths are given: a tab is 100 px, the
+// rest of the row (the line and the reference) 150 px, the "More" button 60 px, with no gap, and the room is what a test sets.
+describe('the tabs that do not fit', () => {
+  const original = HTMLElement.prototype.getBoundingClientRect
+  let room = 10_000
+  function stubWidths() {
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const measure = this.dataset?.measure
+      const width = this.matches?.('nav.app-nav')
+        ? room
+        : measure === 'tab' ? 100 : measure === 'list' ? 700 : measure === 'row' ? 850 : measure === 'more' ? 60 : 0
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    }
+  }
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = original
+    room = 10_000
+  })
+
+  const more = (wrapper: Header) => wrapper.find('[data-testid="nav-more-button"]')
+  const inMore = async (wrapper: Header) => {
+    await more(wrapper).trigger('click')
+    return wrapper.findAll('[data-testid="nav-more-panel"] li').map(item => item.attributes('data-tool'))
+  }
+
+  it('are all in the row, with no More button, where the room holds them', async () => {
+    stubWidths()
+    room = 850
+    const wrapper = await mountHeader()
+    expect(tabs(wrapper)).toEqual(DEFAULT)
+    expect(more(wrapper).exists()).toBe(false)
+  })
+
+  it('go from the end into the More menu, which is after the last tab that stays, and each is a link in it', async () => {
+    stubWidths()
+    // seven tabs miss by a pixel: five are left with the button, which is 60 px for the two tabs that go
+    room = 849
+    const wrapper = await mountHeader()
+    expect(tabs(wrapper)).toEqual(DEFAULT.slice(0, 6))
+    expect(more(wrapper).exists()).toBe(true)
+    room = 800
+    const narrower = await mountHeader()
+    expect(tabs(narrower)).toEqual(DEFAULT.slice(0, 5))
+    expect(await inMore(narrower)).toEqual(['map', 'kostra'])
+    expect(narrower.findAll('[data-testid="nav-more-panel"] a').map(link => link.attributes('href'))).toEqual(['/map', '/kostra'])
+  })
+
+  it('keep every tool one click away, whatever the room: the tabs and the menu are the seven, in the order the reader chose', async () => {
+    stubWidths()
+    useTabBar().setOrder(['kostra', 'history', 'map', 'forecast', 'explorer', 'stripes', 'radar'])
+    for (const width of [850, 700, 600, 400, 200, 0]) {
+      room = width
+      const wrapper = await mountHeader()
+      const kept = tabs(wrapper)
+      const menu = more(wrapper).exists() ? await inMore(wrapper) : []
+      expect(kept.length + menu.length, `${width} px`).toBe(7)
+      expect([...kept, ...menu.map(key => `/${key === 'forecast' ? 'meteogram' : key}`)], `${width} px`).toEqual(['/kostra', '/history', '/map', '/meteogram', '/explorer', '/stripes', '/radar'])
+      wrapper.unmount()
+      mounted.pop()
+    }
+  })
+
+  it('mark the More button as the tab of the page is marked where the page is a tool that is in it, and only then', async () => {
+    stubWidths()
+    room = 800
+    const inside = await mountHeader('/kostra')
+    expect(more(inside).attributes('data-current')).toBeDefined()
+    // the tabs that are in the row are not marked: the page is not theirs
+    expect(inside.findAll('nav ul a[aria-current="page"]')).toHaveLength(0)
+    const outside = await mountHeader('/radar')
+    expect(more(outside).attributes('data-current')).toBeUndefined()
+    expect(outside.findAll('nav ul a[aria-current="page"]').map(link => link.attributes('href'))).toEqual(['/radar'])
+  })
+
+  it('marks the tool of the page in the menu too, with the same marking as the tabs\' links', async () => {
+    stubWidths()
+    room = 800
+    const wrapper = await mountHeader('/kostra')
+    await more(wrapper).trigger('click')
+    expect(wrapper.find('[data-testid="nav-more-panel"] a[href="/kostra"]').attributes('aria-current')).toBe('page')
+    expect(wrapper.find('[data-testid="nav-more-panel"] a[href="/map"]').attributes('aria-current')).toBeUndefined()
+  })
+})

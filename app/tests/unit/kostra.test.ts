@@ -123,6 +123,9 @@ describe('the point in the link', () => {
     expect(linkPoint({ lat: '-33.87', lon: '-151.2' })).toEqual({ latitude: -33.87, longitude: -151.2 })
     // the first of a repeated parameter
     expect(linkPoint({ lat: ['50.1', '51'], lon: ['8.7'] })).toEqual({ latitude: 50.1, longitude: 8.7 })
+    // a decimal number as a link writes it: a sign, a bare fraction and a trailing point are decimals too
+    expect(linkPoint({ lat: '+50.5', lon: '.5' })).toEqual({ latitude: 50.5, longitude: 0.5 })
+    expect(linkPoint({ lat: '50.', lon: ' 8 ' })).toEqual({ latitude: 50, longitude: 8 })
   })
 
   it.each([
@@ -134,6 +137,12 @@ describe('the point in the link', () => {
     ['a latitude beyond 90', { lat: '91', lon: '8' }],
     ['a longitude beyond 180', { lat: '50', lon: '181' }],
     ['infinity', { lat: '1e999', lon: '8' }],
+    ['a hexadecimal number, which Number reads as 52', { lat: '0x34', lon: '8' }],
+    ['an exponent, which Number reads as 10', { lat: '1e1', lon: '8' }],
+    ['a binary and an octal number', { lat: '0b11', lon: '0o7' }],
+    ['text round a number', { lat: '50 north', lon: '8' }],
+    ['a comma for the point', { lat: '50,7', lon: '8' }],
+    ['a sign alone or a point alone', { lat: '-', lon: '.' }],
   ])('is none for %s', (_what, query) => {
     expect(linkPoint(query)).toBeNull()
   })

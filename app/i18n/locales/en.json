@@ -420,7 +420,8 @@
       "airport": "Airport"
     },
     "placesCredit": "{osm} ({licence}) · places via {photon}",
-    "placesFailed": "Places could not be searched just now. Keep typing to try again."
+    "placesFailed": "Places could not be searched just now. Keep typing to try again.",
+    "more": "More"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "No station was found near your position.",
     "lookupFailed": "The nearest station could not be looked up. Try again, or use the search.",
     "here": "Asking about {name}, the station {distance} from your position.",
-    "noteKostra": "Rounded to about 1 km and used only to look up the rainfall table of its grid cell. It stays in this browser only if you tick the box."
+    "noteKostra": "Rounded to about 1 km and used only to look up the rainfall table of its grid cell. It is not written to the address of the page, and stays in this browser only if you tick the box."
   },
   "place": {
     "fieldLabel": "Find a place",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Chosen point",
     "pointPosition": "Your position, rounded: {point}",
     "pointMap": "On the map: {point}",
-    "positionUsed": "Your position is the point now.",
+    "positionUsed": "Your position is the point now. It is not written to the address of the page.",
     "mapLabel": "Map to choose the point of the design rainfall. A click chooses a point; the 5 km cell of DWD's grid that holds it is outlined.",
     "pointMarker": "Chosen point",
     "loading": "Reading DWD's tables … the first request takes a few seconds.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} h",
       "days": "{n} d"
-    }
+    },
+    "copyLink": "Copy link to this point",
+    "linkCopied": "Link copied.",
+    "linkNotCopied": "The link could not be copied."
   }
 }

@@ -420,7 +420,8 @@
       "airport": "Aeropuerto"
     },
     "placesCredit": "{osm} ({licence}) · lugares a través de {photon}",
-    "placesFailed": "No se pudieron buscar lugares en este momento. Sigue escribiendo para volver a intentarlo."
+    "placesFailed": "No se pudieron buscar lugares en este momento. Sigue escribiendo para volver a intentarlo.",
+    "more": "Más"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "No se encontró ninguna estación cerca de tu ubicación.",
     "lookupFailed": "No se pudo buscar la estación más cercana. Inténtalo de nuevo o usa la búsqueda.",
     "here": "Se pregunta por {name}, la estación a {distance} de tu ubicación.",
-    "noteKostra": "Redondeada a aproximadamente 1 km y usada solo para consultar la tabla de lluvia de su celda. Solo se queda en este navegador si marcas la casilla."
+    "noteKostra": "Redondeada a aproximadamente 1 km y usada solo para consultar la tabla de lluvia de su celda. No se escribe en la dirección de la página y solo se queda en este navegador si marcas la casilla."
   },
   "place": {
     "fieldLabel": "Buscar un lugar",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Punto elegido",
     "pointPosition": "Tu ubicación, redondeada: {point}",
     "pointMap": "En el mapa: {point}",
-    "positionUsed": "Tu ubicación es ahora el punto.",
+    "positionUsed": "Tu ubicación es ahora el punto. No se escribe en la dirección de la página.",
     "mapLabel": "Mapa para elegir el punto de la lluvia de diseño. Un clic elige un punto; la celda de 5 km de la cuadrícula del DWD que lo contiene aparece delimitada.",
     "pointMarker": "Punto elegido",
     "loading": "Leyendo las tablas del DWD … la primera consulta tarda unos segundos.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} h",
       "days": "{n} d"
-    }
+    },
+    "copyLink": "Copiar el enlace a este punto",
+    "linkCopied": "Enlace copiado.",
+    "linkNotCopied": "No se pudo copiar el enlace."
   }
 }

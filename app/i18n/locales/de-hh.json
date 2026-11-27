@@ -420,7 +420,8 @@
       "airport": "Flogplatz"
     },
     "placesCredit": "{osm} ({licence}) · Oorten över {photon}",
-    "placesFailed": "Oorten leten sik jüst nich söken. Schriev wieder, dat noch mal to versöken."
+    "placesFailed": "Oorten leten sik jüst nich söken. Schriev wieder, dat noch mal to versöken.",
+    "more": "Mehr"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "In de Neg vun dien Standort is keen Station funnen worrn.",
     "lookupFailed": "De neegste Station leet sik nich afropen. Versöök dat noch mal oder bruuk dat Söken.",
     "here": "Fraagt warrt na {name}, de Station {distance} vun dien Standort af.",
-    "noteKostra": "Op ungefähr 1 km rundt un blots bruukt, üm de Regentabell vun siene Rasterzell optoropen. Blots wenn du dat Höken sett'st, blifft he in disse Browser bewahrt."
+    "noteKostra": "Op ungefähr 1 km rundt un blots bruukt, üm de Regentabell vun siene Rasterzell optoropen. He steiht nich in de Adress vun de Siet un blifft blots in disse Browser bewahrt, wenn du dat Höken sett'st."
   },
   "place": {
     "fieldLabel": "Oort söken",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Utsöchten Punkt",
     "pointPosition": "Dien Standort, rundt: {point}",
     "pointMap": "Op de Kaart: {point}",
-    "positionUsed": "Dien Standort is nu de Punkt.",
+    "positionUsed": "Dien Standort is nu de Punkt. He steiht nich in de Adress vun de Siet.",
     "mapLabel": "Kaart, üm den Punkt för den Bemeetnisregen uttosöken. Een Klick söcht en Punkt ut; de 5-km-Zell vun dat DWD-Raster, in de he liggt, is ummrandt.",
     "pointMarker": "Utsöchten Punkt",
     "loading": "De Tabellen vun den DWD warrt leest … de eerste Afroop duert en poor Sekunnen.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} h",
       "days": "{n} d"
-    }
+    },
+    "copyLink": "Link to dissen Punkt koperen",
+    "linkCopied": "Link kopeert.",
+    "linkNotCopied": "De Link leet sik nich koperen."
   }
 }

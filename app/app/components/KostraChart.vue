@@ -134,6 +134,8 @@ function onKeydown(event: KeyboardEvent) {
       return
   }
   event.preventDefault()
+  // a key that moves the crosshair brings the readout back, also where it is at the duration it was closed at (Escape at the last duration, then End)
+  dismissed.value = false
   select(next, true)
 }
 function onBlur(event: FocusEvent) {

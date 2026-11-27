@@ -13,8 +13,8 @@ export type KostraStatus = 'idle' | 'pending' | 'success' | 'outside' | 'error'
  * for (no `duration`, no `return_period`): 22 tables of DWD, about 2 s the first time and then from the backend's cache.
  *
  * A point outside the grid (outside Germany and about 10 km, or in the sea) is a 400 of the backend, and is the status `outside`, not
- * an error: it is a fact about the place the reader chose, which the page tells in words, with the backend's own sentence in `reason`.
- * Any other failure is `error` with what the backend said (`detail`), which `retry` asks again. An answer of an earlier point that
+ * an error: it is a fact about the place the reader chose, which the page tells in its own words (the backend's sentence is English only,
+ * and says the same). Any other failure is `error` with what the backend said (`detail`), which `retry` asks again. An answer of an earlier point that
  * arrives after the point has moved is dropped, and the request it was is cancelled.
  *
  * `load` is how it is asked for, by default that request; a test gives its own.
@@ -22,8 +22,6 @@ export type KostraStatus = 'idle' | 'pending' | 'success' | 'outside' | 'error'
 export function useKostra(point: Ref<Point | null>, options: { load?: (point: Point, signal: AbortSignal) => Promise<unknown> } = {}) {
   const table = shallowRef<KostraTable | null>(null)
   const status = ref<KostraStatus>('idle')
-  /** The backend's sentence for a point outside the grid */
-  const reason = ref('')
   /** What the backend said of a failure */
   const detail = ref('')
 
@@ -36,7 +34,6 @@ export function useKostra(point: Ref<Point | null>, options: { load?: (point: Po
     const mine = ++generation
     controller?.abort()
     controller = null
-    reason.value = ''
     detail.value = ''
     if (!at) {
       table.value = null
@@ -63,7 +60,6 @@ export function useKostra(point: Ref<Point | null>, options: { load?: (point: Po
       const failed = error as { statusCode?: number, status?: number, response?: { status?: number } } | null
       const code = failed?.statusCode ?? failed?.status ?? failed?.response?.status
       if (code === 400) {
-        reason.value = describeFetchError(error)
         status.value = 'outside'
         return
       }
@@ -79,5 +75,5 @@ export function useKostra(point: Ref<Point | null>, options: { load?: (point: Po
     controller?.abort()
   })
 
-  return { table, status, reason, detail, retry: () => ask(point.value) }
+  return { table, status, detail, retry: () => ask(point.value) }
 }

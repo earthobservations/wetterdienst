@@ -26,6 +26,8 @@ const OTHER_LANGUAGES = ALL_LANGUAGES.filter(language => !(LONG_LANGUAGES as rea
 const REFLOW_PAGES = ['/stripes', '/history', '/settings']
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 800 },
+  // the widest step of the header, where it carries the search's word and the support heart (90 rem) and its tabs are the longest
+  { name: 'wide desktop', width: 1440, height: 900 },
   // the narrowest window with the tools in the header (64 rem), where their names are tightest (GH-3518)
   { name: 'small desktop', width: 1024, height: 768 },
   { name: 'phone', width: 320, height: 844 },

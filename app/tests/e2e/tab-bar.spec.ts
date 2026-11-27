@@ -568,11 +568,25 @@ test.describe('every page, with the browser\'s storage blocked', () => {
 
 test.describe('the wide header', () => {
   test.use({ viewport: { width: 1280, height: 800 } })
-  const headerLinks = (page: Page) => page.getByRole('banner').getByRole('navigation', { name: en.shell.mainNav }).getByRole('link')
+  const headerNav = (page: Page) => page.getByRole('banner').getByRole('navigation', { name: en.shell.mainNav })
+  /**
+   * The tools of the header in its order: the tabs of the row, and the ones that did not fit, which are in its More menu (GH-4500), opened and closed
+   * again. Every tool is one of them.
+   */
+  const headerTools = async (page: Page) => {
+    const names = await headerNav(page).locator('ul > li > a.nav-tab').allInnerTexts()
+    const more = headerNav(page).getByTestId('nav-more-button')
+    if (await more.count()) {
+      await more.click()
+      names.push(...await headerNav(page).getByTestId('nav-more-panel').locator('a span.font-semibold').allInnerTexts())
+      await page.keyboard.press('Escape')
+    }
+    return names.map(name => name.trim())
+  }
 
   test('shows all seven tools whatever the bar holds, in the order of the choice, and the chooser is still on the settings page', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings', { settings: settingsWith(WITH_MAP) })
-    await expect(headerLinks(page)).toHaveText(WITH_MAP.map(key => NAMES[key]!))
+    await expect.poll(() => headerTools(page)).toEqual(WITH_MAP.map(key => NAMES[key]!))
     await expect(bar(page)).toBeHidden()
     await expect(chooser(page)).toBeVisible()
   })
@@ -592,20 +606,20 @@ test.describe('the wide header', () => {
 
   test('moves the tabs of the header when a tool is moved in the chooser, kept after a reload, and the other places keep their order', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings')
-    await expect(headerLinks(page)).toHaveText(DEFAULT_ORDER.map(key => NAMES[key]!))
+    await expect.poll(() => headerTools(page)).toEqual(DEFAULT_ORDER.map(key => NAMES[key]!))
     // the History is the last of the list: there is no line to cross, so four steps take it to the first place
     for (let step = 0; step < 4; step++)
       await move(page, 'history', 'up').click()
     const expected = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map', 'kostra']
     await expect(status(page)).toHaveText(`${en.nav.history} moved to place 1 of 7 in the header.`)
-    await expect(headerLinks(page)).toHaveText(expected.map(key => NAMES[key]!))
+    await expect.poll(() => headerTools(page)).toEqual(expected.map(key => NAMES[key]!))
     expect(await stored(page)).toEqual(expected)
     await page.reload()
-    await expect(headerLinks(page)).toHaveText(expected.map(key => NAMES[key]!))
+    await expect.poll(() => headerTools(page)).toEqual(expected.map(key => NAMES[key]!))
     // the start page's tiles keep the fixed order of the tools
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
-    await expect(headerLinks(page)).toHaveText(expected.map(key => NAMES[key]!))
+    await expect.poll(() => headerTools(page)).toEqual(expected.map(key => NAMES[key]!))
     expect(await page.locator('.home-tasks li a').evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(['/meteogram', '/explorer', '/stripes', '/radar', '/history', '/map', '/kostra'])
   })
 })
@@ -624,6 +638,8 @@ test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
         await move(page, 'history', 'up').click()
       await pressMenuTab(page)
       await expect(sheet(page)).toBeVisible()
+      // the sheet opens by scaling in from 97 %: its marks are measured once it has come to rest, not part-way
+      await expect.poll(() => sheet(page).evaluate(el => getComputedStyle(el).transform)).toBe('none')
       const expected = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map', 'kostra']
       await expect.poll(() => sheetOrder(page)).toEqual(expected)
       expect(await sheetTools(page).evaluateAll(items => items.map(item => item.querySelector('a')!.dataset.group))).toEqual(['bar', 'bar', 'bar', 'bar', 'menu', 'menu', 'menu'])

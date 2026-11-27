@@ -28,11 +28,19 @@ async function open(page: Page, baseURL: string, path: string, language = 'en') 
 test.describe('the wide header', () => {
   test.use({ viewport: { width: 1280, height: 800 } })
 
-  test('names the tools as tabs and marks the one of the page', async ({ page, baseURL }) => {
+  test('names the tools as tabs and marks the one of the page, the tabs that do not fit being in the More menu (GH-4500)', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/stripes')
     const nav = page.getByRole('navigation', { name: en.shell.mainNav })
-    for (const key of ['meteogram', 'explorer', 'stripes', 'radar', 'history', 'map', 'kostra'])
-      await expect(nav.getByRole('link', { name: en.nav[key], exact: true })).toBeVisible()
+    const keys = ['meteogram', 'explorer', 'stripes', 'radar', 'history', 'map', 'kostra']
+    // every tool is a tab of the row or an item of the More menu, one click away
+    const names = await nav.locator('ul > li > a.nav-tab').allInnerTexts()
+    const more = nav.getByTestId('nav-more-button')
+    if (await more.count()) {
+      await more.click()
+      names.push(...await nav.getByTestId('nav-more-panel').locator('a span.font-semibold').allInnerTexts())
+      await page.keyboard.press('Escape')
+    }
+    expect(names.map(name => name.trim())).toEqual(keys.map(key => en.nav[key]))
     await expect(nav.getByRole('link', { name: en.nav.stripes, exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1)
     // the tab bar of the narrow layout is not there at this width

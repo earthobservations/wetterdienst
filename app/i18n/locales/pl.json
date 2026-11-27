@@ -420,7 +420,8 @@
       "airport": "Lotnisko"
     },
     "placesCredit": "{osm} ({licence}) · miejsca przez {photon}",
-    "placesFailed": "Nie udało się teraz wyszukać miejsc. Pisz dalej, aby spróbować ponownie."
+    "placesFailed": "Nie udało się teraz wyszukać miejsc. Pisz dalej, aby spróbować ponownie.",
+    "more": "Więcej"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "W pobliżu Twojej lokalizacji nie znaleziono żadnej stacji.",
     "lookupFailed": "Nie udało się wyszukać najbliższej stacji. Spróbuj ponownie lub użyj wyszukiwania.",
     "here": "Pytanie dotyczy miejsca {name}, stacji oddalonej o {distance} od Twojej lokalizacji.",
-    "noteKostra": "Zaokrąglona do około 1 km i używana tylko do wyszukania tabeli opadów jej komórki siatki. Zostaje w tej przeglądarce tylko wtedy, gdy zaznaczysz pole."
+    "noteKostra": "Zaokrąglona do około 1 km i używana tylko do wyszukania tabeli opadów jej komórki siatki. Nie trafia do adresu strony i zostaje w tej przeglądarce tylko wtedy, gdy zaznaczysz pole."
   },
   "place": {
     "fieldLabel": "Znajdź miejsce",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Wybrany punkt",
     "pointPosition": "Twoja lokalizacja, zaokrąglona: {point}",
     "pointMap": "Na mapie: {point}",
-    "positionUsed": "Twoja lokalizacja jest teraz punktem.",
+    "positionUsed": "Twoja lokalizacja jest teraz punktem. Nie trafia do adresu strony.",
     "mapLabel": "Mapa do wyboru punktu opadu miarodajnego. Kliknięcie wybiera punkt; komórka siatki DWD o boku 5 km, w której leży, jest obrysowana.",
     "pointMarker": "Wybrany punkt",
     "loading": "Odczytywanie tabel DWD … pierwsze zapytanie trwa kilka sekund.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} h",
       "days": "{n} d"
-    }
+    },
+    "copyLink": "Skopiuj link do tego punktu",
+    "linkCopied": "Skopiowano link.",
+    "linkNotCopied": "Nie udało się skopiować linku."
   }
 }

@@ -92,6 +92,37 @@ test.describe('the heavy rainfall on a wide screen', () => {
     await expect(page.getByTestId('kostra-point')).toContainText(en.kostra.pointLabel)
   })
 
+  test('draws the cell under the marker of the point, also where the cell comes after the point (after a click on the map): ring and dot over the box', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/kostra')
+    await page.getByRole('application', { name: en.kostra.mapLabel }).click({ position: { x: 200, y: 120 } })
+    await expect(page.getByTestId('kostra-table')).toBeVisible()
+    // the cell is the path of the sun's yellow, and the marker two paths of white and navy; Leaflet draws them in the order they were added
+    await expect(page.locator('.leaflet-station-marks-pane path[fill="#ffc93c"]')).toHaveCount(1)
+    const order = await page.locator('.leaflet-station-marks-pane svg path').evaluateAll(paths => paths.map(path => path.getAttribute('fill')))
+    expect(order[0], 'the cell is the first path of the pane, so under the marker').toBe('#ffc93c')
+    expect(order.length).toBe(3)
+    // and once more, after the table of the cell has come and the box has been drawn again for a second point
+    await page.getByRole('application', { name: en.kostra.mapLabel }).click({ position: { x: 260, y: 150 } })
+    await expect(page.locator('.leaflet-station-marks-pane path[fill="#ffc93c"]')).toHaveCount(1)
+    const again = await page.locator('.leaflet-station-marks-pane svg path').evaluateAll(paths => paths.map(path => path.getAttribute('fill')))
+    expect(again[0]).toBe('#ffc93c')
+  })
+
+  test('takes the position of "Use my location" as the point and keeps it out of the address, which only a press of "Copy link to this point" writes out', async ({ page, context, baseURL }) => {
+    await context.grantPermissions(['geolocation'])
+    await context.setGeolocation({ latitude: 50.7313, longitude: 13.7516 })
+    await open(page, baseURL!, '/kostra')
+    await page.getByTestId('use-my-location-button').click()
+    await expect(page.getByTestId('kostra-table')).toBeVisible()
+    await expect(page.getByTestId('kostra-point')).toContainText('Your position')
+    await expect(page.getByTestId('kostra-copy-link')).toBeVisible()
+    // the address holds nothing of it
+    expect(new URL(page.url()).search).toBe('')
+    // a point chosen on the map is in the address, as it was
+    await page.getByRole('application', { name: en.kostra.mapLabel }).click({ position: { x: 200, y: 120 } })
+    await expect(page).toHaveURL(/\/kostra\?lat=[\d.]+&lon=[\d.]+$/)
+  })
+
   test('says in words that a point outside the grid has no values: a note, no alert', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/kostra?lat=40&lon=3')
     const note = page.getByTestId('kostra-outside')
@@ -130,6 +161,21 @@ test.describe('the heavy rainfall on a phone', () => {
     const first = await page.locator('tbody th.kostra-duration').first().boundingBox()
     const edge = await box.boundingBox()
     expect(Math.abs(first!.x - edge!.x)).toBeLessThan(3)
+  })
+
+  test('has the chart in the column of the page, under its legend: the left edge of the curves is the legend\'s, and the map\'s box does not move it', async ({ page, baseURL }) => {
+    await open(page, baseURL!)
+    await expect(page.getByTestId('kostra-chart').locator('[data-drawn="true"] svg')).toBeVisible()
+    const edges = await page.evaluate(() => {
+      const left = (selector: string) => document.querySelector(selector)!.getBoundingClientRect().left
+      return { legend: left('.kostra-legend'), svg: left('.kostra-plot svg'), stage: left('[data-testid="kostra-stage"]'), table: left('[data-testid="kostra-table-scroll"]'), map: left('.kostra-map-stage') }
+    })
+    expect(Math.abs(edges.svg - edges.legend), `the curves at ${edges.svg}px, their legend at ${edges.legend}px`).toBeLessThanOrEqual(1)
+    expect(Math.abs(edges.stage - edges.legend)).toBeLessThanOrEqual(1)
+    // the chart is in the page's column, as the table is; the map alone runs to the window's edge
+    expect(Math.abs(edges.stage - edges.table)).toBeLessThanOrEqual(1)
+    expect(edges.map).toBeLessThanOrEqual(1)
+    expect(edges.stage).toBeGreaterThan(8)
   })
 
   test('has the heavy rainfall in the Menu and not in the bar of four', async ({ page, baseURL }) => {

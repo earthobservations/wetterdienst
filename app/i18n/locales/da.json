@@ -420,7 +420,8 @@
       "airport": "Lufthavn"
     },
     "placesCredit": "{osm} ({licence}) · steder via {photon}",
-    "placesFailed": "Steder kunne ikke søges lige nu. Skriv videre for at prøve igen."
+    "placesFailed": "Steder kunne ikke søges lige nu. Skriv videre for at prøve igen.",
+    "more": "Mere"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "Der blev ikke fundet nogen station i nærheden af din placering.",
     "lookupFailed": "Den nærmeste station kunne ikke slås op. Prøv igen, eller brug søgningen.",
     "here": "Der spørges om {name}, stationen {distance} fra din placering.",
-    "noteKostra": "Afrundet til omkring 1 km og kun brugt til at slå nedbørstabellen op for dens gittercelle. Den bliver kun i denne browser, hvis du sætter hak."
+    "noteKostra": "Afrundet til omkring 1 km og kun brugt til at slå nedbørstabellen op for dens gittercelle. Den skrives ikke i sidens adresse og bliver kun i denne browser, hvis du sætter hak."
   },
   "place": {
     "fieldLabel": "Find et sted",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Valgt punkt",
     "pointPosition": "Din placering, afrundet: {point}",
     "pointMap": "På kortet: {point}",
-    "positionUsed": "Din placering er nu punktet.",
+    "positionUsed": "Din placering er nu punktet. Den skrives ikke i sidens adresse.",
     "mapLabel": "Kort til at vælge punktet for dimensioneringsnedbøren. Et klik vælger et punkt; den celle på 5 km i DWD's gitter, som det ligger i, er optegnet.",
     "pointMarker": "Valgt punkt",
     "loading": "Læser DWD's tabeller … den første forespørgsel tager et par sekunder.",
@@ -1641,7 +1642,7 @@
     "cell": "DWD-gittercelle {cell}, centrum {centre}",
     "quantitySwitch": "Vis regnen som",
     "quantity": {
-      "depth": "Dybde",
+      "depth": "Nedbørsmængde",
       "intensity": "Intensitet"
     },
     "estimateNote": "Disse værdier er DWD's skøn for den celle på 5 km, som punktet ligger i, ikke målinger i punktet.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} t",
       "days": "{n} d"
-    }
+    },
+    "copyLink": "Kopiér link til dette punkt",
+    "linkCopied": "Link kopieret.",
+    "linkNotCopied": "Linket kunne ikke kopieres."
   }
 }

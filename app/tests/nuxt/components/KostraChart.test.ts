@@ -219,6 +219,33 @@ describe('the keys', () => {
     await vi.waitFor(() => expect(readout()).not.toBeNull())
   })
 
+  it('bring the readout back where Escape closed it at the first or the last duration: Home, End and the arrow keys move nothing there, and show it', async () => {
+    await showChart()
+    stage().focus()
+    for (const [open, again] of [['End', 'End'], ['Home', 'Home'], ['End', 'ArrowRight'], ['Home', 'ArrowLeft']] as const) {
+      key(open)
+      await vi.waitFor(() => expect(readout()).not.toBeNull())
+      key('Escape')
+      await vi.waitFor(() => expect(readout()).toBeNull())
+      // the crosshair is where it was: the key that is pressed again does not move it, and shows the readout
+      key(again)
+      await vi.waitFor(() => expect(readout(), `${open}, Escape, ${again}`).not.toBeNull())
+    }
+  })
+
+  it('close the readout with Escape twice and keep it closed, as a pointer\'s jitter does not bring it back', async () => {
+    await showChart()
+    stage().focus()
+    key('Home')
+    await vi.waitFor(() => expect(readout()).not.toBeNull())
+    key('Escape')
+    key('Escape')
+    await vi.waitFor(() => expect(readout()).toBeNull())
+    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(5, 800) }))
+    await flushPromises()
+    expect(readout()).toBeNull()
+  })
+
   it('leave every other key alone, and the keys of a button inside the chart', async () => {
     await showChart()
     stage().focus()

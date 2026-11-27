@@ -420,7 +420,8 @@
       "airport": "Luchthaven"
     },
     "placesCredit": "{osm} ({licence}) · plaatsen via {photon}",
-    "placesFailed": "Plaatsen konden nu niet worden gezocht. Blijf typen om het opnieuw te proberen."
+    "placesFailed": "Plaatsen konden nu niet worden gezocht. Blijf typen om het opnieuw te proberen.",
+    "more": "Meer"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "Er is geen station gevonden in de buurt van je locatie.",
     "lookupFailed": "Het dichtstbijzijnde station kon niet worden opgezocht. Probeer het opnieuw of gebruik het zoeken.",
     "here": "De vraag gaat over {name}, het station op {distance} van je locatie.",
-    "noteKostra": "Afgerond op ongeveer 1 km en alleen gebruikt om de neerslagtabel van de bijbehorende rastercel op te zoeken. Ze blijft alleen in deze browser staan als je het vakje aanvinkt."
+    "noteKostra": "Afgerond op ongeveer 1 km en alleen gebruikt om de neerslagtabel van de bijbehorende rastercel op te zoeken. Ze wordt niet in het adres van de pagina gezet en blijft alleen in deze browser staan als je het vakje aanvinkt."
   },
   "place": {
     "fieldLabel": "Zoek een plaats",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Gekozen punt",
     "pointPosition": "Je locatie, afgerond: {point}",
     "pointMap": "Op de kaart: {point}",
-    "positionUsed": "Je locatie is nu het punt.",
+    "positionUsed": "Je locatie is nu het punt. Ze wordt niet in het adres van de pagina gezet.",
     "mapLabel": "Kaart om het punt van de ontwerpneerslag te kiezen. Een klik kiest een punt; de cel van 5 km van het raster van de DWD waarin het ligt, is omlijnd.",
     "pointMarker": "Gekozen punt",
     "loading": "De tabellen van de DWD worden gelezen … het eerste verzoek duurt een paar seconden.",
@@ -1641,7 +1642,7 @@
     "cell": "DWD-rastercel {cell}, middelpunt {centre}",
     "quantitySwitch": "Toon de regen als",
     "quantity": {
-      "depth": "Diepte",
+      "depth": "Neerslaghoeveelheid",
       "intensity": "Intensiteit"
     },
     "estimateNote": "Deze waarden zijn schattingen van de DWD voor de cel van 5 km waarin het punt ligt, geen metingen op het punt.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} u",
       "days": "{n} d"
-    }
+    },
+    "copyLink": "Link naar dit punt kopiëren",
+    "linkCopied": "Link gekopieerd.",
+    "linkNotCopied": "De link kon niet worden gekopieerd."
   }
 }

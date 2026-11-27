@@ -603,6 +603,31 @@
   pointer-events: none;
 }
 
+/* The row of the header's tabs fills the room between the logo and the search, which is what the tabs that fit are measured against
+   (`AppHeader.vue`); it is not seen until they have been measured, so that the row does not jump. The copy of the row they are measured in
+   is out of the flow and not seen, and takes no room and no scroll. */
+.app-nav {
+  min-width: 0;
+}
+@media (min-width: 64rem) {
+  .app-nav {
+    flex: 1 1 0;
+  }
+}
+.app-nav-pending {
+  visibility: hidden;
+}
+.nav-measure {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  width: max-content;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .brand:hover .wordmark {
   text-decoration: underline;
   text-underline-offset: 0.2em;

@@ -108,13 +108,16 @@ export function durationLabel(minutes: number, t: Translate): string {
 
 // ------------------------------------------------------------------------------------------------ the point in the link
 
-/** The point of a link's `lat` and `lon`, or null where either is missing, is no number or is no place on the globe */
+/** A decimal number as a link writes it: an optional sign, digits and an optional fraction, and nothing else (`Number` would read `0x34` as 52 and `1e1` as 10) */
+const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/
+
+/** The point of a link's `lat` and `lon`, or null where either is missing, is no decimal number or is no place on the globe */
 export function linkPoint(query: Record<string, unknown>): Point | null {
   const read = (value: unknown): number | null => {
     const text = Array.isArray(value) ? value[0] : value
-    if (typeof text !== 'string' || text.trim() === '')
+    if (typeof text !== 'string' || !DECIMAL.test(text.trim()))
       return null
-    const parsed = Number(text)
+    const parsed = Number(text.trim())
     return Number.isFinite(parsed) ? parsed : null
   }
   const latitude = read(query.lat)

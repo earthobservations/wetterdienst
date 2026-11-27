@@ -420,7 +420,8 @@
       "airport": "Flughafen"
     },
     "placesCredit": "{osm} ({licence}) · Orte über {photon}",
-    "placesFailed": "Orte konnten gerade nicht gesucht werden. Weitertippen versucht es erneut."
+    "placesFailed": "Orte konnten gerade nicht gesucht werden. Weitertippen versucht es erneut.",
+    "more": "Mehr"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "In der Nähe deines Standorts wurde keine Station gefunden.",
     "lookupFailed": "Die nächste Station konnte nicht abgefragt werden. Versuche es erneut oder nutze die Suche.",
     "here": "Gefragt wird nach {name}, der Station {distance} von deinem Standort entfernt.",
-    "noteKostra": "Auf etwa 1 km gerundet und nur genutzt, um die Niederschlagstabelle seiner Rasterzelle abzurufen. Nur wenn du das Häkchen setzt, bleibt er in diesem Browser gespeichert."
+    "noteKostra": "Auf etwa 1 km gerundet und nur genutzt, um die Niederschlagstabelle seiner Rasterzelle abzurufen. Er steht nicht in der Adresse der Seite und bleibt nur in diesem Browser, wenn du das Häkchen setzt."
   },
   "place": {
     "fieldLabel": "Ort suchen",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Gewählter Punkt",
     "pointPosition": "Dein Standort, gerundet: {point}",
     "pointMap": "Auf der Karte: {point}",
-    "positionUsed": "Dein Standort ist jetzt der Punkt.",
+    "positionUsed": "Dein Standort ist jetzt der Punkt. Er steht nicht in der Adresse der Seite.",
     "mapLabel": "Karte zur Wahl des Punkts für den Bemessungsniederschlag. Ein Klick wählt einen Punkt; die 5-km-Zelle des DWD-Rasters, in der er liegt, ist umrandet.",
     "pointMarker": "Gewählter Punkt",
     "loading": "Die Tabellen des DWD werden gelesen … die erste Abfrage dauert einige Sekunden.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} h",
       "days": "{n} d"
-    }
+    },
+    "copyLink": "Link zu diesem Punkt kopieren",
+    "linkCopied": "Link kopiert.",
+    "linkNotCopied": "Der Link konnte nicht kopiert werden."
   }
 }

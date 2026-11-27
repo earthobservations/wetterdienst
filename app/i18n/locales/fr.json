@@ -420,7 +420,8 @@
       "airport": "Aéroport"
     },
     "placesCredit": "{osm} ({licence}) · lieux via {photon}",
-    "placesFailed": "Les lieux n'ont pas pu être recherchés pour le moment. Continue à taper pour réessayer."
+    "placesFailed": "Les lieux n'ont pas pu être recherchés pour le moment. Continue à taper pour réessayer.",
+    "more": "Plus"
   },
   "header": {
     "github": "GitHub",
@@ -1162,7 +1163,7 @@
     "noneNear": "Aucune station n'a été trouvée près de ta position.",
     "lookupFailed": "La station la plus proche n'a pas pu être recherchée. Réessaie ou utilise la recherche.",
     "here": "La question porte sur {name}, la station à {distance} de ta position.",
-    "noteKostra": "Arrondie à environ 1 km et utilisée uniquement pour retrouver le tableau de pluie de sa maille. Elle ne reste dans ce navigateur que si tu coches la case."
+    "noteKostra": "Arrondie à environ 1 km et utilisée uniquement pour retrouver le tableau de pluie de sa maille. Elle n'est pas écrite dans l'adresse de la page et ne reste dans ce navigateur que si tu coches la case."
   },
   "place": {
     "fieldLabel": "Trouver un lieu",
@@ -1630,7 +1631,7 @@
     "pointLabel": "Point choisi",
     "pointPosition": "Ta position, arrondie : {point}",
     "pointMap": "Sur la carte : {point}",
-    "positionUsed": "Ta position est maintenant le point.",
+    "positionUsed": "Ta position est maintenant le point. Elle n'est pas écrite dans l'adresse de la page.",
     "mapLabel": "Carte pour choisir le point des précipitations de projet. Un clic choisit un point ; la maille de 5 km de la grille du DWD qui le contient est entourée.",
     "pointMarker": "Point choisi",
     "loading": "Lecture des tableaux du DWD … la première requête prend quelques secondes.",
@@ -1660,6 +1661,9 @@
       "minutes": "{n} min",
       "hours": "{n} h",
       "days": "{n} j"
-    }
+    },
+    "copyLink": "Copier le lien vers ce point",
+    "linkCopied": "Lien copié.",
+    "linkNotCopied": "Le lien n'a pas pu être copié."
   }
 }
