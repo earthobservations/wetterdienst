@@ -271,6 +271,67 @@ describe('choosing a point', () => {
     expect(stage.props.position).toBeNull()
   })
 
+  it('"Forget my position" takes the position away from the page: no marker, no table, no status, no link to copy, and the placeholder is back', async () => {
+    const wrapper = await mountKostra()
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await shown(wrapper)
+    expect(byId(wrapper, 'kostra-copy-link').exists()).toBe(true)
+    wrapper.findComponent(UseMyLocation).vm.$emit('forgotten')
+    await vi.waitFor(() => expect(byId(wrapper, 'tool-placeholder').exists()).toBe(true))
+    expect(byId(wrapper, 'kostra-table').exists()).toBe(false)
+    expect(byId(wrapper, 'kostra-point').exists()).toBe(false)
+    expect(byId(wrapper, 'kostra-copy-link').exists()).toBe(false)
+    expect(wrapper.findComponent(UseMyLocation).props('status')).toBe('')
+    expect(stage.props.position).toBeNull()
+    expect(stage.props.box).toBeNull()
+  })
+
+  it('"Forget my position" leaves a point the reader chose by a click or a search: it is not the position', async () => {
+    const wrapper = await mountKostra(`?lat=${ZINNWALD.lat}&lon=${ZINNWALD.lon}`)
+    await shown(wrapper)
+    wrapper.findComponent(UseMyLocation).vm.$emit('forgotten')
+    await wrapper.vm.$nextTick()
+    expect(byId(wrapper, 'kostra-table').exists()).toBe(true)
+    expect(stage.props.position).toEqual({ latitude: 50.7313, longitude: 13.7516 })
+  })
+
+  it('"Forget my position" after a position that a link replaced leaves the link\'s point', async () => {
+    const wrapper = await mountKostra()
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await shown(wrapper)
+    await useRouter().replace({ query: { lat: '48.137', lon: '11.575' } })
+    await vi.waitFor(() => expect(asked.at(-1)).toEqual({ latitude: '48.137', longitude: '11.575' }))
+    wrapper.findComponent(UseMyLocation).vm.$emit('forgotten')
+    await wrapper.vm.$nextTick()
+    expect(stage.props.position).toEqual({ latitude: 48.137, longitude: 11.575 })
+  })
+
+  it('"Forget my position" while a place chosen after the position is on its way (the link has not come yet): only a position is forgotten, and the page is not left empty', async () => {
+    const wrapper = await mountKostra()
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await shown(wrapper)
+    wrapper.findComponent(PlaceField).vm.$emit('pick', { id: 'N1', name: 'Dresden', kind: 'city', region: null, latitude: 51.0493, longitude: 13.7381 })
+    wrapper.findComponent(UseMyLocation).vm.$emit('forgotten')
+    await wrapper.vm.$nextTick()
+    expect(byId(wrapper, 'tool-placeholder').exists()).toBe(false)
+    await vi.waitFor(() => expect(asked.at(-1)).toEqual({ latitude: '51.0493', longitude: '13.7381' }))
+    await vi.waitFor(() => expect(byId(wrapper, 'kostra-point').text()).toBe('Chosen point: Dresden (51.0493, 13.7381)'))
+  })
+
+  it('by a place after "Use my location": the page is about the position until the new point is in the link, and never for a moment about nothing', async () => {
+    const wrapper = await mountKostra()
+    wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })
+    await shown(wrapper)
+    wrapper.findComponent(PlaceField).vm.$emit('pick', { id: 'N1', name: 'Dresden', kind: 'city', region: null, latitude: 51.0493, longitude: 13.7381 })
+    // before the router has answered: the placeholder of an empty page is not there, and the position is still what is on the map
+    await wrapper.vm.$nextTick()
+    expect(byId(wrapper, 'tool-placeholder').exists()).toBe(false)
+    expect(stage.props.position).toEqual({ latitude: 50.73, longitude: 13.75 })
+    await vi.waitFor(() => expect(queryOfRoute()).toMatchObject({ lat: '51.0493', lon: '13.7381' }))
+    await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 51.0493, longitude: 13.7381 }))
+    expect(byId(wrapper, 'tool-placeholder').exists()).toBe(false)
+  })
+
   it('by a click: the status of the position is gone, since the point is no longer it', async () => {
     const wrapper = await mountKostra()
     wrapper.findComponent(UseMyLocation).vm.$emit('position', { latitude: 50.73, longitude: 13.75 })

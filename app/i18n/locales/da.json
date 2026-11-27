@@ -1209,7 +1209,7 @@
     "noneNear": "Der blev ikke fundet nogen station i nærheden af din placering.",
     "lookupFailed": "Den nærmeste station kunne ikke slås op. Prøv igen, eller brug søgningen.",
     "here": "Der spørges om {name}, stationen {distance} fra din placering.",
-    "noteKostra": "Afrundet til omkring 1 km og kun brugt til at slå nedbørstabellen op for dens gittercelle. Den skrives ikke i sidens adresse og bliver kun i denne browser, hvis du sætter hak."
+    "noteKostra": "Afrundet til omkring 1 km og brugt til at slå nedbørstabellen op for dens gittercelle og til at centrere kortet på den. Den skrives ikke i sidens adresse og bliver kun i denne browser, hvis du sætter hak."
   },
   "place": {
     "fieldLabel": "Find et sted",

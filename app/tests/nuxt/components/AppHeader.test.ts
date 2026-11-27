@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { h } from 'vue'
 import { UApp } from '#components'
 import AppHeader from '~/components/AppHeader.vue'
@@ -141,5 +141,70 @@ describe('the tabs that do not fit', () => {
     await more(wrapper).trigger('click')
     expect(wrapper.find('[data-testid="nav-more-panel"] a[href="/kostra"]').attributes('aria-current')).toBe('page')
     expect(wrapper.find('[data-testid="nav-more-panel"] a[href="/map"]').attributes('aria-current')).toBeUndefined()
+  })
+
+  // the focus is not lost where a resize makes every tab fit while the More menu is open (GH-4500): it goes to the tab that takes the place. The test's
+  // document has no resize observer, so one is given that a test can tell the window has been resized.
+  describe('and the focus', () => {
+    const resizes: Array<() => void> = []
+    const resize = (width: number) => {
+      room = width
+      resizes.forEach(call => call())
+    }
+    beforeEach(() => {
+      resizes.length = 0
+      vi.stubGlobal('ResizeObserver', class {
+        constructor(callback: () => void) {
+          resizes.push(callback)
+        }
+
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      })
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('goes to the tab that takes the place of the More button, where every tab fits after a resize', async () => {
+      stubWidths()
+      room = 800
+      const wrapper = await mountHeader()
+      ;(more(wrapper).element as HTMLElement).focus()
+      expect(document.activeElement).toBe(more(wrapper).element)
+      resize(10_000)
+      await vi.waitFor(() => expect(more(wrapper).exists()).toBe(false))
+      // the first tool that was in the menu is the one the button gave its place to
+      await vi.waitFor(() => expect((document.activeElement as HTMLElement | null)?.getAttribute('href')).toBe('/map'))
+      expect(wrapper.find('nav ul').element.contains(document.activeElement)).toBe(true)
+    })
+
+    it('goes to the tab of the item it was on, where that tool now fits', async () => {
+      stubWidths()
+      room = 800
+      const wrapper = await mountHeader()
+      await more(wrapper).trigger('click')
+      ;(wrapper.find('[data-testid="nav-more-panel"] a[href="/kostra"]').element as HTMLElement).focus()
+      // six tabs and the button: the map is a tab now, the heavy rainfall is still in the menu
+      resize(820)
+      await vi.waitFor(() => expect(wrapper.findAll('nav ul a.nav-tab')).toHaveLength(6))
+      // the item the focus was on is still in the menu: nothing is moved
+      expect(more(wrapper).exists()).toBe(true)
+      resize(10_000)
+      await vi.waitFor(() => expect(more(wrapper).exists()).toBe(false))
+      await vi.waitFor(() => expect((document.activeElement as HTMLElement | null)?.getAttribute('href')).toBe('/kostra'))
+    })
+
+    it('leaves the focus on the More button where some tabs are still in the menu', async () => {
+      stubWidths()
+      room = 800
+      const wrapper = await mountHeader()
+      ;(more(wrapper).element as HTMLElement).focus()
+      resize(820)
+      await vi.waitFor(() => expect(wrapper.findAll('nav ul a.nav-tab')).toHaveLength(6))
+      expect(more(wrapper).exists()).toBe(true)
+      expect(document.activeElement).toBe(more(wrapper).element)
+    })
   })
 })

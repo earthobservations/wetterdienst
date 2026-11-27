@@ -1209,7 +1209,7 @@
     "noneNear": "No se encontró ninguna estación cerca de tu ubicación.",
     "lookupFailed": "No se pudo buscar la estación más cercana. Inténtalo de nuevo o usa la búsqueda.",
     "here": "Se pregunta por {name}, la estación a {distance} de tu ubicación.",
-    "noteKostra": "Redondeada a aproximadamente 1 km y usada solo para consultar la tabla de lluvia de su celda. No se escribe en la dirección de la página y solo se queda en este navegador si marcas la casilla."
+    "noteKostra": "Redondeada a aproximadamente 1 km y usada para consultar la tabla de lluvia de su celda y centrar el mapa en ella. No se escribe en la dirección de la página y solo se queda en este navegador si marcas la casilla."
   },
   "place": {
     "fieldLabel": "Buscar un lugar",

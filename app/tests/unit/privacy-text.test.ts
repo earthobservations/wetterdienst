@@ -101,6 +101,25 @@ describe('privacy policy texts', () => {
     expect(storing!.match(code === 'de' ? /auf dem Radar/g : /on the radar/g)).toHaveLength(2)
   })
 
+  it.each(Object.keys(texts))('say in the section on the location in %s what the heavy-rainfall page does with a position and a point (GH-4500)', (code) => {
+    const section = texts[code as keyof typeof texts].sections.find(s => s.id === 'location')!
+    const sending = section.paragraphs[1]!
+    const de = code === 'de'
+    // where it is named, and what is sent: the coordinates of the point, to the backend, as the request for the table
+    expect(sending).toMatch(de ? /Auf der Starkregen-Seite werden die Koordinaten des Punkts \(Ihre gerundete Position, ein gesuchter Ort oder ein auf der Karte angeklickter Ort\) als Koordinaten der Abfrage der Niederschlagstabelle an das Backend dieses Dienstes gesendet/ : /On the heavy-rainfall page, the coordinates of the point \(your rounded position, a place you searched for or a place you clicked on the map\) are sent to the backend of this service as the coordinates of the request for the rainfall table/)
+    // when: for each new point and where a link with a point is opened, a retry included, and not with each press of the button
+    expect(sending).toMatch(de ? /jedes Mal, wenn ein neuer Punkt gewählt oder ein Link mit einem Punkt geöffnet wird \(ein Wiederholen nach einem Fehler fragt erneut an\); ein weiterer Druck auf die Schaltfläche am selben gerundeten Ort sendet nichts/ : /each time a new point is chosen or a link with a point is opened \(a Retry after an error asks again\); pressing the button again at the same rounded place sends nothing/)
+    // the position is not in the address; a searched or clicked place is, and an opened link reaches the web server and the backend
+    expect(sending).toMatch(de ? /Ihre Position wird nicht in die Adresse der Seite geschrieben\. Ein gesuchter oder auf der Karte angeklickter Ort steht dagegen als lat und lon in der Adresse, damit der Link geteilt werden kann/ : /Your position is not written to the address of the page\. A place you searched for or clicked on the map is, as lat and lon in the address, so that the link can be shared/)
+    expect(sending).toMatch(de ? /an den Webserver dieses Dienstes \(siehe „Protokolldaten“\) und mit der Anfrage der Niederschlagstabelle an das Backend/ : /the web server of this service with the request for the page \(see "Log data"\) and the backend with the request for the rainfall table/)
+    // the clipboard: only on a press
+    expect(sending).toMatch(de ? /Die Schaltfläche „Link zu diesem Punkt kopieren“ legt einen Link mit dem Punkt nur dann in Ihre Zwischenablage, wenn Sie sie drücken/ : /The button "Copy link to this point" puts a link with the point on your clipboard only when you press it/)
+    // nothing says that the position is in the address, or that it is copied unasked
+    expect(sending).not.toMatch(de ? /Ihre Position (?:steht|wird in die Adresse)/ : /Your position is (?:written to|in) the address/)
+    // and the position stays in the memory of the page, which is the third paragraph's claim, for this page as for the others
+    expect(section.paragraphs[2]).toMatch(de ? /Die Position bleibt im Arbeitsspeicher der geöffneten Seite und ist nach dem Schließen oder Neuladen der Seite vergessen/ : /The position stays in the memory of the open page and is forgotten when the page is closed or reloaded/)
+  })
+
   it.each(Object.keys(texts))('have a section on the place search in %s: Photon of komoot GmbH, asked by the server from three letters on, not the reader\'s browser or address, 24 hours, and the legal basis (GH-3791)', (code) => {
     const policy = texts[code as keyof typeof texts]
     const section = policy.sections.find(s => s.id === 'places')!

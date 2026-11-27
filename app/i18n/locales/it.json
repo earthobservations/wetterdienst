@@ -1209,7 +1209,7 @@
     "noneNear": "Nessuna stazione trovata vicino alla tua posizione.",
     "lookupFailed": "Non è stato possibile cercare la stazione più vicina. Riprova o usa la ricerca.",
     "here": "La domanda riguarda {name}, la stazione a {distance} dalla tua posizione.",
-    "noteKostra": "Arrotondata a circa 1 km e usata solo per cercare la tabella di pioggia della sua cella. Non viene scritta nell'indirizzo della pagina e resta in questo browser solo se selezioni la casella."
+    "noteKostra": "Arrotondata a circa 1 km e usata per cercare la tabella di pioggia della sua cella e centrare la mappa su di essa. Non viene scritta nell'indirizzo della pagina e resta in questo browser solo se selezioni la casella."
   },
   "place": {
     "fieldLabel": "Cerca un luogo",

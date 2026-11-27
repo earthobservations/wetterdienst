@@ -1209,7 +1209,7 @@
     "noneNear": "Er is geen station gevonden in de buurt van je locatie.",
     "lookupFailed": "Het dichtstbijzijnde station kon niet worden opgezocht. Probeer het opnieuw of gebruik het zoeken.",
     "here": "De vraag gaat over {name}, het station op {distance} van je locatie.",
-    "noteKostra": "Afgerond op ongeveer 1 km en alleen gebruikt om de neerslagtabel van de bijbehorende rastercel op te zoeken. Ze wordt niet in het adres van de pagina gezet en blijft alleen in deze browser staan als je het vakje aanvinkt."
+    "noteKostra": "Afgerond op ongeveer 1 km en gebruikt om de neerslagtabel van de bijbehorende rastercel op te zoeken en de kaart erop te centreren. Ze wordt niet in het adres van de pagina gezet en blijft alleen in deze browser staan als je het vakje aanvinkt."
   },
   "place": {
     "fieldLabel": "Zoek een plaats",

@@ -1209,7 +1209,7 @@
     "noneNear": "V blízkosti tvé polohy nebyla nalezena žádná stanice.",
     "lookupFailed": "Nejbližší stanici se nepodařilo vyhledat. Zkus to znovu nebo použij vyhledávání.",
     "here": "Dotaz se týká místa {name}, stanice {distance} od tvé polohy.",
-    "noteKostra": "Zaokrouhlená na zhruba 1 km a použitá jen k vyhledání tabulky srážek její buňky. Nezapisuje se do adresy stránky a v tomto prohlížeči zůstane, jen když zaškrtneš políčko."
+    "noteKostra": "Zaokrouhlená na zhruba 1 km a použitá k vyhledání tabulky srážek její buňky a k vystředění mapy na ni. Nezapisuje se do adresy stránky a v tomto prohlížeči zůstane, jen když zaškrtneš políčko."
   },
   "place": {
     "fieldLabel": "Najít místo",

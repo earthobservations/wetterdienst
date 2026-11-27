@@ -638,7 +638,7 @@ test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
         await move(page, 'history', 'up').click()
       await pressMenuTab(page)
       await expect(sheet(page)).toBeVisible()
-      // the sheet opens by scaling in from 97 %: its marks are measured once it has come to rest, not part-way
+      // the sheet opens by scaling in (Nuxt UI's scale-in, from 95 %): its marks are measured once it has come to rest, not part-way
       await expect.poll(() => sheet(page).evaluate(el => getComputedStyle(el).transform)).toBe('none')
       const expected = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map', 'kostra']
       await expect.poll(() => sheetOrder(page)).toEqual(expected)

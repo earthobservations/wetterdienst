@@ -1209,7 +1209,7 @@
     "noneNear": "No station was found near your position.",
     "lookupFailed": "The nearest station could not be looked up. Try again, or use the search.",
     "here": "Asking about {name}, the station {distance} from your position.",
-    "noteKostra": "Rounded to about 1 km and used only to look up the rainfall table of its grid cell. It is not written to the address of the page, and stays in this browser only if you tick the box."
+    "noteKostra": "Rounded to about 1 km and used to look up the rainfall table of its grid cell and to centre the map on it. It is not written to the address of the page, and stays in this browser only if you tick the box."
   },
   "place": {
     "fieldLabel": "Find a place",

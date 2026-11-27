@@ -67,7 +67,6 @@ for (const language of LANGUAGES) {
           await page.keyboard.press('Escape')
         }
         expect([...header.tabs, ...inMenu], `${language} at ${width}px`).toEqual(ORDER)
-        expect(header.tabs.length, 'the tabs come from the start of the list').toBe(header.tabs.length)
 
         // nothing overflows: not the row, not the page, and the row ends before the buttons of the right
         expect(header.navOverflows, 'the row').toBeLessThanOrEqual(1)
@@ -187,6 +186,62 @@ test.describe('the More menu', () => {
   })
 })
 
+/** Records, on every frame, whether the row of tabs is seen and which tabs it has (a script of the page, from before its first script) */
+async function recordFrames(page: Page) {
+  await page.addInitScript(() => {
+    const frames: Array<[string, string]> = []
+    ;(window as any).__headerFrames = frames
+    const tick = () => {
+      const nav = document.querySelector('nav.app-nav')
+      if (nav)
+        frames.push([getComputedStyle(nav).visibility, [...nav.querySelectorAll('ul a, [data-testid="nav-more-button"]')].map(el => el.getAttribute('href') ?? 'more').join(' ')])
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+}
+const framesOf = (page: Page): Promise<Array<[string, string]>> => page.evaluate(() => (window as any).__headerFrames)
+
+test.describe('the tabs where a font comes late', () => {
+  // the tabs are as wide as the letters of the face they are set in, and the latin-ext subset of it (cs, pl, lb) is a request of its own: the row is not
+  // seen until the faces are in (at most a second), so that what is seen is what stays
+  for (const language of ['cs', 'pl', 'lb', 'it'] as const) {
+    for (const width of WIDTHS) {
+      test(`never changes its tabs once it is seen, in ${language} at ${width}px, with the typefaces 600 ms late`, async ({ page, baseURL }) => {
+        await page.setViewportSize({ width, height: 800 })
+        await page.route('**/_typefaces/**', async (route) => {
+          await new Promise(resolve => setTimeout(resolve, 600))
+          await route.continue()
+        })
+        await recordFrames(page)
+        await open(page, baseURL!, language)
+        await page.waitForTimeout(1500)
+        const seen = (await framesOf(page)).filter(([visibility]) => visibility === 'visible').map(([, tabs]) => tabs)
+        expect(seen.length).toBeGreaterThan(0)
+        expect([...new Set(seen)], 'every frame in which the row is seen has the same tabs').toHaveLength(1)
+        // and they are the tabs the settled row has
+        const settled = await readHeader(page)
+        expect(seen.at(-1)!.split(' ').filter(item => item !== 'more')).toEqual(settled.tabs)
+      })
+    }
+  }
+})
+
+test.describe('the More menu and the focus', () => {
+  test.use({ viewport: { width: 1280, height: 800 } })
+
+  test('goes to the tab that takes its place where a resize makes every tab fit while the focus is on the button', async ({ page, baseURL }) => {
+    await open(page, baseURL!, 'en')
+    const button = page.getByTestId('nav-more-button')
+    await expect(button).toBeVisible()
+    await button.focus()
+    await page.setViewportSize({ width: 1024, height: 800 })
+    await expect(button).toHaveCount(0)
+    const href = await page.evaluate(() => document.activeElement?.getAttribute('href') ?? null)
+    expect(href, 'the focus is on a tab of the row, not on the page').toBe('/kostra')
+  })
+})
+
 test.describe('the narrow layout', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
@@ -195,5 +250,11 @@ test.describe('the narrow layout', () => {
     await expect(page.getByTestId('nav-more-button')).toBeHidden()
     const bar = page.getByRole('navigation', { name: messages('it').shell.mainNav })
     expect(await bar.locator('li').count()).toBe(5)
+  })
+
+  test('has no row to measure: the copy of the header\'s tabs is not laid out, and the page does not scroll sideways', async ({ page, baseURL }) => {
+    await open(page, baseURL!, 'cs')
+    expect(await page.locator('.nav-measure').evaluate(el => getComputedStyle(el).display)).toBe('none')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
   })
 })

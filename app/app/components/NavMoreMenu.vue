@@ -39,7 +39,7 @@ const current = computed(() => props.tools.some(tool => inSection(tool, route.pa
     <div
       v-if="open"
       :id="panelId"
-      class="reference-panel absolute end-0 top-full z-50 mt-2 w-[24rem] max-w-[calc(100vw-2rem)] rounded-xl bg-default p-2 ring ring-default shadow-xl"
+      class="reference-panel nav-more-panel absolute end-0 top-full z-50 mt-2 w-[24rem] max-w-[calc(100vw-2rem)] rounded-xl bg-default p-2 ring ring-default shadow-xl"
       data-testid="nav-more-panel"
     >
       <ul class="flex flex-col gap-0.5">
@@ -61,3 +61,12 @@ const current = computed(() => props.tools.some(tool => inSection(tool, route.pa
     </div>
   </div>
 </template>
+
+<style>
+/* the panel is anchored to the button's end, so it opens from its top right corner (the reference's opens from the left) */
+@media (prefers-reduced-motion: no-preference) {
+  .reference-panel.nav-more-panel {
+    transform-origin: top right;
+  }
+}
+</style>

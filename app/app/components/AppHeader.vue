@@ -22,8 +22,11 @@ const wide = useMediaQuery('(min-width: 90rem)')
 // The row of the tabs is the room between the logo and the search (the nav fills it: `flex-1`, `min-w-0`). Every tab is measured in a copy of the
 // row that is not seen (`.nav-measure`: the same classes, so the same widths in this language, with or without the tiles, at this text size), and
 // `visibleTabCount` takes the tabs that fit, from the start; the others are in the "More" menu. Measured again whenever the room or a tab changes
-// (a resize, the width of the search, the language, a font that has come, the reader's order). Until the first measurement the tabs are hidden, and
-// the measurement is made in `onMounted`, before the first paint, so that there is no jump.
+// (a resize, the width of the search, the language, a font that has come, the reader's order). The tabs are not seen until the fonts they are set in
+// have come (`document.fonts.ready`, at most `FONTS_WAIT_MS`: a face is a request of its own, and the tabs are as wide as its letters, in cs, pl and lb
+// as the latin-ext subset's), so that the row is not shown with the width of a fallback face and then changes; the measurement itself is made in
+// `onMounted`, before the first paint.
+const FONTS_WAIT_MS = 1000
 const nav = useTemplateRef<HTMLElement>('nav')
 const measure = useTemplateRef<HTMLElement>('measure')
 const shown = ref(headerTools.value.length)
@@ -42,6 +45,11 @@ function fit() {
   if (!list || !row || !more)
     return
   const widths = [...layer.querySelectorAll<HTMLElement>('[data-measure="tab"]')].map(tab => tab.getBoundingClientRect().width)
+  const before = moreTools.value
+  // where the focus is in the More menu, and the menu or its item is about to go (every tab fits now, or this one does), the focus goes to the tab that takes its place
+  const active = document.activeElement
+  const inMore = active instanceof HTMLElement && Boolean(room.querySelector('[data-testid="nav-more"]')?.contains(active))
+  const focused = inMore ? active.closest('a')?.getAttribute('href') ?? null : null
   shown.value = visibleTabCount({
     widths,
     gap: Number.parseFloat(getComputedStyle(list).columnGap) || 0,
@@ -49,13 +57,33 @@ function fit() {
     more: more.getBoundingClientRect().width,
     available: room.getBoundingClientRect().width,
   })
-  ready.value = true
+  if (inMore && moreTools.value.length < before.length) {
+    // the item the focus was on, or the first that left the menu where it was on the menu's button
+    const target = before.find(tool => tool.to === focused && !moreTools.value.includes(tool)) ?? (focused === null ? before.find(tool => !moreTools.value.includes(tool)) : undefined)
+    // the button stays while some tabs are in the menu: only an item or a button that is gone loses the focus
+    if (target && (focused !== null || !moreTools.value.length))
+      void nextTick(() => room.querySelector<HTMLElement>(`ul a[href="${target.to}"]`)?.focus())
+  }
 }
+let revealCap: ReturnType<typeof setTimeout> | undefined
+onBeforeUnmount(() => clearTimeout(revealCap))
 onMounted(() => {
   fit()
   // the room changes with the window and with the search's word (90 rem); the tabs change with the media queries of the tiles (80 rem), the language and the fonts
   useResizeObserver([nav, measure], fit)
-  void document.fonts?.ready.then(fit)
+  const reveal = () => {
+    ready.value = true
+  }
+  if (!document.fonts) {
+    reveal()
+    return
+  }
+  revealCap = setTimeout(reveal, FONTS_WAIT_MS)
+  void document.fonts.ready.then(() => {
+    fit()
+    clearTimeout(revealCap)
+    reveal()
+  })
 })
 watch([headerTools, () => t('shell.more')], () => void nextTick(fit))
 </script>

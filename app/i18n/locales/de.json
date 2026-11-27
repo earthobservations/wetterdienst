@@ -1209,7 +1209,7 @@
     "noneNear": "In der Nähe deines Standorts wurde keine Station gefunden.",
     "lookupFailed": "Die nächste Station konnte nicht abgefragt werden. Versuche es erneut oder nutze die Suche.",
     "here": "Gefragt wird nach {name}, der Station {distance} von deinem Standort entfernt.",
-    "noteKostra": "Auf etwa 1 km gerundet und nur genutzt, um die Niederschlagstabelle seiner Rasterzelle abzurufen. Er steht nicht in der Adresse der Seite und bleibt nur in diesem Browser, wenn du das Häkchen setzt."
+    "noteKostra": "Auf etwa 1 km gerundet und genutzt, um die Niederschlagstabelle seiner Rasterzelle abzurufen und die Karte auf ihn zu zentrieren. Er steht nicht in der Adresse der Seite und bleibt nur in diesem Browser, wenn du das Häkchen setzt."
   },
   "place": {
     "fieldLabel": "Ort suchen",

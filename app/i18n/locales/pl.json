@@ -1209,7 +1209,7 @@
     "noneNear": "W pobliżu Twojej lokalizacji nie znaleziono żadnej stacji.",
     "lookupFailed": "Nie udało się wyszukać najbliższej stacji. Spróbuj ponownie lub użyj wyszukiwania.",
     "here": "Pytanie dotyczy miejsca {name}, stacji oddalonej o {distance} od Twojej lokalizacji.",
-    "noteKostra": "Zaokrąglona do około 1 km i używana tylko do wyszukania tabeli opadów jej komórki siatki. Nie trafia do adresu strony i zostaje w tej przeglądarce tylko wtedy, gdy zaznaczysz pole."
+    "noteKostra": "Zaokrąglona do około 1 km i używana do wyszukania tabeli opadów jej komórki siatki oraz do wyśrodkowania mapy na niej. Nie trafia do adresu strony i zostaje w tej przeglądarce tylko wtedy, gdy zaznaczysz pole."
   },
   "place": {
     "fieldLabel": "Znajdź miejsce",

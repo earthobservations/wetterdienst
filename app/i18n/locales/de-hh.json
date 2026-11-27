@@ -1209,7 +1209,7 @@
     "noneNear": "In de Neg vun dien Standort is keen Station funnen worrn.",
     "lookupFailed": "De neegste Station leet sik nich afropen. Versöök dat noch mal oder bruuk dat Söken.",
     "here": "Fraagt warrt na {name}, de Station {distance} vun dien Standort af.",
-    "noteKostra": "Op ungefähr 1 km rundt un blots bruukt, üm de Regentabell vun siene Rasterzell optoropen. He steiht nich in de Adress vun de Siet un blifft blots in disse Browser bewahrt, wenn du dat Höken sett'st."
+    "noteKostra": "Op ungefähr 1 km rundt un bruukt, üm de Regentabell vun siene Rasterzell optoropen un de Kaart dorop to zentreren. He steiht nich in de Adress vun de Siet un blifft blots in disse Browser bewahrt, wenn du dat Höken sett'st."
   },
   "place": {
     "fieldLabel": "Oort söken",

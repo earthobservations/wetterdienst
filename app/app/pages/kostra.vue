@@ -15,8 +15,9 @@ import { cellCorners, KOSTRA_UNITS, linkPoint, pointText, queryOfPoint } from '~
 
 // The Heavy-rainfall tool (GH-4500): DWD's design rainfall (KOSTRA-DWD-2020) of a point in Germany, the rain of a duration that comes
 // back every N years, which drains and retention basins are sized with. The point is chosen by a place's name (`PlaceField`), "Use my
-// location" (`UseMyLocation`, rounded to about 1 km in the browser) or a click on the small map, and is kept in the link (`?lat=&lon=`),
-// which is the page's one source of the point: a link, the back button and every way of choosing go through it.
+// location" (`UseMyLocation`, rounded to about 1 km in the browser) or a click on the small map. A searched or clicked point is kept in the link
+// (`?lat=&lon=`), so that the page can be shared: a link, the back button and those two ways of choosing go through it. The position is the
+// exception: it is kept in the memory of the page and never in the link (`ownPoint`), and the link has it only from "Copy link to this point".
 //
 // What the page shows is the table of the 5 km cell of DWD's grid that holds the point: 22 durations (5 minutes to 7 days) by 9 return
 // periods (1 to 100 years), as the depth in mm or the intensity in l/(s·ha) with DWD's uncertainty of each value, one depth-duration curve
@@ -80,8 +81,18 @@ function setPoint(at: Point, from: Source) {
     void router.replace({ query: rest }).catch(() => {})
     return
   }
-  ownPoint.value = null
+  // the position, if there is one, goes when the link has the new point (`watch(linked)`), not before: until then the page is about the position, and
+  // not for a moment about nothing
   void router.replace({ query: { ...route.query, ...queryOfPoint(at) } }).catch(() => {})
+}
+
+/** "Forget my position" in the "Stored" control: where the point is the position, the page forgets it too, so that no marker, table or link of it is left */
+function onForgotten() {
+  if (source.value !== 'position')
+    return
+  ownPoint.value = null
+  source.value = 'link'
+  positionStatus.value = ''
 }
 
 // a link that comes to the page while it holds a position (the back button, a link opened in the page) is the point now, and the position is gone
@@ -199,7 +210,7 @@ const pointSummary = computed(() => {
             {{ t('kostra.pointTitle') }}
           </h2>
           <PlaceField :label="t('kostra.placeLabel')" @pick="onPlace" />
-          <UseMyLocation use="kostra" :status="positionStatus" @position="onPosition" />
+          <UseMyLocation use="kostra" :status="positionStatus" @position="onPosition" @forgotten="onForgotten" />
           <p class="kostra-note" data-testid="kostra-map-hint">
             {{ t('kostra.mapHint') }}
           </p>
