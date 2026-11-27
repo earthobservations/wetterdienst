@@ -126,6 +126,25 @@ test.describe('at a station in Germany', () => {
   }
 })
 
+test.describe('in Polish, at a phone\'s width', () => {
+  test.use({ locale: 'pl-PL' })
+
+  test('breaks the long class names at a hyphen, in the page\'s language, never between two letters', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await open(page, baseURL!)
+    await expect(page.locator('html')).toHaveAttribute('lang', /^pl/)
+    await expect(page.getByTestId('pollen-part').getByRole('heading', { level: 4 })).toHaveText('Obciążenie pyłkiem: Saksonia')
+    const labels = page.getByTestId('pollen-class')
+    await expect(labels.first()).toBeVisible()
+    // the browser breaks a word at a hyphen where `hyphens` is `auto` and the language is known; the body's `overflow-wrap: break-word` alone breaks it anywhere
+    const hyphens = await labels.evaluateAll(elements => elements.map(element => getComputedStyle(element).hyphens))
+    expect(hyphens.length).toBeGreaterThan(0)
+    expect(new Set(hyphens)).toEqual(new Set(['auto']))
+    // and the grid still fits the phone
+    expect(await scrollsSideways(page)).toBe(false)
+  })
+})
+
 test.describe('at a station outside Germany', () => {
   test('shows no panel, and asks for none of its data', async ({ page, baseURL }) => {
     const asked: string[] = []

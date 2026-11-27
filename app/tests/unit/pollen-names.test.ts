@@ -37,7 +37,7 @@ describe('what is named', () => {
   it('names the regions as the backend does', () => {
     // the names of `dwd/pollen`, which the table is keyed by: a part-region DWD renames is DWD's name until the table has it
     const source = readFileSync(fileURLToPath(new URL('../../../src/wetterdienst/provider/dwd/pollen/regions.py', import.meta.url)), 'utf-8')
-    const names = [...source.matchAll(/PollenRegion\(\d+, -?\d+, "([^"]*)", "([^"]*)"\)/g)].map(match => match[2] || match[1]!)
+    const names = [...source.matchAll(/PollenRegion\(\s*\d+\s*,\s*-?\d+\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*(?:,\s*)?\)/g)].map(match => match[2] || match[1]!)
     expect(names).toEqual([...POLLEN_REGIONS])
   })
 })
@@ -143,7 +143,7 @@ describe('english', () => {
     ['Mecklenburg-Vorpommern', 'Mecklenburg-Western Pomerania'],
     ['Westl. Niedersachsen/Bremen', 'Western Lower Saxony/Bremen'],
     ['Östl. Niedersachsen', 'Eastern Lower Saxony'],
-    ['Rhein.-Westfäl. Tiefland', 'Rhine-Westphalian lowlands'],
+    ['Rhein.-Westfäl. Tiefland', 'Rhein.-Westfäl. lowlands'],
     ['Ostwestfalen', 'Ostwestfalen'],
     ['Mittelgebirge NRW', 'Uplands of North Rhine-Westphalia'],
     ['Brandenburg und Berlin', 'Brandenburg and Berlin'],
@@ -163,10 +163,21 @@ describe('english', () => {
     ['Mittelgebirge Baden-Württemberg', 'Uplands of Baden-Württemberg'],
     ['Allgäu/Oberbayern/Bay. Wald', 'Allgäu/Oberbayern/Bay. Wald'],
     ['Donauniederungen', 'Donauniederungen'],
-    ['Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken', 'Bavaria north of the Danube, excluding Bayr. Wald and Mainfranken'],
+    ['Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken', 'Bavaria north of the Donau, excluding Bayr. Wald and Mainfranken'],
     ['Mainfranken', 'Mainfranken'],
   ])('writes the region %s as %s', (region, name) => {
     expect(regionName(region, 'en')).toBe(name)
+  })
+})
+
+describe('place names', () => {
+  // the rule has no exception: a place name is DWD's in every language, the river and the abbreviated adjective included
+  it.each(translated)('stay as DWD writes them in %s', (locale) => {
+    expect(regionName('Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken', locale)).toContain('Donau, ')
+    expect(regionName('Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken', locale)).not.toMatch(/Danub|Dunaj/)
+    expect(regionName('Rhein.-Westfäl. Tiefland', locale)).toContain('Rhein.-Westfäl.')
+    expect(regionName('Oberrhein und unteres Neckartal', locale)).toMatch(/^Oberrhein .*Neckartal/)
+    expect(regionName('Hohenlohe/mittlerer Neckar/Oberschwaben', locale)).toMatch(/^Hohenlohe\/.*Neckar.*\/Oberschwaben$/)
   })
 })
 
@@ -182,6 +193,19 @@ describe('other languages', () => {
     ['cs', 'Mittelgebirge NRW', 'Středohoří Severního Porýní-Vestfálska'],
     ['da', 'Östl. Niedersachsen', 'Øst-Niedersachsen'],
     ['da', 'Inseln und Marschen', 'Øer og marsk'],
+    ['da', 'Hohenlohe/mittlerer Neckar/Oberschwaben', 'Hohenlohe/Midt-Neckar/Oberschwaben'],
+    ['fr', 'Geest,Schleswig-Holstein und Hamburg', 'Geest du Schleswig-Holstein et de Hambourg'],
+    ['it', 'Geest,Schleswig-Holstein und Hamburg', 'Geest dello Schleswig-Holstein e di Amburgo'],
+    ['it', 'Oberrhein und unteres Neckartal', 'Oberrhein e basso Neckartal'],
+    ['it', 'Hohenlohe/mittlerer Neckar/Oberschwaben', 'Hohenlohe/medio Neckar/Oberschwaben'],
+    ['es', 'Oberrhein und unteres Neckartal', 'Oberrhein y bajo Neckartal'],
+    ['es', 'Hohenlohe/mittlerer Neckar/Oberschwaben', 'Hohenlohe/medio Neckar/Oberschwaben'],
+    ['nl', 'Westl. Niedersachsen/Bremen', 'West-Nedersaksen/Bremen'],
+    ['nl', 'Östl. Niedersachsen', 'Oost-Nedersaksen'],
+    ['nl', 'Nordhessen und hess. Mittelgebirge', 'Nordhessen en Hessisch middelgebergte'],
+    ['nl', 'Oberrhein und unteres Neckartal', 'Oberrhein en Beneden-Neckartal'],
+    ['nl', 'Inseln und Marschen', 'Eilanden en marsland'],
+    ['nl', 'Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken', 'Beieren ten noorden van de Donau, met uitzondering van Bayr. Wald en Mainfranken'],
   ])('writes %s of %s as %s', (locale, region, name) => {
     expect(regionName(region, locale)).toBe(name)
   })

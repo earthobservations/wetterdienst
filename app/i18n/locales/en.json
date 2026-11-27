@@ -922,7 +922,7 @@
       "regions": "Region ({state})",
       "dwdName": "DWD's name: {name}",
       "typeHeader": "Pollen type",
-      "caption": "Pollen load forecast for {region}",
+      "caption": "Pollen load forecast: {region}",
       "outOfSeason": "No pollen load is expected for these days.",
       "noForecast": "DWD gives no pollen forecast for this region right now.",
       "credit": "Pollen load forecast from DWD.",

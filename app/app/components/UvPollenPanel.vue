@@ -251,7 +251,7 @@ const dwdNameOf = (p: PollenPart) => t('uvPollen.pollen.dwdName', { name: p.name
                     <span class="block h-full bg-orange-600 dark:bg-orange-400" :style="{ width: `${Math.min(1, Math.max(0, cell.fill * 3 - (i - 1))) * 100}%` }" />
                   </span>
                 </span>
-                <span class="block text-xs leading-tight text-toned" data-testid="pollen-class">{{ t(`uvPollen.pollen.level.${cell.cls}`) }}</span>
+                <span class="block text-xs leading-tight text-toned hyphens-auto" data-testid="pollen-class">{{ t(`uvPollen.pollen.level.${cell.cls}`) }}</span>
               </template>
               <template v-else>
                 <span class="text-muted" aria-hidden="true">–</span><span class="sr-only">{{ t('uvPollen.noValue') }}</span>

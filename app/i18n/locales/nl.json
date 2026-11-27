@@ -922,7 +922,7 @@
       "regions": "Regio ({state})",
       "dwdName": "Naam bij de DWD: {name}",
       "typeHeader": "Pollensoort",
-      "caption": "Verwachte pollenbelasting voor {region}",
+      "caption": "Verwachte pollenbelasting: {region}",
       "outOfSeason": "Voor deze dagen wordt geen pollenbelasting verwacht.",
       "noForecast": "De DWD geeft op dit moment geen pollenverwachting voor deze regio.",
       "credit": "Pollenverwachting van de DWD.",

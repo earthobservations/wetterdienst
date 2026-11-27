@@ -922,7 +922,7 @@
       "regions": "Región ({state})",
       "dwdName": "Nombre en el DWD: {name}",
       "typeHeader": "Tipo de polen",
-      "caption": "Pronóstico de la carga de polen para {region}",
+      "caption": "Pronóstico de la carga de polen: {region}",
       "outOfSeason": "No se espera carga de polen para estos días.",
       "noForecast": "El DWD no ofrece ahora un pronóstico de polen para esta región.",
       "credit": "Pronóstico de la carga de polen del DWD.",

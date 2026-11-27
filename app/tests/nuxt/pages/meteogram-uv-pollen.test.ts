@@ -228,7 +228,7 @@ describe('the forecast page\'s UV & pollen panel', () => {
       // DWD's full German name, to match with its own pages, where a sighted reader hovers and a screen reader asks for the description
       expect(chips().map(chip => chip.attributes('title'))).toEqual(['DWD\'s name: Sachsen: Tiefland Sachsen', 'DWD\'s name: Sachsen: Mittelgebirge Sachsen'])
       expect(chips().map(describedBy)).toEqual([['DWD\'s name: Sachsen: Tiefland Sachsen'], ['DWD\'s name: Sachsen: Mittelgebirge Sachsen']])
-      expect(pollenPart().find('caption').text()).toBe('Pollen load forecast for Lowlands of Saxony')
+      expect(pollenPart().find('caption').text()).toBe('Pollen load forecast: Lowlands of Saxony')
       // the German is nowhere else on the panel, the names of the chips are the words the reader chose
       expect(pollenPart().find('[data-testid="pollen-chips"]').text()).not.toContain('Sachsen')
       expect(pollenPart().find('h4').text()).not.toContain('Sachsen')
