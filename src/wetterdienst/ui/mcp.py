@@ -18,7 +18,7 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   cost every session part of its tool list (GH-4318),
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
-- an answer in a format that is not JSON (csv, ndjson) as content of the tool result: FastMCP answers a text body
+- an answer in a format that is not JSON (csv, ndjson, compact) as content of the tool result: FastMCP answers a text
   without structured content, which the output schema of the tool refuses (GH-3464). No tool offers a chart (GH-4318)
   and a call cannot ask a route for one (GH-4453), so no answer is an image, a pdf or markup: a 2xx of any other
   media type is an error of the tool, never content (GH-4450),
@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
 from wetterdienst import __version__
+from wetterdienst.io.formats import COMPACT_MEDIA_TYPE
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, MutableMapping
@@ -68,6 +69,12 @@ _ASGI_BASE_URL = "http://wetterdienst.local"
 
 # The ASGI scope key that marks a tool's in-process request to the REST app.
 _TOOL_REQUEST_SCOPE_KEY = "wetterdienst.mcp_tool_request"
+
+
+#: the `format` a call of the `values` tool gets when it gives none (GH-4445). Only a tool's request (`is_tool_request`)
+#: is answered in it, in the route of `values`; the tool's schema says so too (`_slim_format`). REST, the command
+#: line and Python keep `json`.
+VALUES_TOOL_FORMAT = "compact"
 
 
 def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
@@ -328,21 +335,21 @@ comma-separated. `interpolate` and `summarize` take one reference `station`.
 hourly/air_temperature, hourly/precipitation.
 
 ## Reading results
-- By default (shape="long" unless the server is configured otherwise, format="json") `values` \
-returns JSON with a `values` array of \
+- `values` answers compact text by default (a table for each station and dataset, a row for each timestamp, \
+units in the column line); format="json" returns JSON (shape="long" unless the server is configured otherwise) \
+with a `values` array of \
 {station_id, resolution, dataset, parameter, timestamp, value, quality_flags}, grouped by station, then by \
 resolution, dataset and parameter, in time order within each group (not when `filter`, `sort` or `first` \
 choose the rows). `quality_flags` is null or the \
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
-A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
+In JSON a parameter's LATEST timestamp is the LAST item of its group, not of the array.
 - Always give `values` a `timestamp` window and a \
 single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters, with an `answer-truncated` \
 warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
 hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \
 (timestamp="2026-07-25T12") for one reading. A station's latest day is its `end_timestamp` from `stations` \
-where it has one; null means no end given, not data up to today. For a long series, \
-format="csv" with shape="wide" is 5-6x smaller.
+where it has one; null means no end given, not data up to today.
 - An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
 matches, or ids in the `stations` argument the network has no station for (left out of the list; the \
 rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or try another \
@@ -356,7 +363,7 @@ matches and `values` the one best match; `rank` asks for another number.
     -> station_id "01975"
   values(provider="dwd", network="observation",
          parameters="daily/climate_summary/temperature_air_mean_2m", stations="01975", timestamp="2026-07-25")
-    -> item ≈ {"timestamp": "2026-07-25T00:00:00.000000+00:00", "value": 19.2}  (19.2 °C)
+    -> row 2026-07-25,19.2  (19.2 °C)
 """
 
 # Non-data endpoints that only add noise to an agent's tool list.
@@ -414,6 +421,18 @@ _CHART_TOOLS = frozenset({"stations", "values", "interpolate", "summarize"})
 #: which the tool no longer does
 _CHART_CLAUSE = re.compile(r" or a rendered chart \([^)]*\)| Charts are drawn only by a server[^.]*\.")
 
+#: what the `values` tool says of `with_metadata` (GH-4499): one clause, true of both formats. The unit is in each
+#: column line already, and the models that were told what it adds in a paragraph passed it in 135 of 205 calls
+_VALUES_WITH_METADATA = (
+    "Adds each parameter's quantity, unit, aggregation and timestamp position, the settings, and what the quality "
+    "flags mean (in compact, only those in the answer)."
+)
+
+#: the paragraph of the `values` route that says what `with_metadata` adds to the JSON, which the tool leaves out
+_WITH_METADATA_PARAGRAPH = re.compile(
+    r"\n*With `with_metadata`, `metadata\.parameters` gives .*?state it\.\n?", re.DOTALL
+)
+
 
 @dataclass(frozen=True)
 class _Route:
@@ -469,6 +488,27 @@ def _answers_of_tools(spec: dict[str, Any]) -> dict[str, str]:
     return answers
 
 
+def _slim_format(parameter: dict[str, Any], *, tool: str | None) -> None:
+    """Leave a tool's `format` its data formats, and give the `values` tool the default of its own (GH-4445).
+
+    The description loses the offer of a chart. The default of `values` is `VALUES_TOOL_FORMAT`, which its route
+    answers for a tool's request that gives no `format`; the schema and the description say so for the model.
+    """
+    schema = parameter.get("schema", {})
+    if "enum" in schema:
+        schema["enum"] = [fmt for fmt in schema["enum"] if fmt not in _CHART_FORMATS]
+    for holder in (schema, parameter):
+        if "description" in holder:
+            holder["description"] = _CHART_CLAUSE.sub("", holder["description"])
+    if tool == "values":
+        schema["default"] = VALUES_TOOL_FORMAT
+        for holder in (schema, parameter):
+            if "description" in holder:
+                holder["description"] += (
+                    f" Default of this tool: {VALUES_TOOL_FORMAT}; pass json only when the JSON is needed."
+                )
+
+
 def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
     """Copy the OpenAPI document of the REST API without the query parameters no tool takes (GH-4318).
 
@@ -482,20 +522,33 @@ def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
             # the `parameters` that a path item may carry is a list: only the operations are dicts
             if not isinstance(operation, dict) or "parameters" not in operation:
                 continue
+            tool = _TOOL_NAMES.get(operation.get("operationId"))
             kept = []
             for parameter in operation["parameters"]:
                 if parameter.get("in") == "query" and parameter.get("name") in _REST_ONLY_ARGUMENTS:
                     continue
                 if parameter.get("in") == "query" and parameter.get("name") == "format":
-                    schema = parameter.get("schema", {})
-                    if "enum" in schema:
-                        schema["enum"] = [fmt for fmt in schema["enum"] if fmt not in _CHART_FORMATS]
-                    for holder in (schema, parameter):
-                        if "description" in holder:
-                            holder["description"] = _CHART_CLAUSE.sub("", holder["description"])
+                    _slim_format(parameter, tool=tool)
+                if parameter.get("in") == "query" and parameter.get("name") == "with_metadata" and tool == "values":
+                    _slim_with_metadata(parameter, operation)
                 kept.append(parameter)
             operation["parameters"] = kept
     return slim
+
+
+def _slim_with_metadata(parameter: dict[str, Any], operation: dict[str, Any]) -> None:
+    """Say what `with_metadata` adds in one clause for the `values` tool, and leave out the route's paragraph (GH-4499).
+
+    The route's paragraph describes the JSON's `metadata` block, which a tool that answers compact text does not have,
+    and draws a model to the argument: a compact answer with it is several times the size, and nothing in it is
+    needed to read the values.
+    """
+    for holder in (parameter.get("schema", {}), parameter):
+        if "description" in holder:
+            holder["description"] = _VALUES_WITH_METADATA
+    for key in ("description", "summary"):
+        if isinstance(operation.get(key), str):
+            operation[key] = _WITH_METADATA_PARAGRAPH.sub("\n", operation[key])
 
 
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).
@@ -545,10 +598,14 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
 
 
 # The sentence that ends the description of the `values` tool, which only the tool has: the answer of a tool is cut to
-# `ui.budget.ANSWER_BUDGET` characters.
+# `ui.budget.ANSWER_BUDGET` characters, and the compact format, which is the tool's default (`VALUES_TOOL_FORMAT`),
+# holds several times more of a series in them (GH-4445).
 _VALUES_WINDOW_ADVICE = (
-    "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv with "
-    "shape=wide (not with `value` in `filter` or `sort`)."
+    "Give a `timestamp` window: an answer is cut to 40,000 characters. The text above describes the JSON; by default "
+    "this tool answers compact text instead (pass format=json for the JSON): a table for each station and dataset, "
+    "a row for each timestamp, the unit in the column line, an empty cell for no value, flags as the table's default "
+    "and the periods that differ in a `flags` table. In it the last row of a table is its latest timestamp, and "
+    "`metadata.search` is the `search` header lines and the `search series` table."
 )
 
 # The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same
@@ -954,12 +1011,9 @@ _REPORTING_HEADERS = (
 )
 
 
-# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
-_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
-
-
-# The media types of the answers that are not JSON and that a tool carries: csv and ndjson, the data formats.
-_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
+# The media types of the answers that are not JSON and that a tool carries: csv, ndjson and the compact text (GH-4445),
+# the data formats.
+_CARRIED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson", COMPACT_MEDIA_TYPE})
 
 
 def _is_json(media_type: str) -> bool:
@@ -983,7 +1037,7 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport, answers: Mapping[str, str] 
     `_return_bodies_as_content` takes apart again into the content block of the result (GH-3464). A failure (not a
     2xx) is left as it is.
 
-    What it carries is text: csv and ndjson, the data formats of a tool that are not JSON. A 2xx of any other media
+    What it carries is text: csv, ndjson and compact, the data formats of a tool that are not JSON. A 2xx of another
     type is no answer of a tool (a chart, or what a route answered to an argument it should not have been given): it is
     an error, a 502 that names the media type, and its body is not decoded, not copied and not passed on (GH-4453; the
     in-process transport holds it whole, nothing here uses it). That is the last line, not the first: a chart format
@@ -1005,7 +1059,9 @@ def _carry_bodies_as_json(inner: AsyncBaseTransport, answers: Mapping[str, str] 
                 # argument made the route answer)
                 await response.aclose()
                 # what the tool that was called answers: `interpolate` and `summarize` have no ndjson (GH-4469)
-                answers_of_tool = (answers or {}).get(request.url.path, "a tool answers json, geojson, csv or ndjson")
+                answers_of_tool = (answers or {}).get(
+                    request.url.path, "a tool answers json, geojson, csv, ndjson or compact"
+                )
                 text = f"The REST API answered {media_type}, which a tool does not carry: {answers_of_tool}."
                 # plain text, as the REST app answers a tool's failures: FastMCP quotes a JSON string
                 return httpx2.Response(
@@ -1125,7 +1181,12 @@ def structured_size(media_type: str, body: str, headers: dict[str, str]) -> int:
     app sent), a blank line and the body. It reaches the client as JSON, where every newline and quote of the text is
     an escape of two characters, so that is what is counted: compact, with each character that is not ASCII as it is,
     as the client reads it. It is what `ui.budget` holds to its budget (GH-4022, GH-4029).
+
+    The compact text has no sentence in front: its header carries the licence, the credit line, the processing note and
+    the warnings, so the structured content is the body itself (GH-4445).
     """
+    if media_type == COMPACT_MEDIA_TYPE:
+        return len(json.dumps({"result": body}, separators=(",", ":"), ensure_ascii=False))
     size = len(body.encode("utf-8"))
     sentence = _sentence_of(media_type, size, _report_of(headers))
     return len(json.dumps({"result": f"{sentence}\n\n{body}"}, separators=(",", ":"), ensure_ascii=False))
@@ -1177,7 +1238,12 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
                 # A client may hand the model the structured content and not the content blocks (Claude Code does:
                 # a result with both reaches the model as the structured content alone, so the rows of a csv were
                 # lost behind the sentence, GH-4017). The schema admits a string, so the data is repeated in it.
-                structured = {"result": f"{_sentence_of(media_type, size, report)}\n\n{body}"}
+                # the compact text says it all itself, in its header: no sentence in front of it
+                structured = {
+                    "result": body
+                    if media_type == COMPACT_MEDIA_TYPE
+                    else f"{_sentence_of(media_type, size, report)}\n\n{body}"
+                }
             # also where the tool has no output schema to put the sentence in
             return ToolResult(
                 content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None

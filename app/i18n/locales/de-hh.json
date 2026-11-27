@@ -904,6 +904,52 @@
     "runLabel": "Modelloop",
     "runLatest": "Aktuellste (auto)"
   },
+  "uvPollen": {
+    "title": "UV un Pollen",
+    "today": "Vundaag",
+    "tomorrow": "Morgen",
+    "noValue": "keen Weert",
+    "uv": {
+      "title": "UV-Index för {place} ({km} km)",
+      "index": "UV-Index",
+      "class": {
+        "low": "Leeg",
+        "moderate": "Matig",
+        "high": "Hooch",
+        "veryHigh": "Bannig hooch",
+        "extreme": "Extreem"
+      },
+      "credit": "UV-Index-Vörhersaag vun den DWD."
+    },
+    "pollen": {
+      "title": "Pollenbelastung för {state}",
+      "regions": "Region ({state})",
+      "typeHeader": "Pollenoort",
+      "caption": "Vörhersaag vun de Pollenbelastung för {region}",
+      "outOfSeason": "För disse Daag is keen Pollenbelastung to verwachten.",
+      "noForecast": "För disse Region hett de DWD jüst keen Pollenvörhersaag.",
+      "credit": "Pollenbelastungs-Vörhersaag vun den DWD.",
+      "type": {
+        "hazel": "Hasel",
+        "alder": "Erle",
+        "ash": "Esche",
+        "birch": "Birke",
+        "grass": "Gräser",
+        "rye": "Roggen",
+        "mugwort": "Beifuß",
+        "ragweed": "Ambrosia"
+      },
+      "level": {
+        "none": "Keen",
+        "noneToLow": "Keen bit lütt",
+        "low": "Lütt",
+        "lowToMedium": "Lütt bit middel",
+        "medium": "Middel",
+        "mediumToHigh": "Middel bit hooch",
+        "high": "Hooch"
+      }
+    }
+  },
   "widget": {
     "noStation": "Keen Station angeven. Hang {param} an de URL dran.",
     "loading": "Utsicht laadt …",

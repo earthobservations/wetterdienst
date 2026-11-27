@@ -3,8 +3,7 @@ import type { Value } from '#shared/types/api'
 import type { PanelId } from '~/composables/useMeteogramView'
 import type { SeriesLabel } from '~/utils/chart-theme'
 import type { MeteogramView } from '~/utils/meteogram'
-import { DateTime, Info } from 'luxon'
-import tzLookup from 'tz-lookup'
+import { DateTime } from 'luxon'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import MeteogramChart from '~/components/MeteogramChart.vue'
 import ProviderCredit from '~/components/ProviderCredit.vue'
@@ -16,6 +15,7 @@ import { meteogramDays } from '~/utils/meteogram-days'
 import { buildSeries, seriesSpan, snowSeries } from '~/utils/meteogram-series'
 import { meteogramSummary, meteogramTable } from '~/utils/meteogram-summary'
 import { meteogramUnits } from '~/utils/meteogram-units'
+import { zoneOfPosition } from '~/utils/station-zone'
 
 const props = defineProps<{
   values: Value[]
@@ -100,19 +100,7 @@ function resetChart() {
 }
 
 // The station's time zone, which the times of the table are written in, as the chart's axis is
-const stationTimeZone = computed(() => {
-  const { latitude, longitude } = props.stationCoords ?? {}
-  if (latitude == null || longitude == null)
-    return 'UTC'
-  try {
-    const zone = tzLookup(latitude, longitude)
-    // a zone the browser does not know would make every date of the chart invalid
-    return Info.isValidIANAZone(zone) ? zone : 'UTC'
-  }
-  catch {
-    return 'UTC'
-  }
-})
+const stationTimeZone = computed(() => zoneOfPosition(props.stationCoords?.latitude, props.stationCoords?.longitude))
 
 // The zone as the summary row names it: `Europe/Berlin (UTC+02:00)`, at the run's first moment
 const toolbarTzLabel = computed(() => {

@@ -47,6 +47,8 @@ pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
 
 #: the formats a tool answers: data
 DATA_FORMATS = {"json", "geojson", "csv", "ndjson"}
+#: `values` has the compact text beside them (GH-4445); the other tools get it as their builders land
+VALUES_FORMATS = DATA_FORMATS | {"compact"}
 
 
 @functools.cache
@@ -108,14 +110,14 @@ def test_no_tool_takes_an_option_that_only_rest_needs() -> None:
         assert not _REST_ONLY_ARGUMENTS & set(properties), name
         if "format" in properties:
             formats = set(properties["format"]["enum"])
-            assert formats <= DATA_FORMATS, name
+            assert formats <= VALUES_FORMATS, name
             assert formats, name
             # the description does not offer what the tool no longer answers
             for word in ("chart", "png", "html", "svg", "pdf", "image"):
                 assert word not in properties["format"]["description"].lower(), (name, word)
-    # the two listings offer all four formats of data
-    for name in ("values", "stations"):
-        assert set(tools[name].input_schema["properties"]["format"]["enum"]) == DATA_FORMATS, name
+    # the two listings offer the four formats of data, and `values` the compact text too
+    assert set(tools["stations"].input_schema["properties"]["format"]["enum"]) == DATA_FORMATS
+    assert set(tools["values"].input_schema["properties"]["format"]["enum"]) == VALUES_FORMATS
 
 
 def test_the_tools_keep_every_other_option_of_their_route() -> None:
@@ -369,7 +371,7 @@ def test_a_chart_format_is_refused_where_it_would_have_been_answered_with_an_ima
 
     assert result.is_error
     assert result.content[0].text == (
-        f"format={fmt} is not offered by the tool values, which answers json, geojson, csv or ndjson. "
+        f"format={fmt} is not offered by the tool values, which answers json, geojson, csv, ndjson or compact. "
         f"Charts are drawn by the REST API: /api/v1/values takes format={fmt}."
     )
     assert seen == []
@@ -757,3 +759,26 @@ def test_python_still_takes_the_skip_options() -> None:
     options = Options(skip_empty=True, skip_threshold=0.5, skip_criteria="max")
 
     assert (options.skip_empty, options.skip_threshold, options.skip_criteria) == (True, 0.5, "max")
+
+
+def test_the_values_tool_says_what_with_metadata_adds_in_one_clause() -> None:
+    """The unit is in each column line, so the tool does not draw a model to `with_metadata` (GH-4499).
+
+    The argument has a clause, and neither the description of the tool nor its closing advice has a paragraph about it;
+    the other tools keep the description of their route.
+    """
+    tools = _tools()
+    values = tools["values"]
+
+    clause = values.input_schema["properties"]["with_metadata"]["description"]
+    assert clause.count(".") == 1
+    assert len(clause) < 170
+    # what it adds, for both formats: the parameters' details, the settings and the flags' legend
+    for word in ("unit", "aggregation", "timestamp position", "settings", "quality flags", "in compact"):
+        assert word in clause
+    assert "with_metadata" not in values.description
+    assert "metadata.parameters" not in values.description
+    # the REST API and the other tools are not touched
+    route = next(op for path, op in restapi.app.openapi()["paths"].items() if path.endswith("/values"))["get"]
+    assert "metadata.parameters" in route["description"]
+    assert "unit of every parameter" in tools["stations"].input_schema["properties"]["with_metadata"]["description"]

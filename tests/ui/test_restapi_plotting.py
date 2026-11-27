@@ -42,7 +42,7 @@ CHARTS = names_of("chart")
 #: the formats each route answers when it draws no chart
 DATA = {
     "stations": "json, geojson, csv or ndjson",
-    "values": "json, geojson, csv or ndjson",
+    "values": "json, geojson, csv, ndjson or compact",
     "interpolate": "json, geojson or csv",
     "summarize": "json, geojson or csv",
 }
@@ -235,9 +235,10 @@ def test_the_data_formats_are_answered_as_ever(
 ) -> None:
     """Nothing but a chart is refused: each data format of the route is a 200."""
     _stub(monkeypatch, endpoint)
-    offered = {"stations": ("json", "geojson", "csv", "ndjson"), "values": ("json", "geojson", "csv", "ndjson")}.get(
-        endpoint, ("json", "geojson", "csv")
-    )
+    offered = {
+        "stations": ("json", "geojson", "csv", "ndjson"),
+        "values": ("json", "geojson", "csv", "ndjson", "compact"),
+    }.get(endpoint, ("json", "geojson", "csv"))
 
     for fmt in offered:
         response = _get(client, prefix, endpoint, query, format=fmt)
@@ -566,12 +567,12 @@ def test_a_tool_offers_no_chart_and_says_so_where_the_server_draws_none(
 
     assert off.is_error
     assert off.content[0].text == (
-        f"format={fmt} is not offered by the tool values, which answers json, geojson, csv or ndjson. "
+        f"format={fmt} is not offered by the tool values, which answers json, geojson, csv, ndjson or compact. "
         "This server draws no charts."
     )
     assert on.is_error
     assert on.content[0].text == (
-        f"format={fmt} is not offered by the tool values, which answers json, geojson, csv or ndjson. "
+        f"format={fmt} is not offered by the tool values, which answers json, geojson, csv, ndjson or compact. "
         f"Charts are drawn by the REST API: /api/v1/values takes format={fmt}."
     )
     assert seen == []
@@ -608,7 +609,7 @@ def test_a_tool_refusal_is_the_refusal_where_a_setting_is_malformed_and_echoes_n
 
     assert chart.is_error
     assert chart.content[0].text == (
-        "format=png is not offered by the tool values, which answers json, geojson, csv or ndjson."
+        "format=png is not offered by the tool values, which answers json, geojson, csv, ndjson or compact."
     )
     assert size.is_error
     assert size.content[0].text == (

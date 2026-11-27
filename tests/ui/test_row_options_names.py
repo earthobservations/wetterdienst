@@ -203,7 +203,13 @@ def _tool(arguments: dict[str, Any]) -> Any:  # noqa: ANN401
         async with Client(build_mcp_server(app)) as client:
             return await client.call_tool(
                 "values",
-                {**selection, "parameters": ",".join(_THREE), "stations": "00001,00002,00003", **arguments},
+                {
+                    **selection,
+                    "parameters": ",".join(_THREE),
+                    "stations": "00001,00002,00003",
+                    "format": "json",
+                    **arguments,
+                },
                 raise_on_error=False,
             )
 

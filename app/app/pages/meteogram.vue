@@ -8,12 +8,14 @@ import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import PlaceStations from '~/components/PlaceStations.vue'
 import StationPicker from '~/components/StationPicker.vue'
+import UvPollenPanel from '~/components/UvPollenPanel.vue'
 import { formatRunTime } from '~/utils/format'
 import { meteogramSnowQuery, meteogramUnitsKey, meteogramValuesQuery, MOSMIX_METEOGRAM, snowStationsQuery } from '~/utils/meteogram'
 import { placeOfQuery, queryOfPlace } from '~/utils/place-link'
 import { NEAR_STATIONS_COUNT, stationForPlace, stationsNear } from '~/utils/place-stations'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 import { snowStationIds } from '~/utils/snow-stations'
+import { zoneOfPosition } from '~/utils/station-zone'
 import { unitsOfAnswer } from '~/utils/units'
 
 // Auto-composed MOSMIX parameters – user never configures these; the map's panel asks for the same
@@ -45,6 +47,13 @@ const units = ref<Record<string, string>>({})
 const snowValues = ref<Value[] | null>(null)
 const snowUnits = ref<Record<string, string>>({})
 const unitsOfForecast = computed(() => ({ ...units.value, ...snowUnits.value }))
+// The UV index and the pollen load (GH-4501), under the chart: DWD's, for a station in Germany, each its own request that the forecast
+// does not wait for and whose failure hides only its own part (`useUvPollen`). They follow the station, not the run or the units
+const forecastPoint = computed(() => selectedStation.value
+  ? { stationId: selectedStation.value.station_id, latitude: selectedStation.value.latitude, longitude: selectedStation.value.longitude }
+  : null)
+const { uv: uvAnswer, pollen: pollenAnswer } = useUvPollen(forecastPoint)
+const stationZone = computed(() => zoneOfPosition(selectedStation.value?.latitude, selectedStation.value?.longitude))
 
 // The units the app settings choose (GH-3980), read at each request. Where they change while a forecast is shown (in
 // the header's settings, or in another tab) the forecast is fetched again in them, as the charts and the table say the
@@ -599,6 +608,8 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
             <p class="mt-1 px-1 text-sm text-muted" data-testid="meteogram-warnings-note">
               {{ t('meteogram.warningsNote') }}
             </p>
+            <!-- DWD's UV index and pollen load for today, tomorrow and the day after: after the credits and their note, Germany only, and only for the parts that were answered -->
+            <UvPollenPanel :uv="uvAnswer" :pollen="pollenAnswer" :zone="stationZone" class="mt-5" />
           </UCard>
 
           <!-- Empty state before selection -->

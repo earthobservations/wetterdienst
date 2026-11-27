@@ -23,6 +23,7 @@ import { radarPng } from '../../helpers/radar-image'
 import { emptyScan } from '../../helpers/storm-cells-answer'
 import { stripesAnswer } from '../../helpers/stripes-answer'
 import { ghcnAnnualOfFixture, valuesOfFixture } from '../../helpers/stripes-backend'
+import { OBSERVATION_DRESDEN, POLLEN_STATIONS_ANSWER, pollenValues, SPRING_LEVELS, uvPlace, uvValues } from '../../helpers/uv-pollen'
 import { alertsAnswer } from '../../helpers/warnings-answer'
 
 // What the accessibility spec shows the app instead of a backend.
@@ -136,6 +137,14 @@ const MOSMIX_STATIONS: Station[] = [
   { station_id: '10147', name: 'HAMBURG-FUHLSBUETTEL', region: null, latitude: 53.63, longitude: 10.0, elevation: 11, start_timestamp: null, end_timestamp: null },
   { station_id: '10384', name: 'BERLIN-TEMPELHOF', region: null, latitude: 52.47, longitude: 13.4, elevation: 49, start_timestamp: null, end_timestamp: null },
   { station_id: '10865', name: 'MUENCHEN-STADT', region: null, latitude: 48.16, longitude: 11.54, elevation: 515, start_timestamp: null, end_timestamp: null },
+]
+
+/** The places of DWD's UV index forecast the mock knows (the real file has 38, `dwd/uvi`'s `places.py`) */
+export const UV_PLACES: Station[] = [
+  uvPlace('berlin', 'Berlin', 52.4676, 13.402),
+  uvPlace('dresden', 'Dresden', 51.1278, 13.7543),
+  uvPlace('hamburg', 'Hamburg', 53.6332, 9.9881),
+  uvPlace('muenchen', 'München', 48.1632, 11.5429),
 ]
 
 const STRIPES_STATIONS: Station[] = STATIONS.slice(0, 6).map(station => ({
@@ -543,6 +552,14 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'settings': () => new ApiFailure(404, 'Not Found'),
     'stations': (url) => {
       const mosmix = url.searchParams.get('network') === 'mosmix'
+      // the UV places and the pollen regions of the Forecast's "UV & pollen" panel (GH-4501), and the nearest station of the observation network
+      // that gives it the state (a station near Dresden is among them, which the picker's list does not have)
+      if (url.searchParams.get('network') === 'uvi')
+        return { stations: UV_PLACES }
+      if (url.searchParams.get('network') === 'pollen')
+        return { stations: POLLEN_STATIONS_ANSWER }
+      if (url.searchParams.get('network') === 'observation' && url.searchParams.get('rank') === '1' && url.searchParams.has('latitude'))
+        return { stations: [...STATIONS, OBSERVATION_DRESDEN] }
       // the stations of the snow forecast, which the Forecast asks for once: the few of the dataset and not the list
       if (mosmix && url.searchParams.get('parameters') === 'hourly/snow')
         return { stations: SNOW_STATIONS }
@@ -559,6 +576,11 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'values': (url) => {
       if (isSnowRequest(url))
         return snowValues(url, now)
+      // DWD's UV index and pollen load for today and the two days after: whole answers of a day, in the season of hazel and alder
+      if (url.searchParams.get('network') === 'uvi')
+        return { values: uvValues(url.searchParams.get('stations') ?? 'berlin', [5, 3, 8], 0, now.getTime()) }
+      if (url.searchParams.get('network') === 'pollen')
+        return { values: pollenValues((url.searchParams.get('stations') ?? '81').split(','), SPRING_LEVELS, {}, 0, now.getTime()) }
       if (url.searchParams.get('network') === 'mosmix')
         return { values: forecastValues(url, now) }
       return { values: observationValues(url), ...(url.searchParams.get('with_metadata') === 'true' ? { metadata: observationMetadata(url) } : {}) }

@@ -44,12 +44,14 @@ _MOSMIX = {
     "network": "mosmix",
     "parameters": "hourly/small/temperature_air_2m,hourly/small/wind_speed",
     "stations": "10381",
+    "format": "json",
 }
 _OBSERVATION = {
     "provider": "dwd",
     "network": "observation",
     "parameters": "hourly/air_temperature/temperature_air_mean_2m",
     "stations": "01048",
+    "format": "json",
 }
 
 

@@ -161,7 +161,8 @@ describe('the forecast page with a place', () => {
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram' })
     await vm().onPlace({ id: 'N1', name: 'Bad Tölz', kind: 'town', region: 'Bayern, Germany', latitude: 47.76143219, longitude: 11.55834567 })
     await vi.waitFor(() => expect(vm().selectedStation?.station_id).toBe('M0814'))
-    const byPosition = requests.filter(query => query.latitude)
+    // the UV index and the pollen load ask for the nearest place and state by the station's position too, which are not the forecast's
+    const byPosition = requests.filter(query => query.latitude && query.network === 'mosmix')
     expect(byPosition).toHaveLength(1)
     expect(byPosition[0]).toMatchObject({ latitude: '47.7614', longitude: '11.5583', rank: '5' })
     expect(vm().place).toMatchObject({ latitude: 47.7614, longitude: 11.5583 })

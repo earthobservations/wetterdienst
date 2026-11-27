@@ -904,6 +904,52 @@
     "runLabel": "Model run",
     "runLatest": "Latest (auto)"
   },
+  "uvPollen": {
+    "title": "UV & pollen",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "noValue": "no value",
+    "uv": {
+      "title": "UV index for {place} ({km} km)",
+      "index": "UV index",
+      "class": {
+        "low": "Low",
+        "moderate": "Moderate",
+        "high": "High",
+        "veryHigh": "Very high",
+        "extreme": "Extreme"
+      },
+      "credit": "UV index forecast from DWD."
+    },
+    "pollen": {
+      "title": "Pollen load for {state}",
+      "regions": "Region ({state})",
+      "typeHeader": "Pollen type",
+      "caption": "Pollen load forecast for {region}",
+      "outOfSeason": "No pollen load is expected for these days.",
+      "noForecast": "DWD gives no pollen forecast for this region right now.",
+      "credit": "Pollen load forecast from DWD.",
+      "type": {
+        "hazel": "Hazel",
+        "alder": "Alder",
+        "ash": "Ash",
+        "birch": "Birch",
+        "grass": "Grass",
+        "rye": "Rye",
+        "mugwort": "Mugwort",
+        "ragweed": "Ragweed"
+      },
+      "level": {
+        "none": "None",
+        "noneToLow": "None to low",
+        "low": "Low",
+        "lowToMedium": "Low to medium",
+        "medium": "Medium",
+        "mediumToHigh": "Medium to high",
+        "high": "High"
+      }
+    }
+  },
   "widget": {
     "noStation": "No station specified. Add {param} to the URL.",
     "loading": "Loading forecast …",

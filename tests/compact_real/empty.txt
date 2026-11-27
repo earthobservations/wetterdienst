@@ -1,0 +1,13 @@
+# wetterdienst-compact/1 values
+# provider: German Weather Service (dwd/observation)
+# license: CC-BY-4.0 https://creativecommons.org/licenses/by/4.0/
+# attribution: Source: Deutscher Wetterdienst
+# source: https://opendata.dwd.de/climate_environment/CDC/
+# processing: Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ.
+# window: 2026-11-26T00:00Z/2026-11-26T23:59:59Z
+# time: UTC
+# retrieved: 2026-11-25T22:49Z
+# producer: wetterdienst 0.199.0, doi 10.5281/zenodo.3960624
+# warning parameter-without-rows: The source has no values for daily/climate_summary/temperature_air_mean_2m at station 01975 on 2026-11-26. Leave it out, or try another station or window.
+
+# end rows=0

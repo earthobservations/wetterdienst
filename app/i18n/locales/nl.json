@@ -904,6 +904,52 @@
     "runLabel": "Modelrun",
     "runLatest": "Nieuwste (auto)"
   },
+  "uvPollen": {
+    "title": "UV en pollen",
+    "today": "Vandaag",
+    "tomorrow": "Morgen",
+    "noValue": "geen waarde",
+    "uv": {
+      "title": "UV-index voor {place} ({km} km)",
+      "index": "UV-index",
+      "class": {
+        "low": "Laag",
+        "moderate": "Matig",
+        "high": "Hoog",
+        "veryHigh": "Zeer hoog",
+        "extreme": "Extreem"
+      },
+      "credit": "UV-indexverwachting van de DWD."
+    },
+    "pollen": {
+      "title": "Pollenbelasting voor {state}",
+      "regions": "Regio ({state})",
+      "typeHeader": "Pollensoort",
+      "caption": "Verwachte pollenbelasting voor {region}",
+      "outOfSeason": "Voor deze dagen wordt geen pollenbelasting verwacht.",
+      "noForecast": "De DWD geeft op dit moment geen pollenverwachting voor deze regio.",
+      "credit": "Pollenverwachting van de DWD.",
+      "type": {
+        "hazel": "Hazelaar",
+        "alder": "Els",
+        "ash": "Es",
+        "birch": "Berk",
+        "grass": "Gras",
+        "rye": "Rogge",
+        "mugwort": "Bijvoet",
+        "ragweed": "Ambrosia"
+      },
+      "level": {
+        "none": "Geen",
+        "noneToLow": "Geen tot laag",
+        "low": "Laag",
+        "lowToMedium": "Laag tot matig",
+        "medium": "Matig",
+        "mediumToHigh": "Matig tot hoog",
+        "high": "Hoog"
+      }
+    }
+  },
   "widget": {
     "noStation": "Geen station opgegeven. Voeg {param} toe aan de URL.",
     "loading": "Verwachting laden …",

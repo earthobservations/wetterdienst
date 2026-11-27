@@ -7,6 +7,10 @@ formats (the command line's choices, the `format` of the REST API and the MCP to
 `tests/test_export_formats.py` holds to it. A format a surface offers that is not here, or one here that a surface
 and `docs/usage/export.md` leave out, fails that test.
 
+`compact` is the text of `wetterdienst.io.compact`; only the results that have `to_compact` render it, so `to_format` of
+the others refuses it as an unknown format (`ExportMixin._FORMATS_NOT_RENDERED`), and no surface offers it where its
+result is not one of them.
+
 `ndjson` is the rows of a result, one JSON object a line. The REST API and the command line put a `metadata` head and an
 `end` line round it and stream it, which stays theirs and is no part of this format.
 """
@@ -39,6 +43,9 @@ class Format:
     image: bool = False
 
 
+#: the media type the REST API answers a compact text with, and an MCP tool carries it as (GH-4445); the text is UTF-8
+COMPACT_MEDIA_TYPE = "text/vnd.wetterdienst.compact"
+
 _IMAGE_ARGUMENTS = frozenset({"width", "height", "scale", "max_side", "max_points"})
 
 #: the formats of `to_format`, in the order the surfaces list them
@@ -51,6 +58,8 @@ FORMATS: dict[str, Format] = {
         Format("csv", "data", "to_csv", frozenset()),
         # the rows and nothing else: the head and end lines of a stream are the surface's
         Format("ndjson", "data", "to_ndjson", frozenset()),
+        # a text of a header and tables, a fraction of the JSON for an assistant to read: the values result's (GH-4445)
+        Format("compact", "data", "to_compact", frozenset({"with_metadata"})),
         Format("html", "chart", "to_image", _IMAGE_ARGUMENTS),
         *(Format(name, "chart", "to_image", _IMAGE_ARGUMENTS, image=True) for name in ("png", "jpg", "svg", "pdf")),
     )

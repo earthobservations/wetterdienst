@@ -50,7 +50,7 @@ from wetterdienst.exceptions import (
     UpstreamError,
     WetterdienstError,
 )
-from wetterdienst.io.formats import FORMATS, is_image
+from wetterdienst.io.formats import COMPACT_MEDIA_TYPE, FORMATS, is_image
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.group_statistics import GroupsOverLimitError
 from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
@@ -153,7 +153,7 @@ from wetterdienst.ui.limits import (
     limits_of,
     selected_station_count,
 )
-from wetterdienst.ui.mcp import is_tool_request
+from wetterdienst.ui.mcp import VALUES_TOOL_FORMAT, is_tool_request
 from wetterdienst.ui.middleware import RequestContextMiddleware, request_timeout, timeout_detail
 from wetterdienst.ui.problems import (
     PROBLEM_MEDIA_TYPE,
@@ -746,6 +746,8 @@ async def _refuse_too_many_points(request: Request, exc: ImageTooManyPointsError
 # for jpg or svg, and a PDF was sent as `image/pdf` (GH-2063)
 _MEDIA_TYPES = {
     "csv": "text/csv",
+    # the compact format is one body: held to `rows`, not streamed (GH-4445)
+    "compact": COMPACT_MEDIA_TYPE,
     # only a tool's request is answered as one body in ndjson (`_is_streamed`); any other is streamed
     "ndjson": NDJSON_MEDIA_TYPE,
     "html": "text/html",
@@ -2010,6 +2012,20 @@ _STREAM_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
+#: the media types of `format=csv`, `format=ndjson` and `format=compact` of `values`: the first two are streamed
+_VALUES_RESPONSES: dict[int | str, dict[str, Any]] = {
+    200: {
+        "content": {
+            **_STREAM_RESPONSES[200]["content"],
+            COMPACT_MEDIA_TYPE: {
+                "schema": {"type": "string"},
+                "example": "# wetterdienst-compact/1 values\n# provider: ...\n\n## values daily/kl station=01048\n...",
+            },
+        }
+    }
+}
+
+
 def _check_values_limits(
     stations: StationsResult,
     limits: Limits,
@@ -2481,11 +2497,11 @@ def issues(
 # response models for the different formats are
 # - _ValuesWithSettingsDict for json
 # - _ValuesWithSettingsOgcFeatureCollection for geojson
-# - str for csv
+# - str for csv and compact
 @router.get(
     "/values",
     response_model=_ValuesWithSettingsDict | _ValuesWithSettingsOgcFeatureCollection | str,
-    responses=_STREAM_RESPONSES,
+    responses=_VALUES_RESPONSES,
     tags=[TAG_VALUES],
 )
 def values(
@@ -2529,6 +2545,9 @@ def values(
     """
     # a row option given twice is malformed whatever the format: refused first, and it reads nothing
     _refuse_repeated_row_options(http_request)
+    if is_tool_request(http_request.scope) and "format" not in request.model_fields_set:
+        # the tool's own default, which the schema the tool lists says too; REST, the CLI and Python keep json (GH-4445)
+        request = request.model_copy(update={"format": VALUES_TOOL_FORMAT})
     _refuse_disabled_chart(request)
     begin_response()
     _refuse_oversized_chart(request)

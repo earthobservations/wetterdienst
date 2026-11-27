@@ -1,0 +1,69 @@
+# wetterdienst-compact/1 values
+# provider: German Weather Service (dwd/mosmix)
+# license: CC-BY-4.0 https://creativecommons.org/licenses/by/4.0/
+# attribution: Source: Deutscher Wetterdienst
+# source: https://opendata.dwd.de/climate_environment/CDC/
+# processing: Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ.
+# window: 2026-11-25T00:00Z/2026-11-27T23:59:59Z
+# time: UTC
+# retrieved: 2026-11-25T22:49Z (source updated 2026-11-25T22:00Z)
+# producer: wetterdienst 0.199.0, doi 10.5281/zenodo.3960624
+# warning missing-value-marker: 43 readings of the source were a marker for a missing value and are null, at 72295 LOS ANGELES (43); with drop_nulls they are not in the answer, without it the text the source wrote is the `raw:` token of their quality_flags.
+
+## stations
+station_id,name,latitude,longitude,elevation_m,region,wmo_id,icao_id
+72295,LOS ANGELES,33.93,-118.4,38,,72295,KLAX
+
+## values hourly/small station=72295
+timestamp,probability_precipitation_amount_gt_0_2mm_last_24h(%),temperature_air_2m(°C),wind_speed(m/s)
+2026-11-25T23:00Z,,20.8,4.12
+2026-11-26T00:00Z,,20.1,3.6
+2026-11-26T01:00Z,,20,3.09
+2026-11-26T02:00Z,,19.8,2.57
+2026-11-26T03:00Z,,19.5,2.06
+2026-11-26T04:00Z,,19.2,2.06
+2026-11-26T05:00Z,,18.9,2.06
+2026-11-26T06:00Z,0,17.1,2.57
+2026-11-26T07:00Z,,17,2.06
+2026-11-26T08:00Z,,16.9,2.06
+2026-11-26T09:00Z,,16.4,1.54
+2026-11-26T10:00Z,,16,1.54
+2026-11-26T11:00Z,86,15.5,1.03
+2026-11-26T12:00Z,75,14.1,1.54
+2026-11-26T13:00Z,,14.6,1.54
+2026-11-26T14:00Z,,15.2,1.54
+2026-11-26T15:00Z,,18.1,1.54
+2026-11-26T16:00Z,,21.1,2.06
+2026-11-26T17:00Z,,24,2.06
+2026-11-26T18:00Z,,24.4,3.09
+2026-11-26T19:00Z,,25.4,3.09
+2026-11-26T20:00Z,,26.3,3.6
+2026-11-26T21:00Z,,24.4,3.6
+2026-11-26T22:00Z,,23.9,3.6
+2026-11-26T23:00Z,,23.4,3.09
+2026-11-27T00:00Z,,22,3.09
+2026-11-27T01:00Z,,21.5,2.06
+2026-11-27T02:00Z,,21,1.54
+2026-11-27T03:00Z,,20.7,1.54
+2026-11-27T04:00Z,,20.5,2.06
+2026-11-27T05:00Z,,20.3,2.06
+2026-11-27T06:00Z,0,18.5,1.54
+2026-11-27T07:00Z,,18.4,1.54
+2026-11-27T08:00Z,,18.2,1.54
+2026-11-27T09:00Z,,17.8,1.54
+2026-11-27T10:00Z,,17.4,1.54
+2026-11-27T11:00Z,88,17,1.54
+2026-11-27T12:00Z,63,15.9,1.54
+2026-11-27T13:00Z,,16.2,1.54
+2026-11-27T14:00Z,,16.4,1.54
+2026-11-27T15:00Z,,19.2,1.54
+2026-11-27T16:00Z,,22.1,2.06
+2026-11-27T17:00Z,,24.9,2.06
+2026-11-27T18:00Z,,24.8,2.57
+2026-11-27T19:00Z,,25.2,3.09
+2026-11-27T20:00Z,,25.7,3.6
+2026-11-27T21:00Z,,24.6,3.6
+2026-11-27T22:00Z,,23.6,3.6
+2026-11-27T23:00Z,,22.5,3.6
+
+# end rows=104

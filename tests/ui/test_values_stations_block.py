@@ -224,7 +224,7 @@ def test_the_mcp_tool_lists_the_stations_that_have_rows(monkeypatch: pytest.Monk
     async def call() -> dict:
         async with Client(build_mcp_server(restapi.app)) as client:
             result = await client.call_tool(
-                "values", {**_OBSERVATION, "stations": "00001,00002,00003", "with_stations": True}
+                "values", {**_OBSERVATION, "stations": "00001,00002,00003", "with_stations": True, "format": "json"}
             )
             return result.structured_content["result"]
 

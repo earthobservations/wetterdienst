@@ -27,6 +27,13 @@ Types of changes:
 - `[Navigation]` The header of the wide layout measures its tool tabs in the reader's language at
   the width it has, and the tabs that do not fit go into a "More" menu, so that the seven tools
   fit at 1024, 1280 and 1440 px in every language (GH-4500).
+- `[Forecast]` A "UV & pollen" panel below the chart of a station in Germany (by the country's
+  border: a station in Strasbourg, Salzburg, Basel or Venlo has none), for today, tomorrow and the
+  day after: DWD's UV index of the nearest of its 38 places within 100 km, with the WHO's class in
+  words, and the pollen load of the part-regions of the station's state (chips, the one that names
+  the state first, the reader's pick remembered per state), as a grid of the eight types with DWD's
+  class names, or one line where no load is expected or DWD gives none. Each part is a request of
+  its own that the forecast does not wait for; one that fails is left out (GH-4501).
 
 ### Changed
 

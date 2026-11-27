@@ -904,6 +904,52 @@
     "runLabel": "Modelkørsel",
     "runLatest": "Seneste (auto)"
   },
+  "uvPollen": {
+    "title": "UV og pollen",
+    "today": "I dag",
+    "tomorrow": "I morgen",
+    "noValue": "ingen værdi",
+    "uv": {
+      "title": "UV-indeks for {place} ({km} km)",
+      "index": "UV-indeks",
+      "class": {
+        "low": "Lav",
+        "moderate": "Moderat",
+        "high": "Høj",
+        "veryHigh": "Meget høj",
+        "extreme": "Ekstrem"
+      },
+      "credit": "UV-indeksprognose fra DWD."
+    },
+    "pollen": {
+      "title": "Pollenbelastning for {state}",
+      "regions": "Region ({state})",
+      "typeHeader": "Pollentype",
+      "caption": "Prognose for pollenbelastning for {region}",
+      "outOfSeason": "Der forventes ingen pollenbelastning i disse dage.",
+      "noForecast": "DWD giver ikke en pollenprognose for denne region lige nu.",
+      "credit": "Pollenprognose fra DWD.",
+      "type": {
+        "hazel": "Hassel",
+        "alder": "El",
+        "ash": "Ask",
+        "birch": "Birk",
+        "grass": "Græs",
+        "rye": "Rug",
+        "mugwort": "Bynke",
+        "ragweed": "Ambrosia"
+      },
+      "level": {
+        "none": "Ingen",
+        "noneToLow": "Ingen til lav",
+        "low": "Lav",
+        "lowToMedium": "Lav til moderat",
+        "medium": "Moderat",
+        "mediumToHigh": "Moderat til høj",
+        "high": "Høj"
+      }
+    }
+  },
   "widget": {
     "noStation": "Ingen station angivet. Tilføj {param} til URL'en.",
     "loading": "Indlæser udsigt …",

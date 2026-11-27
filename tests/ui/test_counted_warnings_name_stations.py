@@ -270,6 +270,7 @@ def _surfaces(stations: list[str]) -> dict[str, list[dict[str, Any]]]:
                     "parameters": PARAMETER,
                     "stations": joined,
                     "timestamp": "2020-05",
+                    "format": "json",
                 },
             )
             return result.structured_content
@@ -389,6 +390,7 @@ def test_a_hundred_stations_make_a_short_warning_and_the_budget_still_cuts_the_a
             "parameters": "daily/kl",
             "all": "true",
             "timestamp": "2020-05",
+            "format": "json",
         },
     )
 
