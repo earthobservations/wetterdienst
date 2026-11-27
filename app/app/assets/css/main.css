@@ -617,12 +617,7 @@
 .app-nav-pending {
   visibility: hidden;
 }
-/* below the header's tabs (64 rem) there is nothing to measure, and a row that is 800 px wide must not make a phone scroll sideways (Firefox counts it) */
-@media (width < 64rem) {
-  .nav-measure {
-    display: none;
-  }
-}
+/* the copy is rendered only from 64 rem, where the tabs are (`AppHeader.vue`): a row that is 800 px wide must not be in a phone's page */
 .nav-measure {
   position: absolute;
   top: 0;

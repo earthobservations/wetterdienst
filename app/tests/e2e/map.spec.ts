@@ -93,9 +93,25 @@ test.describe('the map tool on a wide screen', () => {
   test('is the sixth tool of the header, with its violet tile, and marks itself as the page one is on', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map')
     const nav = page.getByRole('navigation', { name: en.shell.mainNav })
-    const links = nav.getByRole('link')
-    await expect(links.filter({ hasText: en.nav.map })).toHaveAttribute('aria-current', 'page')
-    expect(await nav.locator('ul > li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.nav.history, en.nav.map])
+    // the tools in the order of the header: the tabs of the row, then the ones that did not fit, which are in its More menu (GH-4500); the map is the sixth of the seven
+    const tabs = (await nav.locator('ul > li > a.nav-tab').allInnerTexts()).map(name => name.trim())
+    const more = nav.getByTestId('nav-more-button')
+    const inMenu: string[] = []
+    if (await more.count()) {
+      await more.click()
+      inMenu.push(...(await nav.getByTestId('nav-more-panel').locator('a span.font-semibold').allInnerTexts()).map(name => name.trim()))
+    }
+    expect([...tabs, ...inMenu]).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.nav.history, en.nav.map, en.nav.kostra])
+    // and it marks itself as the page one is on: its tab where it is in the row, else the More button and its item in the menu
+    if (tabs.includes(en.nav.map)) {
+      await expect(nav.getByRole('link', { name: en.nav.map, exact: true })).toHaveAttribute('aria-current', 'page')
+      if (await more.count())
+        await expect(more).not.toHaveAttribute('data-current', 'true')
+    }
+    else {
+      await expect(more).toHaveAttribute('data-current', 'true')
+      await expect(nav.getByTestId('nav-more-panel').locator('a[href="/map"]')).toHaveAttribute('aria-current', 'page')
+    }
     await expect(page.locator('.page-header .tile-map')).toBeVisible()
   })
 

@@ -29,6 +29,9 @@ const wide = useMediaQuery('(min-width: 90rem)')
 const FONTS_WAIT_MS = 1000
 const nav = useTemplateRef<HTMLElement>('nav')
 const measure = useTemplateRef<HTMLElement>('measure')
+// the copy of the row the tabs are measured in is there only where the header shows the tabs (from 64 rem, `lg:`): below it there is nothing to
+// measure, and an element with `inert` that is always in the page would be one a phone has no use for (the map's full screen counts the page's `inert`)
+const tabsShown = useMediaQuery('(min-width: 64rem)')
 const shown = ref(headerTools.value.length)
 const ready = ref(false)
 const visibleTools = computed(() => headerTools.value.slice(0, shown.value))
@@ -85,7 +88,8 @@ onMounted(() => {
     reveal()
   })
 })
-watch([headerTools, () => t('shell.more')], () => void nextTick(fit))
+// the copy comes with the width and goes with it: measured when it has come
+watch([headerTools, () => t('shell.more'), tabsShown], () => void nextTick(fit))
 </script>
 
 <template>
@@ -119,7 +123,7 @@ watch([headerTools, () => t('shell.more')], () => void nextTick(fit))
       </nav>
 
       <!-- the row as it would be with every tab and no "More" button, which is not seen and no part of the page: the widths the fitting is done from -->
-      <div ref="measure" class="nav-measure" aria-hidden="true" inert>
+      <div v-if="tabsShown" ref="measure" class="nav-measure" aria-hidden="true" inert>
         <div data-measure="row" class="flex items-center gap-1">
           <ul data-measure="list" class="flex items-center gap-1">
             <li v-for="tool in headerTools" :key="tool.key">

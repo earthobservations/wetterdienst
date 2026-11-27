@@ -252,9 +252,10 @@ test.describe('the narrow layout', () => {
     expect(await bar.locator('li').count()).toBe(5)
   })
 
-  test('has no row to measure: the copy of the header\'s tabs is not laid out, and the page does not scroll sideways', async ({ page, baseURL }) => {
+  test('has no row to measure: the copy of the header\'s tabs is not in the page, no element of it is inert, and the page does not scroll sideways', async ({ page, baseURL }) => {
     await open(page, baseURL!, 'cs')
-    expect(await page.locator('.nav-measure').evaluate(el => getComputedStyle(el).display)).toBe('none')
+    await expect(page.locator('.nav-measure')).toHaveCount(0)
+    expect(await page.locator('[inert]').count()).toBe(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
   })
 })

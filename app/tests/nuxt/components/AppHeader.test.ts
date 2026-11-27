@@ -64,8 +64,26 @@ describe('the tool tabs of the header', () => {
 // rest of the row (the line and the reference) 150 px, the "More" button 60 px, with no gap, and the room is what a test sets.
 describe('the tabs that do not fit', () => {
   const original = HTMLElement.prototype.getBoundingClientRect
+  const originalMatchMedia = window.matchMedia
   let room = 10_000
+  /** The window's media queries, as a test sets them: the header's tabs are shown (and measured) from 64 rem */
+  const queries = { wide: true }
+  const changes: Array<(event: { matches: boolean }) => void> = []
+  function stubMedia() {
+    window.matchMedia = ((query: string) => ({
+      get matches() {
+        return /min-width:\s*64rem/.test(query) ? queries.wide : false
+      },
+      media: query,
+      addEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => changes.push(listener),
+      removeEventListener: () => {},
+      addListener: (listener: (event: { matches: boolean }) => void) => changes.push(listener),
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+  }
   function stubWidths() {
+    stubMedia()
     HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
       const measure = this.dataset?.measure
       const width = this.matches?.('nav.app-nav')
@@ -76,6 +94,9 @@ describe('the tabs that do not fit', () => {
   }
   afterEach(() => {
     HTMLElement.prototype.getBoundingClientRect = original
+    window.matchMedia = originalMatchMedia
+    queries.wide = true
+    changes.length = 0
     room = 10_000
   })
 
@@ -84,6 +105,38 @@ describe('the tabs that do not fit', () => {
     await more(wrapper).trigger('click')
     return wrapper.findAll('[data-testid="nav-more-panel"] li').map(item => item.attributes('data-tool'))
   }
+
+  it('are measured in a copy of the row that is in the page only where the tabs are (from 64 rem): none of it, and nothing inert, below', async () => {
+    stubWidths()
+    queries.wide = false
+    const phone = await mountHeader()
+    expect(phone.find('.nav-measure').exists()).toBe(false)
+    expect(phone.findAll('[inert]')).toHaveLength(0)
+    phone.unmount()
+    mounted.pop()
+    queries.wide = true
+    const desktop = await mountHeader()
+    expect(desktop.find('.nav-measure').exists()).toBe(true)
+    expect(desktop.find('.nav-measure').attributes('inert')).toBeDefined()
+  })
+
+  it('are measured when the window crosses 64 rem: the copy comes with the width, and the tabs that do not fit are in the menu then', async () => {
+    stubWidths()
+    room = 800
+    queries.wide = false
+    const wrapper = await mountHeader()
+    expect(wrapper.find('.nav-measure').exists()).toBe(false)
+    queries.wide = true
+    changes.forEach(call => call({ matches: queries.wide }))
+    await vi.waitFor(() => expect(wrapper.find('.nav-measure').exists()).toBe(true))
+    await vi.waitFor(() => expect(more(wrapper).exists()).toBe(true))
+    expect(tabs(wrapper)).toEqual(DEFAULT.slice(0, 5))
+    // and goes with it
+    queries.wide = false
+    changes.forEach(call => call({ matches: queries.wide }))
+    await vi.waitFor(() => expect(wrapper.find('.nav-measure').exists()).toBe(false))
+    expect(wrapper.findAll('[inert]')).toHaveLength(0)
+  })
 
   it('are all in the row, with no More button, where the room holds them', async () => {
     stubWidths()
