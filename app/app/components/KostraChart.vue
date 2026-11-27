@@ -2,7 +2,7 @@
 import type { ECharts } from 'echarts/core'
 import type { KostraQuantity, KostraTable } from '~/utils/kostra'
 import { durationLabel, KOSTRA_DURATIONS, KOSTRA_RETURN_PERIODS, KOSTRA_UNITS } from '~/utils/kostra'
-import { buildKostraOption, curveColour, kostraHeight, kostraReadoutRows, nearestDurationIndex, pixelOfDuration } from '~/utils/kostra-option'
+import { buildKostraOption, curveColour, kostraHeight, kostraReadoutRows, nearestDurationIndex } from '~/utils/kostra-option'
 
 // The curves of the Heavy-rainfall tool (GH-4500): one depth-duration curve for each return period, drawn by Apache ECharts as SVG
 // (`utils/kostra-option.ts` is the option). The legend and the readout are this component's own elements, as in the Explorer's chart:
@@ -46,16 +46,13 @@ const legend = computed(() => KOSTRA_RETURN_PERIODS.map((years, index) => ({ yea
 
 // ---- the readout ---------------------------------------------------------------------------------------------------
 
-/** The readout's width with a margin, and the plot's margins: where the readout fits beside a crosshair */
-const READOUT_PX = 160 + 16
 /**
- * Where the readout is docked: in the corner the curves leave free, which is the upper left for the depth (it rises with the duration) and the upper
- * right for the intensity (it falls), and in the other only where the crosshair is under it, so that it never covers the values it reads
+ * Where the readout is docked: in the corner the curves leave free, whatever the crosshair is at. That is the upper left for the depth, which
+ * rises with the duration, and the upper right for the intensity, which falls. Where the crosshair is under it, it covers the dashed line and
+ * no mark: the marks are on the curves, which are low there.
  */
-function readoutSide(crosshair: number): 'start' | 'end' {
-  const free = props.quantity === 'depth' ? 'start' : 'end'
-  const under = free === 'start' ? crosshair < 48 + READOUT_PX : crosshair > width.value - 14 - READOUT_PX
-  return under ? (free === 'start' ? 'end' : 'start') : free
+function readoutSide(): 'start' | 'end' {
+  return props.quantity === 'depth' ? 'start' : 'end'
 }
 
 const readout = computed(() => {
@@ -69,7 +66,7 @@ const readout = computed(() => {
       colour: curveColour(row.colourIndex, theme.value.dark),
       text: row.value === null ? t('kostra.noValue') : format(row.value, 1),
     })),
-    side: readoutSide(pixelOfDuration(minutes, width.value)),
+    side: readoutSide(),
   }
 })
 

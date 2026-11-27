@@ -132,24 +132,19 @@ describe('the readout', () => {
     expect(lastOption().series.find((item: any) => item.id === 'cursor-line').data[0][0]).toBe(Math.log10(KOSTRA_DURATIONS[hour]!))
   })
 
-  it('is docked at the upper left for the depth, where the curves are low, and at the right only where the crosshair is under it', async () => {
-    await showChart()
-    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(60, 800) }))
-    await vi.waitFor(() => expect(readout()).not.toBeNull())
-    expect(readout()!.classList.contains('kostra-readout-start')).toBe(true)
-    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(5, 800) }))
-    await vi.waitFor(() => expect(readout()!.classList.contains('kostra-readout-end')).toBe(true))
-    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(10080, 800) }))
-    await vi.waitFor(() => expect(readout()!.classList.contains('kostra-readout-start')).toBe(true))
-  })
-
-  it('is docked at the upper right for the intensity, which falls with the duration, and at the left only where the crosshair is under it', async () => {
-    await showChart({ quantity: 'intensity' })
-    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(60, 800) }))
-    await vi.waitFor(() => expect(readout()).not.toBeNull())
-    expect(readout()!.classList.contains('kostra-readout-end')).toBe(true)
-    stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(10080, 800) }))
-    await vi.waitFor(() => expect(readout()!.classList.contains('kostra-readout-start')).toBe(true))
+  it('is docked in the corner the curves leave free: the upper left for the depth, which rises with the duration, the upper right for the intensity, which falls', async () => {
+    const shown = await showChart()
+    for (const minutes of [5, 60, 10080]) {
+      stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(minutes, 800) }))
+      await vi.waitFor(() => expect(readout()).not.toBeNull())
+      expect(readout()!.classList.contains('kostra-readout-start'), `${minutes} min, depth`).toBe(true)
+    }
+    await shown.setProps({ quantity: 'intensity' })
+    for (const minutes of [5, 60, 10080]) {
+      stage().dispatchEvent(pointer('pointermove', { clientX: pixelOfDuration(minutes, 800) }))
+      await vi.waitFor(() => expect(readout()).not.toBeNull())
+      await vi.waitFor(() => expect(readout()!.classList.contains('kostra-readout-end'), `${minutes} min, intensity`).toBe(true))
+    }
   })
 
   it('goes when the pointer leaves, but not a touch: a tap stays until it is closed', async () => {
