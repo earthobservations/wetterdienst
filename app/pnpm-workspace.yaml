@@ -17,6 +17,9 @@ overrides:
   # asks for ^5.0.12) and esbuild (dev-server file read, GHSA-g7r4-m6w7-qqqr, which affects
   # >= 0.27.3 only, so the 0.25.x copy is outside it) are the first two; brace-expansion's 1.x
   # and 2.x copies are locked at their patched backports (1.1.22, 2.1.8), with no floor.
+  # @unhead/bundler and @unhead/vue pin unhead exactly: see unhead, below.
+  '@unhead/bundler@<3.5.2': ^3.5.2
+  '@unhead/vue@<3.5.2': ^3.5.2
   brace-expansion@>=4.0.0 <5.0.13: ^5.0.13
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
   # glob (build and lint tooling only: nitropack's @vercel/nft, js-beautify,
@@ -43,8 +46,9 @@ overrides:
   minimatch@>=7.0.0 <11.0.1: ^11.0.1
   # node-forge (via nitropack > listhen, the development server's self-signed certificate):
   # GHSA-rhr8-3pm8-cq29, GHSA-6qrw-m8cv-hcxf, GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g and
-  # more, all fixed in 1.4.3; listhen asks for ^1.3.1, which admits the vulnerable 1.4.0.
-  node-forge@<1.4.3: ^1.4.3
+  # more, all fixed in 1.4.3, and GHSA-w73w-hhm4-q25p, fixed in 1.4.4; listhen asks for
+  # ^1.3.1, which admits the vulnerable 1.4.0.
+  node-forge@<1.4.4: ^1.4.4
   # qs (GHSA-6pq8-jhm2-2vcw, fixed in 6.16.1; GHSA-w4cr-vjpx-p82q, fixed in 6.16.2):
   # @duckdb/duckdb-wasm asks for ^6.14.1, which admits the vulnerable 6.14.x to 6.16.1, and
   # ships no code that loads it (its dist never requires qs), so this only keeps a vulnerable
@@ -65,6 +69,11 @@ overrides:
   # @duckdb/duckdb-wasm -> apache-arrow -> @types/node@20.19.42 (an older,
   # separately-resolved @types/node than the workspace's own ^25.x).
   undici-types: ^6.21.0
+  # unhead (the page head: nuxt, @nuxt/ui and @nuxtjs/i18n; the SPA sets its head in the
+  # browser): seven advisories, fixed in 3.5.0 to 3.5.2. nuxt 4.7.0 asks for ^3.4.3, which
+  # admits the vulnerable 3.4.x line the lock file held. Drop these three once the lock file
+  # holds 3.5.2 or later without them.
+  unhead@<3.5.2: ^3.5.2
   # unrouting (build time, nuxt > @nuxtjs/i18n; the SPA's route patterns are generated with it),
   # GHSA-m344-v5fq-3m39: fixed in 0.3.2. @nuxtjs/i18n 10.6.0 asks for ^0.2.2, which admits
   # only the vulnerable 0.2.x line, and has no newer release; nuxt itself already asks for

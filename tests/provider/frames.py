@@ -74,7 +74,10 @@ def schema_id(schema: list[str]) -> str:
 def _cell(value: object) -> str:
     if isinstance(value, float):
         return format(value, f".{_SIGNIFICANT_DIGITS}g")
-    return repr(value)
+    # a test under a frozen clock (`freezegun`) is handed the clock's own classes by polars, which keeps the first
+    # `datetime` class it converts to for the whole process: whether a repr names `FakeDatetime` then depended on the
+    # test that ran first, so the same frame hashed differently alone and in the whole file (GH-4490)
+    return repr(value).replace("FakeDatetime(", "datetime.datetime(").replace("FakeDate(", "datetime.date(")
 
 
 def rows_hash(df: pl.DataFrame) -> str:
