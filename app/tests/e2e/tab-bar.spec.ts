@@ -16,9 +16,9 @@ const LOCALES = ['cs', 'da', 'de-hh', 'de', 'en', 'es', 'fr', 'it', 'lb', 'nl', 
 const messages = Object.fromEntries(LOCALES.map(code => [code, JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${code}.json`, import.meta.url)), 'utf-8'))]))
 const en = messages.en
 
-const DEFAULT_ORDER = ['forecast', 'explorer', 'stripes', 'radar', 'history', 'map']
-const WITH_MAP = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map']
-const NAMES: Record<string, string> = { forecast: en.nav.meteogram, explorer: en.nav.explorer, stripes: en.nav.stripes, radar: en.nav.radar, history: en.nav.history, map: en.nav.map }
+const DEFAULT_ORDER = ['forecast', 'explorer', 'stripes', 'radar', 'history', 'map', 'kostra']
+const WITH_MAP = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map', 'kostra']
+const NAMES: Record<string, string> = { forecast: en.nav.meteogram, explorer: en.nav.explorer, stripes: en.nav.stripes, radar: en.nav.radar, history: en.nav.history, map: en.nav.map, kostra: en.nav.kostra }
 
 type Mode = 'light' | 'dark'
 
@@ -570,7 +570,7 @@ test.describe('the wide header', () => {
   test.use({ viewport: { width: 1280, height: 800 } })
   const headerLinks = (page: Page) => page.getByRole('banner').getByRole('navigation', { name: en.shell.mainNav }).getByRole('link')
 
-  test('shows all six tools whatever the bar holds, in the order of the choice, and the chooser is still on the settings page', async ({ page, baseURL }) => {
+  test('shows all seven tools whatever the bar holds, in the order of the choice, and the chooser is still on the settings page', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings', { settings: settingsWith(WITH_MAP) })
     await expect(headerLinks(page)).toHaveText(WITH_MAP.map(key => NAMES[key]!))
     await expect(bar(page)).toBeHidden()

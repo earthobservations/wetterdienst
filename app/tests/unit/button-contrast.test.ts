@@ -139,6 +139,33 @@ describe('the tiles of the tools (GH-3650)', () => {
   })
 })
 
+describe('the tile of the heavy rainfall (GH-4500)', () => {
+  /** The hue of a colour, in degrees */
+  function hue(hex: string) {
+    const [r, g, b] = channels(hex).map(c => c! / 255) as [number, number, number]
+    const max = Math.max(r, g, b)
+    const delta = max - Math.min(r, g, b)
+    const sector = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4
+    return (sector * 60 + 360) % 360
+  }
+  const distance = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
+
+  it('has a glyph that clears 4.5:1 on its fill, as the sun\'s and the wind\'s do: the navy', () => {
+    expect(contrast(ink(950), token('color-tile-lime'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('says in the stylesheet what the test holds: the navy glyph on the green, by day and at night', () => {
+    expect(css).toMatch(/\.tile-lime\s*\{[^}]*--tile-fill:\s*var\(--color-tile-lime\)[^}]*--tile-glyph:\s*var\(--color-ink-950\)/)
+    // no rule of the night changes it: one green, as the sun's and the wind's one colour
+    expect(css).not.toMatch(/\.dark \.tile-lime/)
+  })
+
+  it('is far from the other tiles in hue, 40 degrees at the least, so that no two tools are told apart by lightness alone', () => {
+    for (const other of ['sun', 'rain', 'wind', 'heat', 'map', 'navy'])
+      expect(distance(hue(token('color-tile-lime')), hue(token(`color-tile-${other}`))), other).toBeGreaterThanOrEqual(40)
+  })
+})
+
 describe('the arrow buttons of the phone bar\'s chooser (GH-3846)', () => {
   // their edge is the muted text colour, on the row's raised background (1.4.11: 3:1)
   it('has the muted text colour as its edge', () => {

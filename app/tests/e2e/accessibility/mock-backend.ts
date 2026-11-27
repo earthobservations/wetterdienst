@@ -17,6 +17,7 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 import { prepareStations, searchPrepared } from '../../../app/utils/station-search'
 import { placesOfPhoton } from '../../../shared/utils/places'
+import { kostraAnswer, OUTSIDE_PROBLEM } from '../../helpers/kostra-answer'
 import { radarAnswer } from '../../helpers/radar-answer'
 import { radarPng } from '../../helpers/radar-image'
 import { emptyScan } from '../../helpers/storm-cells-answer'
@@ -581,6 +582,14 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'storm-cells': () => emptyScan(),
     // DWD's weather warnings (GH-4295): the realistic snapshot of `tests/helpers/warnings-answer.ts`, one of which has no polygon, in the language of the product asked for
     'alerts': url => alertsAnswer({ now: now.getTime(), language: url.searchParams.get('language') ?? 'en' }),
+    // DWD's design rainfall of a point (GH-4500): the table of a cell for a point in the box of DWD's grid (Germany and about 10 km), the 400 of the backend for one outside it
+    'kostra': (url) => {
+      const latitude = Number(url.searchParams.get('latitude'))
+      const longitude = Number(url.searchParams.get('longitude'))
+      return latitude >= 47.18 && latitude <= 55.14 && longitude >= 5.7 && longitude <= 15.16
+        ? kostraAnswer()
+        : new ApiFailure(400, OUTSIDE_PROBLEM.detail)
+    },
     'radar/frames': () => radarAnswer({ now: now.getTime() }),
     'radar/frame': (url) => {
       const start = Math.floor(now.getTime() / 300_000) * 300_000

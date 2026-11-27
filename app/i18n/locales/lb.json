@@ -308,7 +308,8 @@
       "about": "Iwwer dat Open-Source-Projet Wetterdienst an d'Leit, déi et ënnerhalen.",
       "support": "Ënnerstëtz Wetterdienst: mell e Problem, dréi Code bäi oder spend.",
       "map": "Eng Kaart vun de Statioune vum Däitsche Wiederdéngscht: Wiel eng Statioun oder e beléiwege Punkt a kuck d'Prognos, d'Klimasträifen an d'Miessungen derzou.",
-      "radar": "Den Nidderschlagsradar vum DWD iwwer Däitschland als Schleif vun de leschten zwou Stonnen, mat der Prognos fir déi nächst zwou an den Donnerwieder-Zellen driwwer."
+      "radar": "Den Nidderschlagsradar vum DWD iwwer Däitschland als Schleif vun de leschten zwou Stonnen, mat der Prognos fir déi nächst zwou an den Donnerwieder-Zellen driwwer.",
+      "kostra": "De Bemiessungsniwwerschlag (KOSTRA) vum DWD fir all Punkt an Däitschland: wéi vill Reen an 5 Minutten bis 7 Deeg fält a wéi dacks, als Tabell an als Kurven, a mm oder l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Methoden",
     "support": "Ënnerstëtzung",
     "map": "Kaart",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Staarkreen"
   },
   "shell": {
     "skipToContent": "Op den Inhalt sprangen",
@@ -771,7 +773,8 @@
     "forecast": "Sich eng Statioun oder wiel eng op der Kaart, fir hir Prognos ze gesinn",
     "explorer": "Wiel Parameteren aus, wiel dann eng Statioun oder e Punkt, iwwer d'Sich oder op der Kaart, a klick op „Weisen“, fir d'Daten ze lueden",
     "stripes": "Sich eng Statioun oder wiel eng op der Kaart a klick op „Weisen“, fir Klimasträifen ze erstellen",
-    "history": "Sich Statiounen oder wiel se op der Kaart a klick op „Weisen“, fir hiren Historique ze lueden"
+    "history": "Sich Statiounen oder wiel se op der Kaart a klick op „Weisen“, fir hiren Historique ze lueden",
+    "kostra": "Sich eng Plaz, benotz deng Positioun oder klick op d'Kaart, fir de Bemiessungsniwwerschlag vun deem Punkt ze gesinn"
   },
   "meteogram": {
     "title": "Wiederprognos",
@@ -1158,7 +1161,8 @@
     "nearest": "Nootst Statioun: {name}, {distance} vun denger Positioun ewech.",
     "noneNear": "Bei denger Positioun gouf keng Statioun fonnt.",
     "lookupFailed": "Déi nootst Statioun konnt net nogeschloe ginn. Probéier et nach eng Kéier oder benotz d'Sich.",
-    "here": "D'Fro geet iwwer {name}, d'Statioun {distance} vun denger Positioun ewech."
+    "here": "D'Fro geet iwwer {name}, d'Statioun {distance} vun denger Positioun ewech.",
+    "noteKostra": "Op ongeféier 1 km ofgerënnt a just benotzt, fir d'Reentabell vu senger Rasterzell nozekucken. Si bleift nëmmen an dësem Browser, wann du d'Këscht ukräizs."
   },
   "place": {
     "fieldLabel": "Eng Plaz sichen",
@@ -1610,5 +1614,52 @@
     "periods": "Perioden",
     "colMissingCount": "Zuel vu Fehlenden",
     "noneFound": "Fir déi gewielte Statiounen gouf kee Historique fonnt."
+  },
+  "kostra": {
+    "title": "Staarkreen",
+    "subtitle": "De Bemiessungsniwwerschlag (KOSTRA) vum DWD fir e Punkt an Däitschland: wéi vill Reen an 5 Minutten bis 7 Deeg fält a wéi dacks",
+    "aboutButton": "Iwwer Staarkreen",
+    "about1": "De Bemiessungsniwwerschlag seet, wéi vill Reen e Schauer vun enger bestëmmter Dauer bréngt, deen am Duerchschnëtt all sou a sou vill Joer erëmkënnt: e Reen vun 1 Stonn mat enger Widderkéierperiod vun 100 Joer ass en 100-järegen Reen. Mat dëse Wäerter ginn Kanäl, Réckhalebasseng an Duerchléss dimensionéiert.",
+    "about2": "D'Wäerter kommen aus KOSTRA-DWD-2020, der statistescher Auswäertung vun de laangen Reemiessreie vun Däitschland duerch den DWD, op engem Raster aus 5-km-Zellen. D'Tabell gehéiert zur Zell, an där de Punkt läit: eng Schätzung fir eng Fläch vu 25 km², keng Miessung um Punkt.",
+    "about3": "D'Reenhéicht ass de Reen, deen während der Dauer fält, a mm (1 mm ass 1 Liter pro Quadratmeter). D'Intensitéit ass deeselwechte Reen als Rate, a Liter pro Sekonn an Hektar. Den DWD gëtt bei all Wäert eng Toleranz a Prozent un, déi d'Tabell drënner weist.",
+    "aboutSources": "Quell a Method:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, Rasterdaten",
+    "pointTitle": "De Punkt wielen",
+    "placeLabel": "No enger Plaz sichen",
+    "mapHint": "Oder klick op d'Kaart, fir e Punkt ze wielen.",
+    "pointLabel": "Gewielte Punkt",
+    "pointPosition": "Deng Positioun, ofgerënnt: {point}",
+    "pointMap": "Op der Kaart: {point}",
+    "positionUsed": "Deng Positioun ass elo de Punkt.",
+    "mapLabel": "Kaart fir de Punkt vum Bemiessungsniwwerschlag ze wielen. E Klick wielt e Punkt; déi 5-km-Zell vum DWD-Raster, an där en ass, ass ëmrandt.",
+    "pointMarker": "Gewielte Punkt",
+    "loading": "D'Tabelle vum DWD ginn gelies … déi éischt Ufro dauert e puer Sekonnen.",
+    "outside": "Fir dëse Punkt gëtt et keen Bemiessungsniwwerschlag. Dat DWD-Raster deckt Däitschland an e Rand vun ongeféier 10 km drëm of a gëtt um Mier keng Wäerter. Wiel en anere Punkt.",
+    "failed": "De Bemiessungsniwwerschlag konnt net gelueden ginn.",
+    "resultTitle": "Bemiessungsniwwerschlag vum gewielte Punkt",
+    "resultHeading": "Bemiessungsniwwerschlag",
+    "cell": "DWD-Rasterzell {cell}, Mëtt {centre}",
+    "quantitySwitch": "De Reen weisen als",
+    "quantity": {
+      "depth": "Reenhéicht",
+      "intensity": "Intensitéit"
+    },
+    "estimateNote": "Dës Wäerter si Schätzunge vum DWD fir déi 5-km-Zell, an där de Punkt läit, keng Miessunge um Punkt.",
+    "uncertaintyNote": "Ënner all Wäert: d'Onsécherheet vum DWD a Plus-Minus-Prozent. D'Wäerter si Statistike vu vergaangene Reen, keng Prognos.",
+    "uncertaintyLabel": "Onsécherheet",
+    "noValue": "kee Wäert",
+    "tableLabel": "Tabell vum Bemiessungsniwwerschlag; scrollt op d'Säit",
+    "tableCaption": "{quantity} a {unit}: 22 Dauere vun engem Reen no 9 Widderkéierperioden",
+    "chartLabel": "Diagramm: {quantity} a {unit} iwwer der Dauer vum Reen, eng Kurv fir all Widderkéierperiod. Mat de Feiltasten liest du d'Wäerter vun enger Dauer.",
+    "chartNotDrawn": "D'Diagramm konnt net gezeechent ginn.",
+    "returnPeriodLegend": "Widderkéierperiod (Joer)",
+    "returnPeriodHeading": "Widderkéierperiod a Joer",
+    "returnPeriodYears": "{count} Joer | {count} Joer",
+    "duration": {
+      "heading": "Dauer",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} d"
+    }
   }
 }

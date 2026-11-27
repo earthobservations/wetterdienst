@@ -41,7 +41,7 @@ const LISTS: Record<string, string> = {
   '/_ghcn/map-stations': 'station_id',
 }
 const ARRAYS = new Set(['/api/glossary'])
-const OBJECTS = new Set(['/api/coverage'])
+const OBJECTS = new Set(['/api/coverage', '/api/kostra'])
 
 /** The failure of an answer that is not the data: a 502, with the problem the backend's own are written as */
 export class UnexpectedAnswerError extends Error {

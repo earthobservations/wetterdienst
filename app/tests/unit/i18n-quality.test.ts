@@ -137,6 +137,7 @@ describe('plural forms', () => {
       'dataViewer.valuesCount',
       'dataViewer.valuesTransformed',
       'glossary.count',
+      'kostra.returnPeriodYears',
       'shell.resultsCount',
     ])
   })
@@ -335,6 +336,9 @@ const COGNATE = 'the ordinary word in that language is spelled the same'
 interface Same { en?: string[], de?: string[], why: string }
 
 const UI_SAME: Record<string, Same> = {
+  'kostra.duration.minutes': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: `the abbreviation of the minute, the same in every language (${UNIT})` },
+  'kostra.duration.hours': { en: ['cs', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'pl'], why: `the abbreviation of the hour, h (da writes t for time, nl u for uur): ${UNIT}` },
+  'kostra.duration.days': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'lb', 'nl', 'pl'], why: `the abbreviation of the day, d (fr writes j for jour, it g for giorno): ${UNIT}` },
   'common.colon': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: 'punctuation: a colon is a colon (fr sets a no-break space before it)' },
   'shell.resultsIn': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: 'punctuation and two names, no word: the group, a colon and its count (fr sets a no-break space before the colon)' },
   'common.all': { en: ['de-hh'], de: ['da'], why: COGNATE },
@@ -767,7 +771,10 @@ describe('terminology', () => {
       'lb': 'period',
       'nl': 'perio',
       'pl': 'okres',
-    } },
+    }, rephrased: Object.fromEntries(['about1', 'chartLabel', 'returnPeriodHeading', 'returnPeriodLegend', 'tableCaption'].map(key => [`kostra.${key}`, {
+      locales: ['cs', 'de', 'it', 'nl'],
+      why: 'a return period is a term of its own (the rain that returns every N years), which these languages call by another word than a stretch of a station\'s history: Doba opakování, Wiederkehrintervall, tempo di ritorno, herhalingstijd',
+    }])) },
   }
 
   /** What en says with the placeholders taken out: `{parameter}` is a slot, not the word. */

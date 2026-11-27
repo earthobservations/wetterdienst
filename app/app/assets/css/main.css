@@ -135,6 +135,9 @@
      4.8:1 against a card). Held to those ratios by `tests/unit/button-contrast.test.ts`. */
   --color-tile-map: #7c3aed;
   --color-tile-map-night: #9a79f8;
+  /* The seventh tile, the heavy rainfall's (GH-4500): a green, hue 94, in the widest gap of the colour wheel left (the sun's 44 to the wind's
+     teal at 174), 50 degrees from the nearest. As the sun's and the wind's it is a light fill with the navy glyph, by day and at night. */
+  --color-tile-lime: #6cbf2a;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -1143,6 +1146,10 @@
 }
 .dark .tile-map {
   --tile-fill: var(--color-tile-map-night);
+  --tile-glyph: var(--color-ink-950);
+}
+.tile-lime {
+  --tile-fill: var(--color-tile-lime);
   --tile-glyph: var(--color-ink-950);
 }
 .tile-navy {

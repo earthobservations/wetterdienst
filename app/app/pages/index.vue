@@ -13,6 +13,7 @@ const TITLES: Record<string, string> = {
   history: 'history.title',
   map: 'mapTool.title',
   radar: 'radar.title',
+  kostra: 'kostra.title',
 }
 const tasks = computed(() => TOOLS.map(tool => ({
   key: tool.key,

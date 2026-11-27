@@ -308,7 +308,8 @@
       "about": "Informazioni sul progetto open source Wetterdienst e sulle persone che lo mantengono.",
       "support": "Sostenere Wetterdienst: segnalare un problema, contribuire con codice o donare.",
       "map": "Una mappa delle stazioni del Servizio meteorologico tedesco: scegli una stazione o un punto qualsiasi per vedere le sue previsioni, le sue strisce climatiche e le sue misurazioni.",
-      "radar": "Il radar delle precipitazioni del DWD sulla Germania come sequenza delle ultime due ore, con la previsione delle prossime due e le celle temporalesche sopra."
+      "radar": "Il radar delle precipitazioni del DWD sulla Germania come sequenza delle ultime due ore, con la previsione delle prossime due e le celle temporalesche sopra.",
+      "kostra": "La pioggia di progetto (KOSTRA) del DWD per qualsiasi punto della Germania: quanta pioggia cade in 5 minuti fino a 7 giorni e con quale frequenza, in tabella e in curve, in mm o l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Metodi",
     "support": "Supporto",
     "map": "Mappa",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Piogge intense"
   },
   "shell": {
     "skipToContent": "Vai al contenuto",
@@ -771,7 +773,8 @@
     "forecast": "Cerca una stazione o sceglila sulla mappa per vedere la sua previsione",
     "explorer": "Seleziona i parametri, poi scegli una stazione o un punto, con la ricerca o sulla mappa, e fai clic su «Mostra» per caricare i dati",
     "stripes": "Cerca una stazione o sceglila sulla mappa e fai clic su «Mostra» per creare le strisce climatiche",
-    "history": "Cerca le stazioni o sceglile sulla mappa e fai clic su «Mostra» per caricarne la cronologia"
+    "history": "Cerca le stazioni o sceglile sulla mappa e fai clic su «Mostra» per caricarne la cronologia",
+    "kostra": "Cerca un luogo, usa la tua posizione o fai clic sulla mappa per vedere la pioggia di progetto di quel punto"
   },
   "meteogram": {
     "title": "Previsioni meteo",
@@ -1158,7 +1161,8 @@
     "nearest": "Stazione più vicina: {name}, a {distance} dalla tua posizione.",
     "noneNear": "Nessuna stazione trovata vicino alla tua posizione.",
     "lookupFailed": "Non è stato possibile cercare la stazione più vicina. Riprova o usa la ricerca.",
-    "here": "La domanda riguarda {name}, la stazione a {distance} dalla tua posizione."
+    "here": "La domanda riguarda {name}, la stazione a {distance} dalla tua posizione.",
+    "noteKostra": "Arrotondata a circa 1 km e usata solo per cercare la tabella di pioggia della sua cella. Resta in questo browser solo se selezioni la casella."
   },
   "place": {
     "fieldLabel": "Cerca un luogo",
@@ -1610,5 +1614,52 @@
     "periods": "Periodi",
     "colMissingCount": "Numero di valori mancanti",
     "noneFound": "Nessuna cronologia trovata per le stazioni selezionate."
+  },
+  "kostra": {
+    "title": "Piogge intense",
+    "subtitle": "La pioggia di progetto (KOSTRA) del DWD per un punto in Germania: quanta pioggia cade in 5 minuti fino a 7 giorni e con quale frequenza",
+    "aboutButton": "Sulle piogge intense",
+    "about1": "La pioggia di progetto dice quanta pioggia porta un acquazzone di una data durata che ritorna, in media, ogni tot anni: una pioggia di 1 ora con un tempo di ritorno di 100 anni è una pioggia centennale. Con questi valori si dimensionano fognature, bacini di ritenzione e tombini.",
+    "about2": "I valori sono quelli di KOSTRA-DWD-2020, l'analisi statistica che il DWD fa delle lunghe serie dei pluviometri della Germania, su una griglia di celle di 5 km. La tabella è quella della cella che contiene il punto: una stima per un'area di 25 km², non una misura nel punto.",
+    "about3": "L'altezza di pioggia è la pioggia che cade durante la durata, in mm (1 mm è 1 litro per metro quadrato). L'intensità è la stessa pioggia espressa come portata, in litri al secondo per ettaro. Il DWD indica con ogni valore una tolleranza in percentuale, che la tabella mostra sotto di esso.",
+    "aboutSources": "Fonte e metodo:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020, dati a griglia",
+    "pointTitle": "Scegli il punto",
+    "placeLabel": "Cerca un luogo",
+    "mapHint": "Oppure fai clic sulla mappa per scegliere un punto.",
+    "pointLabel": "Punto scelto",
+    "pointPosition": "La tua posizione, arrotondata: {point}",
+    "pointMap": "Sulla mappa: {point}",
+    "positionUsed": "La tua posizione è ora il punto.",
+    "mapLabel": "Mappa per scegliere il punto della pioggia di progetto. Un clic sceglie un punto; la cella di 5 km della griglia del DWD che lo contiene è evidenziata.",
+    "pointMarker": "Punto scelto",
+    "loading": "Lettura delle tabelle del DWD … la prima richiesta richiede qualche secondo.",
+    "outside": "Per questo punto non c'è una pioggia di progetto. La griglia del DWD copre la Germania e una fascia di circa 10 km intorno, e non dà valori in mare. Scegli un altro punto.",
+    "failed": "Non è stato possibile caricare la pioggia di progetto.",
+    "resultTitle": "Pioggia di progetto del punto scelto",
+    "resultHeading": "Pioggia di progetto",
+    "cell": "Cella {cell} della griglia del DWD, centro {centre}",
+    "quantitySwitch": "Mostra la pioggia come",
+    "quantity": {
+      "depth": "Altezza",
+      "intensity": "Intensità"
+    },
+    "estimateNote": "Questi valori sono stime del DWD per la cella di 5 km che contiene il punto, non misure nel punto.",
+    "uncertaintyNote": "Sotto ogni valore: l'incertezza del DWD in percentuale, più o meno. I valori sono statistiche di piogge passate, non una previsione.",
+    "uncertaintyLabel": "incertezza",
+    "noValue": "nessun valore",
+    "tableLabel": "Tabella della pioggia di progetto; scorre lateralmente",
+    "tableCaption": "{quantity} in {unit}: 22 durate di pioggia per 9 tempi di ritorno",
+    "chartLabel": "Grafico: {quantity} in {unit} rispetto alla durata della pioggia, una curva per ogni tempo di ritorno. I tasti freccia leggono i valori di una durata.",
+    "chartNotDrawn": "Non è stato possibile disegnare il grafico.",
+    "returnPeriodLegend": "Tempo di ritorno (anni)",
+    "returnPeriodHeading": "Tempo di ritorno in anni",
+    "returnPeriodYears": "{count} anno | {count} anni",
+    "duration": {
+      "heading": "Durata",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} g"
+    }
   }
 }

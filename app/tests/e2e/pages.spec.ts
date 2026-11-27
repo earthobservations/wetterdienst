@@ -385,6 +385,21 @@ test.describe('Settings Page', () => {
   })
 })
 
+test.describe('Heavy Rainfall Page', () => {
+  test('should navigate to the heavy-rainfall tool from the header', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/')
+    await page.getByRole('navigation').getByRole('link', { name: 'Heavy rainfall', exact: true }).click()
+
+    await expect(page).toHaveURL(/\/kostra$/)
+    await expect(page.getByRole('heading', { name: 'Heavy rainfall', level: 1 })).toBeVisible()
+    // no point yet: the placeholder of the tool, and the ways to choose one
+    await expect(page.getByTestId('tool-placeholder')).toBeVisible()
+    await expect(page.getByTestId('place-field')).toBeVisible()
+    await expect(page.getByTestId('use-my-location-button')).toBeVisible()
+  })
+})
+
 test.describe('Widget Page', () => {
   test('should show a hint when no station is specified', async ({ page }) => {
     await page.goto('/widget')

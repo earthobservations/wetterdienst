@@ -33,8 +33,8 @@ const props = withDefaults(defineProps<{
   status?: string
   /** A failure of what was done with it, announced at once */
   problem?: string
-  /** What the position is used for, in the note under the box: the nearest station (the default), or only to be shown on the radar's map (GH-4287) */
-  use?: 'station' | 'radar'
+  /** What the position is used for, in the note under the box: the nearest station (the default), only to be shown on the radar's map (GH-4287), or the point of the Heavy-rainfall tool's table (GH-4500) */
+  use?: 'station' | 'radar' | 'kostra'
   /** Whether the box that keeps the position (and its note) is offered while a position is in hand; the radar offers it only after a press on the radar, not for a position that came from another page */
   keepOffered?: boolean
 }>(), { keepOffered: true })
@@ -173,7 +173,7 @@ watch(remembered, (now) => {
         @update:model-value="keep"
       />
       <p :id="noteId" class="text-xs text-gray-600 dark:text-gray-400" data-testid="use-my-location-note">
-        {{ t(use === 'radar' ? 'location.noteRadar' : 'location.note') }}
+        {{ t(use === 'radar' ? 'location.noteRadar' : use === 'kostra' ? 'location.noteKostra' : 'location.note') }}
         <NuxtLink to="/datenschutz#location" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline" data-testid="use-my-location-privacy">
           {{ t('location.privacyLink') }}
         </NuxtLink>

@@ -44,7 +44,7 @@ const props = defineProps<{
   /** Raised for a station picked outside the map (the address, the list): the map moves to it, once */
   recentre?: number
   /** A position the map is to move to (a position typed into the search, GH-3790): it moves once for each `count` */
-  goTo?: { latitude: number, longitude: number, count: number } | null
+  goTo?: { latitude: number, longitude: number, count: number, zoom?: number } | null
   /** The reader's own position (GH-3651), marked as a target of its own; a press of "Use my location" raises `locate` */
   position?: Point | null
   /** What the mark of the position is called for a screen reader (the Radar tool); none where the page names it itself */
@@ -75,6 +75,8 @@ const props = defineProps<{
   credits?: Array<{ text: string, license: { label: string, url: string } | null }>
   /** A press on a cell of the list: the map centres on it, once for each press (`count`), as a click on a group does */
   centreOn?: { count: number, latitude: number, longitude: number, bounds: { south: number, west: number, north: number, east: number } } | null
+  /** The corners (`[latitude, longitude]`) of a cell of DWD's 5 km grid to outline on the map (the Heavy-rainfall tool, GH-4500): a square with a sun-yellow wash and a navy edge, no stop of the keyboard and no click */
+  box?: [number, number][] | null
   /** The outlines of DWD's weather warnings to draw under the dots (GH-4295); undefined where the layer is off */
   warnings?: DrawnWarning[]
   /** A warning of the list that is opened: the map moves to show it, once for each `count` */
@@ -106,6 +108,7 @@ let placeMarker: L.CircleMarker | null = null
 let link: L.Polyline | null = null
 let positionMarks: L.CircleMarker[] = []
 let overlayLayer: L.ImageOverlay | null = null
+let boxLayer: L.Polygon | null = null
 /** The picture `overlayLayer` shows now (its `url` is set only once the next one is ready) */
 let overlayShown: string | null = null
 let cellLayer: L.LayerGroup | null = null
@@ -506,6 +509,17 @@ function centreOnCell() {
   owner.setView([view.latitude, view.longitude], view.zoom, { animate: !reducedMotion.value })
 }
 
+/** The cell of the Heavy-rainfall tool (GH-4500): a square outline in the marks' pane, under the point's ring; it takes no click, so a click inside it picks a point */
+function drawBox() {
+  if (!map)
+    return
+  boxLayer?.remove()
+  boxLayer = null
+  if (!props.box?.length)
+    return
+  boxLayer = L.polygon(props.box as L.LatLngExpression[], { color: NAVY, weight: 2.5, fillColor: SUN, fillOpacity: 0.3, lineJoin: 'miter', interactive: false, pane: MARKS_PANE }).addTo(map)
+}
+
 /** The reader's own position: a ring round a dot, in navy, which no station's mark is (the yellow disc, the white ring) */
 function drawPosition() {
   if (!map)
@@ -557,7 +571,7 @@ function goToPosition() {
   if (!map || !target || target.count <= wentTo)
     return
   wentTo = target.count
-  map.setView([target.latitude, target.longitude], Math.max(map.getZoom(), 9), { animate: !reducedMotion.value })
+  map.setView([target.latitude, target.longitude], Math.max(map.getZoom(), target.zoom ?? 9), { animate: !reducedMotion.value })
 }
 
 /** The picks from outside the map that it has moved to */
@@ -708,6 +722,7 @@ onMounted(() => {
   drawWarnings()
   drawCredits()
   drawSelection()
+  drawBox()
   drawPosition()
   reveal()
   centreOnPosition()
@@ -742,6 +757,7 @@ onBeforeUnmount(() => {
   map = null
   overlayLayer = null
   overlayShown = null
+  boxLayer = null
   cellLayer = null
   warningLayer = null
   attribution = null
@@ -754,6 +770,7 @@ watch(() => [props.stations, props.reporting, props.grouping], () => {
 })
 watch(() => props.overlay, () => void drawOverlay(), { deep: true })
 watch(() => props.cells, drawCells)
+watch(() => props.box, drawBox)
 watch(() => props.warnings, drawWarnings)
 watch(() => props.showWarning, showOpenedWarning)
 watch(() => props.cellsFaded, faded => container.value?.classList.toggle('station-map-cells-faded', Boolean(faded)))

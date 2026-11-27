@@ -19,7 +19,7 @@ import { ApiFailure, defaultHandlers, mockBackend } from './accessibility/mock-b
 // Each page is loaded once and measured at every width.
 
 const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl', 'de-hh', 'it', 'fr'] as const
-const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/glossary', '/measurement', '/methods', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
+const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/kostra', '/glossary', '/measurement', '/methods', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
 // every language the app has, and the pages that failed at a phone's width (GH-3845, GH-3858)
 const ALL_LANGUAGES = ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const
 const OTHER_LANGUAGES = ALL_LANGUAGES.filter(language => !(LONG_LANGUAGES as readonly string[]).includes(language))

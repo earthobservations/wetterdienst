@@ -176,11 +176,11 @@ describe('settings Page', () => {
   it('puts the phone bar back with the rest when the settings are reset', async () => {
     const wrapper = await mountPage()
     const vm = wrapper.vm as any
-    vm.settings.tabBar = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map']
+    vm.settings.tabBar = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map', 'kostra']
     await wrapper.vm.$nextTick()
     vm.reset()
     await wrapper.vm.$nextTick()
-    expect(vm.settings.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
+    expect(vm.settings.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map', 'kostra'])
   })
 
   it('takes the focus to the heading when the address changes to `#bar` on the page it is already on', async () => {

@@ -3,11 +3,11 @@
 // and grouped the same way wherever it appears.
 //
 // Three groups: the tools, which work on data and each take a tile (main.css, `.tile-*`): the four tiles of the logo,
-// for the map a violet of its own and, for the radar (GH-3788), the logo's navy; the reference, which explains the data; and the project, which is about the
+// for the map a violet of its own, for the radar (GH-3788) the logo's navy and, for the heavy rainfall (GH-4500), a green; the reference, which explains the data; and the project, which is about the
 // people and the software behind it.
 
 export type SectionGroup = 'tools' | 'reference' | 'project'
-export type Tile = 'sun' | 'rain' | 'wind' | 'heat' | 'map' | 'navy'
+export type Tile = 'sun' | 'rain' | 'wind' | 'heat' | 'map' | 'navy' | 'lime'
 
 export interface Section {
   key: string
@@ -29,14 +29,15 @@ export const TOOLS: Section[] = [
   { key: 'radar', to: '/radar', group: 'tools', label: 'nav.radar', description: 'radar.subtitle', icon: 'i-ph-target-fill', tile: 'navy' },
   { key: 'history', to: '/history', group: 'tools', label: 'nav.history', description: 'history.subtitle', icon: 'i-ph-clock-counter-clockwise-fill', tile: 'wind' },
   { key: 'map', to: '/map', group: 'tools', label: 'nav.map', description: 'mapTool.subtitle', icon: 'i-ph-map-trifold-fill', tile: 'map' },
+  { key: 'kostra', to: '/kostra', group: 'tools', label: 'nav.kostra', description: 'kostra.subtitle', icon: 'i-ph-cloud-rain-fill', tile: 'lime' },
 ]
 
 /** The map, which the search opens on a station (`/map?station=`) */
 export const MAP_TOOL: Section = TOOLS.find(tool => tool.key === 'map')!
 
 // Which of the tools have a tab in the bar of the narrow layout is the reader's choice, with Forecast, Explorer, Stripes
-// and the Radar as the default (`utils/tab-bar.ts`, GH-3846): six tools and the Menu are seven items, more than a tab bar
-// holds (GH-3650), so the bar holds four tools and the Menu; History and the Map are in the Menu until the reader moves them (the default bar is Forecast, Explorer, Stripes and the Radar, GH-3788). The header of the wide layout shows all of `TOOLS`.
+// and the Radar as the default (`utils/tab-bar.ts`, GH-3846): seven tools and the Menu are eight items, more than a tab bar
+// holds (GH-3650), so the bar holds four tools and the Menu; History, the Map and the Heavy rainfall are in the Menu until the reader moves them (the default bar is Forecast, Explorer, Stripes and the Radar, GH-3788). The header of the wide layout shows all of `TOOLS`.
 
 export const REFERENCE: Section[] = [
   { key: 'providers', to: '/providers', group: 'reference', label: 'nav.providers', description: 'providers.subtitle', icon: 'i-ph-buildings' },

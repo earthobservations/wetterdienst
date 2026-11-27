@@ -308,7 +308,8 @@
       "about": "About the open-source project Wetterdienst and the people who maintain it.",
       "support": "Support Wetterdienst: report an issue, contribute code or donate.",
       "map": "A map of the stations of the German Weather Service: pick a station or any point for its forecast, its climate stripes and its measurements.",
-      "radar": "DWD's precipitation radar over Germany as a loop of the last two hours with the forecast of the next two, and the thunderstorm cells on top."
+      "radar": "DWD's precipitation radar over Germany as a loop of the last two hours with the forecast of the next two, and the thunderstorm cells on top.",
+      "kostra": "DWD's design rainfall (KOSTRA) for any point in Germany: how much rain falls in 5 minutes to 7 days and how often, as a table and as curves, in mm or l/(s·ha)."
     }
   },
   "values": {
@@ -353,7 +354,8 @@
     "methods": "Methods",
     "support": "Support",
     "map": "Map",
-    "radar": "Radar"
+    "radar": "Radar",
+    "kostra": "Heavy rainfall"
   },
   "shell": {
     "skipToContent": "Skip to content",
@@ -771,7 +773,8 @@
     "forecast": "Search for a station or pick one on the map to see its forecast",
     "explorer": "Select parameters, then choose a station or a point, by search or on the map, and click “Show” to load data",
     "stripes": "Search for a station or pick one on the map, then click “Show” to create climate stripes",
-    "history": "Search for stations or pick them on the map, then click “Show” to load their histories"
+    "history": "Search for stations or pick them on the map, then click “Show” to load their histories",
+    "kostra": "Search for a place, use your location or click the map to see the design rainfall of that point"
   },
   "meteogram": {
     "title": "Weather forecast",
@@ -1158,7 +1161,8 @@
     "nearest": "Nearest station: {name}, {distance} from your position.",
     "noneNear": "No station was found near your position.",
     "lookupFailed": "The nearest station could not be looked up. Try again, or use the search.",
-    "here": "Asking about {name}, the station {distance} from your position."
+    "here": "Asking about {name}, the station {distance} from your position.",
+    "noteKostra": "Rounded to about 1 km and used only to look up the rainfall table of its grid cell. It stays in this browser only if you tick the box."
   },
   "place": {
     "fieldLabel": "Find a place",
@@ -1610,5 +1614,52 @@
     "periods": "Periods",
     "colMissingCount": "Missing count",
     "noneFound": "No history was found for the selected stations."
+  },
+  "kostra": {
+    "title": "Heavy rainfall",
+    "subtitle": "DWD's design rainfall (KOSTRA) for a point in Germany: how much rain falls in 5 minutes to 7 days, and how often",
+    "aboutButton": "About heavy rainfall",
+    "about1": "Design rainfall says how much rain a downpour of a given duration brings that comes back, on average, every so many years: a rain of 1 hour with a return period of 100 years is a 100-year rain. Drains, retention basins and culverts are sized with these values.",
+    "about2": "The values are those of KOSTRA-DWD-2020, DWD's statistical analysis of the long rain gauge records of Germany, on a grid of 5 km cells. The table is that of the cell that holds the point: an estimate for an area of 25 km², not a measurement at the point.",
+    "about3": "The depth is the rain that falls during the duration, in mm (1 mm is 1 litre per square metre). The intensity is the same rain as a rate, in litres per second and hectare. DWD gives a tolerance in percent with every value, which the table shows under it.",
+    "aboutSources": "Source and method:",
+    "aboutDwdLink": "DWD: KOSTRA-DWD-2020 grid data",
+    "pointTitle": "Choose the point",
+    "placeLabel": "Search for a place",
+    "mapHint": "Or click the map to choose a point.",
+    "pointLabel": "Chosen point",
+    "pointPosition": "Your position, rounded: {point}",
+    "pointMap": "On the map: {point}",
+    "positionUsed": "Your position is the point now.",
+    "mapLabel": "Map to choose the point of the design rainfall. A click chooses a point; the 5 km cell of DWD's grid that holds it is outlined.",
+    "pointMarker": "Chosen point",
+    "loading": "Reading DWD's tables … the first request takes a few seconds.",
+    "outside": "There is no design rainfall for this point. DWD's grid covers Germany and a border of about 10 km around it, and gives no values at sea. Choose another point.",
+    "failed": "The design rainfall could not be loaded.",
+    "resultTitle": "Design rainfall of the chosen point",
+    "resultHeading": "Design rainfall",
+    "cell": "DWD grid cell {cell}, centre {centre}",
+    "quantitySwitch": "Show the rain as",
+    "quantity": {
+      "depth": "Depth",
+      "intensity": "Intensity"
+    },
+    "estimateNote": "These values are DWD's estimates for the 5 km cell that holds the point, not measurements at the point.",
+    "uncertaintyNote": "Under each value: DWD's uncertainty in plus-minus percent. The values are statistics of past rain, not a forecast.",
+    "uncertaintyLabel": "uncertainty",
+    "noValue": "no value",
+    "tableLabel": "Design rainfall table; scrolls sideways",
+    "tableCaption": "{quantity} in {unit}: 22 durations of a rain by 9 return periods",
+    "chartLabel": "Chart: {quantity} in {unit} against the duration of the rain, one curve for each return period. The arrow keys read the values of a duration.",
+    "chartNotDrawn": "The chart could not be drawn.",
+    "returnPeriodLegend": "Return period (years)",
+    "returnPeriodHeading": "Return period in years",
+    "returnPeriodYears": "{count} year | {count} years",
+    "duration": {
+      "heading": "Duration",
+      "minutes": "{n} min",
+      "hours": "{n} h",
+      "days": "{n} d"
+    }
   }
 }

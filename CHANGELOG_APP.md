@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Heavy rainfall]` A new tool at `/kostra`, in the header and the Menu: DWD's design rainfall
+  (KOSTRA-DWD-2020) of a point in Germany, chosen by a place's name, "Use my location" or a click
+  on the map and kept in the link (`?lat=&lon=`). It shows 22 durations by 9 return periods as
+  depth or intensity with DWD's uncertainty, a curve for each return period and the 5 km cell on
+  the map; a point outside DWD's grid is told in words. The privacy policy now says that "Use my
+  location" sends the rounded position to the backend there (GH-4500).
+
 ### Changed
 
 - `[API]` The API page no longer lists `html` among the response formats: a chart of the backend's
