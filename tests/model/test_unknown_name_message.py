@@ -71,6 +71,18 @@ def _probes(metadata: object) -> list[str]:
                     f"{resolution.name}/{dataset.name}x/{parameter.name}",
                     f"{resolution.name}/zzz/{parameter.name_original}",
                 ]
+    # a dataset of another resolution, with and without the parameter it has there (GH-4481)
+    for resolution in metadata.resolutions:  # ty: ignore[unresolved-attribute]
+        for other in metadata.resolutions:  # ty: ignore[unresolved-attribute]
+            if other is resolution:
+                continue
+            for dataset in other.datasets:
+                if dataset.name_original in {own.name_original for own in resolution.datasets}:
+                    continue
+                probes.append(f"{resolution.name}/{dataset.name_original}")
+                for parameter in sorted(dataset.parameters, key=lambda p: -len(p.name))[:2]:
+                    probes.append(f"{resolution.name}/{dataset.name_original}/{parameter.name}")
+                    probes.append(f"{resolution.name}/{dataset.name}/{parameter.name_original}")
     return probes
 
 
@@ -83,6 +95,12 @@ def _several(metadata: object) -> list[list[str]]:
         longest = sorted(dataset.parameters, key=lambda p: -(len(p.name) + len(p.name_original)))[:4]
         probes.append([f"{resolution.name}/{dataset.name}/{p.name}x" for p in longest])
         probes.append([f"{resolution.name}/{dataset.name}x/{p.name}" for p in longest])
+        # the biggest dataset of every other resolution, asked for in this one
+        for other in metadata.resolutions:  # ty: ignore[unresolved-attribute]
+            if other is not resolution:
+                bigger = max(other.datasets, key=lambda d: sum(len(p.name) for p in d.parameters))
+                biggest = sorted(bigger.parameters, key=lambda p: -len(p.name))[:4]
+                probes.append([f"{resolution.name}/{bigger.name}/{p.name}" for p in biggest])
     return probes
 
 
@@ -96,7 +114,22 @@ def _texts_of_network(request: type) -> list[tuple[str, str]]:
         except InvalidParameterError as e:
             # the text of a request that has other parameters, which adds the hint to pass `on_unknown`
             texts.append((str(probe), f"{e}{ON_UNKNOWN_SUFFIX}"))
-    for kwargs in ({"resolutions": "zzz"}, {"datasets": "zzz"}, {"datasets": "zzz", "resolutions": "zzz"}):
+    # `coverage` of a dataset that another resolution has, in the one asked for (GH-4481)
+    of_other = [
+        {"datasets": dataset.name_original, "resolutions": resolution.name}
+        for resolution in metadata.resolutions
+        for other in metadata.resolutions
+        if other is not resolution
+        for dataset in other.datasets
+        if dataset.name_original not in {own.name_original for own in resolution.datasets}
+    ]
+    kwargs_probes = [
+        {"resolutions": "zzz"},
+        {"datasets": "zzz"},
+        {"datasets": "zzz", "resolutions": "zzz"},
+        *of_other,
+    ]
+    for kwargs in kwargs_probes:
         try:
             request.discover(**kwargs)  # ty: ignore[unresolved-attribute]
         except MetadataNotFoundError as e:
@@ -350,6 +383,137 @@ def test_a_dataset_slot_that_is_a_parameter_is_not_guessed_at_by_spelling() -> N
     """`air_temperature` is an hourly dataset of DWD: `soil_temperature` is a spelling and no air temperature."""
     text = _error("daily/air_temperature", DwdObservationMetadata)
     assert "Did you mean" not in text
+
+
+def test_a_dataset_of_another_resolution_is_named_as_such() -> None:
+    """`air_temperature` is a dataset of `10_minutes`, `hourly` and `subdaily`, and `daily` has none of that name."""
+    text = _error("daily/air_temperature", DwdObservationMetadata)
+    assert text.startswith(
+        "daily/air_temperature not found in DwdObservationMetadata: 'air_temperature'. "
+        "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily. "
+        "Available datasets: "
+    )
+    assert "Did you mean" not in text
+    assert len(text) < UNKNOWN_NAME_LIMIT
+
+
+def test_a_dataset_of_one_other_resolution_says_so_without_a_list() -> None:
+    """One resolution is named alone, with no `and`."""
+    text = _error("hourly/water_equivalent", DwdObservationMetadata)
+    assert "'water_equivalent' is a dataset of daily. Available datasets: " in text
+
+
+def test_a_dataset_of_another_resolution_with_its_parameter_is_answered_with_the_whole_strings() -> None:
+    """Where the dataset has the parameter there, the strings that name it are offered, as the sentence says."""
+    text = _error("daily/air_temperature/temperature_air_2m", DwdObservationMetadata)
+    assert "(written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily. Did you mean " in text
+    hint = text.split("Did you mean ", 1)[1].split("? ", 1)[0]
+    assert hint == "'10_minutes/temperature_air/temperature_air_2m' or 'hourly/temperature_air/temperature_air_2m'"
+    assert len(text) < UNKNOWN_NAME_LIMIT
+
+
+def test_the_whole_string_of_this_resolution_comes_before_that_of_another() -> None:
+    """Another resolution reads other values: the string of the resolution that was asked for comes first."""
+    text = _error("daily/air_temperature/temperature_air_mean_2m", DwdObservationMetadata)
+    assert "Did you mean 'daily/climate_summary/temperature_air_mean_2m'? 'temperature_air' (written " in text
+    # the other resolution follows in the room the hint has left, in the order of the metadata
+    assert (
+        " is a dataset of 10_minutes, hourly and subdaily. There: '10_minutes/temperature_air/temperature_air_2m'."
+        in text
+    )
+    assert len(text) < UNKNOWN_NAME_LIMIT
+
+
+def test_the_strings_of_the_resolution_asked_for_fill_the_hint_and_leave_none_for_another() -> None:
+    """Two whole strings are the most: those of the resolution asked for fill them, and the sentence says the rest."""
+    text = _error("hourly/climate_summary/precipitation_amount", DwdObservationMetadata)
+    assert "Did you mean 'hourly/precipitation/precipitation_amount' or 'hourly/urban_precipitation/" in text
+    assert "'climate_summary' is a dataset of daily, monthly and annual. Available" in text
+    assert "'daily/climate_summary" not in text
+
+
+def test_a_dataset_of_another_resolution_is_told_by_coverage_as_well() -> None:
+    """`discover(datasets=, resolutions=)` is the same text, where the dataset is left out by the resolution."""
+    with pytest.raises(MetadataNotFoundError) as raised:
+        DwdObservationRequest.discover(datasets="air_temperature", resolutions="daily")
+    text = str(raised.value)
+    assert text.startswith(
+        "Dataset 'air_temperature' not found in DwdObservationMetadata for resolutions daily. "
+        "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily."
+    )
+    # a name that no resolution has gets no such sentence
+    with pytest.raises(MetadataNotFoundError) as raised:
+        DwdObservationRequest.discover(datasets="zzz", resolutions="daily")
+    assert "is a dataset of" not in str(raised.value)
+
+
+def test_the_request_tells_a_dataset_of_another_resolution_in_the_same_words() -> None:
+    """The request of the library and of every surface raises the text of `parse_parameters`."""
+    with pytest.raises(InvalidParameterError) as raised:
+        DwdObservationRequest(parameters="daily/air_temperature/temperature_air_2m")
+    assert "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily." in str(
+        raised.value
+    )
+
+
+def test_several_datasets_of_other_resolutions_share_the_limit() -> None:
+    """Four such names, each with its sentence and whole strings, are cut as any others are (GH-4481)."""
+    names = ["temperature_air_2m", "humidity_relative", "pressure_air_site", "wind_speed"]
+    text = _error([f"daily/air_temperature/{name}" for name in names], DwdObservationMetadata)
+    assert _fits(text)
+    assert "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily." in text
+    assert "Available" not in text
+
+
+def test_the_dataset_is_named_as_the_metadata_does_and_as_written() -> None:
+    """The source's name is written next to the canonical one, which the strings and the list use (GH-4481)."""
+    text = _error("daily/air_temperature", DwdObservationMetadata)
+    assert "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily." in text
+    # the canonical name as written says nothing more, in any case
+    text = _error("daily/Temperature_Air", DwdObservationMetadata)
+    assert "'temperature_air' is a dataset of 10_minutes, hourly and subdaily." in text
+    with pytest.raises(MetadataNotFoundError) as raised:
+        DwdObservationRequest.discover(datasets="Air_Temperature", resolutions="daily")
+    assert "'temperature_air' (written 'air_temperature') is a dataset of" in str(raised.value)
+
+
+def test_the_spelling_hint_of_this_resolution_is_kept_before_the_sentence() -> None:
+    """`10_minutes/precipitation_more` is `precipitation` by its spelling, and a dataset of the coarser resolutions."""
+    text = _error("10_minutes/precipitation_more", DwdObservationMetadata)
+    assert "'precipitation_more'. Did you mean 'precipitation'? 'precipitation_more' is a dataset of daily, " in text
+    assert _listed(text)[0] == "precipitation"
+    assert len(text) < UNKNOWN_NAME_LIMIT
+
+
+def _offered_strings(text: str) -> list[str]:
+    """Give the whole strings (`resolution/dataset/parameter`) that the hint of a text offers."""
+    hint = re.split(r" (?:Available|Closest) ", text, maxsplit=1)[0]
+    return re.findall(r"'([^'/\s]+/[^'/\s]+/[^'/\s]+)'", hint.split(": ", 1)[1])
+
+
+def test_every_string_offered_from_another_resolution_is_a_request_that_resolves() -> None:
+    """On every network, the whole string a hint offers for a dataset of another resolution is one that is accepted."""
+    checked = 0
+    for provider, network in _timeseries_networks():
+        try:
+            metadata = Wetterdienst.resolve(provider, network).metadata  # ty: ignore[unresolved-attribute]
+        except ImportError:
+            continue
+        for probe in _probes(metadata):
+            if probe.count("/") != 2:
+                continue
+            resolution, dataset, _ = probe.split("/")
+            others = [other for other in metadata.resolutions if other.name != resolution]
+            if not any(dataset in (d.name_original, d.name) for other in others for d in other.datasets):
+                continue
+            try:
+                parse_parameters(probe, metadata)
+            except InvalidParameterError as e:
+                for offered in _offered_strings(f"{probe}: {e}"):
+                    if offered.split("/")[0] != resolution:
+                        parse_parameters(offered, metadata)
+                        checked += 1
+    assert checked > 50
 
 
 def test_the_names_of_the_quantity_come_before_names_of_one_word() -> None:

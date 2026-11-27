@@ -101,6 +101,12 @@ Types of changes:
   provider's form, an old name, or one written in the dataset's place gets the whole corrected
   string: `daily/climate_summary/temperature_air_mean_2m` at SMHI, whose dataset is `data`, is
   `daily/data/temperature_air_mean_2m`. The "renamed to" texts are as before (GH-4466)
+- The error of a dataset that exists only at another resolution says so: `daily/air_temperature`
+  at `dwd/observation` is "`temperature_air` (written `air_temperature`) is a dataset of
+  10_minutes, hourly and subdaily", after the hint of the resolution asked for, which stays. Where
+  the parameter is given, the whole strings of it there follow (`10_minutes/temperature_air/
+  temperature_air_2m`, resolutions in the order of the metadata), still under 1,000 characters
+  (GH-4481)
 - The floor of rapidfuzz is 3.7.0 (was 3.1.0): from 3.1 to 3.6 `import rapidfuzz.process` imports
   numpy, which wetterdienst does not depend on and does not need to match station names; from 3.7
   rapidfuzz no longer loads it through wetterdienst's name search (GH-4491)
