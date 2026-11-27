@@ -7815,9 +7815,11 @@ def test_coverage_of_dmo_carries_the_lead_times_the_others_leave_out(client: Tes
         # a dataset of another resolution is named as such (GH-4481)
         (
             {"datasets": "air_temperature", "resolutions": "daily"},
-            "Dataset 'air_temperature' not found in DwdObservationMetadata for resolutions daily. "
-            "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily. "
-            "Available datasets: ",
+            (
+                "Dataset 'air_temperature' not found in DwdObservationMetadata for resolutions daily. "
+                "'temperature_air' (written 'air_temperature') is a dataset of 10_minutes, hourly and subdaily. "
+                "Available datasets: "
+            ),
         ),
     ],
 )
