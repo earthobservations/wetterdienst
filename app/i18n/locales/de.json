@@ -920,6 +920,7 @@
     "pollen": {
       "title": "Pollenbelastung für {state}",
       "regions": "Region ({state})",
+      "dwdName": "Name beim DWD: {name}",
       "typeHeader": "Pollenart",
       "caption": "Vorhersage der Pollenbelastung für {region}",
       "outOfSeason": "Für diese Tage wird keine Pollenbelastung erwartet.",

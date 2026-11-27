@@ -920,6 +920,7 @@
     "pollen": {
       "title": "Pollen load for {state}",
       "regions": "Region ({state})",
+      "dwdName": "DWD's name: {name}",
       "typeHeader": "Pollen type",
       "caption": "Pollen load forecast for {region}",
       "outOfSeason": "No pollen load is expected for these days.",

@@ -28,6 +28,11 @@ Types of changes:
 
 ### Changed
 
+- `[Forecast]` The pollen panel writes the state and the regions in the reader's language: Saxony,
+  Saxe, Sassonia, Saksen ... for Sachsen, and "Lowlands of Saxony" for Tiefland Sachsen, with
+  place names (Mainfranken, Allgäu, Harz) as DWD writes them. German, Low German and Luxembourgish
+  keep DWD's names. Each chip keeps DWD's own name as a tooltip and as its description; the stored
+  choice is unchanged (GH-4508).
 - `[API]` The API page no longer lists `html` among the response formats: a chart of the backend's
   is refused by a server that has not switched charts on, and the app draws its own (GH-4461).
 

@@ -920,6 +920,7 @@
     "pollen": {
       "title": "Carga de polen para {state}",
       "regions": "Región ({state})",
+      "dwdName": "Nombre en el DWD: {name}",
       "typeHeader": "Tipo de polen",
       "caption": "Pronóstico de la carga de polen para {region}",
       "outOfSeason": "No se espera carga de polen para estos días.",

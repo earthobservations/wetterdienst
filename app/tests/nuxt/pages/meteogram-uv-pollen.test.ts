@@ -4,6 +4,7 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useNuxtApp } from '#imports'
 import MeteogramPage from '~/pages/meteogram.vue'
 import { distanceKm } from '~/utils/map-tool'
 import { forgetPollenRegions } from '~/utils/pollen-regions'
@@ -60,6 +61,7 @@ describe('the forecast page\'s UV & pollen panel', () => {
   let valueRequests: { kind: 'uv' | 'pollen' | 'forecast', params: URLSearchParams }[]
   let uvStationsAnswer: (event: H3Event) => unknown
   let stateAnswer: (event: H3Event) => unknown
+  let regionsAnswer: () => unknown
   let uvAnswer: (params: URLSearchParams) => Promise<Response>
   let pollenAnswer: (params: URLSearchParams) => Promise<Response>
 
@@ -80,6 +82,7 @@ describe('the forecast page\'s UV & pollen panel', () => {
     valueRequests = []
     uvStationsAnswer = () => ({ stations: [UV_DRESDEN] })
     stateAnswer = () => ({ stations: [OBSERVATION_DRESDEN] })
+    regionsAnswer = () => ({ stations: POLLEN_STATIONS_ANSWER })
     uvAnswer = async params => json({ values: uvValues(params.get('stations')!, [5, 3, 8]) })
     pollenAnswer = async (params) => {
       const ids = params.get('stations')!.split(',')
@@ -95,7 +98,7 @@ describe('the forecast page\'s UV & pollen panel', () => {
       if (network === 'observation')
         return stateAnswer(event)
       if (network === 'pollen')
-        return { stations: POLLEN_STATIONS_ANSWER }
+        return regionsAnswer()
       return { stations: [] }
     }))
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
@@ -114,9 +117,13 @@ describe('the forecast page\'s UV & pollen panel', () => {
     })
   })
 
-  afterEach(() => {
+  const setLanguage = (code: string) => useNuxtApp().$i18n.setLocale(code as 'en')
+
+  afterEach(async () => {
     wrapper?.unmount()
     wrapper = undefined
+    // the language is the app's, which the next test finds as this one left it
+    await setLanguage('en')
     endpoints.splice(0).forEach(dispose => dispose())
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -161,8 +168,9 @@ describe('the forecast page\'s UV & pollen panel', () => {
     await pick(HOSTERWITZ)
     await until(() => expect(pollenPart().exists()).toBe(true))
     expect(stationsFor('observation')[0]!.query).toMatchObject({ parameters: 'daily/climate_summary', rank: '1', latitude: '51', longitude: '13.85' })
-    expect(pollenPart().find('h4').text()).toBe('Pollen load for Sachsen')
-    expect(chips().map(chip => chip.text())).toEqual(['Tiefland Sachsen', 'Mittelgebirge Sachsen'])
+    // the state and the parts in the reader's language (GH-4508), the choice by DWD's ids
+    expect(pollenPart().find('h4').text()).toBe('Pollen load for Saxony')
+    expect(chips().map(chip => chip.text())).toEqual(['Lowlands of Saxony', 'Uplands of Saxony'])
     expect(pressed()).toEqual(['81'])
     // one request for both parts of the state, in the eight types
     expect(requestsFor('pollen')).toHaveLength(1)
@@ -205,6 +213,78 @@ describe('the forecast page\'s UV & pollen panel', () => {
     expect(pressed()).toEqual(['81'])
     await chips()[1]!.trigger('click')
     expect(JSON.parse(localStorage.getItem('wd-pollen-part')!)).toEqual({ Bayern: '124', Sachsen: '82' })
+  })
+
+  describe('in the reader\'s language (GH-4508)', () => {
+    const chipNames = () => chips().map(chip => chip.text())
+    const describedBy = (chip: ReturnType<typeof chips>[number]) => (chip.attributes('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)?.textContent)
+
+    it('writes the state and the parts in English, and keeps DWD\'s name on each chip as its tooltip and its description', async () => {
+      await pick(HOSTERWITZ)
+      await until(() => expect(chips()).toHaveLength(2))
+      expect(pollenPart().find('h4').text()).toBe('Pollen load for Saxony')
+      expect(wrapper!.find('[data-testid="pollen-chips"]').attributes('aria-label')).toBe('Region (Saxony)')
+      expect(chipNames()).toEqual(['Lowlands of Saxony', 'Uplands of Saxony'])
+      // DWD's full German name, to match with its own pages, where a sighted reader hovers and a screen reader asks for the description
+      expect(chips().map(chip => chip.attributes('title'))).toEqual(['DWD\'s name: Sachsen: Tiefland Sachsen', 'DWD\'s name: Sachsen: Mittelgebirge Sachsen'])
+      expect(chips().map(describedBy)).toEqual([['DWD\'s name: Sachsen: Tiefland Sachsen'], ['DWD\'s name: Sachsen: Mittelgebirge Sachsen']])
+      expect(pollenPart().find('caption').text()).toBe('Pollen load forecast for Lowlands of Saxony')
+      // the German is nowhere else on the panel, the names of the chips are the words the reader chose
+      expect(pollenPart().find('[data-testid="pollen-chips"]').text()).not.toContain('Sachsen')
+      expect(pollenPart().find('h4').text()).not.toContain('Sachsen')
+    })
+
+    it('shows DWD\'s names unchanged, with no second name beside them, in German', async () => {
+      await setLanguage('de')
+      await pick(HOSTERWITZ)
+      await until(() => expect(chips()).toHaveLength(2))
+      expect(pollenPart().find('h4').text()).toBe('Pollenbelastung für Sachsen')
+      expect(chipNames()).toEqual(['Tiefland Sachsen', 'Mittelgebirge Sachsen'])
+      expect(chips().map(chip => chip.attributes('title'))).toEqual([undefined, undefined])
+      expect(chips().map(chip => chip.attributes('aria-describedby'))).toEqual([undefined, undefined])
+      expect(pollenPart().findAll('[data-testid="pollen-dwd-name"]')).toHaveLength(0)
+    })
+
+    it('keeps the choice made in one language when the language changes: it is the part\'s id of DWD\'s state that is stored', async () => {
+      await pick(HOSTERWITZ)
+      await until(() => expect(chips()).toHaveLength(2))
+      await chips()[1]!.trigger('click')
+      expect(JSON.parse(localStorage.getItem('wd-pollen-part')!)).toEqual({ Sachsen: '82' })
+      // the names follow the language at once, with the same chip chosen
+      await setLanguage('fr')
+      await until(() => expect(chipNames()).toEqual(['Plaine de Saxe', 'Moyennes montagnes de Saxe']))
+      expect(pressed()).toEqual(['82'])
+      expect(pollenPart().find('h4').text()).toBe('Charge pollinique\u00A0: Saxe')
+      expect(chips()[1]!.attributes('title')).toBe('Nom du DWD\u00A0: Sachsen: Mittelgebirge Sachsen')
+      // a choice made now is stored under DWD's name of the state, as before, never under the words shown
+      await chips()[0]!.trigger('click')
+      expect(JSON.parse(localStorage.getItem('wd-pollen-part')!)).toEqual({ Sachsen: '81' })
+    })
+
+    it('starts at the part that a visit in another language stored', async () => {
+      localStorage.setItem('wd-pollen-part', JSON.stringify({ Sachsen: '82' }))
+      await setLanguage('pl')
+      await pick(HOSTERWITZ)
+      await until(() => expect(chips()).toHaveLength(2))
+      expect(pressed()).toEqual(['82'])
+      expect(chipNames()).toEqual(['Nizina Saksonii', 'Średniogórze Saksonii'])
+    })
+
+    it('shows DWD\'s name for a region that DWD adds, and for a state that is none of the sixteen', async () => {
+      // the pollen regions of the answer have a new part, and the nearest observation station is in a state of no table
+      regionsAnswer = () => ({
+        stations: [
+          ...POLLEN_STATIONS_ANSWER,
+          { ...POLLEN_STATIONS_ANSWER[0]!, station_id: '130', name: 'Atlantis: Neuland Atlantis', region: 'Atlantis' },
+          { ...POLLEN_STATIONS_ANSWER[0]!, station_id: '131', name: 'Atlantis: Hochland', region: 'Atlantis' },
+        ],
+      })
+      stateAnswer = () => ({ stations: [observationStation('00001', 'X', 'Atlantis', 51.1278, 13.7543)] })
+      await pick(HOSTERWITZ)
+      await until(() => expect(chips()).toHaveLength(2))
+      expect(pollenPart().find('h4').text()).toBe('Pollen load for Atlantis')
+      expect(chipNames()).toEqual(['Neuland Atlantis', 'Hochland'])
+    })
   })
 
   it('works with no storage: the first part is chosen, a choice holds for the visit, and nothing fails', async () => {

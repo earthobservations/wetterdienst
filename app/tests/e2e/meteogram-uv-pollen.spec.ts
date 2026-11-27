@@ -62,8 +62,11 @@ test.describe('at a station in Germany', () => {
     await expect(page.getByTestId('uv-day')).toHaveCount(3)
     // the class is in words beside the number, never the colour alone
     await expect(page.getByTestId('uv-class')).toHaveText(['Moderate', 'Moderate', 'Very high'])
-    await expect(page.getByTestId('pollen-part').getByRole('heading', { level: 4 })).toHaveText('Pollen load for Sachsen')
-    await expect(chips(page)).toHaveText(['Tiefland Sachsen', 'Mittelgebirge Sachsen'])
+    await expect(page.getByTestId('pollen-part').getByRole('heading', { level: 4 })).toHaveText('Pollen load for Saxony')
+    // the names in the reader's language, with DWD's own as the tooltip of each chip (GH-4508)
+    await expect(chips(page)).toHaveText(['Lowlands of Saxony', 'Uplands of Saxony'])
+    await expect(chips(page).first()).toHaveAttribute('title', 'DWD\'s name: Sachsen: Tiefland Sachsen')
+    await expect(chips(page).first()).toHaveAccessibleDescription('DWD\'s name: Sachsen: Tiefland Sachsen')
     await expect(chips(page).first()).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('pollen-row')).toHaveCount(8)
     // below the chart, not beside it

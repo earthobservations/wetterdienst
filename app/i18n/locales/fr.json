@@ -918,10 +918,11 @@
       "credit": "Prévision de l'indice UV du DWD."
     },
     "pollen": {
-      "title": "Charge pollinique pour {state}",
+      "title": "Charge pollinique : {state}",
       "regions": "Région ({state})",
+      "dwdName": "Nom du DWD : {name}",
       "typeHeader": "Type de pollen",
-      "caption": "Prévision de la charge pollinique pour {region}",
+      "caption": "Prévision de la charge pollinique : {region}",
       "outOfSeason": "Aucune charge pollinique n'est attendue pour ces jours.",
       "noForecast": "Le DWD ne donne pas de prévision de pollen pour cette région pour le moment.",
       "credit": "Prévision de la charge pollinique du DWD.",
