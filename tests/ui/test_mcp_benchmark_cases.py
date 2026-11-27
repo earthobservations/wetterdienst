@@ -282,8 +282,10 @@ FIXTURES = (
     "someone@pm.me",
     "+49 40 1234567",
     "(040) 1234567",
-    # the id of the gist of the reference results (the README links it): no credential, a 32-digit hex number
+    # the ids of the gists of results the README links (the old cases' last reference, and the baseline of 2026-11-27):
+    # no credential, 32-digit hex numbers
     "c1e6f5f10d6716da4355230204a0cae3",
+    "d0180a9e8d2d483c0a7ef69a8888b8ea",
 )
 PERSONAL_TESTS = (
     (["+49 40 1234567", "(040) 1234567", "someone@example.org"], ["105 106 107 4115", "02564 02961", "53.9 N, 10.7 E"]),
