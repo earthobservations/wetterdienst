@@ -39,6 +39,12 @@ Types of changes:
   `@nuxt/ui`, which the app does not use and does not ship), `qs` 6.17.1 (never loaded by the app)
   and `unrouting` 0.3.2 (a slow route pattern for a catch-all in a page's file name, of which the
   app has none). No page changes (GH-4382).
+- `[Dependencies]` `nuxt` 4.7.0 fixes three advisories of Nuxt's own (route rules bypassed by a
+  repeated or encoded slash, rules not applied to `_payload.json`, a development server serving an
+  earlier build's bundles); the app was not exploitable (no catch-all page, no `swr`, `isr` or
+  `cache` rule, `ssr: false`, a development server on localhost). `unhead` 3.5.2 (seven
+  advisories) and `node-forge` 1.4.4 (development server certificate) are floors; `swagger-ui-dist`
+  5.36.0 carries DOMPurify 3.4.17, as 5.35.1 did. No page changes (GH-4420, GH-4382).
 
 ## [0.60.0] - 2026-11-24
 

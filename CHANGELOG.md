@@ -126,6 +126,13 @@ Types of changes:
 
 - A command that drew an image no longer hangs when it exits: the images are drawn without
   Kaleido, so there is no Chrome to close (GH-3742)
+- GeoSphere's `raw:` token of a value mapped from the code `-1` (the daily `rr`, `sh`, `sh_manu`,
+  `shneu_manu`) or of a calm wind's `0` is the text the response wrote: `raw:-1` where the source
+  wrote `-1`, `raw:-1.0` where it wrote `-1.0`, as one column does in different years, and no
+  longer one text per column (GH-4489)
+- A GeoSphere response that has no feature, leaves out the array of a requested parameter, or has
+  arrays that do not match its timestamps is a `DownloadError` that names the URL (a 502 of the
+  REST API), where it was a polars `ShapeError`; a response that is no JSON is one too (GH-4490)
 
 ### Security
 
