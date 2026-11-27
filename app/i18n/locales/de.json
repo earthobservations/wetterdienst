@@ -900,6 +900,51 @@
     "runLabel": "Modellauf",
     "runLatest": "Aktuellste (auto)"
   },
+  "uvPollen": {
+    "title": "UV & Pollen",
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "noValue": "kein Wert",
+    "uv": {
+      "title": "UV-Index für {place} ({km} km)",
+      "index": "UV-Index",
+      "class": {
+        "low": "Niedrig",
+        "moderate": "Mäßig",
+        "high": "Hoch",
+        "veryHigh": "Sehr hoch",
+        "extreme": "Extrem"
+      },
+      "credit": "UV-Index-Vorhersage vom DWD."
+    },
+    "pollen": {
+      "title": "Pollenbelastung für {state}",
+      "regions": "Region ({state})",
+      "typeHeader": "Pollenart",
+      "caption": "Vorhersage der Pollenbelastung für {region}",
+      "outOfSeason": "Für die nächsten drei Tage wird keine Pollenbelastung erwartet.",
+      "credit": "Pollenbelastungs-Vorhersage vom DWD.",
+      "type": {
+        "hazel": "Hasel",
+        "alder": "Erle",
+        "ash": "Esche",
+        "birch": "Birke",
+        "grass": "Gräser",
+        "rye": "Roggen",
+        "mugwort": "Beifuß",
+        "ragweed": "Ambrosia"
+      },
+      "level": {
+        "none": "Keine",
+        "noneToLow": "Keine bis geringe",
+        "low": "Geringe",
+        "lowToMedium": "Geringe bis mittlere",
+        "medium": "Mittlere",
+        "mediumToHigh": "Mittlere bis hohe",
+        "high": "Hohe"
+      }
+    }
+  },
   "widget": {
     "noStation": "Keine Station angegeben. Füge {param} zur URL hinzu.",
     "loading": "Vorhersage wird geladen …",

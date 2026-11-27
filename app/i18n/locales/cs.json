@@ -900,6 +900,51 @@
     "runLabel": "Spuštění modelu",
     "runLatest": "Nejnovější (auto)"
   },
+  "uvPollen": {
+    "title": "UV a pyl",
+    "today": "Dnes",
+    "tomorrow": "Zítra",
+    "noValue": "žádná hodnota",
+    "uv": {
+      "title": "UV index pro {place} ({km} km)",
+      "index": "UV index",
+      "class": {
+        "low": "Nízký",
+        "moderate": "Střední",
+        "high": "Vysoký",
+        "veryHigh": "Velmi vysoký",
+        "extreme": "Extrémní"
+      },
+      "credit": "Předpověď UV indexu z DWD."
+    },
+    "pollen": {
+      "title": "Zatížení pylem pro {state}",
+      "regions": "Region ({state})",
+      "typeHeader": "Druh pylu",
+      "caption": "Předpověď zatížení pylem pro {region}",
+      "outOfSeason": "V následujících třech dnech se neočekává žádné zatížení pylem.",
+      "credit": "Předpověď zatížení pylem z DWD.",
+      "type": {
+        "hazel": "Líska",
+        "alder": "Olše",
+        "ash": "Jasan",
+        "birch": "Bříza",
+        "grass": "Trávy",
+        "rye": "Žito",
+        "mugwort": "Pelyněk",
+        "ragweed": "Ambrozie"
+      },
+      "level": {
+        "none": "Žádné",
+        "noneToLow": "Žádné až nízké",
+        "low": "Nízké",
+        "lowToMedium": "Nízké až střední",
+        "medium": "Střední",
+        "mediumToHigh": "Střední až vysoké",
+        "high": "Vysoké"
+      }
+    }
+  },
   "widget": {
     "noStation": "Nebyla zadána žádná stanice. Přidej do URL {param}.",
     "loading": "Načítání předpovědi …",

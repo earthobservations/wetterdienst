@@ -900,6 +900,51 @@
     "runLabel": "Emissione modello",
     "runLatest": "Ultima (auto)"
   },
+  "uvPollen": {
+    "title": "UV e polline",
+    "today": "Oggi",
+    "tomorrow": "Domani",
+    "noValue": "nessun valore",
+    "uv": {
+      "title": "Indice UV per {place} ({km} km)",
+      "index": "Indice UV",
+      "class": {
+        "low": "Basso",
+        "moderate": "Moderato",
+        "high": "Alto",
+        "veryHigh": "Molto alto",
+        "extreme": "Estremo"
+      },
+      "credit": "Previsione dell'indice UV del DWD."
+    },
+    "pollen": {
+      "title": "Carico pollinico per {state}",
+      "regions": "Regione ({state})",
+      "typeHeader": "Tipo di polline",
+      "caption": "Previsione del carico pollinico per {region}",
+      "outOfSeason": "Nei prossimi tre giorni non è previsto alcun carico pollinico.",
+      "credit": "Previsione del carico pollinico del DWD.",
+      "type": {
+        "hazel": "Nocciolo",
+        "alder": "Ontano",
+        "ash": "Frassino",
+        "birch": "Betulla",
+        "grass": "Graminacee",
+        "rye": "Segale",
+        "mugwort": "Artemisia",
+        "ragweed": "Ambrosia"
+      },
+      "level": {
+        "none": "Nullo",
+        "noneToLow": "Da nullo a basso",
+        "low": "Basso",
+        "lowToMedium": "Da basso a medio",
+        "medium": "Medio",
+        "mediumToHigh": "Da medio ad alto",
+        "high": "Alto"
+      }
+    }
+  },
   "widget": {
     "noStation": "Nessuna stazione specificata. Aggiungi {param} all'URL.",
     "loading": "Caricamento della previsione …",

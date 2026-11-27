@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Forecast]` A "UV & pollen" panel below the chart of a station in Germany, for today, tomorrow
+  and the day after: DWD's UV index of the nearest of its 38 places within 100 km, with the WHO's
+  class in words, and the pollen load of the part-regions of the station's state (chips, the
+  first one chosen, the reader's pick remembered per state), as a grid of the eight types with
+  DWD's class names, or one line where no load is expected. Each part is a request of its own
+  that the forecast does not wait for; one that fails is left out, the other stays (GH-4501).
+
 ### Changed
 
 - `[API]` The API page no longer lists `html` among the response formats: a chart of the backend's

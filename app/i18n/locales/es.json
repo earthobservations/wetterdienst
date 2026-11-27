@@ -900,6 +900,51 @@
     "runLabel": "Pasada del modelo",
     "runLatest": "Última (auto)"
   },
+  "uvPollen": {
+    "title": "UV y polen",
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "noValue": "sin valor",
+    "uv": {
+      "title": "Índice UV para {place} ({km} km)",
+      "index": "Índice UV",
+      "class": {
+        "low": "Bajo",
+        "moderate": "Moderado",
+        "high": "Alto",
+        "veryHigh": "Muy alto",
+        "extreme": "Extremo"
+      },
+      "credit": "Pronóstico del índice UV del DWD."
+    },
+    "pollen": {
+      "title": "Carga de polen para {state}",
+      "regions": "Región ({state})",
+      "typeHeader": "Tipo de polen",
+      "caption": "Pronóstico de la carga de polen para {region}",
+      "outOfSeason": "No se espera carga de polen en los próximos tres días.",
+      "credit": "Pronóstico de la carga de polen del DWD.",
+      "type": {
+        "hazel": "Avellano",
+        "alder": "Aliso",
+        "ash": "Fresno",
+        "birch": "Abedul",
+        "grass": "Gramíneas",
+        "rye": "Centeno",
+        "mugwort": "Artemisa",
+        "ragweed": "Ambrosía"
+      },
+      "level": {
+        "none": "Nula",
+        "noneToLow": "Nula a baja",
+        "low": "Baja",
+        "lowToMedium": "Baja a media",
+        "medium": "Media",
+        "mediumToHigh": "Media a alta",
+        "high": "Alta"
+      }
+    }
+  },
   "widget": {
     "noStation": "No se ha especificado ninguna estación. Añade {param} a la URL.",
     "loading": "Cargando el pronóstico …",

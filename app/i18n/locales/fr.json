@@ -900,6 +900,51 @@
     "runLabel": "Prévision émise",
     "runLatest": "Dernière (auto)"
   },
+  "uvPollen": {
+    "title": "UV et pollen",
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain",
+    "noValue": "aucune valeur",
+    "uv": {
+      "title": "Indice UV pour {place} ({km} km)",
+      "index": "Indice UV",
+      "class": {
+        "low": "Faible",
+        "moderate": "Modéré",
+        "high": "Élevé",
+        "veryHigh": "Très élevé",
+        "extreme": "Extrême"
+      },
+      "credit": "Prévision de l'indice UV du DWD."
+    },
+    "pollen": {
+      "title": "Charge pollinique pour {state}",
+      "regions": "Région ({state})",
+      "typeHeader": "Type de pollen",
+      "caption": "Prévision de la charge pollinique pour {region}",
+      "outOfSeason": "Aucune charge pollinique n'est attendue pour les trois prochains jours.",
+      "credit": "Prévision de la charge pollinique du DWD.",
+      "type": {
+        "hazel": "Noisetier",
+        "alder": "Aulne",
+        "ash": "Frêne",
+        "birch": "Bouleau",
+        "grass": "Graminées",
+        "rye": "Seigle",
+        "mugwort": "Armoise",
+        "ragweed": "Ambroisie"
+      },
+      "level": {
+        "none": "Nulle",
+        "noneToLow": "Nulle à faible",
+        "low": "Faible",
+        "lowToMedium": "Faible à moyenne",
+        "medium": "Moyenne",
+        "mediumToHigh": "Moyenne à élevée",
+        "high": "Élevée"
+      }
+    }
+  },
   "widget": {
     "noStation": "Aucune station spécifiée. Ajoute {param} à l'URL.",
     "loading": "Chargement de la prévision …",
