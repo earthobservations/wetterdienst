@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.202.0] - 2026-11-28
+
 ### Changed
 
 - **Breaking**: for `all`, a box, a distance, a region or `filter_by_sql` and a window, `values` and
@@ -25,9 +27,10 @@ Types of changes:
   annual) before its start, never `station_window_end_buffer`. A station whose list end is stale by
   more than that returns no rows where it returned its data. Geosphere daily `all=true` for a year
   is 504 stations, not 1,102; DWD's North Sea box on 2022-02-18 is 50, not 114. The new
-  `stations-outside-window` warning says how many are left out; `stations_read` is lower. Name the
-  stations by id to read them (their list end is no reason to leave one out). Counted per station;
-  `rank`, `name`, ECCC, `interpolate` and `summarize` are as they were (GH-4426)
+  `stations-outside-window` warning says how many are left out; `stations_read` is lower. To read
+  such a station, name it by id: a station named by id is exempt from the list end (one whose list
+  begins after the window is still left out). Counted per station; `rank`, `name`, ECCC,
+  `interpolate` and `summarize` are as they were (GH-4426)
 - The compact answer of `values` with `with_metadata` lists in its quality legend only the kinds
   of flag and the codes that occur in its readings, with no `documentation` column, and has no
   legend where no reading has a flag. DWD's 18 readings of two precipitation parameters over nine
@@ -8808,7 +8811,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.201.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.202.0...HEAD
+[0.202.0]: https://github.com/earthobservations/wetterdienst/compare/v0.201.0...v0.202.0
 [0.201.0]: https://github.com/earthobservations/wetterdienst/compare/v0.200.0...v0.201.0
 [0.200.0]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...v0.200.0
 [0.199.0]: https://github.com/earthobservations/wetterdienst/compare/v0.198.0...v0.199.0

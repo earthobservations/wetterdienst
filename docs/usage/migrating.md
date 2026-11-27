@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.201.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.201.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.202.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.202.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,14 +13,16 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.60.0` is the app of 0.198.0 and works with
-0.201.0, where the stripes routes are gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number,
+The web app is released as a pair with the backend: `app-v0.61.0` is the app of 0.202.0 and needs no route newer than
+0.195.0 (its Heavy-rainfall tool reads `/api/kostra` of 0.194.0, its UV & pollen panel the `dwd/uvi` and `dwd/pollen`
+networks of 0.192.0); `app-v0.60.0` is the app of 0.198.0 and works with
+0.202.0, where the stripes routes are gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number,
 WIGOS identifier or ICAO code, draws the stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
 per-element lists of `noaa/ghcn` of 0.194.0 for the stripes' station list, the `provider` and `network` of the stripes
 of 0.192.0, the stripes' `reference`, `stripe_class` and `anomaly` and the stations' `wmo_id` of 0.191.0, the dataset
 `hourly/snow` of `dwd/mosmix` for the snow panel of the forecast, and otherwise no more of the backend than
 `app-v0.47.0`, the app of 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads the separate
-`providers` and `coverage`; `app-v0.59.0` went with 0.196.0 and works with 0.201.0, `app-v0.58.0` with 0.195.0 and works
+`providers` and `coverage`; `app-v0.59.0` went with 0.196.0 and works with 0.202.0, `app-v0.58.0` with 0.195.0 and works
 with 0.196.0, `app-v0.57.0` with 0.194.0 and works with 0.195.0, `app-v0.56.0` with 0.193.0 and works with 0.194.0,
 `app-v0.55.0` and `app-v0.54.0` with 0.192.0, `app-v0.53.0` with 0.191.0, `app-v0.52.0` with 0.190.0, `app-v0.51.1` with
 0.189.1, `app-v0.51.0` with 0.189.0, `app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1, `app-v0.48.0` with 0.187.0
@@ -170,9 +172,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.201.0 renames by network, resolution and dataset.
+0.202.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.201.0.
+Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.202.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -335,6 +337,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | `noaa/ghcn` `hourly` precipitation | every report | the one report of each UTC hour at the station's routine minute, else the last that is no SPECI | 0.156.0, GH-2841 |
 | `values` with a `name` on the command line, REST and MCP | the best five stations, with the values of all five | the one best match, as `filter_by_name` does; pass `--rank` or `rank` for another number | 0.155.0, GH-2635 |
 | the stations of a `name` (`filter_by_name`, `stations`, `values`), and `rank` | in the order of the station list; `rank` counted rows, so a station with several datasets used up the rank with its own rows, and two stations of the same name both came back | best match first, equal scores by `station_id`, and `rank` counts stations: `rank=3` is at most three stations, with all their rows. Sort the result yourself where you relied on the order of the list. `values` matches the name among the stations that have a record in the window | 0.161.0, GH-3025, GH-3026 |
+| `values` and `statistics` for `all`, a box, a distance, a region or `filter_by_sql` with a window (REST, MCP, the commands, the library's `all()` and `query()`), and the limit of stations of the REST API | every station of the selection was read and counted whatever its list end said; only one whose list begins after the window was left out. Geosphere daily `all=true` for a year counted 1,102 stations, DWD's North Sea box on 2022-02-18 114 | **Breaking**: only the stations that can have data in the window are read and counted: list start on or before the window's end, list end empty or at most 366 days (732 for annual data) before its start, never `station_window_end_buffer`. A station whose list end is stale by more than that returns no rows where it returned its data (504 stations for the Geosphere year, 50 for the box). The warning `stations-outside-window` says how many were left out and names the first ten, and `stations_read` is lower. Name the stations by id to read them: a station named by id is exempt from the list end (one whose list begins after the window is still left out). `rank`, `name`, ECCC, `interpolate` and `summarize` are as they were; a list that publishes no bounds (`noaa/ghcn` hourly, `imgw`) cuts nothing | 0.202.0, GH-4426 |
 | `values` of a station the provider does not publish a record for, no `timestamp` | not counted by `WD_RESTAPI_MAX_ROWS` | counted: from 1950 for historical data, two years for recent, two days for current. Can be a 400 `limit-exceeded`: give a `timestamp`, or use `format=ndjson` or `csv` | 0.159.0, GH-3089 |
 | `noaa/ghcn` `interpolate` and `summarize` asked about an elevation (and `*_by_station_id`, for a station at 0.0 m) | a station whose elevation is 0.0 was taken as at sea level: GHCN writes 0.0 for a station it knows no elevation of (54 of its hourly stations at 0.0 stand 150 to 4,329 m), so the readings were corrected from sea level, by up to 28 K of air temperature | such a station is left out as one with no elevation, and `*_by_station_id` of it asks without one; a request that leaves everything out is a `NoStationsWithElevationError`. The stations frame keeps the 0.0. Ask without an elevation to take the readings as they came | 0.182.0, GH-3708 |
 | `metno/frost` `daily` values of a window that has not closed at the request: the `PT18H` maximum and minimum of the date until 18 UTC, the `PT6H` precipitation sum until 06 UTC, the `PT0H` mean and every other daily element (pressure, humidity, wind, sunshine) until the end of the date (the daily snow depth has no window) | returned for the current date, unmarked: Frost serves a period that is still going on and nothing in its answer says so. Five minutes before 18 UTC on 2026-11-07 it served the `PT18H` maximum and minimum of that date at 456 and 461 stations, and by 18:15 15 % of the minima had fallen (by up to 1.9 degC); the `PT0H` mean was served at 7 stations and the pressure at 191 | left out until the window has closed (a window that closes at the time of the request is closed; the time is the one the answer was asked for, or its cached copy was made at if that was before), and a `window-not-closed` warning says how many values were left out at which stations and when the earliest window closes. Closed does not mean final: Frost may still correct a value in its quality control, and a value of a closed window is not marked as complete. The rule is [on the Frost page](../data/provider/metno/frost/index.md#windows-that-have-not-closed) | 0.185.0, GH-3856 |
