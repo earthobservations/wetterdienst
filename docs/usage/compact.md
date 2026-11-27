@@ -115,8 +115,9 @@ is written as a JSON string, so that no text of the provider or of a warning can
 
 **The legend covers the flags in the answer, and no others** (the JSON's `metadata.quality.legend` keeps those of the
 whole network). `quality_flags legend` has a row (`kind`, `written`, `meaning`) for each kind of token that some reading
-of the answer has, with the first sentence of its meaning, or a line of its own for the kinds every network has
-(`suspect`, `rejected`, `raw`); there is no `documentation` column. `quality_flags codes` has a row for each code that
+of the answer has. The meaning is the network's whole meaning (what DWD's levels say of the datasets they apply to is
+kept), but for `suspect`, `rejected`, `raw` and `zone`, which have a shorter text of their own; there is no
+`documentation` column. `quality_flags codes` has a row for each code that
 occurs of a flag the source documents as a closed set, such as DWD's QN levels or a `zone`: with QN 10 in every
 reading, it is the one row for 10. `source quality flags` is there where the source's own flag occurs, for the datasets
 of the answer. The legend has the `source_flag_note` as an attribute where the library carries no flag of the source.

@@ -59,11 +59,12 @@ Types of changes:
   JSON) when a call gives no `format`; its schema and the server instructions say so. A client that
   parses the answer as JSON passes `format=json`, which the tool still offers. REST, the command
   line and Python keep `json` as their default (GH-4445)
-- The compact answer of `values` with `with_metadata` lists in its quality legend only the kinds of flag
-  and the codes that occur in its readings (a one-row answer of DWD went from 9,036 to 3,050
-  characters), with short meanings and no `documentation` column; with no flag in the answer there is
-  no legend. The JSON keeps the whole legend. The MCP `values` tool describes `with_metadata` in one
-  clause (GH-4499)
+- The compact answer of `values` with `with_metadata` lists in its quality legend only the kinds
+  of flag and the codes that occur in its readings, with no `documentation` column, and has no
+  legend where no reading has a flag. DWD's 18 readings of two precipitation parameters over nine
+  days went from 9,036 to 3,112 characters. The JSON keeps the whole legend. The MCP `values` tool
+  describes `with_metadata` in one clause, and the note of a cut answer counts the legend it left
+  out (GH-4499)
 - An MCP tool's error says more of what failed: the 502 for an answer a tool does not carry names
   the formats of the tool that was called (`interpolate` and `summarize` answer `json`, `geojson`
   or `csv`, no `ndjson`), and the text of a 500 ends with `Request id: <id>`, the one the server

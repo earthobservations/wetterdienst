@@ -619,27 +619,40 @@ _FLAGS_FORMAT = (
     "comma-separated tokens: the source's own flag as the source writes it, then `kind:code`, `raw:<text>` last"
 )
 
-#: the meanings of the kinds every network shares, as short as they go (the JSON's `meaning` names every check)
+#: the checks a plausibility token can name, as the legend of every network words them
+_CHECKS = "`range`, `elevation`, `stuck`, `consistency`, `floor`, `limits`, `source`, `step` or `relations`"
+
+#: the meanings of the kinds every network shares and of the zone, as short as they go while true in every case (the
+#: JSON's `meaning` says what each check is; `tests/test_compact.py` holds these to what the checks do). Every other
+#: kind is written with the whole meaning its network gives it: a cut would drop what it says of the datasets or
+#: sources a code applies to (DWD's levels differ by dataset, and a dataset may have none described).
 _SHORT_MEANINGS = {
     "suspect": (
-        "The value is kept, but a plausibility check in the mode `soft` found it implausible: `range`, `elevation`, "
-        "`stuck`, `consistency`, `floor`, `limits`, `source`, `step` or `relations`, joined with `+` if several."
+        f"The value is kept, but a plausibility check found it implausible: {_CHECKS}, joined with `+` if several. "
+        "The check is in the mode `soft` (on a forecast network every check but `floor` and `limits` is), or it is "
+        "`source`, the suspect level of the source's own verdict, which is flagged so in the mode `hard` too."
     ),
     "rejected": (
-        "The value is null: a plausibility check in the mode `hard` rejected the number the source wrote, which `raw` "
-        "holds. The checks are those of `suspect`."
+        "A plausibility check in the mode `hard` rejected the number the source wrote, which `raw` holds: the value is "
+        f"null, or for `floor` the floor of its quantity (0). The check is one of {_CHECKS}, joined with `+` if "
+        "several; a forecast network has none but `floor` and `limits`."
     ),
     "raw": (
-        "The value is null (or the value the source documents the marker to mean): the source wrote a missing-value "
-        "marker or an impossible number, given here as the source wrote it. Always last."
+        "What the source wrote in place of the value, as it wrote it: a missing-value marker (the value is null, or "
+        "what the source documents the marker to mean, no snow as 0), a number no sensor can have produced, a model "
+        "value a little below the floor of its quantity (the value is the floor, 0), or after `rejected:<check>` the "
+        "number that check rejected. Always the last token."
+    ),
+    "zone": (
+        "The time zone the source stamped the row in, where it is not UTC; the code says how the stamp was shifted. "
+        "Rows stamped in UTC carry no token."
     ),
 }
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z`'])")
 
 
-def _short_meaning(kind: str | None, meaning: str) -> str:
-    """Give the meaning of a kind of flag in a sentence: a shared kind has its own words, any other its first one."""
-    return _SHORT_MEANINGS.get(kind or "") or _SENTENCE_END.split(meaning, maxsplit=1)[0]
+def _meaning(kind: str | None, meaning: str) -> str:
+    """Give the meaning of a kind of flag: a shared kind has its short words, any other the network's whole meaning."""
+    return _SHORT_MEANINGS.get(kind or "", meaning)
 
 
 def _written(entry: Mapping[str, Any]) -> str:
@@ -690,7 +703,7 @@ def _quality_tables(quality: Mapping[str, Any], frame: pl.DataFrame) -> list[Tab
         Table(
             "quality_flags legend",
             ["kind", "written", "meaning"],
-            [[cell(e["kind"]), cell(_written(e)), cell(_short_meaning(e["kind"], e["meaning"]))] for e in legend],
+            [[cell(e["kind"]), cell(_written(e)), cell(_meaning(e["kind"], e["meaning"]))] for e in legend],
             attributes,
         )
     ]

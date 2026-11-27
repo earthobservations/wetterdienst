@@ -421,9 +421,12 @@ _CHART_TOOLS = frozenset({"stations", "values", "interpolate", "summarize"})
 #: which the tool no longer does
 _CHART_CLAUSE = re.compile(r" or a rendered chart \([^)]*\)| Charts are drawn only by a server[^.]*\.")
 
-#: what the `values` tool says of `with_metadata` (GH-4499): one clause. The unit is in each column line already, and
-#: the models that were told what it adds in a paragraph passed it in 135 of 205 calls
-_VALUES_WITH_METADATA = "Adds each parameter's aggregation and the meaning of the flags in the answer."
+#: what the `values` tool says of `with_metadata` (GH-4499): one clause, true of both formats. The unit is in each
+#: column line already, and the models that were told what it adds in a paragraph passed it in 135 of 205 calls
+_VALUES_WITH_METADATA = (
+    "Adds each parameter's quantity, unit, aggregation and timestamp position, the settings, and what the quality "
+    "flags mean (in compact, only those in the answer)."
+)
 
 #: the paragraph of the `values` route that says what `with_metadata` adds to the JSON, which the tool leaves out
 _WITH_METADATA_PARAGRAPH = re.compile(
@@ -536,9 +539,9 @@ def _slim_for_tools(spec: dict[str, Any]) -> dict[str, Any]:
 def _slim_with_metadata(parameter: dict[str, Any], operation: dict[str, Any]) -> None:
     """Say what `with_metadata` adds in one clause for the `values` tool, and leave out the route's paragraph (GH-4499).
 
-    The route's words describe the JSON's `metadata` block, which a tool that answers compact text does not have, and
-    draw a model to the argument: a compact answer with it is five times the size, and nothing in it is needed to
-    read the values.
+    The route's paragraph describes the JSON's `metadata` block, which a tool that answers compact text does not have,
+    and draws a model to the argument: a compact answer with it is several times the size, and nothing in it is
+    needed to read the values.
     """
     for holder in (parameter.get("schema", {}), parameter):
         if "description" in holder:

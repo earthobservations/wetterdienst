@@ -607,15 +607,106 @@ def test_the_flags_of_the_library_alone_are_a_legend_without_a_source_table() ->
     assert not any(t.heading in ("quality_flags codes", "source quality flags") for t in parsed.tables)
 
 
-def test_every_kind_of_every_network_has_a_meaning_of_a_sentence() -> None:
-    """The legend of an answer is the first sentence of the JSON's meaning, or the words of a kind every network has."""
+#: the kinds that have words of their own in the compact legend; every other kind is written as its network words it
+_SHORTENED = ("suspect", "rejected", "raw", "zone")
+
+
+def test_a_kind_without_words_of_its_own_is_written_with_its_whole_meaning() -> None:
+    """A cut would drop what a meaning says of the datasets or sources its codes apply to: no meaning is cut."""
     from wetterdienst.model.quality_legend import LEGENDS  # noqa: PLC0415
 
     for network, kinds in LEGENDS.items():
         for kind in kinds:
-            short = compact._short_meaning(kind.kind, kind.meaning)  # noqa: SLF001
-            assert short, (network, kind.kind)
-            assert len(short) <= 300, (network, kind.kind, short)
+            written = compact._meaning(kind.kind, kind.meaning)  # noqa: SLF001
+            if kind.kind in _SHORTENED:
+                assert len(written) < len(kind.meaning), (network, kind.kind)
+                assert len(written) <= 500, (network, kind.kind, written)
+            else:
+                assert written == kind.meaning, (network, kind.kind)
+            assert written
+
+
+@pytest.mark.parametrize(
+    "datasets",
+    [
+        ["daily/climate_summary"],
+        ["daily/climate_summary", "daily/weather_phenomena"],
+        ["daily/weather_phenomena"],
+        ["subdaily/air_temperature", "annual/more_precip"],
+        ["10_minutes/urban_temperature_air"],
+    ],
+)
+def test_the_quality_level_of_dwd_keeps_what_it_says_of_the_datasets_it_applies_to(datasets: list[str]) -> None:
+    """Documented and undocumented datasets, the note of 1980: whatever the JSON's meaning says, the text says."""
+    from wetterdienst.model.quality_legend import dwd_observation_qn  # noqa: PLC0415
+
+    block = _quality_block("dwd", "observation", datasets)
+    meaning = dwd_observation_qn(datasets).meaning
+    rows = [("01975", "daily", "d", "a", day(0), 1.0, "3")]
+
+    parsed = assert_round_trip(write(rows, [parameter("a", dataset="d")], block=block), rows)
+
+    plain = next(row for row in parsed.table("quality_flags legend").rows if row[0] is None)
+    assert plain[2] == meaning
+    for qualifier in ("DWD publishes no description of the levels of", "Data up to and including 1980"):
+        assert (qualifier in meaning) == (qualifier in plain[2])
+
+
+def test_the_short_words_of_the_checks_are_true_of_a_floor_and_a_suspect_level_of_the_source() -> None:
+    """What the core writes: a model's -0.1 mm is 0 with `rejected:floor`, and the suspect level of a source stays."""
+    from tests.model import test_plausibility_core as plausibility_core  # noqa: PLC0415
+    from tests.model import test_source_flags as source_flags  # noqa: PLC0415
+    from tests.provider.judging import judged  # noqa: PLC0415
+    from wetterdienst.model.judge import judge, plan_for  # noqa: PLC0415
+    from wetterdienst.model.plausibility import Plausibility  # noqa: PLC0415
+
+    # the floor: the mode `hard` (the default) sets the floor of the quantity, not null, and keeps the number
+    dataset = plausibility_core._datasets("dwd/dmo")[("hourly", "icon")]  # noqa: SLF001
+    precipitation = next(
+        name for name, c in plan_for("dwd/dmo", dataset).parameters.items() if c.name == "precipitation_amount_last_1h"
+    )
+    floored = judged(
+        plausibility_core._frame([(precipitation, -0.1)]),  # noqa: SLF001
+        network="dwd/dmo",
+        dataset=dataset,
+    )
+    assert floored.get_column("value").to_list() == [0.0]
+    assert floored.get_column("quality_flags").to_list() == ["rejected:floor,raw:-0.1"]
+    # the suspect level of a source's own verdict, in the mode `hard`: flagged `source`, not rejected, and kept
+    levels = judge(
+        source_flags._frame(["1", "2"], [10.0, 20.0]),  # noqa: SLF001
+        source_flags._plan(source_flags.TWO_LEVELS),  # noqa: SLF001
+        Plausibility(source="hard"),
+    )
+    assert levels.get_column("quality_flags").to_list() == ["1,suspect:source", "2,rejected:source,raw:20"]
+    assert levels.get_column("value").to_list() == [10.0, None]
+
+    rows = [
+        (
+            "01975",
+            "hourly",
+            "icon",
+            "a",
+            day(0),
+            floored.get_column("value")[0],
+            floored.get_column("quality_flags")[0],
+        ),
+        ("01975", "hourly", "icon", "a", day(1), levels.get_column("value")[0], levels.get_column("quality_flags")[0]),
+        ("01975", "hourly", "icon", "a", day(2), levels.get_column("value")[1], levels.get_column("quality_flags")[1]),
+    ]
+    block = _quality_block("dwd", "dmo")
+    parsed = assert_round_trip(write(rows, [parameter("a", "hourly", "icon")], block=block), rows)
+
+    meanings = {row[0]: row[2] for row in parsed.table("quality_flags legend").rows}
+    assert list(meanings) == ["suspect", "rejected", "raw"]
+    # `rejected` is a null value, or the floor for the check `floor`
+    assert "the value is null, or for `floor` the floor of its quantity (0)" in meanings["rejected"]
+    assert "the value is the floor, 0" in meanings["raw"]
+    assert "the number that check rejected" in meanings["raw"]
+    # `suspect` is the mode `soft`, or `source` in either mode, and a forecast is soft for every check but two
+    assert "or it is `source`" in meanings["suspect"]
+    assert "in the mode `hard` too" in meanings["suspect"]
+    assert "on a forecast network every check but `floor` and `limits` is" in meanings["suspect"]
 
 
 # --- hostile text --------------------------------------------------------------------------------------------------

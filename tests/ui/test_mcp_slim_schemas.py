@@ -772,7 +772,10 @@ def test_the_values_tool_says_what_with_metadata_adds_in_one_clause() -> None:
 
     clause = values.input_schema["properties"]["with_metadata"]["description"]
     assert clause.count(".") == 1
-    assert len(clause) < 100
+    assert len(clause) < 170
+    # what it adds, for both formats: the parameters' details, the settings and the flags' legend
+    for word in ("unit", "aggregation", "timestamp position", "settings", "quality flags", "in compact"):
+        assert word in clause
     assert "with_metadata" not in values.description
     assert "metadata.parameters" not in values.description
     # the REST API and the other tools are not touched

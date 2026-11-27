@@ -819,6 +819,26 @@ def test_a_with_metadata_block_over_the_budget_is_left_out_of_values(monkeypatch
     assert answer["metadata"]["counts"]["rows"] == len(answer["values"])
 
 
+def test_the_note_counts_the_compact_legend_of_the_flags_in_the_rows_it_drops(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The compact legend is the flags that occur (GH-4499): the block that was left out is measured with them.
+
+    Measured on an empty frame the legend, which is the heavy part, was 0 characters of the note.
+    """
+    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(45_000))
+    flagged = _values_of(_NOW + dt.timedelta(hours=1), 900)
+    _stub_values(monkeypatch, replace(flagged, df=flagged.df.with_columns(pl.lit("10").alias("quality_flags"))))
+
+    result = _client_sees("values", {**_VALUES, "format": "compact", "with_metadata": True})
+
+    assert not result.is_error, result.content
+    text = result.structured_content["result"]
+    told = re.search(r"The `with_metadata` block \(([\d,]+) characters\) was left out", text)
+    assert told, text[:600]
+    # the legend alone is 45,000 characters
+    assert int(told.group(1).replace(",", "")) > 45_000
+    assert "## quality_flags legend" not in text
+
+
 def test_a_with_metadata_block_over_the_budget_is_left_out_of_stations(monkeypatch: pytest.MonkeyPatch) -> None:
     """The same for a listing: the block goes, and the stations that fit are kept, not the first one only."""
     monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(45_000))
