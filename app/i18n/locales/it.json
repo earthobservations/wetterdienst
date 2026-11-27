@@ -922,7 +922,8 @@
       "regions": "Regione ({state})",
       "typeHeader": "Tipo di polline",
       "caption": "Previsione del carico pollinico per {region}",
-      "outOfSeason": "Nei prossimi tre giorni non è previsto alcun carico pollinico.",
+      "outOfSeason": "Per questi giorni non è previsto alcun carico pollinico.",
+      "noForecast": "Il DWD al momento non fornisce una previsione dei pollini per questa regione.",
       "credit": "Previsione del carico pollinico del DWD.",
       "type": {
         "hazel": "Nocciolo",

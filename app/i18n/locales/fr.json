@@ -922,7 +922,8 @@
       "regions": "Région ({state})",
       "typeHeader": "Type de pollen",
       "caption": "Prévision de la charge pollinique pour {region}",
-      "outOfSeason": "Aucune charge pollinique n'est attendue pour les trois prochains jours.",
+      "outOfSeason": "Aucune charge pollinique n'est attendue pour ces jours.",
+      "noForecast": "Le DWD ne donne pas de prévision de pollen pour cette région pour le moment.",
       "credit": "Prévision de la charge pollinique du DWD.",
       "type": {
         "hazel": "Noisetier",

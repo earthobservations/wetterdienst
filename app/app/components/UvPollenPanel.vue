@@ -2,9 +2,9 @@
 import type { PollenAnswer, UvAnswer } from '~/composables/useUvPollen'
 import type { PollenType } from '~/utils/uv-pollen'
 import { DateTime } from 'luxon'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatDayMonth, weekdayShort } from '~/utils/format'
-import { dayOfRow, daysFromToday, forecastDays, isOutOfSeason, POLLEN_TYPES, pollenClass, pollenFill, pollenParameter, rememberedPart, rememberPart, selectedPart, UV_COLORS, uvClass } from '~/utils/uv-pollen'
+import { dayOfRow, daysFromToday, forecastDays, hasNoForecast, isOutOfSeason, POLLEN_TYPES, pollenClass, pollenFill, pollenParameter, rememberedPart, rememberPart, selectedPart, UV_COLORS, uvClass } from '~/utils/uv-pollen'
 
 // The "UV & pollen" panel of the Forecast (GH-4501), below the meteogram of a station in Germany: DWD's UV index of the nearest of its 38
 // places, and the pollen load of the part-regions of the station's state, each for today, tomorrow and the day after. Each part is
@@ -73,6 +73,24 @@ watch(() => props.pollen?.state, (state) => {
 }, { immediate: true })
 const part = computed(() => props.pollen ? selectedPart(props.pollen.parts, chosen.value) : null)
 
+const chips: (HTMLButtonElement | null)[] = []
+
+/** The arrow keys, Home and End move the choice along the chips, round the ends, and the focus with it */
+function onChipKey(event: KeyboardEvent, index: number) {
+  const parts = props.pollen?.parts ?? []
+  const last = parts.length - 1
+  const target = event.key === 'ArrowRight' || event.key === 'ArrowDown'
+    ? (index + 1) % (last + 1)
+    : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+      ? (index + last) % (last + 1)
+      : event.key === 'Home' ? 0 : event.key === 'End' ? last : -1
+  if (target < 0)
+    return
+  event.preventDefault()
+  choose(parts[target]!.id)
+  void nextTick(() => chips[target]?.focus())
+}
+
 function choose(id: string) {
   chosen.value = id
   if (props.pollen)
@@ -86,7 +104,10 @@ const partRows = computed(() => {
     ? props.pollen.rows.filter(row => row.station_id === part.value!.id && days.has(dayOfRow(row) ?? ''))
     : []
 })
+// what the selected part has to say: a grid, or one line: that no load is expected (every level is 0, as DWD writes it out of season),
+// or that DWD gives nothing for it (no row, or no value at all, which is not a 0: a sibling part may have rows while this one has none)
 const outOfSeason = computed(() => isOutOfSeason(partRows.value))
+const noForecast = computed(() => hasNoForecast(partRows.value))
 const pollenHeads = computed(() => pollenDays.value.map(headOf))
 const pollenGrid = computed(() => POLLEN_TYPES.map(type => ({
   type,
@@ -154,18 +175,23 @@ const typeName = (type: PollenType) => t(`uvPollen.pollen.type.${type}`)
       <h4 :id="pollenTitleId" class="text-sm font-semibold text-highlighted">
         {{ t('uvPollen.pollen.title', { state: pollen.state }) }}
       </h4>
-      <div class="mt-2 flex flex-wrap gap-2" role="group" :aria-label="t('uvPollen.pollen.regions', { state: pollen.state })" data-testid="pollen-chips">
+      <!-- one choice out of a few: a radio group, with one stop of Tab (the chosen chip); the arrow keys move along it and choose, Home and End go to the ends -->
+      <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" :aria-label="t('uvPollen.pollen.regions', { state: pollen.state })" data-testid="pollen-chips">
         <button
-          v-for="p in pollen.parts"
+          v-for="(p, index) in pollen.parts"
           :key="p.id"
+          :ref="(element) => { chips[index] = element as HTMLButtonElement | null }"
           type="button"
-          :aria-pressed="p.id === part.id"
+          role="radio"
+          :aria-checked="p.id === part.id"
+          :tabindex="p.id === part.id ? 0 : -1"
           :data-part="p.id"
           class="inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-start text-sm leading-snug transition-colors cursor-pointer"
           :class="p.id === part.id
             ? 'border-primary-600 dark:border-primary-400 bg-primary-50 dark:bg-primary-950/40 font-semibold text-highlighted'
             : 'border-gray-300 dark:border-gray-700 bg-transparent text-toned hover:bg-gray-100 dark:hover:bg-gray-800'"
           @click="choose(p.id)"
+          @keydown="onChipKey($event, index)"
         >
           <!-- the chosen chip has a check as well as a colour -->
           <UIcon v-if="p.id === part.id" name="i-ph-check-bold" class="size-3.5 shrink-0" aria-hidden="true" />
@@ -173,7 +199,11 @@ const typeName = (type: PollenType) => t(`uvPollen.pollen.type.${type}`)
         </button>
       </div>
 
-      <p v-if="outOfSeason" class="mt-3 flex items-start gap-2 text-sm text-toned" data-testid="pollen-out-of-season">
+      <p v-if="noForecast" class="mt-3 flex items-start gap-2 text-sm text-toned" data-testid="pollen-no-forecast">
+        <UIcon name="i-ph-flower-tulip" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+        {{ t('uvPollen.pollen.noForecast') }}
+      </p>
+      <p v-else-if="outOfSeason" class="mt-3 flex items-start gap-2 text-sm text-toned" data-testid="pollen-out-of-season">
         <UIcon name="i-ph-flower-tulip" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
         {{ t('uvPollen.pollen.outOfSeason') }}
       </p>

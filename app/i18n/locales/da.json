@@ -922,7 +922,8 @@
       "regions": "Region ({state})",
       "typeHeader": "Pollentype",
       "caption": "Prognose for pollenbelastning for {region}",
-      "outOfSeason": "Der forventes ingen pollenbelastning de næste tre dage.",
+      "outOfSeason": "Der forventes ingen pollenbelastning i disse dage.",
+      "noForecast": "DWD giver ikke en pollenprognose for denne region lige nu.",
       "credit": "Pollenprognose fra DWD.",
       "type": {
         "hazel": "Hassel",

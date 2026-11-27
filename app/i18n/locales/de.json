@@ -922,7 +922,8 @@
       "regions": "Region ({state})",
       "typeHeader": "Pollenart",
       "caption": "Vorhersage der Pollenbelastung für {region}",
-      "outOfSeason": "Für die nächsten drei Tage wird keine Pollenbelastung erwartet.",
+      "outOfSeason": "Für diese Tage wird keine Pollenbelastung erwartet.",
+      "noForecast": "Für diese Region liegt beim DWD derzeit keine Pollenvorhersage vor.",
       "credit": "Pollenbelastungs-Vorhersage vom DWD.",
       "type": {
         "hazel": "Hasel",

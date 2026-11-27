@@ -922,7 +922,8 @@
       "regions": "Región ({state})",
       "typeHeader": "Tipo de polen",
       "caption": "Pronóstico de la carga de polen para {region}",
-      "outOfSeason": "No se espera carga de polen en los próximos tres días.",
+      "outOfSeason": "No se espera carga de polen para estos días.",
+      "noForecast": "El DWD no ofrece ahora un pronóstico de polen para esta región.",
       "credit": "Pronóstico de la carga de polen del DWD.",
       "type": {
         "hazel": "Avellano",

@@ -10,7 +10,8 @@
 import type { Station, Value } from '#shared/types/api'
 import type { NearStation } from './place-stations'
 import { DateTime } from 'luxon'
-import { PLACE_REACH_KM, stationsNear } from './place-stations'
+import { stationsNear } from './place-stations'
+import { zoneOfPosition } from './station-zone'
 
 // ---- where the panel is shown ---------------------------------------------------------------------------------------------
 
@@ -20,14 +21,20 @@ import { PLACE_REACH_KM, stationsNear } from './place-stations'
  */
 export const UV_REACH_KM = 100
 
+/** The time zones of Germany: `Europe/Busingen` is Büsingen am Hochrhein, a German exclave in Switzerland, which the zone database gives a zone of its own */
+const GERMAN_ZONES: readonly string[] = ['Europe/Berlin', 'Europe/Busingen']
+
 /**
- * How far the nearest station of `dwd/observation` may be for its state to be the forecast station's, in kilometres: the reach of
- * a place's station (`PLACE_REACH_KM`). "In Germany" is the box of DWD's warnings (`inWarningBox`, the one rule the app has for
- * it: the Forecast's warnings banner, which sits on the same card, is shown by it); a box cannot tell a border from a country,
- * and the nearest German station of one in the Netherlands or Denmark inside it is farther than this, so that station is not
- * given the state next to it.
+ * Whether a position is in Germany, the extent of both products (DWD's UV index and pollen load). By the time zone of the
+ * position, which `tz-lookup` finds by the zone's boundary (the same lookup that sets the forecast's Today, `zoneOfPosition`), and
+ * which follows the border of the country: Strasbourg is `Europe/Paris`, Salzburg `Europe/Vienna`, Basel `Europe/Zurich`, Venlo
+ * `Europe/Amsterdam`. A box does not: the box of DWD's warnings (`inWarningBox`, the Forecast's banner) holds Strasbourg, Basel,
+ * Salzburg and Venlo, and the nearest German station or place of such a station is a few kilometres away. The border is the
+ * lookup's own, simplified: a station within a kilometre or two of it may be counted to either side.
  */
-export const STATE_REACH_KM = PLACE_REACH_KM
+export function inGermany(point: { latitude: number | null | undefined, longitude: number | null | undefined }): boolean {
+  return GERMAN_ZONES.includes(zoneOfPosition(point.latitude, point.longitude))
+}
 
 // ---- the requests ---------------------------------------------------------------------------------------------------------
 
@@ -167,13 +174,13 @@ export function nearestUvPlace(point: { latitude: number, longitude: number }, p
 // ---- the state, and the pollen regions it has -----------------------------------------------------------------------------
 
 /**
- * The state of the nearest station of the observation network, where it is near enough to be the forecast station's: its `region`
- * column as DWD writes it (`Sachsen`, `Baden-Württemberg`). Null where the list has no station with one or the nearest is
- * farther than `STATE_REACH_KM`.
+ * The state of the nearest station of the observation network: its `region` column as DWD writes it (`Sachsen`,
+ * `Baden-Württemberg`). The forecast station is in Germany (`inGermany`), where every station of the network is. Null where the
+ * list has no station with a region.
  */
 export function stateOfStation(point: { latitude: number, longitude: number }, stations: readonly Station[]): string | null {
   const nearest = stationsNear(point, stations.filter(station => !!station.region?.trim()), 1)[0]
-  if (!nearest || nearest.distanceKm > STATE_REACH_KM)
+  if (!nearest)
     return null
   return nearest.station.region!.trim()
 }
@@ -206,10 +213,19 @@ function partOf(station: Pick<Station, 'station_id' | 'name' | 'region'>): Polle
 }
 
 /**
+ * The words a part-region's name is made of: DWD joins them with a comma, a slash or "und" (`Geest,Schleswig-Holstein und Hamburg`,
+ * `Westl. Niedersachsen/Bremen`, `Rhein, Pfalz, Nahe und Mosel`).
+ */
+function wordsOfPart(label: string): string[] {
+  return label.split(/\s*(?:,|\/)\s*|\s+und\s+/).map(word => word.trim().toLocaleLowerCase('de')).filter(Boolean)
+}
+
+/**
  * The part-regions of a state: those of the regions whose `region` names the state, in DWD's order (the order of the numbers), the
- * part that is named for the state first where there is one (`Saarland`, a part of `Rheinland-Pfalz und Saarland` that is the
- * state itself, is the one for a station in Saarland: the first chip is the one that is preselected). Empty where no region names
- * the state: there is then no pollen part. A state of one region of one part has one chip.
+ * parts whose own name names the state first (`Saarland`, a part of `Rheinland-Pfalz und Saarland`; `Geest,Schleswig-Holstein und
+ * Hamburg`, which names Hamburg; `Westl. Niedersachsen/Bremen`, which names Bremen), so that the first chip, which is the one
+ * preselected, is the one a station in that state is in. Empty where no region names the state: there is then no pollen part. A
+ * state of one region of one part has one chip.
  *
  * The regions are the stations of `dwd/pollen`, which have no position: the state is all there is to find one by. It is
  * compared whole and without regard to case.
@@ -221,8 +237,8 @@ export function pollenPartsOfState(state: string, regions: readonly Pick<Station
   const parts = regions
     .filter(region => !!region.region && statesOfRegion(region.region).some(named => named.toLocaleLowerCase('de') === wanted))
     .map(partOf)
-  const own = parts.findIndex(part => part.label.toLocaleLowerCase('de') === wanted)
-  return own > 0 ? [parts[own]!, ...parts.slice(0, own), ...parts.slice(own + 1)] : parts
+  const named = parts.filter(part => wordsOfPart(part.label).includes(wanted))
+  return [...named, ...parts.filter(part => !named.includes(part))]
 }
 
 // ---- the pollen load ------------------------------------------------------------------------------------------------------
@@ -251,11 +267,17 @@ export function pollenFill(level: number | null | undefined): number {
 export type PollenRow = Pick<Value, 'station_id' | 'parameter' | 'timestamp' | 'value'>
 
 /**
- * Whether there is no load to show: every level is 0 or has no value (out of season), so the grid is replaced by a line saying
- * that no pollen load is expected. An empty list is the same; whether to show it at all is for the caller.
+ * Whether no load is expected: there are rows and every level is 0, which is what DWD writes out of season, so the grid is replaced
+ * by a line saying so. A level that has no value (DWD's -1, a missing one) is no 0, and no rows say nothing of the load: neither
+ * is "no load expected" (see `hasNoForecast`).
  */
 export function isOutOfSeason(rows: readonly Pick<PollenRow, 'value'>[]): boolean {
-  return rows.every(row => row.value == null || row.value === 0)
+  return rows.length > 0 && rows.every(row => row.value === 0)
+}
+
+/** Whether DWD gives nothing for the part: no row, or every level without a value. A line says so; a grid of dashes would say it 24 times */
+export function hasNoForecast(rows: readonly Pick<PollenRow, 'value'>[]): boolean {
+  return rows.every(row => row.value == null)
 }
 
 // ---- the days -------------------------------------------------------------------------------------------------------------
@@ -302,13 +324,25 @@ function readChoices(): Record<string, string> {
   }
 }
 
-/** The part-region the reader chose last for a state, as its id; null where none was, or the storage cannot be read */
-export function rememberedPart(state: string): string | null {
-  return readChoices()[state] ?? null
+/**
+ * What the reader chose in this visit, by state: a storage that refuses (blocked, a private window) would otherwise lose the choice
+ * at the next station, when the panel asks for it again. It is the page's own memory, and the newest choice.
+ */
+const chosenInThisVisit = new Map<string, string>()
+
+/** Forgets what this visit chose (a test's, and nothing else's) */
+export function forgetChoicesOfThisVisit(): void {
+  chosenInThisVisit.clear()
 }
 
-/** Remembers the reader's choice for a state on this device; a storage that refuses it (blocked, full) is no failure, the choice then holds for the visit only */
+/** The part-region the reader chose last for a state, as its id: in this visit, else on this device; null where none was */
+export function rememberedPart(state: string): string | null {
+  return chosenInThisVisit.get(state) ?? readChoices()[state] ?? null
+}
+
+/** Remembers the reader's choice for a state for this visit, and on this device where the storage takes it (blocked or full is no failure) */
 export function rememberPart(state: string, partId: string): void {
+  chosenInThisVisit.set(state, partId)
   try {
     localStorage.setItem(POLLEN_PART_STORAGE_KEY, JSON.stringify({ ...readChoices(), [state]: partId }))
   }

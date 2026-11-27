@@ -4,8 +4,7 @@ import type { PollenPart, UvPlace } from '~/utils/uv-pollen'
 import { shallowRef, toValue, watch } from 'vue'
 import { API_FETCH, readJsonAnswer } from '~/utils/api-answer'
 import { pollenRegions } from '~/utils/pollen-regions'
-import { nearestUvPlace, pollenPartsOfState, pollenRegionsQuery, pollenValuesQuery, stateOfStation, stateQuery, uvPlaceQuery, uvValuesQuery } from '~/utils/uv-pollen'
-import { inWarningBox } from '~/utils/warnings'
+import { inGermany, nearestUvPlace, pollenPartsOfState, pollenRegionsQuery, pollenValuesQuery, stateOfStation, stateQuery, uvPlaceQuery, uvValuesQuery } from '~/utils/uv-pollen'
 
 /** The UV index of the place nearest to the forecast station: the place and how far it is, and the rows of the file */
 export interface UvAnswer {
@@ -33,7 +32,7 @@ export interface ForecastPoint {
  * region for the state, a file DWD has not written), is `null`, and the panel shows the other alone. Each request has its ticket,
  * so that the answer of a station that was left meanwhile is not applied, as the snow forecast's is not.
  *
- * Nothing is asked for a station outside Germany (`inWarningBox`, the app's rule for it): both products are DWD's and cover
+ * Nothing is asked for a station outside Germany (`inGermany`, by the border of the country): both products are DWD's and cover
  * Germany only.
  */
 export function useUvPollen(point: MaybeRefOrGetter<ForecastPoint | null>) {
@@ -100,7 +99,7 @@ export function useUvPollen(point: MaybeRefOrGetter<ForecastPoint | null>) {
       if (!here || here.latitude == null || here.longitude == null)
         return
       const position = { latitude: here.latitude, longitude: here.longitude }
-      if (!inWarningBox(position))
+      if (!inGermany(position))
         return
       void fetchUv(position, ticketOfUv)
       void fetchPollen(position, ticketOfPollen)

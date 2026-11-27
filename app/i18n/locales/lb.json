@@ -922,7 +922,8 @@
       "regions": "Regioun ({state})",
       "typeHeader": "Pollenaart",
       "caption": "Prognos vun der Pollebelaaschtung fir {region}",
-      "outOfSeason": "Fir déi nächst dräi Deeg gëtt keng Pollebelaaschtung erwaart.",
+      "outOfSeason": "Fir dës Deeg gëtt keng Pollebelaaschtung erwaart.",
+      "noForecast": "Den DWD huet de Moment keng Pollenprognos fir dës Regioun.",
       "credit": "Pollebelaaschtungs-Prognos vum DWD.",
       "type": {
         "hazel": "Hasel",

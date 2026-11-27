@@ -70,6 +70,11 @@ export const OBSERVATION_DRESDEN = observationStation('01048', 'Dresden-Klotzsch
 /** A MOSMIX station, as `/api/stations` lists it, with the fields the page reads */
 export const MOSMIX_DRESDEN = { station_id: '10488', name: 'DRESDEN-KLOTZSCHE', latitude: 51.13, longitude: 13.75, elevation: 227 }
 export const MOSMIX_AMSTERDAM = { station_id: '06240', name: 'AMSTERDAM SCHIPHOL', latitude: 52.3, longitude: 4.77, elevation: -3 }
+/** Stations of other countries that the box of DWD's warnings holds, a few kilometres from German stations and places */
+export const MOSMIX_STRASBOURG = { station_id: '07190', name: 'STRASBOURG-ENTZHEIM', latitude: 48.55, longitude: 7.63, elevation: 150 }
+export const MOSMIX_SALZBURG = { station_id: '11150', name: 'SALZBURG-FLUGHAFEN', latitude: 47.8, longitude: 13.0, elevation: 430 }
+export const MOSMIX_BASEL = { station_id: '06601', name: 'BASEL-BINNINGEN', latitude: 47.54, longitude: 7.58, elevation: 316 }
+export const MOSMIX_VENLO = { station_id: '06391', name: 'ARCEN', latitude: 51.5, longitude: 6.2, elevation: 20 }
 export const MOSMIX_PARIS = { station_id: '07149', name: 'PARIS-ORLY', latitude: 48.72, longitude: 2.4, elevation: 90 }
 
 /** The German calendar date it is `offset` days from today, which is what the panel's Today is for a station in Germany */

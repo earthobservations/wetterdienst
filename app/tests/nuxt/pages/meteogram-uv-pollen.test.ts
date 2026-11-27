@@ -8,12 +8,17 @@ import MeteogramPage from '~/pages/meteogram.vue'
 import { distanceKm } from '~/utils/map-tool'
 import { forgetPollenRegions } from '~/utils/pollen-regions'
 import { forgetSnowStations } from '~/utils/snow-stations'
+import { forgetChoicesOfThisVisit } from '~/utils/uv-pollen'
 import { FORECAST_UNITS, forecastValues } from '../../helpers/meteogram-forecast'
 import {
   germanDay,
   MOSMIX_AMSTERDAM,
+  MOSMIX_BASEL,
   MOSMIX_DRESDEN,
   MOSMIX_PARIS,
+  MOSMIX_SALZBURG,
+  MOSMIX_STRASBOURG,
+  MOSMIX_VENLO,
   OBSERVATION_DRESDEN,
   observationStation,
   POLLEN_STATIONS_ANSWER,
@@ -63,13 +68,14 @@ describe('the forecast page\'s UV & pollen panel', () => {
   const uvPart = () => wrapper!.find('[data-testid="uv-part"]')
   const pollenPart = () => wrapper!.find('[data-testid="pollen-part"]')
   const chips = () => wrapper!.findAll('[data-testid="pollen-chips"] button')
-  const pressed = () => chips().filter(chip => chip.attributes('aria-pressed') === 'true').map(chip => chip.attributes('data-part'))
+  const pressed = () => chips().filter(chip => chip.attributes('aria-checked') === 'true').map(chip => chip.attributes('data-part'))
   const requestsFor = (kind: 'uv' | 'pollen' | 'forecast') => valueRequests.filter(request => request.kind === kind)
   const stationsFor = (network: string) => stationRequests.filter(request => request.network === network)
 
   beforeEach(() => {
     forgetSnowStations()
     forgetPollenRegions()
+    forgetChoicesOfThisVisit()
     stationRequests = []
     valueRequests = []
     uvStationsAnswer = () => ({ stations: [UV_DRESDEN] })
@@ -184,6 +190,8 @@ describe('the forecast page\'s UV & pollen panel', () => {
     wrapper!.unmount()
     wrapper = undefined
     forgetPollenRegions()
+    // the storage is what remembers it for a visit that is not this one
+    forgetChoicesOfThisVisit()
     await pick(HOSTERWITZ)
     await until(() => expect(chips()).toHaveLength(2))
     expect(pressed()).toEqual(['82'])
@@ -215,16 +223,71 @@ describe('the forecast page\'s UV & pollen panel', () => {
     await chips()[1]!.trigger('click')
     expect(pressed()).toEqual(['82'])
     expect(uvPart().exists()).toBe(true)
+    // another station in the state: the answer comes again, and the choice is still the reader's, which the storage cannot hold
+    await pick(MOSMIX_DRESDEN)
+    await until(() => expect(requestsFor('pollen')).toHaveLength(2))
+    await until(() => expect(chips()).toHaveLength(2))
+    expect(pressed()).toEqual(['82'])
   })
 
-  it('shows the one line that no pollen load is expected, in place of the grid, where every level is 0 or has no value', async () => {
+  it('chooses with the arrow keys, Home and End, as a radio group does, and has one stop of Tab', async () => {
+    await pick(HOSTERWITZ)
+    await until(() => expect(chips()).toHaveLength(2))
+    expect(wrapper!.find('[data-testid="pollen-chips"]').attributes('role')).toBe('radiogroup')
+    expect(chips().map(chip => chip.attributes('role'))).toEqual(['radio', 'radio'])
+    expect(chips().map(chip => chip.attributes('tabindex'))).toEqual(['0', '-1'])
+    await chips()[0]!.trigger('keydown', { key: 'ArrowRight' })
+    expect(pressed()).toEqual(['82'])
+    expect(chips().map(chip => chip.attributes('tabindex'))).toEqual(['-1', '0'])
+    // round the end
+    await chips()[1]!.trigger('keydown', { key: 'ArrowRight' })
+    expect(pressed()).toEqual(['81'])
+    await chips()[0]!.trigger('keydown', { key: 'End' })
+    expect(pressed()).toEqual(['82'])
+    await chips()[1]!.trigger('keydown', { key: 'Home' })
+    expect(pressed()).toEqual(['81'])
+    expect(JSON.parse(localStorage.getItem('wd-pollen-part')!)).toEqual({ Sachsen: '81' })
+  })
+
+  it('shows the one line that no pollen load is expected, in place of the grid, where every level is 0', async () => {
+    pollenAnswer = async params => json({ values: pollenValues(params.get('stations')!.split(','), {}) })
+    await pick(HOSTERWITZ)
+    await until(() => expect(pollenPart().exists()).toBe(true))
+    expect(pollenPart().find('[data-testid="pollen-out-of-season"]').text()).toBe('No pollen load is expected for these days.')
+    expect(pollenPart().find('table').exists()).toBe(false)
+    expect(pollenPart().find('[data-testid="pollen-no-forecast"]').exists()).toBe(false)
+    // the chips stay: the other part may have a load
+    expect(chips()).toHaveLength(2)
+  })
+
+  it('shows the grid, with dashes, where some levels are 0 and others have no value: a missing value is no 0', async () => {
     pollenAnswer = async params => json({ values: pollenValues(params.get('stations')!.split(','), { hazel: [0, null, 0] }) })
     await pick(HOSTERWITZ)
     await until(() => expect(pollenPart().exists()).toBe(true))
-    expect(pollenPart().find('[data-testid="pollen-out-of-season"]').text()).toBe('No pollen load is expected for the next three days.')
+    expect(pollenPart().find('[data-testid="pollen-out-of-season"]').exists()).toBe(false)
+    expect(pollenPart().find('table').exists()).toBe(true)
+    expect(pollenPart().findAll('[data-testid="pollen-row"]')[0]!.findAll('[data-testid="pollen-cell"]')[1]!.text()).toBe('–no value')
+  })
+
+  it('says that DWD gives nothing, and not that no load is expected, where no level has a value', async () => {
+    pollenAnswer = async params => json({ values: pollenValues(params.get('stations')!.split(','), Object.fromEntries(['hazel', 'alder', 'ash', 'birch', 'grass', 'rye', 'mugwort', 'ragweed'].map(type => [type, [null, null, null]]))) })
+    await pick(HOSTERWITZ)
+    await until(() => expect(pollenPart().exists()).toBe(true))
+    expect(pollenPart().find('[data-testid="pollen-no-forecast"]').text()).toBe('DWD gives no pollen forecast for this region right now.')
+    expect(pollenPart().find('[data-testid="pollen-out-of-season"]').exists()).toBe(false)
     expect(pollenPart().find('table').exists()).toBe(false)
-    // the chips stay: the other part may have a load
-    expect(chips()).toHaveLength(2)
+  })
+
+  it('says that DWD gives nothing for a part that has no row while its sibling has them, never that no load is expected', async () => {
+    // the answer has the first part only
+    pollenAnswer = async params => json({ values: pollenValues(['81'], SPRING_LEVELS).filter(() => params.get('stations')!.includes('81')) })
+    await pick(HOSTERWITZ)
+    await until(() => expect(chips()).toHaveLength(2))
+    expect(pollenPart().find('table').exists()).toBe(true)
+    await chips()[1]!.trigger('click')
+    expect(pollenPart().find('[data-testid="pollen-no-forecast"]').exists()).toBe(true)
+    expect(pollenPart().find('[data-testid="pollen-out-of-season"]').exists()).toBe(false)
+    expect(pollenPart().find('table').exists()).toBe(false)
   })
 
   it('shows a dash for a level that has no value, with its words for a screen reader, among levels that have', async () => {
@@ -302,15 +365,23 @@ describe('the forecast page\'s UV & pollen panel', () => {
       expect(requestsFor('pollen')).toEqual([])
     })
 
-    it('shows no panel at a station in the Netherlands, which the box holds: no place within 100 km, and no German station near enough to give it a state', async () => {
-      // the nearest station of the observation network is Emden's, some 230 km from Schiphol; the nearest place of the UV index is Bremen's
-      stateAnswer = () => ({ stations: [observationStation('02290', 'Emden', 'Niedersachsen', 53.35, 7.2)] })
-      uvStationsAnswer = () => ({ stations: [{ ...UV_BERLIN, station_id: 'bremen', name: 'Bremen', latitude: 53.0451, longitude: 8.7981 }] })
-      await pick(MOSMIX_AMSTERDAM)
-      await until(() => expect(stationsFor('observation')).toHaveLength(1))
-      await until(() => expect(stationsFor('uvi')).toHaveLength(1))
+    // stations of other countries that the box of DWD's warnings holds, and that have a German station and a place of the UV index in reach: the
+    // backend would answer them a state and a place, and the country is what keeps them out
+    it.each([
+      ['Strasbourg-Entzheim, 18 km from Kehl and 60 km from Freiburg', MOSMIX_STRASBOURG],
+      ['Salzburg, 8 km from Piding in Bayern', MOSMIX_SALZBURG],
+      ['Basel', MOSMIX_BASEL],
+      ['Venlo', MOSMIX_VENLO],
+      ['Amsterdam', MOSMIX_AMSTERDAM],
+    ])('shows no panel and asks for nothing at %s', async (_name, station) => {
+      stateAnswer = () => ({ stations: [observationStation('03402', 'Kehl-Odelshofen', 'Baden-Württemberg', 48.57, 7.81)] })
+      uvStationsAnswer = () => ({ stations: [UV_DRESDEN] })
+      await pick(station)
       await flushPromises()
       expect(panel().exists()).toBe(false)
+      expect(stationsFor('uvi')).toEqual([])
+      expect(stationsFor('observation')).toEqual([])
+      expect(stationsFor('pollen')).toEqual([])
       expect(requestsFor('uv')).toEqual([])
       expect(requestsFor('pollen')).toEqual([])
     })

@@ -603,13 +603,13 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               :station-coords="{ latitude: selectedStation.latitude, longitude: selectedStation.longitude }"
               :units="unitsOfForecast"
             />
-            <!-- DWD's UV index and pollen load for today, tomorrow and the day after: Germany only, and only for the parts that were answered -->
-            <UvPollenPanel :uv="uvAnswer" :pollen="pollenAnswer" :zone="stationZone" class="mt-5" />
             <!-- the warnings are DWD's and cover Germany (GH-4328): a station elsewhere has no banner, and this line, with the credits, says why, so that a
                  forecast without a warning is never read as a day without one -->
             <p class="mt-1 px-1 text-sm text-muted" data-testid="meteogram-warnings-note">
               {{ t('meteogram.warningsNote') }}
             </p>
+            <!-- DWD's UV index and pollen load for today, tomorrow and the day after: after the credits and their note, Germany only, and only for the parts that were answered -->
+            <UvPollenPanel :uv="uvAnswer" :pollen="pollenAnswer" :zone="stationZone" class="mt-5" />
           </UCard>
 
           <!-- Empty state before selection -->

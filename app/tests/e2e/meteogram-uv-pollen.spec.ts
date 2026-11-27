@@ -14,7 +14,7 @@ const DRESDEN = '/meteogram?station=10488&view=chart'
 const JAN_MAYEN = '/meteogram?station=01001&view=chart'
 
 const panel = (page: Page) => page.getByTestId('uv-pollen-panel')
-const chips = (page: Page) => page.getByTestId('pollen-chips').getByRole('button')
+const chips = (page: Page) => page.getByTestId('pollen-chips').getByRole('radio')
 
 /** The mock's answers, with the forecast station of Dresden-Klotzsche added to its list, which a link can name */
 function withDresden(extra: Parameters<typeof mockBackend>[2] = {}): NonNullable<Parameters<typeof mockBackend>[2]> {
@@ -64,7 +64,7 @@ test.describe('at a station in Germany', () => {
     await expect(page.getByTestId('uv-class')).toHaveText(['Moderate', 'Moderate', 'Very high'])
     await expect(page.getByTestId('pollen-part').getByRole('heading', { level: 4 })).toHaveText('Pollen load for Sachsen')
     await expect(chips(page)).toHaveText(['Tiefland Sachsen', 'Mittelgebirge Sachsen'])
-    await expect(chips(page).first()).toHaveAttribute('aria-pressed', 'true')
+    await expect(chips(page).first()).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('pollen-row')).toHaveCount(8)
     // below the chart, not beside it
     const [chart, below] = await Promise.all([page.locator('.mg-canvas').first().boundingBox(), panel(page).boundingBox()])
@@ -77,11 +77,11 @@ test.describe('at a station in Germany', () => {
     await open(page, baseURL!)
     await expect(chips(page)).toHaveCount(2)
     await chips(page).nth(1).click()
-    await expect(chips(page).nth(1)).toHaveAttribute('aria-pressed', 'true')
-    await expect(chips(page).first()).toHaveAttribute('aria-pressed', 'false')
+    await expect(chips(page).nth(1)).toHaveAttribute('aria-checked', 'true')
+    await expect(chips(page).first()).toHaveAttribute('aria-checked', 'false')
     await page.reload()
     await expect(chips(page)).toHaveCount(2)
-    await expect(chips(page).nth(1)).toHaveAttribute('aria-pressed', 'true')
+    await expect(chips(page).nth(1)).toHaveAttribute('aria-checked', 'true')
   })
 
   test('says in one line that no pollen load is expected, out of season', async ({ page, baseURL }) => {
@@ -91,7 +91,7 @@ test.describe('at a station in Germany', () => {
         ? { values: pollenValues(url.searchParams.get('stations')!.split(','), { hazel: [0, 0, 0] }) }
         : defaults.values!(url, route),
     }))
-    await expect(page.getByTestId('pollen-out-of-season')).toHaveText('No pollen load is expected for the next three days.')
+    await expect(page.getByTestId('pollen-out-of-season')).toHaveText('No pollen load is expected for these days.')
     await expect(page.getByTestId('pollen-grid')).toHaveCount(0)
     // the UV index is still there
     await expect(page.getByTestId('uv-part')).toBeVisible()

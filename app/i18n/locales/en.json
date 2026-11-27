@@ -922,7 +922,8 @@
       "regions": "Region ({state})",
       "typeHeader": "Pollen type",
       "caption": "Pollen load forecast for {region}",
-      "outOfSeason": "No pollen load is expected for the next three days.",
+      "outOfSeason": "No pollen load is expected for these days.",
+      "noForecast": "DWD gives no pollen forecast for this region right now.",
       "credit": "Pollen load forecast from DWD.",
       "type": {
         "hazel": "Hazel",

@@ -922,7 +922,8 @@
       "regions": "Region ({state})",
       "typeHeader": "Pollenoort",
       "caption": "Vörhersaag vun de Pollenbelastung för {region}",
-      "outOfSeason": "För de neegsten dree Daag is keen Pollenbelastung to verwachten.",
+      "outOfSeason": "För disse Daag is keen Pollenbelastung to verwachten.",
+      "noForecast": "För disse Region hett de DWD jüst keen Pollenvörhersaag.",
       "credit": "Pollenbelastungs-Vörhersaag vun den DWD.",
       "type": {
         "hazel": "Hasel",

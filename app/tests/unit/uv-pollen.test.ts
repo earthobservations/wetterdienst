@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   dayOfRow,
   daysFromToday,
   forecastDays,
+  forgetChoicesOfThisVisit,
+  hasNoForecast,
+  inGermany,
   isOutOfSeason,
   nearestUvPlace,
   POLLEN_CLASSES,
@@ -33,10 +36,12 @@ const idsOf = (state: string) => pollenPartsOfState(state, POLLEN_REGION_STATION
 describe('the pollen regions of a state', () => {
   // DWD's 27 regions are one or two states each: Hamburg, Bremen, Berlin and Saarland have none of their own
   it.each([
-    ['Schleswig-Holstein', ['11', '12']],
-    ['Hamburg', ['11', '12']],
+    // DWD's 12 "Geest,Schleswig-Holstein und Hamburg" names both states, so it is the first chip for either
+    ['Schleswig-Holstein', ['12', '11']],
+    ['Hamburg', ['12', '11']],
     ['Mecklenburg-Vorpommern', ['20']],
     ['Niedersachsen', ['31', '32']],
+    // the 31 "Westl. Niedersachsen/Bremen" names Bremen
     ['Bremen', ['31', '32']],
     ['Nordrhein-Westfalen', ['41', '42', '43']],
     ['Brandenburg', ['50']],
@@ -63,6 +68,15 @@ describe('the pollen regions of a state', () => {
       expect(idsOf(state).length).toBeLessThanOrEqual(4)
     const covered = new Set(states.flatMap(idsOf))
     expect([...covered].sort()).toEqual(POLLEN_REGION_STATIONS.map(region => region.station_id).sort())
+  })
+
+  it('puts the part that names the state first whatever the order DWD lists them in: Hamburg\'s 12 and Bremen\'s 31, which are not the first of their region by chance', () => {
+    const reversed = [...POLLEN_REGION_STATIONS].reverse()
+    expect(pollenPartsOfState('Hamburg', reversed).map(part => part.id)).toEqual(['12', '11'])
+    expect(pollenPartsOfState('Bremen', reversed).map(part => part.id)).toEqual(['31', '32'])
+    // a part is named by the words of its name, split at a comma, a slash and "und", never by a piece of a word
+    expect(pollenPartsOfState('Hamburg', POLLEN_REGION_STATIONS)[0]!.label).toBe('Geest,Schleswig-Holstein und Hamburg')
+    expect(pollenPartsOfState('Niedersachsen', reversed).map(part => part.id)).toEqual(['32', '31'])
   })
 
   it('compares a state whole: Sachsen is neither Sachsen-Anhalt nor Niedersachsen', () => {
@@ -108,13 +122,6 @@ describe('the state of a forecast station', () => {
       observationStation('01048', 'Dresden-Klotzsche', 'Sachsen', 51.1278, 13.7543),
     ]
     expect(stateOfStation(dresden, stations)).toBe('Sachsen')
-  })
-
-  it('is none where the nearest station is farther than 50 km: a station in another country inside the box of Germany has no state of ours', () => {
-    expect(stateOfStation({ latitude: 52.3, longitude: 4.77 }, [observationStation('02290', 'Emden', 'Niedersachsen', 53.35, 7.2)])).toBeNull()
-    // 50 km is the reach, the same as for a place's station
-    expect(stateOfStation({ latitude: 51.0, longitude: 13.75 }, [observationStation('a', 'A', 'Sachsen', 51.0 + 49 / 111.2, 13.75)])).toBe('Sachsen')
-    expect(stateOfStation({ latitude: 51.0, longitude: 13.75 }, [observationStation('a', 'A', 'Sachsen', 51.0 + 51 / 111.2, 13.75)])).toBeNull()
   })
 
   it('is none where the stations have no region, and for no station', () => {
@@ -212,10 +219,24 @@ describe('the class of a pollen level', () => {
 })
 
 describe('out of season', () => {
-  it('is every level being 0 or none', () => {
-    expect(isOutOfSeason([{ value: 0 }, { value: 0 }, { value: null }])).toBe(true)
-    expect(isOutOfSeason([{ value: null }, { value: null }])).toBe(true)
-    expect(isOutOfSeason([])).toBe(true)
+  it('is every level being 0, which is what DWD writes out of season', () => {
+    expect(isOutOfSeason([{ value: 0 }, { value: 0 }, { value: 0 }])).toBe(true)
+  })
+
+  it('is not so with a level that has no value: DWD\'s -1 is a missing value, and no 0', () => {
+    expect(isOutOfSeason([{ value: 0 }, { value: 0 }, { value: null }])).toBe(false)
+    expect(isOutOfSeason([{ value: null }, { value: null }])).toBe(false)
+  })
+
+  it('is not so with no row at all: nothing is said of the load', () => {
+    expect(isOutOfSeason([])).toBe(false)
+  })
+
+  it('has no forecast where there is no row, or no row has a value', () => {
+    expect(hasNoForecast([])).toBe(true)
+    expect(hasNoForecast([{ value: null }, { value: null }])).toBe(true)
+    expect(hasNoForecast([{ value: null }, { value: 0 }])).toBe(false)
+    expect(hasNoForecast([{ value: 0 }])).toBe(false)
   })
 
   it('is not so with one level above 0, a half step included', () => {
@@ -284,6 +305,10 @@ describe('the queries', () => {
 })
 
 describe('what the reader chose', () => {
+  beforeEach(() => {
+    forgetChoicesOfThisVisit()
+  })
+
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -317,7 +342,17 @@ describe('what the reader chose', () => {
     }
     vi.stubGlobal('localStorage', refusing)
     expect(() => rememberPart('Sachsen', '82')).not.toThrow()
-    expect(rememberedPart('Sachsen')).toBeNull()
+    // the visit keeps it, which a storage that refuses cannot: it is asked for again at every station
+    expect(rememberedPart('Sachsen')).toBe('82')
+    expect(rememberedPart('Bayern')).toBeNull()
+  })
+
+  it('takes the choice of this visit over the storage\'s, and the storage\'s where the visit has none', () => {
+    localStorage.setItem('wd-pollen-part', JSON.stringify({ Sachsen: '81', Bayern: '124' }))
+    expect(rememberedPart('Bayern')).toBe('124')
+    rememberPart('Sachsen', '82')
+    expect(rememberedPart('Sachsen')).toBe('82')
+    expect(rememberedPart('Bayern')).toBe('124')
   })
 
   it('reads what is no JSON, or no object, as nothing chosen', () => {
@@ -330,5 +365,54 @@ describe('what the reader chose', () => {
     // and the next choice replaces it
     rememberPart('Sachsen', '82')
     expect(rememberedPart('Sachsen')).toBe('82')
+    expect(JSON.parse(localStorage.getItem('wd-pollen-part')!)).toEqual({ Sachsen: '82' })
+  })
+})
+
+describe('the country of a station', () => {
+  // the box of DWD's warnings holds every one of the first ten, and each is a station of another country a few kilometres from a German
+  // station or place: a box and a distance cannot tell them, the border of the time zone can
+  it.each([
+    ['Strasbourg-Entzheim', 48.55, 7.63],
+    ['Salzburg', 47.8, 13.0],
+    ['Basel', 47.56, 7.59],
+    ['Venlo', 51.37, 6.17],
+    ['Zürich', 47.38, 8.54],
+    ['Innsbruck', 47.26, 11.39],
+    ['Enschede', 52.22, 6.89],
+    ['Luxembourg', 49.62, 6.21],
+    ['Szczecin', 53.43, 14.55],
+    ['Sønderborg', 54.91, 9.79],
+    ['Amsterdam', 52.3, 4.77],
+    ['Paris-Orly', 48.72, 2.4],
+    ['Jan Mayen', 70.93, -8.67],
+  ])('is not Germany at %s', (_name, latitude, longitude) => {
+    expect(inGermany({ latitude, longitude })).toBe(false)
+  })
+
+  it.each([
+    ['Dresden', 51.13, 13.75],
+    ['Hamburg-Fuhlsbüttel', 53.63, 10.0],
+    ['Berlin-Tempelhof', 52.47, 13.4],
+    ['München', 48.16, 11.54],
+    ['Konstanz', 47.66, 9.17],
+    // a German exclave in Switzerland, with a zone of its own
+    ['Büsingen', 47.7, 8.69],
+    ['Aachen', 50.78, 6.08],
+    ['Passau', 48.57, 13.46],
+    ['Flensburg', 54.78, 9.43],
+    ['Bad Reichenhall', 47.72, 12.88],
+    ['Kehl', 48.57, 7.81],
+    ['Zugspitze', 47.42, 10.98],
+    ['Sylt', 54.92, 8.35],
+    ['Helgoland', 54.18, 7.89],
+    ['Arkona', 54.68, 13.43],
+  ])('is Germany at %s', (_name, latitude, longitude) => {
+    expect(inGermany({ latitude, longitude })).toBe(true)
+  })
+
+  it('is not Germany for a station with no position', () => {
+    expect(inGermany({ latitude: null, longitude: null })).toBe(false)
+    expect(inGermany({ latitude: undefined, longitude: 10 })).toBe(false)
   })
 })

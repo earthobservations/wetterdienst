@@ -922,7 +922,8 @@
       "regions": "Region ({state})",
       "typeHeader": "Rodzaj pyłku",
       "caption": "Prognoza obciążenia pyłkiem dla {region}",
-      "outOfSeason": "W ciągu najbliższych trzech dni nie przewiduje się obciążenia pyłkiem.",
+      "outOfSeason": "W tych dniach nie przewiduje się obciążenia pyłkiem.",
+      "noForecast": "DWD nie podaje obecnie prognozy pyłków dla tego regionu.",
       "credit": "Prognoza obciążenia pyłkiem z DWD.",
       "type": {
         "hazel": "Leszczyna",

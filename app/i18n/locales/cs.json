@@ -922,7 +922,8 @@
       "regions": "Region ({state})",
       "typeHeader": "Druh pylu",
       "caption": "Předpověď zatížení pylem pro {region}",
-      "outOfSeason": "V následujících třech dnech se neočekává žádné zatížení pylem.",
+      "outOfSeason": "V těchto dnech se neočekává žádné zatížení pylem.",
+      "noForecast": "DWD pro tento region nyní nepodává předpověď pylu.",
       "credit": "Předpověď zatížení pylem z DWD.",
       "type": {
         "hazel": "Líska",

@@ -922,7 +922,8 @@
       "regions": "Regio ({state})",
       "typeHeader": "Pollensoort",
       "caption": "Verwachte pollenbelasting voor {region}",
-      "outOfSeason": "Voor de komende drie dagen wordt geen pollenbelasting verwacht.",
+      "outOfSeason": "Voor deze dagen wordt geen pollenbelasting verwacht.",
+      "noForecast": "De DWD geeft op dit moment geen pollenverwachting voor deze regio.",
       "credit": "Pollenverwachting van de DWD.",
       "type": {
         "hazel": "Hazelaar",
