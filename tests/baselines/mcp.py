@@ -35,7 +35,15 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    f"tool values: argument {name} was removed": (
+        "the MCP tool took out the options that leave a station out for too few readings (GH-4471), which models did "
+        "not use: a call that sends one as `null` or as the value the server itself uses is let go and answered as one "
+        "without, any other value is refused with what the server does (count each station's readings against the "
+        "window, or ask the REST API); the REST API, the command line and Python keep all of them"
+    )
+    for name in ("skip_criteria", "skip_empty", "skip_threshold")
+}
 
 #: the keys of a schema that describe it for a reader and promise nothing
 _PROSE = frozenset({"description", "title", "examples", "example"})

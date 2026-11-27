@@ -2,15 +2,33 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Summarize data over time."""
 
+from __future__ import annotations
+
 import datetime as dt
-import os
+from pathlib import Path
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
 
+from wetterdienst.io.charts import FONT, altair
+from wetterdienst.io.export import render_image
 from wetterdienst.provider.dwd.observation import (
     DwdObservationRequest,
 )
+
+if TYPE_CHECKING:
+    import altair as alt
+
+#: where the picture is written: the folder of the benchmarks that is not tracked
+CACHE_DIR = Path(__file__).parent / ".cache"
+#: the stations the summary takes values from, with their colours
+STATION_COLORS = {"01050": "gold", "01051": "blue", "01048": "green", "05282": "pink"}
+#: the panels from top to bottom: the summary, then each station
+PANELS = ["Summarized", *STATION_COLORS]
+#: the size in pixels of the plot area of a panel: the picture is as large as the five panels, their titles, axes and
+#: the legend need, around 640 x 480 (a chart made of panels has no size of its own to ask for)
+PANEL_WIDTH, PANEL_HEIGHT = 602, 51
 
 
 def get_summarized_df(start_date: dt.datetime, end_date: dt.datetime, lat: float, lon: float) -> pl.DataFrame:
@@ -34,6 +52,67 @@ def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id: s
     return request.values().all().df
 
 
+def inline_data(df: pl.DataFrame) -> alt.InlineData:
+    """Give the rows of a frame as the text of a CSV file: Altair takes no more than 5000 rows of a frame itself."""
+    alt = altair()
+    frame = df.with_columns(pl.col("timestamp").dt.convert_time_zone("UTC").dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    parse = {"panel": "string", "station": "string", "timestamp": "date", "value": "number", "segment": "number"}
+    return alt.InlineData(values=frame.write_csv(), format=alt.CsvDataFormat(type="csv", parse=parse))
+
+
+def draw(summarized_df: pl.DataFrame, regular_dfs: dict[str, pl.DataFrame]) -> alt.VConcatChart:
+    """Draw the summarized values and the values of each station, a panel each, one below the other in the same time."""
+    alt = altair()
+    summarized = summarized_df.select(
+        pl.lit("Summarized").alias("panel"),
+        pl.col("taken_station_id").alias("station"),
+        "timestamp",
+        "value",
+    )
+    stations = [
+        df.select(pl.lit(station).alias("panel"), pl.lit(station).alias("station"), "timestamp", "value")
+        for station, df in regular_dfs.items()
+    ]
+    # a line breaks where a station has no value for more than a day, instead of running straight across the gap
+    df = pl.concat([summarized, *stations]).with_columns(
+        (pl.col("timestamp").diff().over("panel") > pl.duration(days=1))
+        .fill_null(value=False)
+        .cum_sum()
+        .over("panel")
+        .alias("segment"),
+    )
+    # the time in milliseconds, which is what the scale of a time takes as its domain
+    domain = [int(df["timestamp"].min().timestamp() * 1000), int(df["timestamp"].max().timestamp() * 1000)]
+    color = alt.Color(
+        "station:N",
+        title="Stations",
+        scale=alt.Scale(domain=list(STATION_COLORS), range=list(STATION_COLORS.values())),
+        legend=alt.Legend(orient="top", direction="horizontal", symbolType="stroke"),
+    )
+    panels = []
+    for name in PANELS:
+        last = name == PANELS[-1]
+        base = alt.Chart(inline_data(df.filter(pl.col("panel") == name))).encode(
+            x=alt.X(
+                "timestamp:T",
+                scale=alt.Scale(type="utc", domain=domain, nice=False),
+                axis=alt.Axis(title="date") if last else alt.Axis(labels=False, ticks=False, title=None),
+            ),
+            y=alt.Y("value:Q", title=None, scale=alt.Scale(zero=False), axis=alt.Axis(tickCount=3)),
+            color=color,
+            detail="segment:N",
+        )
+        mark = base.mark_circle(size=6, opacity=1) if name == "Summarized" else base.mark_line(strokeWidth=1)
+        title = alt.TitleParams(name, anchor="start", fontSize=11, offset=2)
+        panels.append(mark.properties(width=PANEL_WIDTH, height=PANEL_HEIGHT, title=title))
+    return (
+        alt.vconcat(*panels, spacing=9)
+        .properties(title="Comparison of summarized values and single stations for temperature_air_mean_2m")
+        .configure(font=FONT, background="white")
+        .configure_view(stroke="#ddd")
+    )
+
+
 def main() -> None:
     """Run example."""
     start_date = dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))
@@ -43,94 +122,13 @@ def main() -> None:
 
     summarized_df = get_summarized_df(start_date, end_date, lat, lon)
     print(summarized_df)
-    summarized_df = summarized_df.with_columns(
-        pl.col("taken_station_id")
-        .replace({"01050": "yellow", "01048": "green", "01051": "blue", "05282": "violet"})
-        .alias("color"),
-    )
+    regular_dfs = {station: get_regular_df(start_date, end_date, station) for station in STATION_COLORS}
 
-    regular_df_01050 = get_regular_df(start_date, end_date, "01050")
-    regular_df_01048 = get_regular_df(start_date, end_date, "01048")
-    regular_df_01051 = get_regular_df(start_date, end_date, "01051")
-    regular_df_05282 = get_regular_df(start_date, end_date, "05282")
-
-    try:
-        import plotly.graph_objects as go  # noqa: PLC0415
-        from plotly.subplots import make_subplots  # noqa: PLC0415
-    except ImportError as e:
-        msg = "The picture of this benchmark is drawn with Plotly, which no extra installs: pip install plotly"
-        raise ImportError(msg) from e
-
-    fig = make_subplots(rows=5, shared_xaxes=True, subplot_titles=("Summarized", "01050", "01051", "01048", "05282"))
-
-    fig.add_trace(
-        go.Scatter(
-            x=summarized_df.get_column("timestamp"),
-            y=summarized_df.get_column("value"),
-            mode="markers",
-            marker={"color": summarized_df.get_column("color")},
-            name="summarized",
-        ),
-        row=1,
-        col=1,
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=regular_df_01050.get_column("timestamp"),
-            y=regular_df_01050.get_column("value"),
-            mode="lines",
-            line={"color": "yellow"},
-            name="01050",
-        ),
-        row=2,
-        col=1,
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=regular_df_01051.get_column("timestamp"),
-            y=regular_df_01051.get_column("value"),
-            mode="lines",
-            line={"color": "blue"},
-            name="01051",
-        ),
-        row=3,
-        col=1,
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=regular_df_01048.get_column("timestamp"),
-            y=regular_df_01048.get_column("value"),
-            mode="lines",
-            line={"color": "green"},
-            name="01048",
-        ),
-        row=4,
-        col=1,
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=regular_df_05282.get_column("timestamp"),
-            y=regular_df_05282.get_column("value"),
-            mode="lines",
-            line={"color": "pink"},
-            name="05282",
-        ),
-        row=5,
-        col=1,
-    )
-
-    fig.update_layout(
-        title="Comparison of summarized values and single stations for temperature_air_mean_2m",
-        legend_title="Stations",
-        showlegend=True,
-    )
-
-    if "PYTEST_CURRENT_TEST" not in os.environ:
-        fig.show()
+    chart = draw(summarized_df, regular_dfs)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = CACHE_DIR / "summary.png"
+    path.write_bytes(render_image(chart, "png"))
+    print(f"picture: {path}")
 
 
 if __name__ == "__main__":
