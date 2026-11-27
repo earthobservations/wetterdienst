@@ -871,6 +871,32 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
     return request.filter_by_station_id("1").values().all().df
 
 
+def _geosphere_daily_1991(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    stations = _GEOSPHERE_STATIONS.encode()
+    # klima-v2-1d for station 5904, 1991-04-01 to 03 (as GH-4489 quotes it): the precipitation `rr` is [0.4, -1, 0.6]
+    # and its flag `rr_flag` is null. The array holds no gap, so the source writes the code as the whole number -1,
+    # where the same column of 2024 (`_geosphere_daily`) has a gap and writes -1.0: the `raw:` token is the text of
+    # the response (GH-4489), not one text for the column
+    series = {"rr": [0.4, -1, 0.6], "rr_flag": [None, None, None]}
+
+    def data(url: str) -> bytes:
+        names = parse_qs(urlparse(url).query)["parameters"][0].split(",")
+        timestamps = ["1991-04-01T00:00+00:00", "1991-04-02T00:00+00:00", "1991-04-03T00:00+00:00"]
+        parameters = {name: {"data": series[name]} for name in sorted(names)}
+        body = {"timestamps": timestamps, "features": [{"properties": {"parameters": parameters}}]}
+        return json.dumps(body).encode()
+
+    serve(monkeypatch, geosphere_api, {"/metadata/stations": stations, "klima-v2-1d": data})
+    request = GeosphereObservationRequest(
+        parameters=[("daily", "data", "precipitation_amount")],
+        start=_day(1991, 4, 1),
+        end=_day(1991, 4, 3),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return request.filter_by_station_id("1").values().all().df
+
+
 def _geosphere_10min(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     stations = _GEOSPHERE_STATIONS.encode()
     # klima-v2-10min for station 5904, 2024-01-04 07:10 to 07:40 (read 2026-11-26): the precipitation `rr` is 0.0 at
@@ -3254,6 +3280,20 @@ STUBS = [
             ("snow_depth_manual", 4.0, "20"),
             ("snow_depth_manual", 0.0, "20,raw:-1"),
             ("snow_depth_manual", 2.0, None),
+        ),
+    ),
+    ValueStub(
+        "geosphere/observation daily/data of 1991",
+        _geosphere_daily_1991,
+        reading=("precipitation_amount", 0.4),
+        sentinels=(("precipitation_amount", -1.0),),
+        # the 1991 array has no gap: the code is the whole number -1, and the token says so (the 2024 stub has -1.0)
+        tokens=(("precipitation_amount", "-1", 0.0),),
+        # no flag (null), so the token is all `quality_flags` holds
+        flagged=(
+            ("precipitation_amount", 0.4, None),
+            ("precipitation_amount", 0.0, "raw:-1"),
+            ("precipitation_amount", 0.6, None),
         ),
     ),
     ValueStub(

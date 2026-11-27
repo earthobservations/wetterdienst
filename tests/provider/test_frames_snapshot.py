@@ -10,9 +10,11 @@ decision on record and not a gap nobody saw.
 
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
 import pytest
+from freezegun.api import FakeDate, FakeDatetime
 
 from tests.provider import frames
 from wetterdienst import Wetterdienst
@@ -83,6 +85,20 @@ def test_every_entry_of_the_snapshot_belongs_to_a_test_that_exists(snapshot: dic
         if not file.is_file() or f"def {function}(" not in file.read_text(encoding="utf-8"):
             gone.append(nodeid)
     assert gone == [], f"entries of tests that are gone, regenerate the snapshot: {gone[:5]}"
+
+
+def test_a_row_hashes_the_same_whatever_class_a_datetime_is_of() -> None:
+    """A frame hashes the same under a frozen clock, whichever `datetime` class polars handed out (GH-4490).
+
+    Polars keeps the first `datetime` class it converts to for the whole process, so a test under `freezegun` that ran
+    first made it `FakeDatetime`, and a test that ran alone failed its entry where it passed in the whole file.
+    """
+    real = dt.datetime(1992, 5, 20, tzinfo=dt.UTC)
+    fake = FakeDatetime(1992, 5, 20, tzinfo=dt.UTC)
+    assert repr(fake) != repr(real)
+    assert frames._cell(fake) == frames._cell(real)  # noqa: SLF001
+    assert frames._cell(FakeDate(1992, 5, 20)) == frames._cell(dt.date(1992, 5, 20))  # noqa: SLF001
+    assert frames._cell([fake]) == frames._cell([real])  # noqa: SLF001
 
 
 def test_the_snapshot_is_written_the_way_the_command_writes_it(snapshot: dict, tmp_path: Path) -> None:

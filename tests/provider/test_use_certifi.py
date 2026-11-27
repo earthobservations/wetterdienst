@@ -64,7 +64,8 @@ def _geosphere(monkeypatch: pytest.MonkeyPatch) -> Seen:
     def answer(url: str) -> File:
         if url.endswith("/metadata/stations"):
             return _ok(url, stations)
-        return _ok(url, b'{"timestamps": [], "features": []}')
+        # a window without readings, as the source answers it: the arrays are there, with no value (GH-4490)
+        return _ok(url, b'{"timestamps": [], "features": [{"properties": {"parameters": {"rf": {"data": []}}}}]}')
 
     seen = _record(monkeypatch, api, answer)
     request = GeosphereObservationRequest(

@@ -14,7 +14,7 @@ import pytest
 from dirty_equals import IsNumeric
 from freezegun import freeze_time
 
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.options import Options
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, api
 from wetterdienst.provider.geosphere.observation.api import _time_windows
@@ -101,7 +101,8 @@ def _data_window(monkeypatch: pytest.MonkeyPatch, requests: int = 1, **dates: da
         if url.endswith("/metadata/stations"):
             return File(url=url, content=BytesIO(_STATIONS), status=200)
         data_urls.append(url)
-        return File(url=url, content=BytesIO(b'{"timestamps": [], "features": []}'), status=200)
+        empty = {"timestamps": [], "features": [{"properties": {"parameters": {"rf": {"data": []}}}}]}
+        return File(url=url, content=BytesIO(json.dumps(empty).encode()), status=200)
 
     monkeypatch.setattr(api, "download_file", _download)
 
@@ -158,7 +159,9 @@ def _serve_archive(
     """Serve one station from a regular archive, refusing slices over the API's data point limit.
 
     Like the upstream API, a window includes both its ends, counts the points it asks for and not
-    the ones the archive holds, and fails above 1,000,000 of them. Returns the windows asked for.
+    the ones the archive holds, and fails above 1,000,000 of them. A point is a timestamp of a parameter asked for,
+    and the flags the reader asks for beside each parameter are parameters (it asks for `rf` and `rf_flag`), as in
+    `_serve_archive_of_parameters` (GH-4490). Returns the windows asked for.
     """
     windows = []
 
@@ -171,7 +174,8 @@ def _serve_archive(
             for key in ("start", "end")
         )
         windows.append((start, end))
-        if (end - start) // step + 1 > _API_LIMIT:
+        names = query["parameters"][0].split(",")
+        if ((end - start) // step + 1) * len(names) > _API_LIMIT:
             return File(url=url, content=FileNotFoundError(url), status=400)
         first = max(0, -((start - archive_start) // -step))
         last = (min(end, archive_end) - archive_start) // step
@@ -834,3 +838,180 @@ def test_geosphere_observation_flags_come_with_every_resolution(
     )
     df = request.filter_by_station_id("4821").values().all().df.sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [(80.0, "12"), (81.0, "12"), (82.0, "10")]
+
+
+def test_geosphere_observation_the_raw_token_is_the_text_the_response_wrote(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the `raw:` token of the -1 code is `-1` or `-1.0`, as the response writes that value (GH-4489).
+
+    Station 5904 writes ``rr`` of klima-v2-1d as -1 for 1991-04-01 to 03 and as -1.0 in 2024: an array writes its
+    numbers with a decimal when it holds a gap and without when it holds none. The token was one text for the column.
+    """
+    _serve_values(
+        monkeypatch,
+        {"rr": [-1, -1.0, 0.0], "sh": [-1.0, -1, 2], "sh_manu": [-1, -1.0, 4.0], "shneu_manu": [-1.0, 0.0, -1]},
+    )
+    request = _daily_request("precipitation_amount", "snow_depth", "snow_depth_manual", "snow_depth_new")
+    df = request.filter_by_station_id("4821").values().all().df
+    rows = {
+        parameter: group.sort("timestamp").select("value", "quality_flags").rows()
+        for (parameter,), group in df.group_by("parameter", maintain_order=True)
+    }
+    assert rows == {
+        "precipitation_amount": [(0.0, "raw:-1"), (0.0, "raw:-1.0"), (0.0, None)],
+        "snow_depth": [(0.0, "raw:-1.0"), (0.0, "raw:-1"), (2.0, None)],
+        "snow_depth_manual": [(0.0, "raw:-1"), (0.0, "raw:-1.0"), (4.0, None)],
+        "snow_depth_new": [(0.0, "raw:-1.0"), (0.0, None), (0.0, "raw:-1")],
+    }
+
+
+def test_geosphere_observation_the_calm_wind_token_is_the_text_the_response_wrote(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the `raw:` token of a calm wind's direction is `0.0` where the response writes it with a decimal."""
+    _serve_values(monkeypatch, {"dd": [9.0, 0.0, None]})
+    request = GeosphereObservationRequest(
+        parameters=[("hourly", "data", "wind_direction_mean")],
+        start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = request.filter_by_station_id("4821").values().all().df.sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [(9.0, None), (None, "raw:0.0"), (None, None)]
+
+
+_TIMESTAMPS = ["2024-01-08T00:00+00:00", "2024-01-09T00:00+00:00", "2024-01-10T00:00+00:00"]
+_SECOND_STATION = "4822"
+
+
+def _serve_two_stations(monkeypatch: pytest.MonkeyPatch, body: object, *, broken: str = "4821") -> list[str]:
+    """Serve two stations of klima-v2-1m, `broken` with this body (bytes, or a dict as JSON) and the other whole.
+
+    Returns the stations asked for, in the order the reader asked.
+    """
+    stations = (
+        _STATIONS_HEADER
+        + "4821,,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True,,,,,ja\n"
+        + f"{_SECOND_STATION},,Second,16.1,48.1,201,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True,"
+        + ",,,,ja\n"
+    ).encode()
+    asked: list[str] = []
+
+    def _download(url: str, **_kwargs: object) -> File:
+        if url.endswith("/metadata/stations"):
+            return File(url=url, content=BytesIO(stations), status=200)
+        query = parse_qs(urlparse(url).query)
+        station = query["station_ids"][0]
+        asked.append(station)
+        if station == broken:
+            content = body if isinstance(body, bytes) else json.dumps(body).encode()
+            return File(url=url, content=BytesIO(content), status=200)
+        names = query["parameters"][0].split(",")
+        whole = _response(**{name: {"data": [1.0, 2.0, 3.0]} for name in names})
+        return File(url=url, content=BytesIO(json.dumps(whole).encode()), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+    return asked
+
+
+def _humidity(*stations: str) -> GeosphereObservationRequest:
+    return GeosphereObservationRequest(
+        parameters=[("monthly", "data", "humidity_relative_mean")],
+        start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
+        settings=Settings(cache_disable=True),
+    ).filter_by_station_id(list(stations))
+
+
+def _response(**parameters: object) -> dict[str, object]:
+    return {"timestamps": _TIMESTAMPS, "features": [{"properties": {"parameters": parameters}}]}
+
+
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    [
+        # the array of the parameter is left out, whole or as null
+        (_response(), "the data of rf_mittel are left out"),
+        (_response(rf_mittel={}), "the data of rf_mittel are left out"),
+        (_response(rf_mittel={"data": None}), "the data of rf_mittel are left out"),
+        # an array that does not have a value to each timestamp: shorter, longer, and a flag that does not match
+        (_response(rf_mittel={"data": [1.0, 2.0]}), "rf_mittel has 2 values for 3 timestamps"),
+        (_response(rf_mittel={"data": [1.0] * 4}), "rf_mittel has 4 values for 3 timestamps"),
+        (
+            _response(rf_mittel={"data": [1.0] * 3}, rf_mittel_flag={"data": [10]}),
+            "rf_mittel_flag has 1 values for 3 timestamps",
+        ),
+        # no feature, for the station that was asked for
+        ({"timestamps": _TIMESTAMPS, "features": []}, "it has no feature"),
+        ({"timestamps": [], "features": []}, "it has no feature"),
+        ({"timestamps": _TIMESTAMPS}, "it has no feature"),
+        ({"features": [{"properties": {"parameters": {}}}]}, "it has no timestamps"),
+        # a feature that holds no parameters, and more stations than the one asked for
+        ({"timestamps": _TIMESTAMPS, "features": [{"properties": {}}]}, "the feature has no parameters"),
+        ({"timestamps": _TIMESTAMPS, "features": [{}, {}]}, "it has 2 features"),
+        # no JSON at all
+        (b"<html>Service Unavailable</html>", "it is no JSON"),
+        (b"", "it is no JSON"),
+    ],
+)
+def test_geosphere_observation_an_incomplete_response_is_a_download_error(
+    monkeypatch: pytest.MonkeyPatch,
+    body: object,
+    reason: str,
+) -> None:
+    """Test that a response that cannot be read as the readings asked for is a DownloadError naming the URL (GH-4490).
+
+    It was polars' ShapeError ("exploded columns must have matching element counts") for an array that is left out or
+    does not match the timestamps, and for ``features: []``. A broken response never reads as missing data.
+    """
+    _serve_two_stations(monkeypatch, body)
+    with pytest.raises(DownloadError) as error:
+        _humidity("4821").values().all()
+    message = str(error.value)
+    assert "https://dataset.api.hub.geosphere.at/v1/station/historical/klima-v2-1m?" in message
+    assert "station_ids=4821" in message
+    assert reason in message
+
+
+def test_geosphere_observation_a_response_of_gaps_is_no_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that arrays of gaps, and arrays of no values for no timestamps, are readings of nothing and no error."""
+    _serve_two_stations(monkeypatch, _response(rf_mittel={"data": [None, None, None]}))
+    assert _humidity("4821").values().all().df.is_empty()
+    empty = {"timestamps": [], "features": [{"properties": {"parameters": {"rf_mittel": {"data": []}}}}]}
+    _serve_two_stations(monkeypatch, empty)
+    assert _humidity("4821").values().all().df.is_empty()
+
+
+@pytest.mark.parametrize("fails", ["incomplete", "download"])
+def test_geosphere_observation_a_station_that_fails_raises_for_the_whole_request(
+    monkeypatch: pytest.MonkeyPatch,
+    fails: str,
+) -> None:
+    """Test that an incomplete response behaves as a download that fails: the request raises, no station is skipped.
+
+    The provider hands the failure to the core, which skips no station for a `DownloadError`: a request for two
+    stations of which the first one fails raises, and the second one is never asked (GH-4490).
+    """
+    asked = _serve_two_stations(
+        monkeypatch, _response() if fails == "incomplete" else _response(rf_mittel={"data": []})
+    )
+    if fails == "download":
+        serve = api.download_file
+
+        def _download(url: str, **kwargs: object) -> File:
+            if "station_ids=4821" in url and not url.endswith("/metadata/stations"):
+                return File(url=url, content=FileNotFoundError(url), status=500)
+            return serve(url, **kwargs)
+
+        monkeypatch.setattr(api, "download_file", _download)
+    with pytest.raises(DownloadError):
+        _humidity("4821", _SECOND_STATION).values().all()
+    assert _SECOND_STATION not in asked
+
+
+def test_geosphere_observation_two_stations_that_come_whole_both_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the two stations of the test above answer when neither fails (the control of that test)."""
+    asked = _serve_two_stations(monkeypatch, _response(rf_mittel={"data": [1.0, 2.0, 3.0]}))
+    df = _humidity("4821", _SECOND_STATION).values().all().df
+    assert sorted(set(df.get_column("station_id"))) == ["4821", _SECOND_STATION]
+    assert sorted(asked) == ["4821", _SECOND_STATION]

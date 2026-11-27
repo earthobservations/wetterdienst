@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -13,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
@@ -25,6 +27,7 @@ from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
+    from typing import BinaryIO
 
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
@@ -36,10 +39,11 @@ log = logging.getLogger(__name__)
 # monthly datasets state no such code. -1 is no gap but a dry day or a day without snow, so it is 0.0 and not null:
 # a null would drop the day from a sum and leave the series with holes. The columns declared by the provider are
 # listed (rr_i and rr_iii carry the same code in the source and are not declared). The value keeps the code as the
-# `raw` token of its `quality_flags` (GH-2759), written as the source writes it: -1.0 in the columns of decimals
-# (rr and sh) and -1 in the integer ones (sh_manu and shneu_manu), checked on the live API for station 5904.
+# `raw` token of its `quality_flags` (GH-2759), as the response writes it (GH-4489): the response is read with its
+# numbers as text (`_read_response`), because a column writes -1.0 where it holds a gap and -1 where it holds none
+# (station 5904 in `rr`: -1 for 1991-04-01 to 03 and -1.0 in 2024), which a number no longer tells.
 _NONE_IS_MINUS_ONE = {
-    "klima-v2-1d": {"rr": "-1.0", "sh": "-1.0", "sh_manu": "-1", "shneu_manu": "-1"},
+    "klima-v2-1d": ("rr", "sh", "sh_manu", "shneu_manu"),
 }
 
 # The mean wind direction `dd` is "Windrichtung [360°]" (the API's description of the 10 minute and the hourly dataset)
@@ -48,7 +52,7 @@ _NONE_IS_MINUS_ONE = {
 # minute dataset of June 2024, 816 of 170,385 hours and 638 of 99,019 intervals have a direction of 0, **all** of them
 # with a wind speed `ff` of 0.0 (Aflenz, 2024-01-02 19:00: dd 0, ff 0.0), and 292 and 291 have 360. The direction of
 # the gust, `ddx`, has no 0 in 170,280 and 99,014 values (the same hour has ddx 358 and ffx 2.1). The 0 is no bearing,
-# so it is null (GH-2794).
+# so it is null (GH-2794), with the text the response wrote for it (`0`, or `0.0`) as the `raw` token.
 _CALM_WIND = Sentinel("0", where=pl.col("parameter") == "dd")
 
 # The quality flag of a parameter is the parameter's name and this suffix (`tl` and `tl_flag`), in the four klima-v2
@@ -195,71 +199,104 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.DataFrame()
-        df = pl.read_json(
-            file.content,
-            schema={
-                "timestamps": pl.List(pl.String),
-                "features": pl.List(
-                    pl.Struct(
-                        {
-                            "properties": pl.Struct(
-                                {
-                                    "parameters": pl.Struct(
-                                        {
-                                            # a flag is a whole number, but the source writes a column that
-                                            # has a gap with decimals (`10.0`), as it does a value
-                                            parameter: pl.Struct({"data": pl.List(pl.Float64)})
-                                            for parameter in asked
-                                        },
-                                    ),
-                                },
-                            ),
-                        },
-                    ),
-                ),
-            },
-        )
-        # every parameter shares the timestamps, so each row of the unpivoted frame below is one
-        # parameter's list of values next to the one list of timestamps
-        timestamps = df.get_column("timestamps").to_list()[0]
-        df = df.select("features")
-        df = df.explode("features", empty_as_null=True)
-        df = df.select(pl.col("features").struct.unnest())
-        df = df.select(pl.col("properties").struct.field("parameters").struct.unnest())
-        df = df.unpivot(
-            variable_name="parameter",
-            value_name="value",
-        )
-        df = df.with_columns(
-            pl.col("value").struct.field("data").alias("value"),
-            pl.lit(timestamps, dtype=pl.List(pl.String)).alias("timestamp"),
-        )
-        # a flag the response leaves out is a list of gaps, not a list that is not there
-        no_flags = pl.lit(pl.Series([[None] * len(timestamps)], dtype=pl.List(pl.Float64)))
-        is_flag = pl.col("parameter").str.ends_with(_FLAG_SUFFIX)
-        df = df.with_columns(pl.when(is_flag).then(pl.col("value").fill_null(no_flags)).otherwise(pl.col("value")))
-        df = df.explode(["value", "timestamp"], empty_as_null=True)
-        # each flag goes beside its value: the code as the whole number the source means, null where it has none
-        flags = df.filter(is_flag).select(
-            pl.col("parameter").str.strip_suffix(_FLAG_SUFFIX),
-            "timestamp",
-            pl.col("value").cast(pl.Int64, strict=False).alias("flag"),
-        )
-        df = df.filter(~is_flag).join(flags, on=["parameter", "timestamp"], how="left", maintain_order="left")
+        df = _read_response(url, file.content, parameters)
         # before the unit conversion, which would take the -1 for an amount of one unit
         none_coded = [
-            Sentinel(text, where=pl.col("parameter") == parameter, to=0.0)
-            for parameter, text in _NONE_IS_MINUS_ONE.get(dataset.name_original, {}).items()
+            Sentinel("-1", where=pl.col("parameter") == parameter, to=0.0)
+            for parameter in _NONE_IS_MINUS_ONE.get(dataset.name_original, ())
         ]
-        value, raw = null_sentinels(pl.col("value"), *none_coded, _CALM_WIND, text=False)
+        # the value is the text of the response, so the `raw` token is the text as the source wrote it (`-1`, `-1.0`)
+        value, raw = null_sentinels(pl.col("value"), *none_coded, _CALM_WIND, text=True)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         return df.select(
             pl.col("parameter").str.to_lowercase(),
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z"),
-            value.alias("value"),
+            value.cast(pl.Float64, strict=False).alias("value"),
             # the source's flag first, as it writes it (`10`), then the -1 the 0.0 was made from, as it writes that
             join_quality_flags(pl.col("flag"), raw=raw),
         )
+
+
+def _incomplete(url: str, what: str) -> DownloadError:
+    """Make the error of a response that cannot be read as the values it was asked for, naming the URL."""
+    return DownloadError(url, f"the response is incomplete: {what}")
+
+
+def _parameters_of(url: str, content: BinaryIO) -> tuple[list[str], dict[str, object]]:
+    """Read the timestamps and the parameters of the one feature of a response, the numbers still the text it wrote.
+
+    The standard library's reader hands the text of a number to ``parse_int`` and ``parse_float``: ``-1`` and ``-1.0``
+    are two texts, which polars' JSON reader makes one number. It costs no more than polars' (5 MB in 0.05 s).
+    """
+    try:
+        body = json.load(content, parse_int=str, parse_float=str, parse_constant=str)
+    except (ValueError, UnicodeDecodeError) as error:
+        raise _incomplete(url, "it is no JSON") from error
+    timestamps = body.get("timestamps") if isinstance(body, dict) else None
+    features = body.get("features") if isinstance(body, dict) else None
+    if not isinstance(timestamps, list):
+        raise _incomplete(url, "it has no timestamps")
+    if not isinstance(features, list) or not features:
+        raise _incomplete(url, "it has no feature, and so no data of the station")
+    if len(features) > 1:
+        raise _incomplete(url, f"it has {len(features)} features for the one station asked for")
+    try:
+        data = features[0]["properties"]["parameters"]
+    except (KeyError, TypeError) as error:
+        raise _incomplete(url, "the feature has no parameters") from error
+    if not isinstance(data, dict):
+        raise _incomplete(url, "the feature has no parameters")
+    return timestamps, data
+
+
+def _read_response(url: str, content: BinaryIO, parameters: list[str]) -> pl.DataFrame:
+    """Read the response of one window as the frame of a reading per row, with its numbers as the source wrote them.
+
+    The columns are ``parameter``, ``timestamp`` (text), ``value`` (text, as the response writes the number) and
+    ``flag`` (the flag as a whole number, null where the source gives none).
+
+    A response that cannot be read as the readings of every parameter asked for is no gap in the data but a broken
+    answer, so it is a `DownloadError` that names the URL (GH-4490): no feature (the station was asked for), a
+    parameter's array that is left out or does not have one value to each timestamp. The flag of a parameter may be
+    left out (an archive that serves the values only), and is then a list of gaps.
+    """
+    timestamps, data = _parameters_of(url, content)
+
+    def _array(name: str, *, required: bool) -> pl.Series | None:
+        entry = data.get(name)
+        array = entry.get("data") if isinstance(entry, dict) else None
+        if array is None and not required:
+            return None
+        if not isinstance(array, list):
+            raise _incomplete(url, f"the data of {name} are left out")
+        if len(array) != len(timestamps):
+            raise _incomplete(url, f"{name} has {len(array)} values for {len(timestamps)} timestamps")
+        try:
+            return pl.Series(array, dtype=pl.String)
+        except (TypeError, pl.exceptions.PolarsError) as error:
+            raise _incomplete(url, f"{name} holds something that is no number") from error
+
+    frames = []
+    for name in parameters:
+        values = _array(name, required=True)
+        flags = _array(f"{name}{_FLAG_SUFFIX}", required=False)
+        # a flag is a whole number, but the source writes a column that has a gap with decimals (`10.0`)
+        flag = (
+            flags.cast(pl.Float64, strict=False).cast(pl.Int64, strict=False)
+            if flags is not None
+            else pl.Series([None] * len(timestamps), dtype=pl.Int64)
+        )
+        frames.append(
+            pl.DataFrame(
+                {
+                    "parameter": pl.Series([name] * len(timestamps), dtype=pl.String),
+                    "timestamp": pl.Series(timestamps, dtype=pl.String),
+                    "value": values,
+                    "flag": flag,
+                }
+            )
+        )
+    return pl.concat(frames)
 
 
 @dataclass
