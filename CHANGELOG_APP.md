@@ -23,8 +23,11 @@ Types of changes:
   day after: DWD's UV index of the nearest of its 38 places within 100 km, with the WHO's class in
   words, and the pollen load of the part-regions of the station's state (chips, the one that names
   the state first, the reader's pick remembered per state), as a grid of the eight types with DWD's
-  class names, or one line where no load is expected or DWD gives none. Each part is a request of
-  its own that the forecast does not wait for; one that fails is left out (GH-4501).
+  class names, or one line where no load is expected or DWD gives none. The state and the parts
+  are named in the reader's language (the generic words translated, the place names as DWD writes
+  them), with DWD's own name on each chip as a tooltip, and the class names break at a hyphen in
+  a narrow cell. Each part is a request of its own that the forecast does not wait for; one that
+  fails is left out (GH-4501, GH-4508).
 
 ### Changed
 

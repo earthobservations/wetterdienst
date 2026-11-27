@@ -920,6 +920,7 @@
     "pollen": {
       "title": "Pollenbelastung för {state}",
       "regions": "Region ({state})",
+      "dwdName": "Naam bi DWD: {name}",
       "typeHeader": "Pollenoort",
       "caption": "Vörhersaag vun de Pollenbelastung för {region}",
       "outOfSeason": "För disse Daag is keen Pollenbelastung to verwachten.",

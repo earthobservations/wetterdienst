@@ -62,8 +62,11 @@ test.describe('at a station in Germany', () => {
     await expect(page.getByTestId('uv-day')).toHaveCount(3)
     // the class is in words beside the number, never the colour alone
     await expect(page.getByTestId('uv-class')).toHaveText(['Moderate', 'Moderate', 'Very high'])
-    await expect(page.getByTestId('pollen-part').getByRole('heading', { level: 4 })).toHaveText('Pollen load for Sachsen')
-    await expect(chips(page)).toHaveText(['Tiefland Sachsen', 'Mittelgebirge Sachsen'])
+    await expect(page.getByTestId('pollen-part').getByRole('heading', { level: 4 })).toHaveText('Pollen load for Saxony')
+    // the names in the reader's language, with DWD's own as the tooltip of each chip (GH-4508)
+    await expect(chips(page)).toHaveText(['Lowlands of Saxony', 'Uplands of Saxony'])
+    await expect(chips(page).first()).toHaveAttribute('title', 'DWD\'s name: Sachsen: Tiefland Sachsen')
+    await expect(chips(page).first()).toHaveAccessibleDescription('DWD\'s name: Sachsen: Tiefland Sachsen')
     await expect(chips(page).first()).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('pollen-row')).toHaveCount(8)
     // below the chart, not beside it
@@ -121,6 +124,25 @@ test.describe('at a station in Germany', () => {
         expect(contrast(badge.color, badge.background), JSON.stringify(badge)).toBeGreaterThanOrEqual(4.5)
     })
   }
+})
+
+test.describe('in Polish, at a phone\'s width', () => {
+  test.use({ locale: 'pl-PL' })
+
+  test('breaks the long class names at a hyphen, in the page\'s language, never between two letters', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await open(page, baseURL!)
+    await expect(page.locator('html')).toHaveAttribute('lang', /^pl/)
+    await expect(page.getByTestId('pollen-part').getByRole('heading', { level: 4 })).toHaveText('Obciążenie pyłkiem: Saksonia')
+    const labels = page.getByTestId('pollen-class')
+    await expect(labels.first()).toBeVisible()
+    // the browser breaks a word at a hyphen where `hyphens` is `auto` and the language is known; the body's `overflow-wrap: break-word` alone breaks it anywhere
+    const hyphens = await labels.evaluateAll(elements => elements.map(element => getComputedStyle(element).hyphens))
+    expect(hyphens.length).toBeGreaterThan(0)
+    expect(new Set(hyphens)).toEqual(new Set(['auto']))
+    // and the grid still fits the phone
+    expect(await scrollsSideways(page)).toBe(false)
+  })
 })
 
 test.describe('at a station outside Germany', () => {

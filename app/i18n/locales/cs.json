@@ -920,8 +920,9 @@
     "pollen": {
       "title": "Zatížení pylem pro {state}",
       "regions": "Region ({state})",
+      "dwdName": "Název u DWD: {name}",
       "typeHeader": "Druh pylu",
-      "caption": "Předpověď zatížení pylem pro {region}",
+      "caption": "Předpověď zatížení pylem: {region}",
       "outOfSeason": "V těchto dnech se neočekává žádné zatížení pylem.",
       "noForecast": "DWD pro tento region nyní nepodává předpověď pylu.",
       "credit": "Předpověď zatížení pylem z DWD.",

@@ -920,6 +920,7 @@
     "pollen": {
       "title": "Pollebelaaschtung fir {state}",
       "regions": "Regioun ({state})",
+      "dwdName": "Numm bei DWD: {name}",
       "typeHeader": "Pollenaart",
       "caption": "Prognos vun der Pollebelaaschtung fir {region}",
       "outOfSeason": "Fir dës Deeg gëtt keng Pollebelaaschtung erwaart.",
