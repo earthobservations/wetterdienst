@@ -9,16 +9,17 @@ requests to the live providers.
 This file is the runbook. A fresh Claude Code session that is told only *"follow `benchmarks/mcp/README.md` for the smoke
 run"* or *"... for the baseline"* has everything it needs here: do **Parts 1 to 6** in order, and **Part 7** whenever
 something is unclear or breaks. Told *"run a comparison of branch X against baseline file Y"*, do the same with **Part 8**. **Current reference** (the file Y of
-Part 8 unless you are given another): **none yet.** The cases changed with the re-baseline of #4318 (a case dropped a forbidden
+Part 8 unless you are given another): **the baseline of `main` at label `39aa57d89` (0.200.0), run on 2026-11-27, a
+secret gist, <https://gist.github.com/gutzbenj/d0180a9e8d2d483c0a7ef69a8888b8ea>, file
+`mcpbench-results-baseline-main-0.200.0-39aa57d89-2026-11-27.json`** (370 runs; reported on #4445). The cases changed with the re-baseline of #4318 (a case dropped a forbidden
 rule, the judging of a forecast figure at the current hour changed, and a case was added) and again with the cases of
 #4445 (nine cases for the tools nobody asked about, and the prompt names all 15 tools: 37 cases that need no key, hash of
 `cases.json` and of the prompt changed), so a file of the old cases is no baseline for a run of these: `compare` refuses a file made with the old prompt (exit 4, the prompt hash differs), and for a file with the same prompt it leaves out the cases whose hash changed (the new ones have no counterpart in an old file). The last
 reference of the **old** cases is the strategy-4 comparison run of #4030, a secret gist,
 <https://gist.github.com/gutzbenj/c1e6f5f10d6716da4355230204a0cae3>, made with the server at label `11d3c1419` (it stays as the
-record of strategies 1 to 4, not as a baseline). **A new baseline of `main` after the PR of the cases of #4445 is the
-reference for the schema work (#4318), the descriptions (#4319) and the table format (#4445); it is not run yet, and the
-cases and the prompt do not change after it.** Put its gist here when it is run, and
-**update this line when a strategy lands** (the new comparison becomes the reference). Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
+record of strategies 1 to 4, not as a baseline). **The baseline of 2026-11-27 is the
+reference for the schema work (#4318), the descriptions (#4319) and the table format (#4445); the
+cases and the prompt do not change after it.** **Update this line when a strategy lands** (the new comparison becomes the reference). Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
 writes nothing into the repository. The benchmark is on `main` (pull request #3544 was merged on 2026-11-19); Part 2.1 makes
 the copy you run.
 
@@ -45,8 +46,8 @@ A tested model is stopped after 300 s and after 0.50 USD (`MCPBENCH_TIMEOUT`, `M
 0.50 USD and the smoke run at most 37 USD, the baseline at most 185 USD. The real cost is far lower: a Haiku run costs about
 0.005 USD, a Sonnet run about 0.06 USD on average (0.03 to 0.24), and the whole baseline of 270 runs (the 27 cases before the re-baseline of #4318) cost about 8.3 USD for the
 tested models (measured on 2026-11-12; the judge's own tokens are not included): 0.031 USD a run. The 370 runs of
-37 cases are **estimated at 11 to 13 USD** (11.4 by the number of runs alone; the cases of #4445 read larger answers,
-a `kostra` table, a list of 28 stations, the lists of `station_ids`), not measured: the first baseline sets the figure.
+37 cases cost **11.34 USD** for the tested models in the baseline of 2026-11-27 (0.85 USD for Haiku, 10.49 USD for
+Sonnet; the judge's own tokens are not included).
 The report prints the cost. Do **not** start the baseline after a smoke run, or the smoke run
 after a baseline, unless your instruction asked for it: report and stop.
 
