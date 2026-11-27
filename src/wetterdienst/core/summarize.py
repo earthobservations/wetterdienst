@@ -161,6 +161,9 @@ def request_stations(
     # no files are fetched ahead of this walk: it stops where the stations found are enough, which only the data says,
     # so what was fetched ahead of that point would be downloaded and never read (GH-3454)
     values._fetch_ahead_allowed = False  # noqa: SLF001
+    # nor does it leave out the stations that closed before the window: its stations are ranked from a point and counted
+    # by the check of its own (`hold_stations_in_reach`), and it reads as it did (GH-4426)
+    values._window_rule_allowed = False  # noqa: SLF001
     # what it hands out is an estimate, not the readings of the source: the markers of the stations it reads are not
     # the markers of its answer (GH-3554)
     values._count_missing_value_markers = False  # noqa: SLF001

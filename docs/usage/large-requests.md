@@ -72,7 +72,9 @@ removes:
   its parameters, so the wide shape counts less.
 - **The stations.** A list of ids, or a smaller `rank`, `distance` or bounding box. A `rank` counts as that many
   stations, so `rank=250` of a `values` request is refused where the limit is 100, and `all=true` counts every station
-  of the network.
+  of the network that can have data in the window (a station that closed more than a year before it is not counted,
+  and is not read; one named by id is). The unit is the station, not the dataset read: a station asked for three
+  datasets is one.
 
 `GET /api/version` reports the limits of the instance you are talking to under `limits`, and that is the number to
 size a request with: a server sets its own (see [Run your own server](#run-your-own-server)), and the defaults above

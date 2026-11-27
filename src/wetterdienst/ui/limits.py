@@ -40,6 +40,8 @@ from wetterdienst.ui.problems import ProblemError, ProblemKind
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
+    import polars as pl
+
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
@@ -99,23 +101,37 @@ def _refuse(limit: str, maximum: int, requested: int, message: str, *, tool_mess
 
 
 def selected_station_count(stations: StationsResult) -> int:
-    """Count the stations a selection reads: a ranked one stops at its `rank`, whatever the list holds."""
+    """Count the stations a selection reads: those the window leaves, the one rule of `model.station_window` (GH-4426).
+
+    A ranked selection stops at its `rank`, whatever the list holds. Every other selection is counted by the rule the
+    walk reads by (`station_ids_read`), so the count is the stations read: a station that closed more than a year
+    before the window is not counted, and is not read. A station is counted once, however many of the requested
+    datasets it has: the unit is the station, not the dataset read. Stations named by id are all counted, a network
+    that opted out of the rule (ECCC) as well.
+    """
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
+    from wetterdienst.model.station_window import station_ids_read  # noqa: PLC0415
 
     count = stations.df.get_column("station_id").n_unique()
     if stations._stations_filter is StationsFilter.BY_RANK and stations._rank:  # noqa: SLF001
         return min(count, stations._rank)  # noqa: SLF001
+    if (read := station_ids_read(stations)) is not None:
+        return len(read)
     return count
 
 
-def check_station_count(count: int, limits: Limits, *, by_region: bool = False) -> None:
+def check_station_count(count: int, limits: Limits, *, by_region: bool = False, in_window: bool = False) -> None:
     """Refuse a request that reads more stations than the limit, naming how to read fewer.
+
+    The count is of stations, once each whatever the datasets read for it. `in_window` is whether the window cut it to
+    the stations that can have data in it (`model.station_window`), which the text then says (GH-4426).
 
     A selection by `region` reads every station its provider lists under it, which none of `rank`, `distance` or a box
     narrows: it is told fewer regions or the ids of the stations (GH-4418).
     """
     if limits.max_stations and count > limits.max_stations:
-        head = f"This request reads {count} stations, more than the {limits.max_stations} this server allows for one"
+        what = "stations that can have data in the window" if in_window else "stations"
+        head = f"This request reads {count} {what}, more than the {limits.max_stations} this server allows for one"
         if by_region:
             message = (
                 f"{head} request. A `region` selects every station its provider lists under it: name fewer regions, "
@@ -360,15 +376,26 @@ def _utc(value: dt.datetime) -> dt.datetime:
     return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
+def _station_ids_read(stations: StationsResult) -> pl.Series:
+    """Give the ids of the stations a selection reads, in the order of the list: the window's, or a rank's."""
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.model.station_window import station_ids_read  # noqa: PLC0415
+
+    ids = stations.df.get_column("station_id").unique(maintain_order=True)
+    if (read := station_ids_read(stations)) is not None:
+        return pl.Series(ids.name, read, dtype=ids.dtype)
+    if (count := selected_station_count(stations)) < ids.len():
+        return ids.head(count)
+    return ids
+
+
 def estimate_rows(stations: StationsResult) -> int:
     """Estimate, as an upper bound, the rows `values` returns for the stations selected, see this module's docstring."""
     df = stations.df
     if df.is_empty() or not stations.parameters:
         return 0
-    ids = df.get_column("station_id").unique(maintain_order=True)
-    if (count := selected_station_count(stations)) < ids.len():
-        ids = ids.head(count)
-    df = df.filter(df.get_column("station_id").is_in(ids.implode()))
+    df = df.filter(df.get_column("station_id").is_in(_station_ids_read(stations).implode()))
     parameters_of: dict[tuple[str, str], list[ParameterModel]] = {}
     for parameter in stations.parameters:
         key = (parameter.dataset.resolution.name, parameter.dataset.name.lower())

@@ -1250,7 +1250,10 @@ def test_eccc_a_request_with_dates_reaches_the_rows_before_the_first_date_of_the
 def test_eccc_a_window_that_ends_before_the_first_date_of_the_station_skips_it(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that a window that ends before FIRST_DATE of the station still makes no request for it."""
+    """Test that a window that ends before FIRST_DATE of the station still makes no request for it.
+
+    Where it is not named: a station named by id is read whatever the window says (GH-4426).
+    """
     urls = _serve_eccc(monkeypatch, {"climate-hourly": []}, _WHITE_ROCK_STATION)
     request = EcccObservationRequest(
         parameters=[("hourly", "data", "temperature_air_2m")],
@@ -1258,8 +1261,11 @@ def test_eccc_a_window_that_ends_before_the_first_date_of_the_station_skips_it(
         end="1900-12-31",
         options=options_convert_units_false,
     )
-    assert request.filter_by_station_id("925").values().all().df.is_empty()
+    assert request.all().values().all().df.is_empty()
     assert not [url for url in urls if "climate-hourly" in url]
+
+    assert request.filter_by_station_id("925").values().all().df.is_empty()
+    assert [url for url in urls if "climate-hourly" in url]
 
 
 @pytest.mark.usefixtures("window_not_required")

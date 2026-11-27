@@ -138,7 +138,7 @@ def test_a_request_where_every_station_has_rows_is_told_of_nothing() -> None:
 
 
 def test_a_station_the_window_precedes_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The index says it began after the window ended: it is not read, and has no rows in it, which is told."""
+    """The index says it began after the window ended: it is read all the same (GH-4426), has no rows, and is told."""
     # the stub holds May 2020; 00001 (begun 1934) holds May 1935 instead, 00002 (1950) and 00005 (1980) began after it
     _serving(monkeypatch, s00001=lambda df: df.with_columns(pl.col("timestamp").dt.replace(year=1935)))
     begin_response()
@@ -487,8 +487,13 @@ def test_a_file_that_serves_every_station_covers_the_stations_read(monkeypatch: 
     assert [w["stations"] for w in recorded_warnings() if w["code"] == "file-skipped"] == [["00001", "00002"]]
 
 
-def test_a_station_not_read_is_named_beside_a_whole_request_file_let_go(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The file covers the stations that were read; one the index says began after the window was never read."""
+def test_a_station_named_by_id_that_began_after_the_window_is_read_beside_a_whole_request_file_let_go(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station named by id is read though the index says it began after the window (GH-4426).
+
+    The file let go covers the stations that were read: `file-skipped` explains it, `station-without-rows` does not.
+    """
 
     def lets_go(df: pl.DataFrame) -> pl.DataFrame:
         note_skipped_download(SkipCause.FAILED, whole_request=True)
@@ -500,8 +505,9 @@ def test_a_station_not_read_is_named_beside_a_whole_request_file_let_go(monkeypa
 
     request.filter_by_station_id(["00001", "00005"]).values().all()
 
-    (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
-    assert warning["stations"] == ["00005"]
+    assert [w for w in recorded_warnings() if w["code"] == CODE] == []
+    (skipped,) = [w for w in recorded_warnings() if w["code"] == "file-skipped"]
+    assert skipped["stations"] == ["00001", "00005"]
 
 
 def test_a_station_whose_file_was_let_go_is_named_by_file_skipped_alone(monkeypatch: pytest.MonkeyPatch) -> None:

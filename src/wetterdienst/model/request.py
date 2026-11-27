@@ -563,6 +563,12 @@ class TimeseriesRequest:
     # Those of them whose stations have no name either, so a search by name finds none of them and the warning names the
     # id alone as the way to find them (the postal codes of `dwd/derived`'s correction factor)
     datasets_without_names: ClassVar[frozenset[str]] = frozenset()
+    # Whether the start and end of the station list bound a station's data, which the one rule of the stations a window
+    # reads relies on (`wetterdienst.model.station_window`, GH-4426). A network whose list start is not the first value
+    # declares False and says why in `station_list_bounds_note`: its stations are all counted, and the walk reads them
+    # as before (`_begins_after_window`). A list that publishes no bounds needs no opt-out: every station passes
+    station_list_bounds_hold: ClassVar[bool] = True
+    station_list_bounds_note: ClassVar[str | None] = None
 
     # The parameters that may be interpolated or summarized, which is a property of the measured
     # quantity rather than of a request -- see `CanonicalParameter.interpolation`. Kept here as a

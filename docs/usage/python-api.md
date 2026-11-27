@@ -487,6 +487,12 @@ them. The window is applied to a `df_all` you pass as well, so that the result d
 you got the stations. The other filters (`filter_by_station_id`, `filter_by_rank`, `filter_by_distance`,
 `filter_by_region`, `filter_by_bbox`, `filter_by_sql`) select among the whole list, whatever the window.
 
+Reading the values, `values().all()` and `query()` read the stations the window can have data in: of a selection other
+than a name, a rank or ids, a station whose list end is more than 366 days before the window (732 for annual data) is
+not read, and neither is one that begins after it. That lag is fixed and no option changes it, which is what the
+size limit of the REST API counts (`station_window_end_buffer` is not read there). Stations named by id are always
+read, so name the stations if you want every listed one.
+
 The buffer is there because the end a source publishes lags a station that is still reporting (DWD's
 daily index ends yesterday, its annual one the year before last). By default a station is kept until its
 end is two days before the window, 62 days for monthly and 732 days for annual. The start is compared

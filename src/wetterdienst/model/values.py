@@ -54,6 +54,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
     wide_schema,
 )
+from wetterdienst.model.station_window import NAMED_BY_ID, station_ids_read
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.cancellation import check as check_cancelled
 from wetterdienst.util.datetime import is_plausible_update, newest
@@ -353,6 +354,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: whether `query` may have the files of the next stations fetched while one is read (GH-3454); a caller that stops
     #: the walk where the data says, not at a number it knows (interpolation, summary), sets it False
     _fetch_ahead_allowed: bool = field(default=True, init=False, repr=False, compare=False)
+    #: whether the walk leaves out the stations the window cannot have data in (`model.station_window`, GH-4426); a
+    #: caller whose walk stops where the data says and is held to a limit of its own (interpolation, summary) sets it
+    #: False, and skips the stations whose list begins after the window alone, as it did
+    _window_rule_allowed: bool = field(default=True, init=False, repr=False, compare=False)
     #: whether the `missing-value-marker` warning counts the readings of the stations this reads (GH-3554); a caller
     #: whose answer is an estimate of them (interpolation, summary) and not their readings sets it False
     _count_missing_value_markers: bool = field(default=True, init=False, repr=False, compare=False)
@@ -401,6 +406,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     _held_rows_limit: int | None = field(default=None, init=False, repr=False, compare=False)
     #: the stations the walk in hand read, those without a value included (`Searched.stations_read`)
     _stations_read: int = field(default=0, init=False, repr=False, compare=False)
+    #: the ids of the stations the walk in hand reads where the window cuts its selection, None where it cuts none
+    #: (`wetterdienst.model.station_window`, GH-4426): the stations the size limit counted
+    _read_ids: frozenset[str] | None = field(default=None, init=False, repr=False, compare=False)
     #: the cells `all` held when it last made the choice again over groups that span stations (`_hold`)
     _compacted_cells: int = field(default=0, init=False, repr=False, compare=False)
     #: the names of the stations of the walk in hand by id, read once for the report (`_searched_of`)
@@ -574,6 +582,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Walk the stations of the request, each reduced by `selection` or fed to `statistics` where there is one."""
         self._stations_read = 0
         self._names = None
+        ids = station_ids_read(self.sr) if self._window_rule_allowed else None
+        self._read_ids = None if ids is None else frozenset(ids)
         groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
         ahead = self._fetch_ahead(groups)
         try:
@@ -603,13 +613,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # whose empty stations are told (`station-without-rows`, GH-3828, GH-4070)
         asked = (
             [cast("str", station_id) for (station_id,), _ in groups]
-            if self.sr._stations_filter  # noqa: SLF001
-            in {
-                StationsFilter.BY_STATION_ID,
-                StationsFilter.BY_WMO_ID,
-                StationsFilter.BY_WIGOS_ID,
-                StationsFilter.BY_ICAO_ID,
-            }
+            if self.sr._stations_filter in NAMED_BY_ID  # noqa: SLF001
             else None
         )
         rows = ParameterRows(
@@ -631,7 +635,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # ends here, between two stations, and not at the last of them (GH-4429)
             check_cancelled()
             station_id = cast("str", station_id)
-            if self._begins_after_window(df_station_meta):
+            if self._skips_station(station_id, df_station_meta):
                 continue
             self._stations_read += 1
             available_datasets = self._get_available_datasets(df_station_meta)
@@ -939,7 +943,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         def station(position: int) -> tuple[str, list[DatasetModel]] | None:
             (station_id,), df_station_meta = groups[position]
-            if self._begins_after_window(df_station_meta):
+            if self._skips_station(cast("str", station_id), df_station_meta):
                 return None
             return cast("str", station_id), self._requested_datasets(self._get_available_datasets(df_station_meta))
 
@@ -958,6 +962,21 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.sr.request.parameters))
             if dataset in available_datasets
         ]
+
+    def _skips_station(self, station_id: str, df_station_meta: pl.DataFrame) -> bool:
+        """Whether the walk leaves this station out for the window: the one rule of the stations a window reads.
+
+        A station named by id is never left out (`NAMED_BY_ID`). Where the window cuts the selection, the station is
+        read if the stations the limit counted include it (`_read_ids`, from `station_ids_read`, the one rule of
+        `wetterdienst.model.station_window`), and a provider's own `_begins_after_window` may leave out one more. For
+        the selections the rule does not cut (a rank, a name) and a network that opted out of it (ECCC) it is
+        `_begins_after_window` alone, as it was.
+        """
+        if self.sr._stations_filter in NAMED_BY_ID:  # noqa: SLF001
+            return False
+        if self._read_ids is not None and station_id not in self._read_ids:
+            return True
+        return self._begins_after_window(df_station_meta)
 
     def _begins_after_window(self, df_station_meta: pl.DataFrame) -> bool:
         """Whether the station index already says this station started after the window ended.

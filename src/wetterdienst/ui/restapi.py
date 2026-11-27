@@ -76,6 +76,7 @@ from wetterdienst.model.row_selection import (
     RowsOverLimitError,
     Searched,
 )
+from wetterdienst.model.station_window import rule_applies
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings, removed_settings
 from wetterdienst.ui import forecast_start
@@ -2049,6 +2050,7 @@ def _check_values_limits(
         selected_station_count(stations),
         limits,
         by_region=stations._stations_filter is StationsFilter.BY_REGION,  # noqa: SLF001
+        in_window=rule_applies(stations),
     )
     if one_body and chooses and not streamed:
         if limits.max_rows and limits.max_stream_rows:

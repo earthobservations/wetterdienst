@@ -1738,15 +1738,15 @@ def test_readings_all_null_and_dropped_are_no_rows(monkeypatch: pytest.MonkeyPat
     assert _told([_EMPTY, _FULL], ["00001"], options={"drop_nulls": False}) == []
 
 
-def test_a_station_the_window_precedes_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A station that begins after the window ends was not read, and another warning or none explains it."""
+def test_a_station_the_window_precedes_is_read_and_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station named by id that begins after the window ends is read (GH-4426), has no row, and is named."""
     _holding_none_of(monkeypatch, "sdk")
     begin_response()
     request = DwdObservationRequest(parameters=[_EMPTY], start="1935-01-01", end="1935-01-31")
     request.filter_by_station_id(["00001", "00005"]).values().all()
 
     (warning,) = [w for w in recorded_warnings() if w["code"] == _CODE]
-    assert warning["stations"] == ["00001"]
+    assert warning["stations"] == ["00001", "00005"]
 
 
 def test_a_list_of_stations_is_cut_and_counted(monkeypatch: pytest.MonkeyPatch) -> None:

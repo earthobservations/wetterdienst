@@ -1819,7 +1819,7 @@ far" in its `detail`. It names the limit, its value and what the request comes t
 
 | `limit` | Setting | Default | What it bounds |
 | --- | --- | --- | --- |
-| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many. For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
+| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads, counted per station, not per dataset read; a `rank` counts as that many, and a request with a `timestamp` counts the stations that can have data in it (see below). For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
 | `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations`; also the rows a `filter` or `first` of `values` holds |
 | `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values`; what a `filter` or `first` of `values` reads, where it is the larger of this and `rows` |
 | `groups` | `WD_RESTAPI_MAX_GROUPS` | 50,000 | the groups of an answer of [`statistics`](#statistics) |
@@ -1832,7 +1832,25 @@ none. The default of 100 stations is the number `request.stations.ids` of the `m
 `GET /api/version` reports the values of the instance as `limits` (`max_stations`, `max_rows`, `max_stream_rows`, `max_groups`,
 the `timeout` in seconds and `max_concurrent`), so a client can size its requests before one is refused.
 
-The stations are counted from the selection, which the server holds already. The rows of `values` are an
+The stations are counted from the selection, which the server holds already, **per station**: a station asked for
+three datasets is one station, though three datasets are read for it. A request with a `timestamp` counts, and reads,
+only the stations that **can have data in the window**, by the start and the end their list publishes: a station
+counts if its list start is on or before the end of the window, and its list end is empty or lies at most 366 days
+before the start of the window (732 for annual data). The lag is fixed, so that a list that ends a station days late
+still counts it, and it is never the `station_window_end_buffer` of the request. So the stations of a box on the
+North Sea that DWD's daily list holds, 114, are 50 for 2022-02-18 (`wind_gust_max`), and `all=true` of Geosphere's daily
+data for the last 365 days is about 504 stations where the list holds 1,102. What is counted is what is read: the
+walk skips the other stations, and the answer does not hold them (they had no data in the window by the list).
+Not cut by the window:
+
+- stations named by id (`stations`, `wmo_id`, `wigos_id`, `icao_id`): each is read, and one with no data in the
+  window is told by a `station-without-rows` warning in the `metadata` of the answer;
+- a `rank`, which counts as its rank and is walked as it was;
+- a list that publishes no start or end (`noaa/ghcn` hourly, `imgw`): every station counts;
+- ECCC, whose list start is after the first value of most stations, so its list cannot say who has data: every
+  station counts.
+
+The rows of `values` are an
 estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end
 of its record, within the `timestamp` of the request, times the parameters asked for (once for each timestamp in the
 wide `shape`). Where the provider reads per period (DWD does), `periods=recent` narrows it to what that release

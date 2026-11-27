@@ -1044,13 +1044,13 @@ def test_a_station_is_kept_when_one_dataset_leaves_its_start_timestamp_out(monke
     assert df.filter(pl.col("dataset") == "climate_summary").height == 3
 
 
-def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded(
+def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded_unless_named(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A station asked for several datasets is still ruled out when every one of them says so.
 
     The counterpart of keeping a station whose dataset leaves its start out: with each row
-    publishing a start after the window, the index still answers for the station.
+    publishing a start after the window, the index still answers for the station, unless it was named by id.
     """
     _stub_dwd_daily(
         station_ids=["00001"],
@@ -1066,9 +1066,14 @@ def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded(
         end="1930-12-31",
     )
 
-    request.filter_by_station_id("00001").values().all()
+    request.all().values().all()
 
     assert collected == []
+
+    # named by id it is read all the same (GH-4426): the window never cuts a station that was asked for
+    request.filter_by_station_id("00001").values().all()
+
+    assert collected == ["00001", "00001"]
 
 
 def _values_with_a_null(

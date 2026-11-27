@@ -220,7 +220,7 @@ def _fresh_host_slots(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fetch_ahead, "_host_slots", {})
 
 
-def _stations_frame(station_ids: Sequence[str], late: Sequence[str] = ()) -> pl.DataFrame:
+def _stations_frame(station_ids: Sequence[str], late: Sequence[str] = (), closed: Sequence[str] = ()) -> pl.DataFrame:
     utc = ZoneInfo("UTC")
     return pl.DataFrame(
         {
@@ -231,7 +231,10 @@ def _stations_frame(station_ids: Sequence[str], late: Sequence[str] = ()) -> pl.
                 dt.datetime(2025, 1, 1, tzinfo=utc) if station in late else dt.datetime(1900, 1, 1, tzinfo=utc)
                 for station in station_ids
             ],
-            "end_timestamp": [dt.datetime(2030, 1, 1, tzinfo=utc)] * len(station_ids),
+            "end_timestamp": [
+                dt.datetime(1990, 1, 1, tzinfo=utc) if station in closed else dt.datetime(2030, 1, 1, tzinfo=utc)
+                for station in station_ids
+            ],
             "latitude": [50.0 + index / 10 for index in range(len(station_ids))],
             "longitude": [8.0] * len(station_ids),
             "elevation": [100.0] * len(station_ids),
@@ -316,10 +319,15 @@ def _reader(
     named: Callable[[str], list[str]] | None = None,
     parallel: bool = False,
     late: Sequence[int] = (),
+    closed: Sequence[int] = (),
 ) -> TimeseriesValues:
-    """Build the values of ``stations`` stations numbered from 0, read from the cache directory ``cache``."""
+    """Build the values of ``stations`` stations numbered from 0, read from the cache directory ``cache``.
+
+    With ``late`` stations that begin after the window and ``closed`` ones that ended long before it, the stations are
+    all of the list, selected by no id: a station named by id is never left out for the window (GH-4426).
+    """
     ids = [f"{index:05d}" for index in range(stations)]
-    stations_frame = _stations_frame(ids, [ids[index] for index in late])
+    stations_frame = _stations_frame(ids, [ids[index] for index in late], [ids[index] for index in closed])
     monkeypatch.setattr(DwdObservationRequest, "_all", lambda self: stations_frame.lazy())  # noqa: ARG005
     monkeypatch.setattr(
         DwdObservationRequest, "_values", _values_class(urls_of, hook=hook, named=named, parallel=parallel)
@@ -330,8 +338,8 @@ def _reader(
         "start": dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
         "end": dt.datetime(2010, 1, 1, tzinfo=ZoneInfo("UTC")),
     }
-    request = DwdObservationRequest(parameters=PARAMETERS, settings=settings, **(window if late else {}))
-    return request.filter_by_station_id(ids).values()
+    request = DwdObservationRequest(parameters=PARAMETERS, settings=settings, **(window if late or closed else {}))
+    return (request.all() if late or closed else request.filter_by_station_id(ids)).values()
 
 
 def _files(upstream: _Upstream, count: int) -> Callable[[str], list[str]]:
@@ -525,6 +533,35 @@ def test_a_station_that_the_walk_passes_over_takes_no_place_in_the_window(
     upstream.settle({0, 3, 4})
 
     assert upstream.stations_asked() == {0, 3, 4}
+    results.close()
+
+
+def test_a_station_the_count_leaves_out_is_not_fetched_ahead(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The one rule of the stations a window reads (GH-4426): a station that closed long before it is not fetched."""
+    reader = _reader(monkeypatch, tmp_path, stations=8, urls_of=_files(upstream, 1), depth=2, closed=[1, 2])
+
+    results = reader.query()
+    next(results)
+    upstream.settle({0, 3, 4})
+
+    assert upstream.stations_asked() == {0, 3, 4}
+    results.close()
+
+
+def test_a_station_named_by_id_is_fetched_ahead_whatever_the_window(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A station that was asked for is read, so its files are fetched too, closed or not begun (GH-4426)."""
+    reader = _reader(monkeypatch, tmp_path, stations=4, urls_of=_files(upstream, 1), depth=2, closed=[1], late=[2])
+    named = reader.sr.request.filter_by_station_id([f"{index:05d}" for index in range(4)]).values()
+
+    results = named.query()
+    next(results)
+    upstream.settle({0, 1, 2})
+
+    assert upstream.stations_asked() == {0, 1, 2}
     results.close()
 
 
