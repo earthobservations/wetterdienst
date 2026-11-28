@@ -1068,8 +1068,10 @@ def test_cli_values_image_wide() -> None:
     )
     assert result.exit_code == 0, result.output
     assert is_html_document(result.output)
-    assert "temperature_air_mean_2m (°C)" in result.output
-    assert "precipitation_amount (mm)" in result.output
+    # the page holds the Vega-Lite specification as JSON, which writes the degree sign as an escape
+    spec = result.output.replace("\\u00b0", "°")
+    assert "temperature_air_mean_2m (°C)" in spec
+    assert "precipitation_amount (mm)" in spec
 
 
 @pytest.mark.parametrize(

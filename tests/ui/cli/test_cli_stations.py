@@ -249,7 +249,7 @@ def test_cli_stations_empty(
     # the `metadata` block is always there, and counts what is not
     assert response.keys() == {"metadata", "stations"}
     assert response["stations"] == []
-    assert response["metadata"]["counts"] == {"stations": 0, "rows": 0}
+    assert response["metadata"]["counts"] == {"stations": 0, "stations_matched": 0, "rows": 0}
     assert "WARNING" in caplog.text
     assert "No stations available for given constraints" in caplog.text
 
