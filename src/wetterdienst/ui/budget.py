@@ -161,12 +161,11 @@ def _largest(
     """
     if listed is None or low > high or not listed(low) or listed(high):
         return _bisect(low, high, fits, guess)
-    step = _bisect(low, high, listed, high)
-    if step is None:  # pragma: no cover - `listed(low)` held
-        return _bisect(low, high, fits, guess)
+    # `listed(low)` held and `listed(high)` did not, so the step is in `low..high - 1`
+    step = _bisect(low, high - 1, listed, high - 1) or low
     # beyond the step the block has no ids, and `fits` is monotone: the first probe, the next `n`, is the one that
     # fits if any does, which spares the search of the large side where the budget falls below the step
-    if step < high and fits(step + 1):
+    if fits(step + 1):
         return _bisect(step + 2, high, fits, guess) or step + 1
     return _bisect(low, step, fits, guess)
 
@@ -334,15 +333,13 @@ def _made(
     return _Attempt(content, metadata, answer_size(content, request, metadata), note)
 
 
-def _lists_ids(result: StationsResult | _SeriesResult, frame: pl.DataFrame) -> bool:
+def _lists_ids(result: _SeriesResult, frame: pl.DataFrame) -> bool:
     """Tell whether the block of the answer made for `frame` of `result` lists the ids of its stations.
 
     The block lists them for `MAX_LISTED_STATION_IDS` stations or fewer, so the answer of a cut that crosses that count
     is the smaller by the ids, which `_largest` is told where it falls.
     """
-    cut = replace(result, df=frame)
-    if not isinstance(cut, StationsResult):
-        cut = cut._with_stations_of_rows()  # noqa: SLF001
+    cut = replace(result, df=frame)._with_stations_of_rows()  # noqa: SLF001
     return len(listed_stations(cut)) <= MAX_LISTED_STATION_IDS
 
 

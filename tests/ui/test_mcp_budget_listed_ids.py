@@ -127,6 +127,10 @@ def test_a_rank_is_cut_to_the_most_that_fits_whatever_the_size_of_the_block(
 ) -> None:
     """Sweep the legend and the rank: the stations kept are the largest cut that fits, and more rank is never fewer.
 
+    What is promised: every search of the budget finds the largest cut that fits (held to a count of its range), and
+    among the ranks that are cut, more rank never returns fewer stations. What is not: a rank whose answer is whole
+    carries no truncation note, so the next rank, cut with its note, may return fewer than it did (GH-4525).
+
     The legend decides where the budget falls, so the sweep puts the cut on either side of the 100-id step, and at it;
     the rank decides the probes, through the digits of its note. `listing` is the stations the provider lists: 900
     of which the rank asks for some, or the rank's own number of them.
@@ -142,8 +146,8 @@ def test_a_rank_is_cut_to_the_most_that_fits_whatever_the_size_of_the_block(
                 restapi, "get_stations", lambda rank=rank, **_kwargs: _stations_by_rank(listing or rank, rank)
             )
             kept.append(_the_stations_of_a_rank(rank, listed=listing or rank))
-        # an answer that is whole carries no note, and the one that follows may be cut to less than it: only the ranks
-        # that are cut are held to the promise of GH-4036
+        # the answer of a rank that is whole has no note and the cut one that follows may return fewer (GH-4525): only
+        # the ranks that are cut are held to the promise of GH-4036
         cut = [count for count, rank in zip(kept, ranks, strict=True) if count < rank]
         assert cut == sorted(cut), (legend, kept)
         crossed += any(MAX_LISTED_STATION_IDS - 4 <= count <= MAX_LISTED_STATION_IDS + 4 for count in cut)
@@ -174,16 +178,25 @@ def _values_of_many_stations(count: int) -> Any:  # noqa: ANN401
     return replace(_values_of(_NOW, 1), df=frame, stations=stations)
 
 
-@pytest.mark.parametrize("legend", [14_400, 14_525, 14_550, 14_700, 14_800])
 def test_the_rows_of_one_timestamp_are_cut_to_the_most_that_fits_across_the_step(
-    monkeypatch: pytest.MonkeyPatch, legend: int
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Cut through a timestamp, each row is a station more: the block's ids go where the 101st comes in."""
+    """Cut through a timestamp, each row is a station more: the block's ids go where the 101st comes in.
+
+    The legends are the ones where a plain bisection stops short of the most that fits at 101 rows or fewer; the sweep
+    holds that the cuts fall on both sides of the step, so that a change to the block that moves them off it fails
+    here instead of leaving the test to pass without testing the step.
+    """
     searches = _checked_searches(monkeypatch)
-    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(legend))
     _stub_values(monkeypatch, _values_of_many_stations(150))
-
-    _, size = _the_client_gets(_client_sees("values", {**_VALUES, "with_metadata": True, "format": "json"}))
-
-    assert size <= ANSWER_BUDGET
-    assert searches
+    kept = []
+    listed = set()
+    for legend in (14_400, 14_525, 14_550, 14_700, 14_800):
+        monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_, n=legend: _a_legend_of(n))
+        answer, size = _the_client_gets(_client_sees("values", {**_VALUES, "with_metadata": True, "format": "json"}))
+        assert size <= ANSWER_BUDGET, legend
+        kept.append(len({row["station_id"] for row in answer["values"]}))
+        listed.add(answer["metadata"]["request"]["stations"]["ids"] is not None)
+    assert len(searches) == 5
+    assert listed == {True, False}, kept
+    assert min(kept) <= MAX_LISTED_STATION_IDS < max(kept), kept
