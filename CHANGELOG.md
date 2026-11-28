@@ -61,6 +61,17 @@ Types of changes:
   longer `station_ids` list (an id can bring its provider's licence). REST, the CLI and Python are
   not cut and unchanged. (GH-4525)
 
+### Security
+
+- The floor of lxml is 6.2.0 (was 4.9.1) and that of the `pdf` extra's pypdf is 7.2.0 (was 7.1.1).
+  lxml before 6.2.0 has GHSA-27mw-m39x-fm32 and GHSA-59qx-3jjv-x996 (high: a double free and a use
+  after free in `iterparse()` / `XMLPullParser`, which the readers of DWD MOSMIX and DMO use),
+  GHSA-p8vp-2pg3-qf7w and GHSA-23p9-v872-36p9 (medium; the bundled libxml2's XPath, and `xmlfile()`
+  / `htmlfile()`, which wetterdienst does not call). pypdf 7.2.0 fixes GHSA-q8xc-gmv4-62h9,
+  GHSA-8228-3pmm-p2wh and GHSA-vxwm-8m4v-3m2w (medium: large memory use while reading a PDF). An
+  existing installation must upgrade them itself (`pip install -U "lxml>=6.2.0"`). Not a break:
+  the floors move in a minor, and no API changed (GH-4531)
+
 ## [0.202.0] - 2026-11-28
 
 ### Changed
