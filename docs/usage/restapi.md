@@ -663,8 +663,11 @@ the terms are those of each provider it lists.
   `aggregation` and its `timestamp_position` (what they mean: [Aggregation and timestamp
   position](../data/parameters.md#aggregation-and-timestamp-position-in-the-answers); `null` is not stated).
 - **`quality`**: what the `quality_flags` of a reading holds (its `format`), the `source_flags`, the
-  quality flags the datasets read publish, whose code is the first token of `quality_flags`, and the
-  `legend`: what each kind of token means for the network read, in the order of the column. An entry has
+  quality flags the datasets read publish, whose code is the first token of `quality_flags` (only those of
+  the parameters read: the daily `climate_summary`'s wind gust and mean wind speed have `qn_3`, its other parameters
+  `qn_4`, the whole dataset both; each entry has its own `codes`, the levels its dataset's document lists, `null` where the
+  source lists none), and the `legend`, whose codes of the source's own flag are the union of the entries' over
+  the datasets read: what each kind of token means for the network read, in the order of the column. An entry has
   its `kind` (`zone` for `zone:mez`; `null` for the source's own flag, which has no prefix and comes
   first), how it is `written` (`zone:<mez|mez-1973-75|mez-local-mean-time|woz>`, `raw:<text>`), its
   `meaning` and, where the source documents a closed set, its `codes` with their meanings (DMI's

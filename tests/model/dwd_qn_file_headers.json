@@ -1,0 +1,96 @@
+{
+  "about": "The header line of the data file of each DWD observation product whose files have more than one quality column, or (subdaily/wind_extreme) one file for each of its two, as the climate data centre serves it (read 2026-11-28). tests/model/test_quality_flags_of.py holds the order of the metadata to it.",
+  "files": {
+    "subdaily/wind_extreme": [
+      {
+        "file": "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/extreme_wind/recent/terminwerte_FX3_00011_akt.zip",
+        "columns": [
+          "STATIONS_ID",
+          "MESS_DATUM",
+          "QN_8",
+          "FX_911_3"
+        ]
+      },
+      {
+        "file": "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/extreme_wind/recent/terminwerte_FX6_00011_akt.zip",
+        "columns": [
+          "STATIONS_ID",
+          "MESS_DATUM",
+          "QN_8",
+          "FX_911_6"
+        ]
+      }
+    ],
+    "daily/climate_summary": [
+      {
+        "file": "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent/tageswerte_KL_00011_akt.zip",
+        "columns": [
+          "STATIONS_ID",
+          "MESS_DATUM",
+          "QN_3",
+          "FX",
+          "FM",
+          "QN_4",
+          "RSK",
+          "RSKF",
+          "SDK",
+          "SHK_TAG",
+          "NM",
+          "VPM",
+          "PM",
+          "TMK",
+          "UPM",
+          "TXK",
+          "TNK",
+          "TGK"
+        ]
+      }
+    ],
+    "monthly/climate_summary": [
+      {
+        "file": "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/kl/recent/monatswerte_KL_00044_akt.zip",
+        "columns": [
+          "STATIONS_ID",
+          "MESS_DATUM_BEGINN",
+          "MESS_DATUM_ENDE",
+          "QN_4",
+          "MO_N",
+          "MO_TT",
+          "MO_TX",
+          "MO_TN",
+          "MO_FK",
+          "MX_TX",
+          "MX_FX",
+          "MX_TN",
+          "MO_SD_S",
+          "QN_6",
+          "MO_RR",
+          "MX_RS"
+        ]
+      }
+    ],
+    "annual/climate_summary": [
+      {
+        "file": "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/annual/kl/recent/jahreswerte_KL_00044_akt.zip",
+        "columns": [
+          "STATIONS_ID",
+          "MESS_DATUM_BEGINN",
+          "MESS_DATUM_ENDE",
+          "QN_4",
+          "JA_N",
+          "JA_TT",
+          "JA_TX",
+          "JA_TN",
+          "JA_FK",
+          "JA_SD_S",
+          "JA_MX_FX",
+          "JA_MX_TX",
+          "JA_MX_TN",
+          "QN_6",
+          "JA_RR",
+          "JA_MX_RS"
+        ]
+      }
+    ]
+  }
+}

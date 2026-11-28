@@ -24,9 +24,15 @@ from urllib.parse import quote
 from pydantic import BaseModel, ConfigDict, Field
 
 from wetterdienst.metadata.parameter_table import PARAMETERS, Aggregation
-from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
+from wetterdienst.model.metadata import TimestampPosition, quality_flags_of
 from wetterdienst.model.processing_note import STATION_IDS_NOTE, processing_note
-from wetterdienst.model.quality_legend import QualityKind, quality_legend, source_flag_note
+from wetterdienst.model.quality_legend import (
+    QualityCode,
+    QualityKind,
+    quality_legend,
+    source_flag_codes,
+    source_flag_note,
+)
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
     StationsFilter,
@@ -204,6 +210,12 @@ class SourceQualityFlag(BaseModel):
     dataset: str
     name_original: str
     description: str | None
+    codes: list[QualityCode] | None = Field(
+        description="The codes this flag takes, as its dataset's documentation lists them (for DWD's observation "
+        "network the quality levels of that product, with DWD's words, where DWD publishes a description of it). "
+        "Null where the source lists none for this dataset. The `legend`'s codes of the source's own flag are the "
+        "union of these over the datasets read.",
+    )
 
 
 class Quality(BaseModel):
@@ -214,8 +226,9 @@ class Quality(BaseModel):
     column: Literal["quality_flags"] = "quality_flags"
     format: str = _QUALITY_FLAGS_DESCRIPTION
     source_flags: list[SourceQualityFlag] = Field(
-        description="The quality flags the datasets read publish, which the first token of `quality_flags` is "
-        "the code of.",
+        description="The quality flags the datasets read publish for the parameters read, which the first token of "
+        "`quality_flags` is the code of: where a dataset has several (DWD's daily `climate_summary`: one for the "
+        "wind, one for the rest), only those of the parameters read are listed, and each tells its own `codes`.",
     )
     legend: list[QualityKind] = Field(
         description="What the tokens of `quality_flags` mean for this network, in the order of the column: the "
@@ -770,10 +783,10 @@ def result_metadata(
                     dataset=dataset.name,
                     name_original=flag.name_original,
                     description=flag.description,
+                    codes=source_flag_codes(provider, network, f"{dataset.resolution.name}/{dataset.name}"),
                 )
                 for dataset in read_datasets
-                for flag in dataset.parameters
-                if is_quality_flag(flag)
+                for flag in quality_flags_of(dataset, [p for p in parameters if p.dataset is dataset])
             ],
         )
     return block

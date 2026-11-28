@@ -724,9 +724,16 @@ def _quality_tables(quality: Mapping[str, Any], frame: pl.DataFrame) -> list[Tab
             tables.append(
                 Table(
                     "source quality flags",
-                    ["dataset", "name_original", "description"],
+                    ["dataset", "name_original", "description", "levels"],
                     [
-                        [cell(f"{e['resolution']}/{e['dataset']}"), cell(e["name_original"]), cell(e["description"])]
+                        [
+                            cell(f"{e['resolution']}/{e['dataset']}"),
+                            cell(e["name_original"]),
+                            cell(e["description"]),
+                            # the codes of this flag alone, as the dataset's document lists them; the table above has
+                            # their words for the ones that occur
+                            cell(",".join(c["code"] for c in e["codes"]) if e.get("codes") else None),
+                        ]
                         for e in source_flags
                     ],
                 )

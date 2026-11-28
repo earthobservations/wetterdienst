@@ -483,7 +483,13 @@ def test_with_metadata_adds_the_settings_and_the_tables_of_the_parameters_and_th
         "column": "quality_flags",
         "format": "One string per reading.",
         "source_flags": [
-            {"resolution": "daily", "dataset": "d", "name_original": "qn_3", "description": "Quality flag."}
+            {
+                "resolution": "daily",
+                "dataset": "d",
+                "name_original": "qn_3",
+                "description": "Quality flag.",
+                "codes": None,
+            }
         ],
         "legend": [{"kind": None, "written": "<code>", "meaning": "The source's own flag, as it writes it."}],
     }
@@ -501,7 +507,8 @@ def test_with_metadata_adds_the_settings_and_the_tables_of_the_parameters_and_th
     assert parsed.get("unit_targets") == "temperature=degree_celsius"
     assert parsed.table("parameters").rows == [["daily/d", "a", "A", "temperature", "°C", "mean", None]]
     assert parsed.table("quality_flags legend").attribute("column").startswith("quality_flags: comma-separated")
-    assert parsed.table("source quality flags").rows == [["daily/d", "qn_3", "Quality flag."]]
+    # a flag whose source lists no codes has an empty `levels` cell
+    assert parsed.table("source quality flags").rows == [["daily/d", "qn_3", "Quality flag.", None]]
     assert "very long" not in text
 
 
@@ -555,7 +562,20 @@ def _flag_tables(flags: list[str | None], readings: list[float | None] | None = 
     """Write the answer of dwd/observation with a reading for each of the flags and its with_metadata, and read it."""
     block = _quality_block("dwd", "observation", ["daily/climate_summary"])
     block["quality"]["source_flags"] = [
-        {"resolution": "daily", "dataset": "d", "name_original": "qn_3", "description": "Quality level."}
+        {
+            "resolution": "daily",
+            "dataset": "d",
+            "name_original": "qn_3",
+            "description": "Quality level.",
+            "codes": [{"code": "1", "meaning": "a"}, {"code": "2", "meaning": "b"}, {"code": "10", "meaning": "c"}],
+        },
+        {
+            "resolution": "daily",
+            "dataset": "other",
+            "name_original": "qn_4",
+            "description": "Not in the answer.",
+            "codes": [{"code": "1", "meaning": "a"}],
+        },
     ]
     readings = readings or [1.0] * len(flags)
     rows = [("01975", "daily", "d", "a", day(i), v, f) for i, (f, v) in enumerate(zip(flags, readings, strict=True))]
@@ -576,8 +596,10 @@ def test_the_legend_lists_only_the_kinds_and_codes_that_occur() -> None:
     assert "woz" not in text
     assert "suspect" not in text
     assert "documentation" not in text
-    # the one source quality flag is the code of the first token, and there is one
-    assert parsed.table("source quality flags").rows == [["daily/d", "qn_3", "Quality level."]]
+    # the one source quality flag of the datasets in the answer is the code of the first token, and tells its levels
+    source = parsed.table("source quality flags")
+    assert source.columns == ["dataset", "name_original", "description", "levels"]
+    assert source.rows == [["daily/d", "qn_3", "Quality level.", "1,2,10"]]
 
 
 def test_a_row_with_a_raw_token_still_reads_and_its_kind_is_listed() -> None:

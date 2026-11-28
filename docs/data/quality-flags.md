@@ -109,6 +109,14 @@ Which levels a product lists differs, and a level is never carried over from ano
 In an answer of datasets that list different levels the legend says which dataset lists which, and the sentence on
 1980 stands only for the datasets that list `5` and `10`.
 
+`metadata.quality.source_flags` names the `QN` columns of the answer, one entry for each, with the `codes` (the
+levels) of that entry's own dataset: the `legend`'s codes are their union. Where a dataset has more than one `QN`
+column (the daily, monthly and annual `climate_summary`: `QN_3` for the wind gust and mean wind speed, `QN_4` for
+the rest of the daily one, `QN_4` and `QN_6` of the other two; the sub-daily `wind_extreme`: `QN_8_3` and `QN_8_6`) a
+parameter belongs to the `QN` column before it in DWD's file, and an answer of single parameters lists only the
+columns of those it reads. A request for the whole dataset lists them all. `codes` is `null` for a dataset DWD
+describes no levels of.
+
 The German descriptions word `7` differently: "geprüft, gepflegt, nicht korrigiert" (checked, maintained, not
 corrected; daily `kl` and hourly air temperature), where the English ones say "second control done, before
 correction". The German words of the others are the same as the English ones in meaning ("nur formale Prüfung",
