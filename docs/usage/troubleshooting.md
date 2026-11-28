@@ -32,6 +32,10 @@ The usual reasons:
   `stations`); a day that is not published yet, or before the station began, is empty. `periods` that the dataset
   does not publish under are refused rather than empty; an `end` without a `start` is the one day of `end`, not
   everything up to it.
+- **No station was read.** The answer carries a `no-station-read` warning: every station of the selection begins
+  after the window (named by id, by `rank` or on ECCC; naming them does not read them, so ask for a window they
+  cover), or the selection holds no station (a name, a box or a distance that matches none, with a record in the window; check it
+  with `stations`). The request did not fail.
 - **The station has no data for the parameters.** A station id that has none of the requested parameters is left
   out with a warning (`unknown-station` in the `metadata` of the REST answer, a log line in Python), and when none
   is left the result is empty. Ask `stations` with the same `parameters` first: it lists only the stations that have

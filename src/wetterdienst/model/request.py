@@ -1009,6 +1009,24 @@ class TimeseriesRequest:
 
         """
 
+    def _datasets_without_positions_asked(self) -> list[str] | None:
+        """Say whether a search by place finds no station of this request for want of positions.
+
+        None where it can: the network has positions, and none of the datasets asked for is one of
+        `datasets_without_positions`. An empty list where the network as a whole has none, else the datasets asked for
+        that have none, sorted. The one condition of `positions-unavailable` (`_warn_no_positions`) and of the walk,
+        which does not tell an empty selection (`no-station-read`) that this explains, recorded or not (GH-4510).
+        """
+        if not self.stations_have_positions:
+            return []
+        asked = [
+            f"{parameter.dataset.resolution.name}/{parameter.dataset.name}"
+            for parameter in self.parameters
+            if isinstance(parameter, ParameterModel)
+        ]
+        without = sorted({name for name in asked if name in self.datasets_without_positions})
+        return without or None
+
     def _warn_no_positions(self) -> None:
         """Tell, for a search by place, that the stations of this network or of a dataset of it have no position.
 
@@ -1023,15 +1041,10 @@ class TimeseriesRequest:
 
         network = Wetterdienst._network_of(type(self)) or type(self).__name__  # noqa: SLF001
         by_name = True
-        if self.stations_have_positions:
-            asked = [
-                f"{parameter.dataset.resolution.name}/{parameter.dataset.name}"
-                for parameter in self.parameters
-                if isinstance(parameter, ParameterModel)
-            ]
-            without = sorted({name for name in asked if name in self.datasets_without_positions})
-            if not without:
-                return
+        without = self._datasets_without_positions_asked()
+        if without is None:
+            return
+        if without:
             what = f"{network} {', '.join(without)}"
             by_name = any(name not in self.datasets_without_names for name in without)
         else:
