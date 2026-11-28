@@ -624,6 +624,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             self.sr.end,
             enabled=self._warn_without_rows,
             asked=asked,
+            # the named stations the walk leaves out for a list that begins after the window: told by
+            # `station-without-rows` where another station was read, by `no-station-read` where none was (GH-4522)
+            late=[
+                cast("str", station_id)
+                for (station_id,), meta in groups
+                if asked is not None and self._begins_after_window(meta)
+            ],
             # `skip_empty` tells a station with a reading, all null, by `station-skipped` (`_leave_out_emptied`)
             nulls_dropped=self.sr.options.drop_nulls_effective and not self.sr.options.skip_empty,
             left_out=self._left_out_of_estimate,
