@@ -267,10 +267,11 @@ def test_a_larger_rank_never_returns_fewer_stations(monkeypatch: pytest.MonkeyPa
     The rank that fits without the block (127 near Berlin, with the legend of the real dataset) used to give all of
     them, and a few ranks more gave 89, as the block was kept and the stations cut.
     """
-    # the legend and the rest of the block together decide where the budget falls; the codes of each source flag
-    # (GH-4507) made the rest larger, so the legend is smaller than it was, which keeps the cut clear of the sizes
-    # where the search's probes meet a size that is not monotone in the count
-    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(7_000))
+    # the legend and the rest of the block together decide where the budget falls. The search is exact across the
+    # step of the block's ids whatever the legend (`tests/ui/test_mcp_budget_listed_ids.py` sweeps it); what a legend
+    # can still move is a whole answer followed by a cut one that returns fewer, for the size of the truncation note
+    # (GH-4525), which the ranks below are chosen not to meet
+    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(8_000))
     returned = []
     for rank in (20, 60, 80, 95, 100, 110, 115, 120, 125, 130, 135, 150, 200, 700):
         monkeypatch.setattr(restapi, "get_stations", lambda rank=rank, **_kwargs: _stations_by_rank(900, rank))
