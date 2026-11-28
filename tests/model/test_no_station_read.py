@@ -169,7 +169,7 @@ def test_a_network_that_opted_out_of_the_rule_is_told_by_its_own_walk(monkeypatc
         (StationsFilter.BY_RANK, "no station with a record in the window with a position was found for the rank"),
         (
             StationsFilter.ALL,
-            "the network lists no station for the requested parameters and periods of DwdObservationRequest",
+            "dwd/observation lists no station for the requested parameters in the periods historical",
         ),
     ],
 )
@@ -317,3 +317,23 @@ def test_a_result_built_by_hand_without_the_start_column_is_cut_by_no_rule() -> 
     result = StationsResult(request=_dwd(), df=df, _df_all=df, _stations_filter=StationsFilter.ALL)
 
     assert station_ids_read(result) is None
+
+
+def test_the_list_of_a_network_that_holds_no_station_names_the_periods_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The network as `provider/network` and the periods themselves, not the class name."""
+    request = DwdObservationRequest(
+        parameters=["daily/climate_summary/temperature_air_mean_2m"],
+        periods=["historical", "recent"],
+        start="2022-02-18",
+        end="2022-02-18",
+        settings=Settings(cache_disable=True),
+    )
+
+    (warning,) = _walk(request, _frame([]), StationsFilter.ALL, monkeypatch)
+
+    assert warning["message"].endswith(
+        ": dwd/observation lists no station for the requested parameters in the periods historical, recent. "
+        "The request did not fail."
+    )

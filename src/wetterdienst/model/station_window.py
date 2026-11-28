@@ -234,6 +234,20 @@ def _end_text(end: dt.datetime) -> str:
     return f"{end:%Y-%m-%d %H:%M} UTC"
 
 
+def _lists_no_station(request: object) -> str:
+    """Say that the network lists no station for the parameters, and the periods where the request names some.
+
+    The network as `provider/network` (`_warn_no_positions` names it so), the class name where the registry lacks it.
+    """
+    from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+    network = Wetterdienst._network_of(type(request)) or type(request).__name__  # noqa: SLF001
+    periods = ", ".join(period.value for period in sorted(getattr(request, "periods", None) or ()))
+    return f"{network} lists no station for the requested parameters" + (
+        f" in the periods {periods}" if periods else ""
+    )
+
+
 def _empty_is_explained(stations: StationsResult) -> bool:
     """Say whether another warning of the request already says why this selection holds no station.
 
@@ -277,8 +291,7 @@ def warn_no_station_read(
             return
         kind = _EMPTY_SELECTION.get(stations._stations_filter)  # noqa: SLF001
         if kind is None:
-            request = getattr(stations, "request", None)
-            why = f"the network lists no station for the requested parameters and periods of {type(request).__name__}"
+            why = _lists_no_station(getattr(stations, "request", None))
         else:
             why = kind.format(what="no station with a record in the window" if window else "no station")
         warn_response(
