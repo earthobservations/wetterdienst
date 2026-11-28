@@ -30,8 +30,9 @@ station read with `drop_nulls=false` is listed): the stations that `metadata.req
 into one row, which names no dataset, the block has an entry for each of the datasets, and the GeoJSON one
 feature for the station. A station of the request with no rows is not in
 the block, and the block is an empty list where there are no rows. A station named in `stations` that has no
-rows while other named stations do, and one that is not read because its list begins after the window, is told by a
-`station-without-rows` warning ([below](#response-metadata)). To find a
+rows while other named stations do is told by a `station-without-rows` warning ([below](#response-metadata)), and so
+is one that is not read because its list begins after the window, where another named station was read (else
+`no-station-read` tells it). To find a
 requested station that has no rows otherwise, compare the ids the answer names (`metadata.request.stations.ids`, up to 100 stations, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`
 (with `rank`, `stations` lists the N closest by distance, not the ones the walk took). The `history` block
 lists the stations of the request. With `with_metadata=true`, the JSON and GeoJSON of `values`,
@@ -404,7 +405,8 @@ what the answer is missing:
   source has values for that the answer leaves out because they are of another series, see below),
   `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
-  below), `station-without-rows` (ids of `stations` that returned no rows while others did, or were not read for their list beginning after the window, see below),
+  below), `station-without-rows` (ids of `stations` that returned no rows while others did, or, where another named station was
+  read, were not read for their list beginning after the window, see below),
   `stations-outside-window` (stations of a selection that the window leaves out: their list ends more than 366 days, 732
   for annual data, before the window or begins after it, so they are not read and the answer has none of their rows; how
   many and the first ten, and that naming by id reads the ones whose list ended, not the ones whose list begins after
@@ -548,8 +550,8 @@ what the answer is missing:
   the same on the command line, in REST and in the MCP tool) returned no rows while other named stations returned
   rows, which `values` alone does not say, and, where at least one named station was read, which stations were not
   read at all because their list begins after the window (below). It carries `stations` (the ids, in the order of the
-  answer, which is the catalogue's and not the order they were asked in, the first ten if there are more; the message
-  then gives their number). It is told for that selection alone: a point (`rank`, `distance`), a box, a name and `all` have
+  answer, which is the catalogue's and not the order they were asked in, the stations that were read first and then
+  the ones not read, the first ten if there are more; the message then gives their number, of each kind). It is told for that selection alone: a point (`rank`, `distance`), a box, a name and `all` have
   empty stations as the ordinary case, a ranked walk stops at the first stations with data, and `interpolate`
   and `summarize` read stations as candidates or one station and do not tell it.
 
@@ -569,7 +571,7 @@ what the answer is missing:
   [Limits](#limits)), so the source was not asked, and it is named by its own reason in the same warning, apart from the
   ones read: "Station B was not read: the station list begins after the window's end, 2022-02-18, so by the list it has
   no data in it. Naming it by id does not read it." (the ids are in `stations`, after the ones that were read and came
-  back empty). That holds also where no other station has rows, as long as one named station was read: where every
+  back empty, under the one cap of ten). That holds also where no other station has rows, as long as one named station was read: where every
   named station was read and none has rows, `parameter-without-rows` names the ones read (not the ones not read), and
   where no named station was read at all it is `no-station-read` that names them all, so a station is never named by
   both. Not for `interpolate` and `summarize`.

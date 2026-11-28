@@ -149,7 +149,7 @@ def test_a_station_the_window_precedes_is_named(monkeypatch: pytest.MonkeyPatch)
     (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
     assert warning["stations"] == ["00002", "00005"]
     assert warning["message"] == (
-        "Stations 00002, 00005 were not read: the station list begins after the window's end, 1935-05-03, so by the "
+        "Stations 00002, 00005 were not read: their station list begins after the window's end, 1935-05-03, so by the "
         "list they have no data in it. Naming them by id does not read them."
     )
 

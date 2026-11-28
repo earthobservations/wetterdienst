@@ -26,7 +26,7 @@ STATION_WITHOUT_ROWS = "station-without-rows"
 NO_STATION_READ = "no-station-read"
 PARAMETER_WITHOUT_ROWS = "parameter-without-rows"
 WHY = (
-    "the station list begins after the window's end, 2022-02-18, so by the list {} no data in it. "
+    "{} station list begins after the window's end, 2022-02-18, so by the list {} no data in it. "
     "Naming {} by id does not read {}."
 )
 
@@ -83,7 +83,7 @@ def test_a_late_station_is_named_where_another_was_read_without_rows(monkeypatch
 
     (warning,) = told[STATION_WITHOUT_ROWS]
     assert warning["stations"] == ["B"]
-    assert warning["message"] == f"Station B was not read: {WHY.format('it has', 'it', 'it')}"
+    assert warning["message"] == f"Station B was not read: {WHY.format('its', 'it has', 'it', 'it')}"
     (parameter_warning,) = told[PARAMETER_WITHOUT_ROWS]
     assert "station A" in parameter_warning["message"]
     assert "station B" not in parameter_warning["message"]
@@ -118,7 +118,7 @@ def test_a_late_station_with_one_that_has_rows_is_named_with_its_reason(monkeypa
 
     (warning,) = told[STATION_WITHOUT_ROWS]
     assert warning["stations"] == ["B"]
-    assert warning["message"] == f"Station B was not read: {WHY.format('it has', 'it', 'it')}"
+    assert warning["message"] == f"Station B was not read: {WHY.format('its', 'it has', 'it', 'it')}"
     assert "The source holds no values" not in warning["message"]
     assert NO_STATION_READ not in told
 
@@ -131,7 +131,7 @@ def test_several_late_stations_are_named_together(monkeypatch: pytest.MonkeyPatc
 
     (warning,) = told[STATION_WITHOUT_ROWS]
     assert warning["stations"] == ["B", "C"]
-    assert warning["message"] == f"Stations B, C were not read: {WHY.format('they have', 'them', 'them')}"
+    assert warning["message"] == f"Stations B, C were not read: {WHY.format('their', 'they have', 'them', 'them')}"
 
 
 def test_a_late_station_and_an_empty_one_are_one_warning_naming_each_by_its_reason(
@@ -145,7 +145,7 @@ def test_a_late_station_and_an_empty_one_are_one_warning_naming_each_by_its_reas
     (warning,) = told[STATION_WITHOUT_ROWS]
     assert warning["stations"] == ["B", "C"]
     assert warning["message"].startswith("No rows for station B on 2022-02-18. The source holds no values of it there")
-    assert warning["message"].endswith(f"Station C was not read: {WHY.format('it has', 'it', 'it')}")
+    assert warning["message"].endswith(f"Station C was not read: {WHY.format('its', 'it has', 'it', 'it')}")
     assert warning["message"].count("station B") == 1
     assert "station C" not in warning["message"].replace("Station C", "")
 
@@ -196,3 +196,51 @@ def test_an_estimate_tells_none_of_it(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert STATION_WITHOUT_ROWS not in told
     assert not alone
+
+
+def test_the_cap_is_one_over_both_groups_and_the_message_counts_each(monkeypatch: pytest.MonkeyPatch) -> None:
+    """10 stations read and empty and 1 not read: `stations` holds the first ten, the message says 10 and 1."""
+    df = _frame([("A", OLD, None), *[(f"{i:05d}", OLD, None) for i in range(10)], ("L", FUTURE, None)])
+
+    told = _walk(df, monkeypatch, with_rows=("A",))
+
+    (warning,) = told[STATION_WITHOUT_ROWS]
+    assert warning["stations"] == [f"{i:05d}" for i in range(10)]
+    assert "No rows for stations 00000, 00001" in warning["message"]
+    assert "00009 on 2022-02-18" in warning["message"]
+    assert f"1 station was not read: {WHY.format('its', 'it has', 'it', 'it')}" in warning["message"]
+
+
+def test_twelve_empty_and_twelve_not_read_name_ten_in_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """12 + 12: `stations` is the first ten (all of the first group), and the message counts both groups."""
+    df = _frame(
+        [
+            ("A", OLD, None),
+            *[(f"E{i:02d}", OLD, None) for i in range(12)],
+            *[(f"L{i:02d}", FUTURE, None) for i in range(12)],
+        ]
+    )
+
+    told = _walk(df, monkeypatch, with_rows=("A",))
+
+    (warning,) = told[STATION_WITHOUT_ROWS]
+    assert warning["stations"] == [f"E{i:02d}" for i in range(10)]
+    message = warning["message"]
+    assert message.startswith("No rows for 12 stations, the first 10 of them E00, E01")
+    assert "12 stations were not read: their station list begins" in message
+    assert "L00" not in message
+    assert message.count("the first 10 of them") == 1
+
+
+def test_a_cap_that_cuts_through_the_second_group_names_its_share(monkeypatch: pytest.MonkeyPatch) -> None:
+    """4 read and empty, 12 not read: the first group is whole, the second names 6 of its 12."""
+    df = _frame(
+        [("A", OLD, None), *[(f"E{i}", OLD, None) for i in range(4)], *[(f"L{i:02d}", FUTURE, None) for i in range(12)]]
+    )
+
+    told = _walk(df, monkeypatch, with_rows=("A",))
+
+    (warning,) = told[STATION_WITHOUT_ROWS]
+    assert warning["stations"] == ["E0", "E1", "E2", "E3", *[f"L{i:02d}" for i in range(6)]]
+    assert "No rows for stations E0, E1, E2, E3 on" in warning["message"]
+    assert "12 stations, the first 6 of them L00, L01, L02, L03, L04, L05 were not read" in warning["message"]

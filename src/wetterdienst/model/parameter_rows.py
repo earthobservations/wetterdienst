@@ -57,9 +57,10 @@ the other stations have: at least one returned rows, and the stations named had 
 
 - It is told for that selection alone (a point, a box, a name or a rank has empty stations as the ordinary case, and a
   ranked walk stops early), after a walk read to its end, so that a station never read is never named.
-- The stations are in the order of the walk, capped as the other warnings cap theirs.
-- A station is named when the answer holds none of its rows: the source holds no readings of it in the window (one that
-  begins after the window too), or all of them were null and `drop_nulls` left them out (with `drop_nulls=False` the
+- The stations are in the order of the walk, capped as the other warnings cap theirs. Where it names stations that were
+  not read too (the last bullet), the ones read come first, then the others, under one cap of ten.
+- A station is named when the answer holds none of its rows: the source holds no readings of it in the window, or all
+  of them were null and `drop_nulls` left them out (with `drop_nulls=False` the
   station has rows).
 - It leaves out the stations another warning explains, those of `file-skipped`, `station-skipped`,
   `other-window-left-out` (the source holds values of them, of another series) and `window-not-closed` (of a window
@@ -70,7 +71,7 @@ the other stations have: at least one returned rows, and the stations named had 
   network has no station for (`unknown-station`).
 - A named station the walk does not read, its list beginning after the window (GH-4522), is named too, with that
   reason, where at least one station was read, with rows or not. Where none was read `no-station-read` names them, and
-  a station is never named by both.
+  a station is never named by both. The message says how many of each kind, and names those among the first ten.
 
 An estimate (`interpolate`, `summarize`) reads the stations around a point as candidates and none of the above applies
 to it: a station without a parameter is the ordinary case, and a walk that stops once it has enough stations never
@@ -353,6 +354,9 @@ class ParameterRows:
         )
         if not stations and not late:
             return
+        # one cap over both groups, the ones read first: `stations` holds the first ten, and each group's text names
+        # those of its own among them and says how many it has
+        shown = {*[*stations, *late][:MAX_STATIONS_LISTED]}
         parts = []
         if stations:
             many = len(stations) > 1
@@ -363,20 +367,35 @@ class ParameterRows:
             if self._nulls_dropped:
                 why += f", or {'all of them were' if many else 'every value was'} null and left out (`drop_nulls`)"
             advice = f" {' or '.join(hints).capitalize()}." if hints else ""
-            parts.append(f"No rows for {self._where(stations)}{window}{narrow}. {why}.{advice}")
+            parts.append(f"No rows for {self._where_shown(stations, shown)}{window}{narrow}. {why}.{advice}")
         if late:
-            parts.append(self._late_message(late))
+            parts.append(self._late_message(late, shown))
         warn_response(log, STATION_WITHOUT_ROWS, " ".join(parts), stations=[*stations, *late][:MAX_STATIONS_LISTED])
 
-    def _late_message(self, late: list[str]) -> str:
+    @staticmethod
+    def _where_shown(stations: list[str], shown: set[str]) -> str:
+        """Name the stations of one group as `_where` does, but only those of them in `shown`, and how many there are.
+
+        For a warning that holds two groups under one cap: a group that is all shown reads as `_where` reads it.
+        """
+        listed = [station for station in stations if station in shown]
+        count = len(stations)
+        if len(listed) == count:
+            return ParameterRows._where(stations)
+        if not listed:
+            return f"{count} station{'s' if count > 1 else ''}"
+        return f"{count} stations, the first {len(listed)} of them {', '.join(listed)}"
+
+    def _late_message(self, late: list[str], shown: set[str]) -> str:
         """Say that stations named by id were not read, because their list begins after the window (GH-4522)."""
-        where = self._where(late)
+        where = self._where_shown(late, shown)
         one = len(late) == 1
         end = f"'s end, {_end_text(self._end)}" if self._end is not None else ""
         return (
-            f"{where[0].upper()}{where[1:]} {'was' if one else 'were'} not read: the station list begins after the "
-            f"window{end}, so by the list {'it has' if one else 'they have'} no data in it. Naming "
-            f"{'it' if one else 'them'} by id does not read {'it' if one else 'them'}."
+            f"{where[0].upper()}{where[1:]} {'was' if one else 'were'} not read: "
+            f"{'its' if one else 'their'} station list begins after the window{end}, so by the list "
+            f"{'it has' if one else 'they have'} no data in it. Naming {'it' if one else 'them'} by id does not read "
+            f"{'it' if one else 'them'}."
         )
 
     def _narrowing(self) -> tuple[list[str], list[str]]:

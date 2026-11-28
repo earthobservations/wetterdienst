@@ -36,8 +36,7 @@ Types of changes:
   read because its list begins after the window is now named in `station-without-rows`, with that
   reason, also where no other station has rows (where another named station was read, with rows
   or not). Where no station was read `no-station-read` names them, as before; none is named
-  twice. `interpolate` and `summarize` as before. The docs say why a region differs from a box,
-  a distance, `all` and a name where a lookup skipped a directory (GH-4522)
+  twice. `interpolate` and `summarize` as before (GH-4522)
 
 ### Fixed
 
