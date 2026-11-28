@@ -111,7 +111,7 @@ dependencies = [
     "click>=8.3.2,<9",  # 8.2.0 breaks completion, 8.3.0 and 8.3.1 bare boolean options (GH-3826)
     "filelock>=3.30,<5",  # first release that honours fallback_to_soft=False (GH-3485)
     "fsspec[http]>=2026.6.0",
-    "lxml>=4.9.1,<7",
+    "lxml>=6.2.0,<7",  # 6.2.0 fixes GHSA-27mw-m39x-fm32 and -59qx-3jjv-x996 in iterparse (GH-4531)
     "measurement>=3.2,<4",
     "platformdirs>=4,<5",
     "polars[calamine]>=1.43.2,<3",
@@ -206,8 +206,10 @@ mysql = [
 ]
 pdf = [
     # 7.1.1 fixes denial-of-service advisories that `PdfReader` -> `extract_text()` reaches and 6.x never got
-    # (GHSA-5chg-c4f3-fw2p, -p3v2-r3fx-qpm6, -59jv-x5x2-gg4c, -7f8r-xhw3-553h, -cqpq-3wwr-f5p2); GH-4130, GH-4350
-    "pypdf>=7.1.1,<8",
+    # (GHSA-5chg-c4f3-fw2p, -p3v2-r3fx-qpm6, -59jv-x5x2-gg4c, -7f8r-xhw3-553h, -cqpq-3wwr-f5p2); GH-4130, GH-4350;
+    # 7.2.0 fixes the memory advisories GHSA-q8xc-gmv4-62h9 (indexed colour tables), -8228-3pmm-p2wh (embedded
+    # files) and -vxwm-8m4v-3m2w (cmaps), the last reached by `extract_text()`
+    "pypdf>=7.2.0,<8",
 ]
 plotting = [
     # 6.3 keeps the offset of a timezone-aware timestamp when it takes a polars frame (through narwhals, no pandas)
@@ -566,6 +568,12 @@ omit = [
 # Cooldown: ignore releases younger than this, so freshly published (and possibly
 # yanked or broken) versions never enter the lockfile.
 exclude-newer = "3 days"
+# lxml 6.2.0 (GHSA-27mw-m39x-fm32, -59qx-3jjv-x996, -p8vp-2pg3-qf7w, -23p9-v872-36p9; last wheel uploaded
+# 2026-11-27T15:07Z) and pypdf 7.2.0 (GHSA-q8xc-gmv4-62h9, -8228-3pmm-p2wh, -vxwm-8m4v-3m2w; published
+# 2026-11-26T15:38Z) are inside the cooldown. This line lets the lock take them. Delete it from
+# 2026-11-30T15:10Z, when both are three days old: left in, it holds them at the cutoffs below and
+# no newer release enters the lock.
+exclude-newer-package = { lxml = "2026-11-27T15:10:00Z", pypdf = "2026-11-26T15:40:00Z" }
 
 # The docs build needs Python 3.11.5 or later: every soupsieve release that fixes its advisories
 # (GHSA-7g44-g9rc-x53w, GHSA-6655-6qjp-jx7x, GHSA-mmhr-3c5m-f64f) does, and the package itself
