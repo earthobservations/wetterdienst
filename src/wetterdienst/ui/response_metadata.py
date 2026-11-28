@@ -717,6 +717,12 @@ def _with_elevation(
     return EstimateMetadata.model_validate({**dict(block), "request": request})
 
 
+def listed_stations(result: StationsResult | _ValuesResult[Any, Any]) -> list[str]:
+    """Give the ids of the stations a `result` holds, in order: the block counts them and, up to a limit, lists them."""
+    stations_frame = result.df if isinstance(result, StationsResult) else result.df_stations
+    return _unique(stations_frame.get_column("station_id")) if "station_id" in stations_frame.columns else []
+
+
 def result_metadata(
     result: StationsResult | _ValuesResult[Any, Any],
     *,
@@ -733,8 +739,7 @@ def result_metadata(
     ones in `result.df` where a `rank` or the budget of a tool's answer cut them (GH-4472).
     """
     stations = result if isinstance(result, StationsResult) else result.stations
-    frame = result.df if isinstance(result, StationsResult) else result.df_stations
-    ids = _unique(frame.get_column("station_id")) if "station_id" in frame.columns else []
+    ids = listed_stations(result)
     parameters = stations.parameters
     block = ResponseMetadata(
         api_version=API_VERSION,

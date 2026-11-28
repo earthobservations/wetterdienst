@@ -36,6 +36,11 @@ Types of changes:
   parameters read: a DWD `daily/climate_summary/wind_gust_max` answer names `qn_3`, not `qn_3` and
   `qn_4` (a parameter belongs to the `QN` column before it in DWD's file); a whole dataset lists all
   of its columns as before. (GH-4507)
+- An MCP `stations` or `values` answer cut to the budget with
+  `with_metadata` returns the most stations or rows that fit where the cut falls near 100 stations:
+  the block lists the ids of 100 stations or fewer, so a cut of 100 was larger than one of 101 and
+  the search could stop at 99 for one `rank` while a smaller one kept 105, breaking that a larger
+  `rank` never returns fewer stations. REST, the CLI and Python are not cut and unchanged. (GH-4520)
 
 ## [0.202.0] - 2026-11-28
 

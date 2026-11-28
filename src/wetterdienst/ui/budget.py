@@ -44,7 +44,9 @@ from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.row_selection import MAX_TOOL_SERIES
 from wetterdienst.ui.mcp import structured_size
 from wetterdienst.ui.response_metadata import (
+    MAX_LISTED_STATION_IDS,
     Counts,
+    listed_stations,
     response_headers,
     response_metadata,
     station_ids_headers,
@@ -120,7 +122,7 @@ def _size_in(content: str | bytes, fmt: str, metadata: ResponseMetadata) -> int:
     return len(json.dumps(json.loads(text), separators=(",", ":"), ensure_ascii=False)) + _RESULT_WRAPPER
 
 
-def _largest(low: int, high: int, fits: Callable[[int], bool], guess: int) -> int | None:
+def _bisect(low: int, high: int, fits: Callable[[int], bool], guess: int) -> int | None:
     """Find the largest `n` between `low` and `high` for which `fits(n)` is true, None if there is none.
 
     `fits` is true for the small and false for the large. The first probe is at `guess`, which a proportion of the
@@ -137,6 +139,36 @@ def _largest(low: int, high: int, fits: Callable[[int], bool], guess: int) -> in
         else:
             high = probe - 1
     return best
+
+
+def _largest(
+    low: int,
+    high: int,
+    fits: Callable[[int], bool],
+    guess: int,
+    *,
+    listed: Callable[[int], bool] | None = None,
+) -> int | None:
+    """Find the largest `n` between `low` and `high` for which `fits(n)` is true, None if there is none.
+
+    `fits` is true for the small and false for the large, except where the block of the answer lists the ids of the
+    stations kept (`MAX_LISTED_STATION_IDS`, GH-3061): the ids are written for the cut of `n` that has that many
+    stations or fewer, so the answer of the last such `n` is bigger than the one of the next, and `fits` may be false
+    below the step and true above it. `listed(n)` says whether the cut of `n` lists them: true for the small and false
+    for the large, as the stations of a cut only grow with `n`. The two sides of the step are searched in turn, the
+    large side first, so that the answer is the most that fits and a larger `n` is never refused for a smaller one
+    that fits (GH-4520). Without `listed` the block has no step and one search is made.
+    """
+    if listed is None or low > high or not listed(low) or listed(high):
+        return _bisect(low, high, fits, guess)
+    step = _bisect(low, high, listed, high)
+    if step is None:  # pragma: no cover - `listed(low)` held
+        return _bisect(low, high, fits, guess)
+    # beyond the step the block has no ids, and `fits` is monotone: the first probe, the next `n`, is the one that
+    # fits if any does, which spares the search of the large side where the budget falls below the step
+    if step < high and fits(step + 1):
+        return _bisect(step + 2, high, fits, guess) or step + 1
+    return _bisect(low, step, fits, guess)
 
 
 def _iso(value: dt.datetime) -> str:
@@ -302,6 +334,18 @@ def _made(
     return _Attempt(content, metadata, answer_size(content, request, metadata), note)
 
 
+def _lists_ids(result: StationsResult | _SeriesResult, frame: pl.DataFrame) -> bool:
+    """Tell whether the block of the answer made for `frame` of `result` lists the ids of its stations.
+
+    The block lists them for `MAX_LISTED_STATION_IDS` stations or fewer, so the answer of a cut that crosses that count
+    is the smaller by the ids, which `_largest` is told where it falls.
+    """
+    cut = replace(result, df=frame)
+    if not isinstance(cut, StationsResult):
+        cut = cut._with_stations_of_rows()  # noqa: SLF001
+    return len(listed_stations(cut)) <= MAX_LISTED_STATION_IDS
+
+
 def _lean(request: Any) -> Any:  # noqa: ANN401
     """Give the request without its `with_metadata`: the units, the quality legend and the settings are left out."""
     return request.model_copy(update={"with_metadata": False})
@@ -378,12 +422,24 @@ def _fit_values(
     tried: dict[int, _Attempt] = {}
 
     def fits(count: int) -> bool:
-        boundary = stamps[count - 1] if start else stamps[count_all - count]
-        cut = df.filter(pl.col("timestamp") <= boundary if start else pl.col("timestamp") >= boundary)
-        tried[count] = attempt(cut, count)
+        tried[count] = attempt(cut_at(count), count)
         return tried[count].size <= ANSWER_BUDGET
 
-    best = _largest(1, count_all - 1, fits, max(1, count_all * ANSWER_BUDGET // size)) if count_all > 1 else None
+    def cut_at(count: int) -> pl.DataFrame:
+        boundary = stamps[count - 1] if start else stamps[count_all - count]
+        return df.filter(pl.col("timestamp") <= boundary if start else pl.col("timestamp") >= boundary)
+
+    best = (
+        _largest(
+            1,
+            count_all - 1,
+            fits,
+            max(1, count_all * ANSWER_BUDGET // size),
+            listed=lambda count: _lists_ids(result, cut_at(count)),
+        )
+        if count_all > 1
+        else None
+    )
     if best is not None:
         return tried[best]
     # one timestamp is more than the budget: cut through it, keeping what fits of its rows. A compact text has a row for
@@ -408,7 +464,13 @@ def _fit_values(
         partial[index] = attempt(kept_rows(cuts[index - 1]), 1, within=rows.height)
         return partial[index].size <= ANSWER_BUDGET
 
-    kept = _largest(1, len(cuts), fits_rows, max(1, len(cuts) * ANSWER_BUDGET // size))
+    kept = _largest(
+        1,
+        len(cuts),
+        fits_rows,
+        max(1, len(cuts) * ANSWER_BUDGET // size),
+        listed=lambda index: _lists_ids(result, kept_rows(cuts[index - 1])),
+    )
     return partial[kept if kept is not None else 1]
 
 
@@ -472,7 +534,17 @@ def _fit_rows(
         tried[count] = attempt(count)
         return tried[count].size <= ANSWER_BUDGET
 
-    best = _largest(1, total - 1, fits, max(1, total * ANSWER_BUDGET // size)) if total > 1 else None
+    best = (
+        _largest(
+            1,
+            total - 1,
+            fits,
+            max(1, total * ANSWER_BUDGET // size),
+            listed=lambda count: _lists_ids(result, df.head(count)),
+        )
+        if total > 1
+        else None
+    )
     if best is not None:
         return tried[best]
     # not even one row fits: the first is kept, which the report of what was searched may be most of
@@ -618,7 +690,15 @@ def _fit_stations(
         tried[count] = _made(result, request, cut, note, render)
         return tried[count].size <= ANSWER_BUDGET
 
-    best = _largest(1, count_all - 1, fits, max(1, count_all * ANSWER_BUDGET // size))
+    # the block lists the ids of the stations kept up to `MAX_LISTED_STATION_IDS`, so the answer of a cut of 101 is
+    # smaller than one of 100, which the search is told of (GH-4520)
+    best = _largest(
+        1,
+        count_all - 1,
+        fits,
+        max(1, count_all * ANSWER_BUDGET // size),
+        listed=lambda count: count <= MAX_LISTED_STATION_IDS,
+    )
     # where not even one station fits, the first is kept: the probes ended at it
     return tried[best if best is not None else 1]
 
