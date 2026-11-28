@@ -138,7 +138,7 @@ def test_a_request_where_every_station_has_rows_is_told_of_nothing() -> None:
 
 
 def test_a_station_the_window_precedes_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The index says it began after the window ended: it is not read, and has no rows in it, which is told."""
+    """The index says it began after the window ended: it is not read, and is named with that reason (GH-4522)."""
     # the stub holds May 2020; 00001 (begun 1934) holds May 1935 instead, 00002 (1950) and 00005 (1980) began after it
     _serving(monkeypatch, s00001=lambda df: df.with_columns(pl.col("timestamp").dt.replace(year=1935)))
     begin_response()
@@ -148,7 +148,10 @@ def test_a_station_the_window_precedes_is_named(monkeypatch: pytest.MonkeyPatch)
 
     (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
     assert warning["stations"] == ["00002", "00005"]
-    assert warning["message"].startswith("No rows for stations 00002, 00005 from 1935-05-01 to 1935-05-03.")
+    assert warning["message"] == (
+        "Stations 00002, 00005 were not read: their station list begins after the window's end, 1935-05-03, so by the "
+        "list they have no data in it. Naming them by id does not read them."
+    )
 
 
 # what narrowed the request, and what could have emptied the station

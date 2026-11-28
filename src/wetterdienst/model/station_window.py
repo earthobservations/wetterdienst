@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED, _window
+from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED, _end_text, _window
 from wetterdienst.model.result import StationsFilter
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.response_warnings import (
@@ -224,14 +224,6 @@ _EMPTY_SELECTION = {
 }
 #: the selections that are a search by place, which a network or dataset without positions finds nothing by
 _BY_PLACE = frozenset({StationsFilter.BY_RANK, StationsFilter.BY_DISTANCE, StationsFilter.BY_BBOX})
-
-
-def _end_text(end: dt.datetime) -> str:
-    """Write the end of the window as a day where it is the end of one, else with its minutes."""
-    end = end.astimezone(dt.UTC)
-    if (end.hour, end.minute) in {(0, 0), (23, 59)}:
-        return f"{end:%Y-%m-%d}"
-    return f"{end:%Y-%m-%d %H:%M} UTC"
 
 
 def _lists_no_station(request: object) -> str:

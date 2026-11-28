@@ -30,6 +30,14 @@ Types of changes:
   `source quality flags` table has a `levels` column. The `legend`'s codes stay the union over the
   datasets read. (GH-4507)
 
+### Changed
+
+- A station asked for by id (`stations`, `wmo_id`, `wigos_id`, `icao_id`) that `values` does not
+  read because its list begins after the window is now named in `station-without-rows`, with that
+  reason, also where no other station has rows (where another named station was read, with rows
+  or not). Where no station was read `no-station-read` names them, as before; none is named
+  twice. `interpolate` and `summarize` as before (GH-4522)
+
 ### Fixed
 
 - `with_metadata`'s `metadata.quality.source_flags` lists only the quality columns of the

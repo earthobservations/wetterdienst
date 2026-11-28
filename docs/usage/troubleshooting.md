@@ -68,8 +68,10 @@ The usual reasons:
   were left out for another series is `other-window-left-out`'s, not named here), or, in the long shape
   with `drop_nulls` on, all were null and left out (`drop_nulls=false` shows them; the wide shape keeps them already,
   and the message does not offer the reason there). Ask `stations` for them without `timestamp` to see the span of
-  their record. It is told for a list of ids only, not for a point, box, name or `rank`, and not where every station
-  is empty.
+  their record. It names too a station of the list whose station list begins after the window: it is not read, and
+  naming it does not read it (a station is named once: where no station of the list was read, `no-station-read` names
+  them all). It is told for a list of ids only, not for a point, box, name or `rank`, and not for stations that were
+  read where every station is empty (`parameter-without-rows`).
 - **Some stations' files were let go.** The answer carries a `file-skipped` warning that names the stations whose file
   the provider could not use (a refused download, a file withdrawn since the listing, a maintenance page, a file that
   would not parse, a file with no forecast of the station): their values may be missing from an answer that is otherwise whole. The message names the cause
