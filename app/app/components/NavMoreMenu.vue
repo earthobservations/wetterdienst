@@ -28,6 +28,7 @@ const current = computed(() => props.tools.some(tool => inSection(tool, route.pa
       type="button"
       class="nav-tab"
       :data-current="current || undefined"
+      :aria-current="current ? 'true' : undefined"
       :aria-expanded="open"
       :aria-controls="open ? panelId : undefined"
       data-testid="nav-more-button"

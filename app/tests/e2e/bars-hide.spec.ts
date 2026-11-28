@@ -423,10 +423,32 @@ test.describe('the bars of a narrow phone, 320 px wide', () => {
   test('the map page fills the window between the bars', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map', { width: 320, height: 640 })
     await expect(page.getByTestId('map-screen').locator('.leaflet-container')).toBeVisible()
+    // the reader's first input (`open`) is a wheel of one pixel, which scrolls the page by it where the page is taller than the window
+    // (the map's panel is under it): the stage is measured at the top, as the 390 px test measures it
+    await scrollTo(page, 0)
     const stage = (await page.getByTestId('map-stage').boundingBox())!
     const foot = (await tabbar(page).boundingBox())!
     expect(stage.y + stage.height).toBeCloseTo(foot.y, 0)
   })
+
+  // GH-4514: the title's height is measured, and a title that is not a whole number of pixels high (a font, a zoom, a line
+  // height) must not leave the stage short of the bar by what rounding it up takes away
+  for (const extra of [0.2, 0.5, 0.8]) {
+    test(`the map page ends at the tab bar under a title ${extra} px past a whole pixel`, async ({ page, baseURL }) => {
+      await open(page, baseURL!, '/map', { width: 320, height: 640 })
+      await expect(page.getByTestId('map-screen').locator('.leaflet-container')).toBeVisible()
+      await page.addStyleTag({ content: `.page-header { padding-bottom: calc(${extra}px + 0.5rem) !important; }` })
+      await scrollTo(page, 0)
+      const head = page.locator('.page-header')
+      // the title's height has to be one that is not whole, or this tests nothing
+      await expect.poll(async () => (await head.boundingBox())!.height % 1).toBeGreaterThan(0.01)
+      const foot = (await tabbar(page).boundingBox())!
+      await expect.poll(async () => {
+        const stage = (await page.getByTestId('map-stage').boundingBox())!
+        return Math.abs(stage.y + stage.height - foot.y)
+      }).toBeLessThan(0.1)
+    })
+  }
 })
 
 for (const size of [{ width: 820, height: 1180 }, { width: 1280, height: 800 }]) {

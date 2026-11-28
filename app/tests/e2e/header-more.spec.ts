@@ -125,6 +125,8 @@ test.describe('the More menu', () => {
     await open(page, baseURL!, 'it', '/kostra')
     const button = page.getByTestId('nav-more-button')
     await expect(button).toHaveAttribute('data-current', 'true')
+    // and a screen reader is told (GH-4511)
+    await expect(button).toHaveAttribute('aria-current', 'true')
     // the same bar under it as under a tab's: the tab's marking is drawn on `data-current` too
     const bar = await button.evaluate(el => getComputedStyle(el, '::after').content)
     expect(bar).not.toBe('none')
@@ -134,6 +136,7 @@ test.describe('the More menu', () => {
     await page.keyboard.press('Escape')
     await page.goto('/explorer')
     await expect(page.getByTestId('nav-more-button')).not.toHaveAttribute('data-current', 'true')
+    await expect(page.getByTestId('nav-more-button')).not.toHaveAttribute('aria-current')
   })
 
   test('is measured again where the window is resized: the tabs that are in the row change with the width, and no step of it overflows', async ({ page, baseURL }) => {

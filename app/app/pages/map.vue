@@ -425,7 +425,8 @@ function scrollPanelIntoView() {
   const top = panel.value.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.42
   window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion.value ? 'auto' : 'smooth' })
 }
-// the head of the page above the map (the title and the ⓘ) is measured, so that the map fills what is left of the window
+// the head of the page above the map (the title and the ⓘ) is measured, so that the map fills what is left of the window: as it is, not
+// rounded up, which would leave the map short of the tab bar by what the rounding adds (GH-4514)
 const pageHeader = ref<{ $el: HTMLElement } | null>(null)
 const { height: headHeight } = useElementSize(computed(() => pageHeader.value?.$el), undefined, { box: 'border-box' })
 // the drop-downs of the layers panel (the selects) are in the body, which a browser's full screen does not show: into the stage
@@ -984,7 +985,7 @@ function takeAddress(query: Record<string, unknown>) {
 </script>
 
 <template>
-  <div class="frame" :style="phone ? { '--map-head': `${Math.ceil(headHeight)}px` } : undefined">
+  <div class="frame" :style="phone ? { '--map-head': `${headHeight}px` } : undefined">
     <PageHeader ref="pageHeader" :title="t('mapTool.title')" :lede="t('mapTool.subtitle')" :about-label="t('mapTool.aboutButton')" compact>
       <template #about>
         <div class="space-y-3 text-muted">
@@ -1460,7 +1461,7 @@ function takeAddress(query: Record<string, unknown>) {
   }
 }
 /* The phone (GH-4227): the map fills what the bars leave of the window, under the title and its ⓘ (`--map-head`, measured by
-   the page), and runs to the window's edges. The tab bar is `--tabbar-height` high where it is fixed and 0 where it scrolls with the page. */
+   the page, not rounded), and runs to the window's edges. The tab bar is `--tabbar-height` high where it is fixed and 0 where it scrolls with the page. */
 @media screen and (width < 40rem) {
   .map-stage {
     height: max(18rem, calc(100dvh - var(--header-height) - var(--tabbar-height) - var(--map-head, 3.5rem)));
