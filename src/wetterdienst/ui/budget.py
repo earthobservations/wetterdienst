@@ -27,6 +27,19 @@ The budget holds for what the client receives (`ui.mcp.structured_size`): the JS
 NDJSON the JSON of the structured content, the sentence the tool puts in front of the body (it carries the licence,
 the processing note and this note) and the body, with each newline and quote written as the escape it is there
 (GH-4029). The note is in what is measured, so a cut answer is not over the budget by its own note.
+
+An answer is whole only if it would also fit with the note of a cut of it (GH-4525). Without that, the answer of a
+rank that only just fits has no note, and the next rank, whose cut must carry one (about as large as a station), keeps
+fewer stations than the rank before it returned; so the room of the note is reserved (`_ROOM_FOR_DIGITS` for the
+digits the note and the block gain with the next rank), and one station less is the price of an answer within about a
+row of the budget. Where not even the smallest cut fits with its note, the whole answer is kept as it was.
+
+What that promises, and no more: the cut answer of the next `rank` (one more station) keeps at least the stations of a
+whole answer before it, and so does the cut answer of a window with one more timestamp, or of a list of rows with one
+more row, for the timestamps and rows of the whole one; and, for `statistics`, one more group of an answer that is
+listed per station. It does not hold between two cut answers where the digits of the note grow (999 is 1,000: two
+characters), nor for `statistics` under `per=none`, whose groups are ranked across the stations, nor for
+`station_ids`, where an added id can sort before the others and bring the licence and credit line of its provider.
 """
 
 from __future__ import annotations
@@ -84,6 +97,17 @@ _MEDIA_TYPES = {"csv": "text/csv", "ndjson": "application/x-ndjson", "compact": 
 
 #: the characters FastMCP adds around the JSON answer of a tool: `{"result":` and `}`
 _RESULT_WRAPPER = len('{"result":}')
+
+#: the characters the next rank, or the next window, adds to what a cut of the answer says, on top of the note that
+#: is built for the answer as it is (GH-4525): `rank`, `matched` and the counts of the block, and the numbers of the
+#: note, each gain a digit with it (999 is 1,000: two characters, with the separator), a dozen numbers in all, which
+#: the sentence of a CSV or the structured content may say twice; and a `distance` that is longer (`1,234.5`) by up to
+#: a dozen. Less than a quarter of a station's row, and so of what a whole answer within it of the budget costs
+_ROOM_FOR_DIGITS = 64
+
+#: what the warning that carries a note adds to an answer besides the text of the note: `{"code":"answer-truncated",
+#: "message":}` and a comma, with the room of a space or two
+_WARNING_OBJECT = 60
 
 #: the selections that are small: a name asks for a few stations, so it is never cut. A distance and a rank are not
 #: among them: a wide distance lists hundreds of stations (983 within 500 km of Berlin), and a large rank asks for as
@@ -168,6 +192,19 @@ def _largest(
     if fits(step + 1):
         return _bisect(step + 2, high, fits, guess) or step + 1
     return _bisect(low, step, fits, guess)
+
+
+def _note_room(note: str) -> int:
+    """Give a bound of the characters a note adds to a whole answer in any format, and of the room kept for digits.
+
+    The note is in the warnings of the block, and in the sentence of a CSV or NDJSON answer (which a client receives as
+    the JSON of a string) and again in the body of an NDJSON answer: at most four times (an NDJSON answer measured 3.5),
+    each as the escaped JSON string it is there; `tests/ui/test_mcp_budget_listed_ids.py` holds the bound to what every
+    format adds. Where the answer plus this is within the budget the answer is whole with room, with no second
+    rendering.
+    """
+    escaped = len(json.dumps(json.dumps(note, ensure_ascii=False), ensure_ascii=False))
+    return 4 * escaped + _WARNING_OBJECT + _ROOM_FOR_DIGITS
 
 
 def _iso(value: dt.datetime) -> str:
@@ -548,6 +585,58 @@ def _fit_rows(
     return tried.get(1) or attempt(1)
 
 
+def _values_have_room(
+    result: _SeriesResult,
+    request: _SeriesRequest,
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
+    size: int,
+) -> bool:
+    """Tell whether the whole answer of a series would also fit with the note of a cut of it (GH-4525).
+
+    The note is that of the cut that leaves one timestamp out (of chosen rows, one row), with the rows of the whole
+    answer: a window that adds a timestamp keeps as many as this one did. Of one timestamp it is the longer of the two
+    notes the next window can have: the one of a timestamp cut through (`within`), and the one of the first of two
+    timestamps, which names the rest to ask for and is the longer by about a hundred characters. `size` is the size of
+    the whole answer.
+    """
+    df = result.df
+    if df.height < 2:
+        return True
+    if getattr(result, "search", None) is not None:
+        note = _rows_note(result=result, kept=df.height, total=df.height, lead="", honest=False)
+    else:
+        stamps = df.get_column("timestamp").drop_nulls().unique().sort().to_list()
+        if not stamps:
+            return True
+        window = request.timestamp
+        start = True if window or not stamps else _start_is_nearer_now(stamps[0], stamps[-1])
+
+        def note_for(of: list[dt.datetime], *, within: int | None = None) -> str:
+            return _values_note(
+                request=request,
+                kept=df.height,
+                total=df.height,
+                stamps=of,
+                count=max(len(of) - 1, 1),
+                start=start,
+                window=window,
+                within=within,
+            )
+
+        if len(stamps) < 2:
+            # the next window has a second timestamp: a stand-in, whose text is as long as any (an ISO timestamp)
+            stand_in = [stamps[0], stamps[0] + dt.timedelta(hours=1)]
+            note = max(
+                (note_for(stand_in), note_for(stamps, within=df.height)),
+                key=len,
+            )
+        else:
+            note = note_for(stamps)
+    if size + _note_room(note) <= ANSWER_BUDGET:
+        return True
+    return _made(result, request, df, note, render).size + _ROOM_FOR_DIGITS <= ANSWER_BUDGET
+
+
 def fit_values(
     result: _SeriesResult,
     request: _SeriesRequest,
@@ -557,8 +646,8 @@ def fit_values(
 ) -> tuple[str | bytes, ResponseMetadata]:
     """Cut the answer of a `values`, `interpolate` or `summarize` tool call to the budget at a timestamp; say so.
 
-    The answer is unchanged where it fits. The `timestamp` of an estimate is required, so the start of its window is
-    the part that is kept and the note's next window continues it.
+    The answer is unchanged where it fits, with room for the note of a cut of it (GH-4525). The `timestamp` of an
+    estimate is required, so the start of its window is the part that is kept and the note's next window continues it.
 
     Without a `timestamp` from the caller the end nearest to now is kept: the start of a forecast, the latest part of
     a record. With one, its start is kept, so that the next window of the note continues it. At least one whole
@@ -571,14 +660,21 @@ def fit_values(
     """
     if request.format not in BUDGETED_FORMATS or result.df.is_empty() or "timestamp" not in result.df.columns:
         return content, metadata
+    if getattr(result, "search", None) is None and result.df.get_column("timestamp").drop_nulls().is_empty():
+        # no timestamp to cut at: the answer is whole (`_fit_values` takes the first timestamp of the answer)
+        return content, metadata
     size = answer_size(content, request, metadata)
-    if size <= ANSWER_BUDGET:
+    # a whole answer has room for the note of a cut of it, or a longer window would keep fewer timestamps (GH-4525)
+    if size <= ANSWER_BUDGET and _values_have_room(result, request, render, size):
         return content, metadata
     asked = request
     # an answer of rows chosen by the request is cut in its own order, the first rows kept, and says how many matched;
     # any other is a series of timestamps and is cut at one
     fit = _fit_rows if getattr(result, "search", None) is not None else _fit_values
     chosen = fit(result, asked, render, size, lead="", honest=False)
+    if size <= ANSWER_BUDGET and chosen.size > ANSWER_BUDGET:
+        # not even the smallest cut fits with the note: nothing is cut, the whole answer fits as it is
+        return content, metadata
     search = getattr(result, "search", None)
     if chosen.size > ANSWER_BUDGET and search is not None and search.listed > 0:
         # the series of the report go before the rows do: the totals stay, and `series_omitted` counts them
@@ -647,6 +743,60 @@ def _stations_note(
     )
 
 
+def _stations_note_of(
+    result: StationsResult,
+    request: _ListRequest,
+    cut: pl.DataFrame,
+    *,
+    count: int,
+    total: int,
+    lead: str,
+    honest: bool,
+) -> str:
+    """Write the note of `result` cut to its first `count` stations, whose rows are `cut`."""
+    # the nearest stations are the first of a search by distance or by rank, whose rows are in the order of their
+    # distance
+    distance = (
+        getattr(request, "distance", None)
+        if result._stations_filter is StationsFilter.BY_DISTANCE  # noqa: SLF001
+        else None
+    )
+    rank = result._rank if result._stations_filter is StationsFilter.BY_RANK else None  # noqa: SLF001
+    far = (
+        cut.get_column("distance").max()
+        if (distance is not None or rank is not None) and "distance" in cut.columns
+        else None
+    )
+    return _stations_note(
+        count=count,
+        total=total,
+        lead=lead,
+        honest=honest,
+        distance=distance,
+        rank=rank,
+        farthest=float(far) if isinstance(far, int | float) else None,
+    )
+
+
+def _stations_have_room(
+    result: StationsResult,
+    request: _ListRequest,
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
+    size: int,
+) -> bool:
+    """Tell whether the whole answer of stations would also fit with the note of a cut of it (GH-4525).
+
+    The note is that of a cut that leaves one station out: the nearest `count` of `total` stations, the farthest of
+    them, the rank or distance asked. Its digits are those of the whole answer, and `_ROOM_FOR_DIGITS` is the room
+    for the next rank's. `size` is the size of the whole answer.
+    """
+    count = result.df.get_column("station_id").n_unique()
+    note = _stations_note_of(result, request, result.df, count=count, total=count, lead="", honest=False)
+    if size + _note_room(note) <= ANSWER_BUDGET:
+        return True
+    return _made(result, request, result.df, note, render).size + _ROOM_FOR_DIGITS <= ANSWER_BUDGET
+
+
 def _fit_stations(
     result: StationsResult,
     request: _ListRequest,
@@ -660,30 +810,11 @@ def _fit_stations(
     df = result.df
     ids = df.get_column("station_id").unique(maintain_order=True)
     count_all = len(ids)
-    # the nearest stations are the first of a search by distance or by rank, whose rows are in the order of their
-    # distance
-    distance = (
-        getattr(request, "distance", None)
-        if result._stations_filter is StationsFilter.BY_DISTANCE  # noqa: SLF001
-        else None
-    )
-    rank = result._rank if result._stations_filter is StationsFilter.BY_RANK else None  # noqa: SLF001
-    nearest = distance is not None or rank is not None
     tried: dict[int, _Attempt] = {}
 
     def fits(count: int) -> bool:
         cut = df.filter(pl.col("station_id").is_in(ids.head(count).implode()))
-        far = cut.get_column("distance").max() if nearest and "distance" in cut.columns else None
-        farthest = float(far) if isinstance(far, int | float) else None
-        note = _stations_note(
-            count=count,
-            total=count_all,
-            lead=lead,
-            honest=honest,
-            distance=distance,
-            rank=rank,
-            farthest=farthest,
-        )
+        note = _stations_note_of(result, request, cut, count=count, total=count_all, lead=lead, honest=honest)
         tried[count] = _made(result, request, cut, note, render)
         return tried[count].size <= ANSWER_BUDGET
 
@@ -731,27 +862,34 @@ def fit_stations(
 ) -> tuple[str | bytes, ResponseMetadata]:
     """Cut the answer of a `stations` tool call to the budget, keeping the first stations.
 
-    The answer is unchanged where it fits. A name asks for a few stations, and so does one station: their rows are
-    left as they are (only a `with_metadata` block that is over the budget on its own is left out, with a note).
-    Otherwise (all stations, a bounding box, a distance, a rank, ids) the stations that fit
-    are kept, in list order (for a distance or a rank the nearest first, which is its order), and the note says how
-    many match (or were asked for) and what narrows them. The block is kept and the stations are cut to make room for
-    it: only where even one station is over the budget with the block, and fits without it, is the block left out,
-    and the note says so. So a larger `rank` never returns fewer stations (GH-4036).
-    `render` writes the answer for a cut result, its block and the request; `content` and `metadata` are the whole
-    answer.
+    The answer is unchanged where it fits, with room for its note. A name asks for a few stations, and so does one
+    station: their rows are left as they are (only a `with_metadata` block that is over the budget on its own is left
+    out, with a note). Otherwise (all stations, a bounding box, a distance, a rank, ids) the stations that fit are
+    kept, in list order (for a distance or a rank the nearest first, which is its order), and the note says how many
+    match (or were asked for) and what narrows them. The block is kept and the stations are cut to make room for it:
+    only where even one station is over the budget with the block, and fits without it, is the block left out, and
+    the note says so. So a larger `rank` never returns fewer stations (GH-4036), whole answers included: an answer is
+    whole only if it would also fit with the note of a cut of it (GH-4525). `render` writes the answer for a cut
+    result, its block and the request; `content` and `metadata` are the whole answer.
     """
     if request.format not in BUDGETED_FORMATS:
         return content, metadata
     size = answer_size(content, request, metadata)
-    if size <= ANSWER_BUDGET:
+    small = result._stations_filter in _SMALL_SELECTIONS or result.df.get_column("station_id").n_unique() < 2  # noqa: SLF001
+    if size <= ANSWER_BUDGET and small:
         return content, metadata
-    if result._stations_filter in _SMALL_SELECTIONS or result.df.get_column("station_id").n_unique() < 2:  # noqa: SLF001
+    if small:
         return _leave_block_out(result, request, render) or (content, metadata)
     # the stations the selection found stay in the answer's counts when the stations are cut (GH-4472)
     result = replace(result, _matched=metadata.counts.stations_matched)
+    # a whole answer has room for the note of a cut of it, or the next rank would keep fewer stations (GH-4525)
+    if size <= ANSWER_BUDGET and _stations_have_room(result, request, render, size):
+        return content, metadata
     asked = request
     chosen = _fit_stations(result, asked, render, size, lead="", honest=False)
+    if size <= ANSWER_BUDGET and chosen.size > ANSWER_BUDGET:
+        # not even one station fits with the note: nothing is cut, the whole answer fits as it is
+        return content, metadata
     if chosen.size > ANSWER_BUDGET and (
         dropped := _without_block(
             result,
@@ -792,25 +930,26 @@ def fit_station_ids(
 ) -> tuple[str | bytes, StationIdsMetadata]:
     """Cut the answer of a `station_ids` tool call to the budget, keeping the first stations, with a note.
 
-    The answer is unchanged where it fits. Otherwise the rows that fit are kept, in the order of the answer (provider,
-    network, station id), and the `answer-truncated` warning of its block says how many there are and to ask again with
-    fewer ids. The block is the part that does not shrink (a few thousand characters: each network asked, each
-    provider's licence); where not even one row fits with it the first is kept and the note says that the answer is
-    still over the budget. `render` writes the answer for a cut result.
+    The answer is unchanged where it fits, with room for its note (GH-4525). Otherwise the rows that fit are kept, in
+    the order of the answer (provider, network, station id), and the `answer-truncated` warning of its block says how
+    many there are and to ask again with fewer ids. The block is the part that does not shrink (a few thousand
+    characters: each network asked, each provider's licence); where not even one row fits with it the first is kept and
+    the note says that the answer is still over the budget. `render` writes the answer for a cut result.
     """
     size = _station_ids_size(content, fmt, metadata)
-    if size <= ANSWER_BUDGET:
-        return content, metadata
     total = result.df.height
     tried: dict[int, tuple[str | bytes, StationIdsMetadata, int]] = {}
 
-    def attempt(count: int, *, honest: bool) -> bool:
-        note = (
+    def note_of(count: int, *, honest: bool) -> str:
+        return (
             f"{_head(honest=honest)}the first {count:,} of {total:,} stations are returned, in the order of the answer "
             "(provider, network, station id). Ask again with fewer ids."
             if count > 1
             else f"{_head(honest=honest)}the first of {total:,} stations is returned. Ask again with fewer ids."
         )
+
+    def noted(count: int, *, honest: bool) -> tuple[str | bytes, StationIdsMetadata, int]:
+        note = note_of(count, honest=honest)
         cut = replace(
             result,
             df=result.df.head(count),
@@ -818,10 +957,26 @@ def fit_station_ids(
             warnings=[*result.warnings, {"code": ANSWER_TRUNCATED, "message": note}],
         )
         body, block = render(cut)
-        tried[count] = (body, block, _station_ids_size(body, fmt, block))
+        return body, block, _station_ids_size(body, fmt, block)
+
+    # a whole answer has room for the note of a cut of it (GH-4525): the answer is not cut where it is that close to
+    # the budget. That a longer list keeps no fewer is not promised: an id added can sort before the others and bring
+    # its provider's licence and credit line
+    if size <= ANSWER_BUDGET and (
+        total < 2
+        or size + _note_room(note_of(total, honest=False)) <= ANSWER_BUDGET
+        or noted(total, honest=False)[2] + _ROOM_FOR_DIGITS <= ANSWER_BUDGET
+    ):
+        return content, metadata
+
+    def attempt(count: int, *, honest: bool) -> bool:
+        tried[count] = noted(count, honest=honest)
         return tried[count][2] <= ANSWER_BUDGET
 
     best = _largest(1, total - 1, lambda count: attempt(count, honest=False), max(1, total * ANSWER_BUDGET // size))
+    if best is None and size <= ANSWER_BUDGET:
+        # not even one row fits with the note: nothing is cut, the whole answer fits as it is
+        return content, metadata
     if best is None:
         # not even one row fits beside the block: the first is kept, and the note says the answer is still over
         attempt(1, honest=True)
@@ -935,6 +1090,43 @@ def _restated_warnings(
     return restated
 
 
+def _statistics_have_room(
+    result: StatisticsResult,
+    fmt: str,
+    metadata: StatisticsMetadata,
+    render: Callable[[StatisticsResult, StatisticsMetadata], tuple[str | bytes, StatisticsMetadata]],
+    series: int,
+    size: int,
+) -> bool:
+    """Tell whether the whole answer would also fit with the note of a cut that leaves one group out (GH-4525).
+
+    Where the answer lists the groups per station, the cut can leave out the series of its last group, and the note
+    then says so (`where`); the note is written with that. `size` is the size of the whole answer.
+    """
+    groups = sum(s.frame.height for s in result.series)
+    if groups < 2:
+        return True
+    where = f" of the first {series:,} of {series:,} series" if result.plan.per_station else ""
+    note = _statistics_note(
+        result.plan,
+        shown=groups - 1,
+        total=groups,
+        in_base=groups,
+        series=series,
+        listed=series,
+        many=False,
+        where=where,
+        head=_head(honest=False),
+    )
+    if size + _note_room(note) <= ANSWER_BUDGET:
+        return True
+    block = metadata.model_copy(
+        update={"warnings": [*metadata.warnings, ResponseWarning(code=ANSWER_TRUNCATED, message=note)]}
+    )
+    body, block = render(result, block)
+    return _size_in(body, fmt, block) + _ROOM_FOR_DIGITS <= ANSWER_BUDGET
+
+
 def fit_statistics(
     result: StatisticsResult,
     fmt: str,
@@ -948,15 +1140,16 @@ def fit_statistics(
     those with the best groups over all parameters); one of more says so, and is not a cut to the budget. Where it fits
     it is otherwise unchanged. Otherwise the first groups that fit are kept, in the order the answer has them (the order
     of `sort`, or the columns of `by`, series by series; by rank under `per=none`), and the `answer-truncated` warning
-    of its block says how many of how many are shown. What the block and each series' `over_groups` say covers all the
-    groups: the totals of `metadata.search` (with `groups_returned`, the groups shown) and the statistics over the
-    groups are not cut, only the rows. Where not even one group fits beside them the first is kept and the note says
-    that the answer is still over the budget. `render` writes the answer for a cut result and the block it is given.
+    of its block says how many of how many are shown (a whole answer has room for it, GH-4525). What the block and each
+    series' `over_groups` say covers all the groups: the totals of `metadata.search` (with `groups_returned`, the
+    groups shown) and the statistics over the groups are not cut, only the rows. Where not even one group fits beside
+    them the first is kept and the note says that the answer is still over the budget. `render` writes the answer for
+    a cut result and the block it is given.
     """
     size = _size_in(content, fmt, metadata)
     held = [series for series in result.series if series.frame.height]
     many = len(held) > MAX_TOOL_SERIES
-    if size <= ANSWER_BUDGET and not many:
+    if size <= ANSWER_BUDGET and not many and _statistics_have_room(result, fmt, metadata, render, len(held), size):
         return content, metadata
     if many:
         chosen = _first_series(result, MAX_TOOL_SERIES)
@@ -1001,10 +1194,13 @@ def fit_statistics(
         return tried[count][2] <= ANSWER_BUDGET
 
     # the groups of the series listed, all of them, where they fit: only the series were cut
-    if attempt(in_base, honest=False):
+    if (many or size > ANSWER_BUDGET) and attempt(in_base, honest=False):
         body, block, _ = tried[in_base]
         return body, block
     best = _largest(1, in_base - 1, lambda count: attempt(count, honest=False), max(1, in_base * ANSWER_BUDGET // size))
+    if best is None and not many and size <= ANSWER_BUDGET:
+        # not even one group fits with the note: nothing is cut, the whole answer fits as it is
+        return content, metadata
     if best is None:
         attempt(1, honest=True)
         best = 1

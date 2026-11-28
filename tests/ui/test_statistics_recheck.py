@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 
 import pytest
@@ -440,3 +441,40 @@ def test_the_warning_is_dropped_from_a_cut_that_holds_no_such_group(monkeypatch:
     assert all(g["expected"] == g["searched"] for s in answer["series"] for g in s["groups"])
     assert _warning(answer, "gaps-allowed") is None
     assert _warning(answer, "answer-truncated") is not None
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# GH-4525: an answer is whole only with room for the note of a cut of it
+# ----------------------------------------------------------------------------------------------------------------
+
+
+def test_a_statistics_answer_is_whole_only_with_room_for_the_note_of_a_cut(monkeypatch: pytest.MonkeyPatch) -> None:
+    """At the edge of the budget the answer is cut and noted: it is whole only with room for its note.
+
+    Without the room the answer that only just fits has no note, and the next, larger answer, cut with its note, would
+    keep fewer groups than it did. So an answer that is within the note of the budget is cut, one group less. The
+    budgets between the two notes (200 characters of room: the note of series left out fits, the note of a cut with the
+    digits does not) are the ones that reach the gate before the answer is tried whole with a note that says nothing
+    was cut. Listed per station, which is what is held: `per=none` ranks the groups across the stations.
+    """
+    serve(monkeypatch, count=6)
+    options = {"aggregate": "count,mean", "by": "year,month,day"}
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 100_000_000)
+    whole = _tool(options)
+    assert _warning(whole, "answer-truncated") is None
+    size = len(json.dumps(whole, separators=(",", ":"), ensure_ascii=False)) + len('{"result":}')
+    total = sum(len(s["groups"]) for s in whole["series"])
+    kept = []
+    for slack in (0, 40, 200, 2_000):
+        monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", size + slack)
+        answer = _tool(options)
+        kept.append(sum(len(s["groups"]) for s in answer["series"]))
+        message = _warning(answer, "answer-truncated")
+        assert (message is not None) == (slack < 2_000), (slack, kept)
+        if message is not None:
+            # a cut that says so, and not the note of series left out of an answer whose groups are all there
+            assert f"of {total:,} groups" in message, (slack, message)
+    # the more room the budget has, the more groups, and the whole answer is the most
+    assert kept == sorted(kept)
+    assert kept[0] < total
+    assert kept[-1] == total

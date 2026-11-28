@@ -245,7 +245,11 @@ An answer over the budget is cut, not refused, and says so:
   how many lie within the distance and how far the farthest returned is, and suggests a smaller `distance`, or `rank`.
   So is a large `rank` (700 asks for as many): the nearest stations that fit are kept, nearest first, and the note says
   how many the `rank` asked for, how many are returned and how far the farthest of them is, and suggests a smaller
-  `rank`. A `rank` that fits is unchanged.
+  `rank`. A `rank` that fits, with room for that note, is unchanged: an answer within about one station of the budget is
+  cut too, so that the cut answer of the next `rank` keeps at least the stations of a whole one (the same holds for a
+  `timestamp` window one timestamp longer, and for the groups of `statistics` listed per station). Between two cut
+  answers the digits of the note (999 is 1,000) can still cost a station; `statistics` with `per=none` and a longer list
+  of `station_ids` (an id added can bring its provider's licence and credit line) are not promised.
 - **`coverage`** is not rows but resolutions, datasets and parameters with a description each, and noaa/ghcn (59,000
   characters), dwd/observation (89,000) and dwd/phenology (139,000) are over the budget. It is cut in steps, each only
   where the one before is still over: the answer as it is; the `description` of every parameter null (everything else
