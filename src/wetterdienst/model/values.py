@@ -54,7 +54,7 @@ from wetterdienst.model.schema import (
     WIDE_VALUE_DTYPE,
     wide_schema,
 )
-from wetterdienst.model.station_window import NAMED_BY_ID, station_ids_read, warn_left_out
+from wetterdienst.model.station_window import NAMED_BY_ID, station_ids_read, warn_left_out, warn_no_station_read
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.cancellation import check as check_cancelled
 from wetterdienst.util.datetime import is_plausible_update, newest
@@ -584,12 +584,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         self._names = None
         ids = station_ids_read(self.sr) if self._window_rule_allowed else None
         self._read_ids = None if ids is None else frozenset(ids)
-        if ids is not None:
-            warn_left_out(self.sr, ids, self._begins_after_window)
+        told_left_out = warn_left_out(self.sr, ids, self._begins_after_window) if ids is not None else set()
         groups = list(self.sr.df.group_by(["station_id"], maintain_order=True))
         ahead = self._fetch_ahead(groups)
         try:
             yield from self._query_stations(groups, ahead, selection, statistics)
+            self._warn_no_station_read(groups, told_left_out)
         finally:
             # a consumer that stops (a closed generator, an error, a streamed answer whose client has gone) starts
             # nothing more: what is begun ends with its download, and a download never leaves a part of a file in
@@ -708,6 +708,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         check_cancelled()
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
+
+    def _warn_no_station_read(self, groups: list[tuple[Any, pl.DataFrame]], told_left_out: set[str]) -> None:
+        """Tell a walk read to its end that read no station (`no-station-read`, GH-4510), for a request's own answer.
+
+        Not for an estimate, whose walk reads the stations around a point as candidates and tells its own
+        (`_warn_without_rows` is the switch it turns off), and not where a station was read, however empty it was.
+        """
+        if self._stations_read or not self._warn_without_rows:
+            return
+        late = [cast("str", station_id) for (station_id,), meta in groups if self._begins_after_window(meta)]
+        warn_no_station_read(self.sr, late, selected=len(groups), covered=told_left_out)
 
     def _searched_of(self, df: pl.DataFrame, *, stamped_on_the_day: bool = False) -> pl.DataFrame:
         """Count what the rows of a station hold for the report, with the window, the station's name and the kind."""

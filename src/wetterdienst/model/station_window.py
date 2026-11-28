@@ -36,9 +36,15 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED, _window
 from wetterdienst.model.result import StationsFilter
 from wetterdienst.util.logging import get_one_line_logger
-from wetterdienst.util.response_warnings import STATIONS_OUTSIDE_WINDOW, warn_response
+from wetterdienst.util.response_warnings import (
+    NO_STATION_READ,
+    STATIONS_OUTSIDE_WINDOW,
+    recorded_warnings,
+    warn_response,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -71,9 +77,7 @@ def rule_applies(stations: StationsResult) -> bool:
     if stations._stations_filter in NAMED_BY_ID or stations._stations_filter in NOT_RULED:  # noqa: SLF001
         return False
     request = getattr(stations, "request", None)
-    if not getattr(request, "station_list_bounds_hold", True) or getattr(request, "end", None) is None:
-        return False
-    return "start_timestamp" in stations.df.columns
+    return getattr(request, "station_list_bounds_hold", True) and getattr(request, "end", None) is not None
 
 
 def can_have_data_in_window(df: pl.DataFrame, start: dt.datetime | None, end: dt.datetime) -> pl.Series:
@@ -150,19 +154,20 @@ def _names(ids: list[str]) -> str:
 
 def warn_left_out(
     stations: StationsResult, read: list[str], begins_after_window: Callable[[pl.DataFrame], bool]
-) -> None:
+) -> set[str]:
     """Tell, as one `stations-outside-window` warning, the stations of the selection the rule leaves out (GH-4426).
 
     Without it a selection that the rule cuts to nothing is an answer with no rows and no word, which reads like a
     request that failed. It says how many of how many, why (the list's own bounds), and names the first ten of each
     kind. Of the two kinds, the stations whose list ends before the window can be read by naming them by id, and the
     ones whose list begins after it (`begins_after_window`, the walk's predicate) cannot: the advice is for the first.
+    Gives the ids it left out (the warning names the first ten), which `no-station-read` does not tell again.
     """
     listed = stations.df.get_column("station_id").unique(maintain_order=True).to_list()
     kept = set(read)
     left = [station for station in listed if station not in kept]
     if not left:
-        return
+        return set()
     late_ids = {
         station_id
         for (station_id,), meta in stations.df.group_by(["station_id"], maintain_order=True)
@@ -200,3 +205,66 @@ def warn_left_out(
             "even then."
         )
     warn_response(log, STATIONS_OUTSIDE_WINDOW, message, stations=left[:MAX_LISTED])
+    return set(left)
+
+
+#: what an empty selection of each kind says it matched nothing of (`warn_no_station_read`)
+_EMPTY_SELECTION = {
+    StationsFilter.BY_NAME: "no station matches the name",
+    StationsFilter.BY_BBOX: "no station lies in the bounding box",
+    StationsFilter.BY_DISTANCE: "no station lies within the distance",
+    StationsFilter.BY_RANK: "no station with a position was found for the rank",
+    StationsFilter.BY_SQL: "no station matches the SQL filter",
+    StationsFilter.BY_REGION: "no station is listed under the region",
+}
+#: the warnings that already say why a selection holds no station
+_EXPLAINS_EMPTY = frozenset({"unknown-station", "positions-unavailable"})
+
+
+def warn_no_station_read(
+    stations: StationsResult,
+    late: list[str],
+    *,
+    selected: int,
+    covered: set[str],
+) -> None:
+    """Tell, as one `no-station-read` warning, that a walk read to its end read no station (GH-4510).
+
+    Without it the answer has no rows and no word, which reads like a request that failed. Two causes, each worded
+    for itself. `late` is the stations of the selection the walk left out because their list begins after the window
+    (`TimeseriesValues._begins_after_window`: stations named by id, the candidates of a `rank`, ECCC); `selected` is
+    how many stations the selection holds, 0 for one that matched none (a name, a box, a distance, a region, an SQL
+    filter). `covered` is the ids `stations-outside-window` named: a station it told is not told twice, so nothing is
+    said where it explains every one of them. A selection by id that holds no station has `unknown-station` already,
+    and a search by place on a network without positions `positions-unavailable`.
+    """
+    named = stations._stations_filter in NAMED_BY_ID  # noqa: SLF001
+    window = _window(stations.start, stations.end)
+    if selected == 0:
+        if named or _EXPLAINS_EMPTY & {warning["code"] for warning in recorded_warnings()}:
+            return
+        kind = _EMPTY_SELECTION.get(stations._stations_filter)  # noqa: SLF001
+        why = f"{kind[0].upper()}{kind[1:]}" if kind else "The network lists no station for the requested parameters"
+        warn_response(
+            log,
+            NO_STATION_READ,
+            f"The selection holds no station, so no station was read and the answer has no rows{window}: {why}. "
+            "The request did not fail.",
+        )
+        return
+    uncovered = [station for station in late if station not in covered]
+    if not uncovered:
+        return
+    count = len(uncovered)
+    one = count == 1
+    names = ", ".join(uncovered[:MAX_STATIONS_LISTED])
+    if count > MAX_STATIONS_LISTED:
+        names += f", and {count - MAX_STATIONS_LISTED} more"
+    head = (
+        f"No station was read: the station list of {names} begins after the window{window}, so by the list "
+        f"{'it has' if one else 'they have'} no data in it. The answer has no rows because of that, not because the "
+        "request failed."
+    )
+    if named:
+        head += f" Naming {'it' if one else 'them'} by id does not read {'it' if one else 'them'}."
+    warn_response(log, NO_STATION_READ, head, stations=uncovered[:MAX_STATIONS_LISTED])

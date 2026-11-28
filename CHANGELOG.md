@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A `values` or `statistics` answer whose walk read no station now carries a `no-station-read`
+  warning, where it carried none: every station of the selection begins after the window (named
+  by id, by `rank`, ECCC; the warning names them, and says naming them does not read them), or
+  the selection holds no station (a name, a box, a distance, a region or an SQL filter that
+  matches none). Not told where `stations-outside-window`, `unknown-station` or
+  `positions-unavailable` already explains it, nor for `interpolate` and `summarize` (GH-4510)
+
 ## [0.202.0] - 2026-11-28
 
 ### Changed

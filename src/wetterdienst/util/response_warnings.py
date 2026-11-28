@@ -149,6 +149,14 @@ SOURCE_FALLBACK = "source-fallback"
 #: `name`, which the rule does not cut, nor for stations named by id, which its end does not cut
 STATIONS_OUTSIDE_WINDOW = "stations-outside-window"
 
+#: the code of the warning a values answer carries when its walk ran to its end and read no station (GH-4510): every
+#: station of the selection was left out because its list begins after the window (named by id, a `rank`, ECCC, whose
+#: list start says nothing), or the selection holds no station (a name, a box, a distance, a region or an SQL filter
+#: matching none). The answer has no rows because of that, not because the request failed. Not told where
+#: `stations-outside-window`, `unknown-station` or `positions-unavailable` already explains it, nor for an estimate
+#: (`interpolate`, `summarize`)
+NO_STATION_READ = "no-station-read"
+
 
 class SkipCause(Enum):
     """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.
