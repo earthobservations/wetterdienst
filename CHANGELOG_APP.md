@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.61.1] - 2026-11-28
+
+Paired with backend 0.203.0; it needs no route newer than 0.195.0 (the Heavy-rainfall tool reads
+`/api/kostra` of 0.194.0, the UV & pollen panel the `dwd/uvi` and `dwd/pollen` networks of 0.192.0).
+Its text on the Measurement page about Geosphere's quality flag is true from backend 0.201.0.
+
 ### Fixed
 
 - The header's "More" and "Reference" buttons now say to a screen reader (`aria-current="true"`) that
@@ -2841,7 +2847,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.61.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.61.1...HEAD
+[0.61.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.61.0...app-v0.61.1
 [0.61.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.60.0...app-v0.61.0
 [0.60.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.59.0...app-v0.60.0
 [0.59.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.58.0...app-v0.59.0
