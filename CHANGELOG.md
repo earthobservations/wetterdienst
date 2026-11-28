@@ -51,9 +51,12 @@ Types of changes:
   unchanged. (GH-4520)
 - An MCP answer (`stations`, `values`, `interpolate`, `summarize`, `station_ids`, `statistics`) is
   whole only if it would also fit with the note of a cut of it. An answer within about one station
-  of the budget is now cut, and noted, where it was whole, so a larger `rank` (or a longer
-  `timestamp` window or list of ids) never returns fewer stations than a smaller one: rank 113 kept
-  111 where rank 112 returned 112. REST, the CLI and Python are not cut and unchanged. (GH-4525)
+  of the budget is now cut, and noted, where it was whole, so the cut answer of the next `rank`
+  keeps at least the stations of a whole one (rank 113 kept 111 where rank 112 returned 112); the
+  same holds for a window one timestamp longer and for `statistics` groups listed per station. Not
+  promised: between two cut answers where the note's digits grow (999 to 1,000), `per=none`, and a
+  longer `station_ids` list (an id can bring its provider's licence). REST, the CLI and Python are
+  not cut and unchanged. (GH-4525)
 
 ## [0.202.0] - 2026-11-28
 
