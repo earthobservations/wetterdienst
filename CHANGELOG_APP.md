@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-11-28
+
+Paired with backend 0.202.0; it needs no route newer than 0.195.0 (the Heavy-rainfall tool reads
+`/api/kostra` of 0.194.0, the UV & pollen panel the `dwd/uvi` and `dwd/pollen` networks of 0.192.0).
+Its text on the Measurement page about Geosphere's quality flag is true from backend 0.201.0.
+
 ### Added
 
 - `[Heavy rainfall]` A new tool at `/kostra`: DWD's design rainfall (KOSTRA-DWD-2020) of a point in
@@ -42,6 +48,10 @@ Types of changes:
 
 - `[API]` The API page no longer lists `html` among the response formats: a chart of the backend's
   is refused by a server that has not switched charts on, and the app draws its own (GH-4461).
+- `[Measurement]` The paragraph on where providers differ no longer lists Geosphere among those
+  whose `quality_flags` is null: it says that it starts with Geosphere's own code of the control
+  (q21: 10 to 12 checked automatically, 20 to 22 by a person, 0 not checked). English and German;
+  true of backend 0.201.0 and later (GH-4480).
 
 ### Fixed
 
@@ -2823,7 +2833,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.60.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.61.0...HEAD
+[0.61.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.60.0...app-v0.61.0
 [0.60.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.59.0...app-v0.60.0
 [0.59.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.58.0...app-v0.59.0
 [0.58.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.57.0...app-v0.58.0

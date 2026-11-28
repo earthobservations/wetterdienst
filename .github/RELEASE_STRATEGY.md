@@ -171,7 +171,7 @@ The checklist for the release that makes 0.x into 1.0.0, in the order to do it. 
 #2561 (REST, CLI, MCP) and the issues under them promise for the tag; every file named is in the repository. The
 release steps above (and the release commit of the last 0.x release, which did them last) are the
 mechanics; this list adds what only 1.0.0 needs. The app stays 0.x (`docs/usage/compatibility.md`, "The web app and
-the image"), so its release after this one is the next 0.x app version (after 0.60.0 today), not `app-v1.0.0`.
+the image"), so its release after this one is the next 0.x app version (after 0.61.0 today), not `app-v1.0.0`.
 
 ### 0. What must be true first
 
@@ -397,7 +397,7 @@ Decided on 2026-11-08 and recorded on #2625 and #3137.
 ## Version Management
 
 - **Backend**: Version in `pyproject.toml` (currently `0.202.0`)
-- **App**: Version in `app/package.json` (currently `0.60.0`; the package is also marked `private`)
+- **App**: Version in `app/package.json` (currently `0.61.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
 
