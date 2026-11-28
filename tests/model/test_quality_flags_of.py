@@ -124,6 +124,8 @@ def test_a_dataset_with_one_quality_column_has_it_for_every_parameter(key: str, 
     """The datasets of the other products and networks (dwd/derived's QN_952, the single QN) are told as before."""
     flags = [p for p in dataset.parameters if is_quality_flag(p)]
     if len(flags) > 1:
-        pytest.skip("several quality columns: held to the files above")
+        # held to the files' headers above: a dataset with several quality columns that has none there fails here
+        assert key.removeprefix("dwd/observation/") in FILES, f"{key} has several quality columns and no file header"
+        return
     for parameter in dataset:
         assert quality_flags_of(dataset, [parameter]) == flags, key
