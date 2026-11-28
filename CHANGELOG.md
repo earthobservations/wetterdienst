@@ -16,19 +16,22 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.203.0] - 2026-11-28
+
 ### Added
 
 - A `values` or `statistics` answer whose walk read no station now carries a `no-station-read`
   warning, where it carried none: every station of the selection begins after the window (named
-  by id, by `rank`, ECCC; the warning names them, and says naming them does not read them), or
-  the selection holds no station (a name, a box, a distance or a region with a record in the
-  window; `--sql` and `filter_by_sql` too). Not told where `stations-outside-window`,
-  `unknown-station`, `positions-unavailable` or `file-skipped` already explains it, nor for
-  `interpolate` and `summarize` (GH-4510)
-- Each entry of `with_metadata`'s `metadata.quality.source_flags` has its own `codes`, the levels
-  its dataset's DWD description lists (`null` where it lists none); the compact format's
-  `source quality flags` table has a `levels` column. The `legend`'s codes stay the union over the
-  datasets read. (GH-4507)
+  by id, by `rank`, ECCC; the warning names them, and for stations named by id says that naming
+  them does not read them), or the selection holds no station (a name, a box, a distance or a
+  region with a record in the window; `--sql` and `filter_by_sql` too). Not told where
+  `stations-outside-window`, `unknown-station`, `positions-unavailable` or `file-skipped` already
+  explains it, nor for `interpolate` and `summarize` (GH-4510)
+- Each entry of `with_metadata`'s `metadata.quality.source_flags` has its own `codes`: for DWD
+  observation the levels its dataset's description lists (`null` for a product DWD describes none
+  of); for another network the codes of its own flag, `null` where it lists none. The compact
+  format's `source quality flags` table has a `levels` column. The `legend`'s codes stay the union
+  over the datasets read. (GH-4507)
 
 ### Changed
 
@@ -57,6 +60,17 @@ Types of changes:
   promised: between two cut answers where the note's digits grow (999 to 1,000), `per=none`, and a
   longer `station_ids` list (an id can bring its provider's licence). REST, the CLI and Python are
   not cut and unchanged. (GH-4525)
+
+### Security
+
+- The floor of lxml is 6.2.0 (was 4.9.1) and that of the `pdf` extra's pypdf is 7.2.0 (was 7.1.1).
+  lxml before 6.2.0 has GHSA-27mw-m39x-fm32 and GHSA-59qx-3jjv-x996 (high: a double free and a use
+  after free in `iterparse()` / `XMLPullParser`, which the readers of DWD MOSMIX and DMO use),
+  GHSA-p8vp-2pg3-qf7w and GHSA-23p9-v872-36p9 (medium; the bundled libxml2's XPath, and `xmlfile()`
+  / `htmlfile()`, which wetterdienst does not call). pypdf 7.2.0 fixes GHSA-q8xc-gmv4-62h9,
+  GHSA-8228-3pmm-p2wh and GHSA-vxwm-8m4v-3m2w (medium: large memory use while reading a PDF). An
+  existing installation must upgrade them itself (`pip install -U "lxml>=6.2.0"`). Not a break:
+  the floors move in a minor, and no API changed (GH-4531)
 
 ## [0.202.0] - 2026-11-28
 
@@ -8853,7 +8867,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.202.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.203.0...HEAD
+[0.203.0]: https://github.com/earthobservations/wetterdienst/compare/v0.202.0...v0.203.0
 [0.202.0]: https://github.com/earthobservations/wetterdienst/compare/v0.201.0...v0.202.0
 [0.201.0]: https://github.com/earthobservations/wetterdienst/compare/v0.200.0...v0.201.0
 [0.200.0]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...v0.200.0
