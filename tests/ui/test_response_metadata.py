@@ -181,6 +181,26 @@ def test_the_heavy_parts_are_with_metadata_alone(client: TestClient, monkeypatch
     }
 
 
+def test_the_source_flags_are_those_of_the_parameters_read_with_the_codes_of_each() -> None:
+    """GH-4507: one parameter lists the quality column before it in DWD's file, a whole dataset lists them all."""
+
+    def flags_of(parameters: list[tuple[str, ...]]) -> list[dict]:
+        request = DwdObservationRequest(parameters=parameters)
+        stations = replace(_values_result_of_shape("long").stations, request=request)
+        metadata = response_metadata(
+            stations, SimpleNamespace(provider="dwd", network="observation", with_metadata=True)
+        )
+        assert metadata.quality is not None
+        return [flag.model_dump() for flag in metadata.quality.source_flags]
+
+    gust = flags_of([("daily", "climate_summary", "wind_gust_max")])
+    assert [flag["name_original"] for flag in gust] == ["qn_3"]
+    assert [code["code"] for code in gust[0]["codes"]] == ["1", "2", "3", "5", "7", "8", "9", "10"]
+    whole = flags_of([("daily", "climate_summary")])
+    assert {flag["name_original"] for flag in whole} == {"qn_3", "qn_4"}
+    assert all(flag["codes"] == gust[0]["codes"] for flag in whole)
+
+
 @pytest.mark.parametrize(("convert_units", "unit"), [(True, "s"), (False, "h")])
 def test_the_unit_is_the_sources_where_nothing_is_converted(*, convert_units: bool, unit: str) -> None:
     """The unit named is the target of the quantity, or, with `convert_units` off, the one the source publishes."""
