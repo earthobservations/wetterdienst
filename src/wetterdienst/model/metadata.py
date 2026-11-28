@@ -651,6 +651,30 @@ def is_quality_flag(parameter: ParameterModel) -> bool:
     return canonical is not None and canonical.quality_flag
 
 
+def quality_flags_of(dataset: DatasetModel, parameters: Iterable[ParameterModel] | None = None) -> list[ParameterModel]:
+    """Give the quality flags of `dataset` that qualify the `parameters` read (all of the dataset's, if none are given).
+
+    A source that writes more than one quality column puts each before the parameters it qualifies (DWD's daily
+    `climate_summary`: `QN_3` FX FM, then `QN_4` and the rest), so a parameter belongs to the quality flag before it
+    in the dataset's declaration, which mirrors the order of the file. `DwdObservationValues._tidy_up_df` does the
+    same at parse time. A parameter that no flag precedes belongs to the first one, so that a dataset with a single
+    quality flag has it for every parameter whatever its place. The flags come back in the dataset's order, once each;
+    a dataset without a quality flag has none.
+    """
+    flags = [parameter for parameter in dataset.parameters if is_quality_flag(parameter)]
+    if not flags or parameters is None:
+        return flags
+    wanted = {parameter.name_original for parameter in parameters}
+    belonging: list[str] = []
+    current = flags[0]
+    for parameter in dataset.parameters:
+        if is_quality_flag(parameter):
+            current = parameter
+        elif parameter.name_original in wanted and current.name_original not in belonging:
+            belonging.append(current.name_original)
+    return [flag for flag in flags if flag.name_original in belonging]
+
+
 class ParameterModel(BaseModel):  # noqa: PLW1641
     """Parameter model for a provider.
 

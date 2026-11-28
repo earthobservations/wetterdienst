@@ -120,7 +120,9 @@ kept), but for `suspect`, `rejected`, `raw` and `zone`, which have a shorter tex
 `documentation` column. `quality_flags codes` has a row for each code that
 occurs of a flag the source documents as a closed set, such as DWD's QN levels or a `zone`: with QN 10 in every
 reading, it is the one row for 10. `source quality flags` is there where the source's own flag occurs, for the datasets
-of the answer. The legend has the `source_flag_note` as an attribute where the library carries no flag of the source.
+of the answer: a row (`dataset`, `name_original`, `description`, `levels`) for each quality column of the parameters
+read, `levels` being the codes of that column's dataset (`"1,2,3"`, a cell with commas is a JSON string; empty where
+the source lists none). The legend has the `source_flag_note` as an attribute where the library carries no flag of the source.
 An answer none of whose readings has a flag has none of these tables: the `parameters` and the settings are still
 there.
 

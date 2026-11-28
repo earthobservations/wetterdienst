@@ -648,6 +648,21 @@ NO_SOURCE_FLAG = (
 SOURCE_FLAG_NOTES: dict[str, str] = {}
 
 
+def source_flag_codes(provider: str, network: str, dataset: str) -> list[QualityCode] | None:
+    """Give the codes of the source's own flag of one dataset (`resolution/dataset`), or None where none are told.
+
+    `dwd/observation` tells the levels DWD's description of that product lists, with the levels its data carry
+    besides (`dwd_observation_qn` of this dataset alone, so the urban products' undescribed level 3 included); None
+    for a product DWD publishes no description of. Any other network tells the codes of its own flag (the plain kind
+    of its legend), which is one set for every dataset that has the flag; None where it lists none. A dataset has
+    codes here only if the answer's `legend` has them: the legend of a network is the union of these.
+    """
+    key = f"{provider.lower()}/{network.lower()}"
+    if key == "dwd/observation":
+        return dwd_observation_qn([dataset]).codes
+    return next((kind.codes for kind in LEGENDS[key] if kind.kind is None), None)
+
+
 def source_flag_note(provider: str, network: str) -> str | None:
     """Say so where the library carries no flag of the network's source: its legend has no plain kind.
 

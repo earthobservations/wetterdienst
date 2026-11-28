@@ -19,6 +19,7 @@ from wetterdienst.model.quality_legend import (
     NO_SOURCE_FLAG,
     SOURCE_FLAG_NOTES,
     quality_legend,
+    source_flag_codes,
     source_flag_note,
 )
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -237,3 +238,54 @@ def test_a_provider_that_states_its_codes_lists_them_with_the_source(network: st
     assert {code.code for code in plain.codes or []} == codes
     assert plain.documentation is not None
     assert plain.documentation.startswith("https://")
+
+
+def _source_flags(parameters: list[tuple[str, ...]]) -> list[dict]:
+    return _quality_of(parameters)["source_flags"]  # ty: ignore[invalid-argument-type]
+
+
+def _level_codes(codes: list[dict] | None) -> list[str] | None:
+    return None if codes is None else [c["code"] for c in codes]
+
+
+def test_each_source_flag_has_the_levels_of_its_own_dataset() -> None:
+    """GH-4507: the legend is the union over the datasets read, and each flag tells the levels of its dataset."""
+    quality = _quality_of([("daily", "climate_summary"), ("10_minutes", "wind"), ("annual", "climate_summary")])
+    by_dataset = {(f["resolution"], f["dataset"]): f["codes"] for f in quality["source_flags"]}
+
+    assert _level_codes(by_dataset[("daily", "climate_summary")]) == ["1", "2", "3", "5", "7", "8", "9", "10"]
+    assert _level_codes(by_dataset[("10_minutes", "wind")]) == ["1", "2", "3"]
+    # DWD publishes no description of the annual levels: none is told, and never another product's
+    assert by_dataset[("annual", "climate_summary")] is None
+    assert set(_levels(quality)) == {"1", "2", "3", "5", "7", "8", "9", "10"}
+    for flag in quality["source_flags"]:
+        assert all(c["meaning"] == LEVELS[c["code"]] for c in flag["codes"] or ())
+
+
+def test_the_source_flag_of_an_urban_dataset_tells_the_level_the_data_carry() -> None:
+    """The urban description lists 1 and 2, the data carry 3: the flag has all three, 3 marked as the network's."""
+    (flag,) = _source_flags([("hourly", "urban_temperature_air")])
+    assert _level_codes(flag["codes"]) == ["1", "2", "3"]
+    assert "station network's wording" in flag["codes"][2]["meaning"]
+
+
+def test_a_single_parameter_has_the_flag_before_it_and_its_codes_alone() -> None:
+    """GH-4507: the wind gust of the daily summary has QN_3 only; the whole dataset has QN_3 and QN_4, unchanged."""
+    flags = _source_flags([("daily", "climate_summary", "wind_gust_max")])
+    assert [f["name_original"] for f in flags] == ["qn_3"]
+    assert _level_codes(flags[0]["codes"]) == ["1", "2", "3", "5", "7", "8", "9", "10"]
+    assert [f["name_original"] for f in _source_flags([("daily", "climate_summary")])] == ["qn_3", "qn_4"]
+    mixed = _source_flags(
+        [("daily", "climate_summary", "wind_gust_max"), ("daily", "climate_summary", "precipitation_amount")]
+    )
+    assert [f["name_original"] for f in mixed] == ["qn_3", "qn_4"]
+    # one flag per dataset: unchanged whichever parameter is read
+    assert [f["name_original"] for f in _source_flags([("hourly", "wind", "wind_speed_mean")])] == ["qn_3"]
+
+
+def test_the_source_flags_of_dwd_derived_tell_the_codes_of_the_network_flag() -> None:
+    """A network that is not `dwd/observation` tells the codes of its own flag, the one set of every dataset."""
+    codes = source_flag_codes("dwd", "derived", "hourly/radiation_global")
+    assert codes is not None
+    assert [c.code for c in codes] == ["500", "501", "502", "503"]
+    assert source_flag_codes("dwd", "mosmix", "hourly/small") is None

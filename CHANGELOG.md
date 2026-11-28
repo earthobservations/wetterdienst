@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `with_metadata`'s `metadata.quality.source_flags` lists only the quality columns of the
+  parameters read: a DWD `daily/climate_summary/wind_gust_max` answer names `qn_3`, not `qn_3` and
+  `qn_4` (a parameter belongs to the `QN` column before it in DWD's file); a whole dataset lists all
+  of its columns as before. Each entry has its own `codes`, the levels its dataset's description
+  lists (`null` where none), and the compact format's `source quality flags` table has a `levels`
+  column; the `legend`'s codes stay the union over the datasets read. (GH-4507)
+
 ## [0.202.0] - 2026-11-28
 
 ### Changed
