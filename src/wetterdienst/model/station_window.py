@@ -42,7 +42,6 @@ from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.response_warnings import (
     NO_STATION_READ,
     STATIONS_OUTSIDE_WINDOW,
-    recorded_warnings,
     warn_response,
 )
 
@@ -77,7 +76,11 @@ def rule_applies(stations: StationsResult) -> bool:
     if stations._stations_filter in NAMED_BY_ID or stations._stations_filter in NOT_RULED:  # noqa: SLF001
         return False
     request = getattr(stations, "request", None)
-    return getattr(request, "station_list_bounds_hold", True) and getattr(request, "end", None) is not None
+    if not getattr(request, "station_list_bounds_hold", True) or getattr(request, "end", None) is None:
+        return False
+    # a result built by hand may lack the column (`shape_stations_frame` adds it to every list a request makes): the
+    # rule, and the limit's count with it, cut nothing then, where `can_have_data_in_window` would raise
+    return "start_timestamp" in stations.df.columns
 
 
 def can_have_data_in_window(df: pl.DataFrame, start: dt.datetime | None, end: dt.datetime) -> pl.Series:
@@ -208,17 +211,46 @@ def warn_left_out(
     return set(left)
 
 
-#: what an empty selection of each kind says it matched nothing of (`warn_no_station_read`)
+#: what an empty selection of each kind matched no station of, worded for a request with a window: a name and the
+#: searches by place are matched among the stations with a record in it (`filter_by_name`, and so `limit_to_window`,
+#: `metno/frost`'s `_stations_to_search`), so "no station matches" would be false of a station that closed before it
 _EMPTY_SELECTION = {
-    StationsFilter.BY_NAME: "no station matches the name",
-    StationsFilter.BY_BBOX: "no station lies in the bounding box",
-    StationsFilter.BY_DISTANCE: "no station lies within the distance",
-    StationsFilter.BY_RANK: "no station with a position was found for the rank",
-    StationsFilter.BY_SQL: "no station matches the SQL filter",
-    StationsFilter.BY_REGION: "no station is listed under the region",
+    StationsFilter.BY_NAME: "{what} matches the name",
+    StationsFilter.BY_BBOX: "{what} lies in the bounding box",
+    StationsFilter.BY_DISTANCE: "{what} lies within the distance",
+    StationsFilter.BY_RANK: "{what} with a position was found for the rank",
+    StationsFilter.BY_SQL: "{what} matches the SQL filter",
+    StationsFilter.BY_REGION: "{what} is listed under the region",
 }
-#: the warnings that already say why a selection holds no station
-_EXPLAINS_EMPTY = frozenset({"unknown-station", "positions-unavailable"})
+#: the selections that are a search by place, which a network or dataset without positions finds nothing by
+_BY_PLACE = frozenset({StationsFilter.BY_RANK, StationsFilter.BY_DISTANCE, StationsFilter.BY_BBOX})
+
+
+def _end_text(end: dt.datetime) -> str:
+    """Write the end of the window as a day where it is the end of one, else with its minutes."""
+    end = end.astimezone(dt.UTC)
+    if (end.hour, end.minute) in {(0, 0), (23, 59)}:
+        return f"{end:%Y-%m-%d}"
+    return f"{end:%Y-%m-%d %H:%M} UTC"
+
+
+def _empty_is_explained(stations: StationsResult) -> bool:
+    """Say whether another warning of the request already says why this selection holds no station.
+
+    Asked of the request, not of the warnings recorded for the answer, which exist only inside a response (the command
+    line, the REST API, a lookup by id) and not for the library: a station named by id has `unknown-station`; a search
+    by place on a network or dataset without positions has `positions-unavailable`; a lookup that went without a
+    directory (`dwd/observation`, `dwd/derived`) has `file-skipped` for it and may hold the station in it.
+    """
+    if stations._stations_filter in NAMED_BY_ID:  # noqa: SLF001
+        return True
+    request = getattr(stations, "request", None)
+    if stations._stations_filter in _BY_PLACE:  # noqa: SLF001
+        unplaced = getattr(request, "_datasets_without_positions_asked", None)
+        if unplaced is not None and unplaced() is not None:
+            return True
+    lookup_gaps = getattr(request, "_lookup_gaps", None)
+    return bool(lookup_gaps is not None and lookup_gaps())
 
 
 def warn_no_station_read(
@@ -235,16 +267,20 @@ def warn_no_station_read(
     (`TimeseriesValues._begins_after_window`: stations named by id, the candidates of a `rank`, ECCC); `selected` is
     how many stations the selection holds, 0 for one that matched none (a name, a box, a distance, a region, an SQL
     filter). `covered` is the ids `stations-outside-window` named: a station it told is not told twice, so nothing is
-    said where it explains every one of them. A selection by id that holds no station has `unknown-station` already,
-    and a search by place on a network without positions `positions-unavailable`.
+    said where it explains every one of them. An empty selection another warning explains is not told
+    (`_empty_is_explained`).
     """
     named = stations._stations_filter in NAMED_BY_ID  # noqa: SLF001
     window = _window(stations.start, stations.end)
     if selected == 0:
-        if named or _EXPLAINS_EMPTY & {warning["code"] for warning in recorded_warnings()}:
+        if _empty_is_explained(stations):
             return
         kind = _EMPTY_SELECTION.get(stations._stations_filter)  # noqa: SLF001
-        why = f"{kind[0].upper()}{kind[1:]}" if kind else "The network lists no station for the requested parameters"
+        if kind is None:
+            request = getattr(stations, "request", None)
+            why = f"the network lists no station for the requested parameters and periods of {type(request).__name__}"
+        else:
+            why = kind.format(what="no station with a record in the window" if window else "no station")
         warn_response(
             log,
             NO_STATION_READ,
@@ -261,9 +297,9 @@ def warn_no_station_read(
     if count > MAX_STATIONS_LISTED:
         names += f", and {count - MAX_STATIONS_LISTED} more"
     head = (
-        f"No station was read: the station list of {names} begins after the window{window}, so by the list "
-        f"{'it has' if one else 'they have'} no data in it. The answer has no rows because of that, not because the "
-        "request failed."
+        f"No station was read: the station list of {names} begins after the window's end, "
+        f"{_end_text(cast('dt.datetime', stations.end))}, so by the list {'it has' if one else 'they have'} no data in "
+        "it. The answer has no rows because of that, not because the request failed."
     )
     if named:
         head += f" Naming {'it' if one else 'them'} by id does not read {'it' if one else 'them'}."

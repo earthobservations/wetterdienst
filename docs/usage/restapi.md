@@ -407,9 +407,10 @@ what the answer is missing:
   the window; not told for ids, a `rank` or a `name`, see [Limits](#limits)),
   `no-station-read` (a `values` or `statistics` walk that ran to its end read no station, so the answer has no rows
   and did not fail: every station of the selection was left out because its list begins after the window, named by
-  id, by `rank` or on ECCC, which it names, or the selection holds no station, a name, a box, a distance, a region
-  or an SQL filter that matches none; not told where `stations-outside-window`, `unknown-station` or
-  `positions-unavailable` says it already, nor for `interpolate` and `summarize`, see [Limits](#limits)),
+  id, by `rank` or on ECCC, which it names, or the selection holds no station, a name, a box, a distance or a
+  region that matches none (the command line's `--sql` and the library's `filter_by_sql` too: REST and MCP have no
+  SQL); not told where `stations-outside-window`, `unknown-station`, `positions-unavailable` or `file-skipped` says it
+  already, nor for `interpolate` and `summarize`, see [Limits](#limits)),
   `no-alerts-for-place` (`alerts` asked for a place, a point or a name, that no warning of the snapshot is for: an
   answer, not an error, see [Alerts](../data/provider/dwd/alerts/index.md#a-place)), `no-storm-cells-for-place`
   (`storm_cells` asked for a place or a `min_severity` that leaves no cell of a scan that has some: an answer, not an
@@ -1874,10 +1875,13 @@ A walk that read no station is told in one `no-station-read` warning, so that an
 request that failed. Where every station of the selection was left out because its list begins after the window (the
 ones named by id, the candidates of a `rank`, ECCC's), it names them (the first ten), says the answer has no rows because
 of that, and, for ids, that naming them does not read them. Where the selection holds no station (a `name`, a box, a
-distance, a region or an SQL filter that matches none) it says so. It is not told where `stations-outside-window` has
-named the stations, where `unknown-station` or `positions-unavailable` says why the selection is empty, for
-`interpolate` and `summarize`, or where a station was read, however little it held. The `stations` route does not
-tell an empty selection.
+distance or a region that matches none; on the command line and in the library an SQL filter too) it says so. With a
+window it says "no station with a record in the window", since a name and a search by place are matched among the
+stations that have one: a station that closed before the window may be the one you meant. It is not told where
+`stations-outside-window` has named the stations, where `unknown-station`, `positions-unavailable` or `file-skipped`
+says why the selection is empty (known from the request, so also in the library, where the warnings are only
+logged), for `interpolate` and `summarize`, or where a station was read, however little it held. The `stations`
+route does not tell an empty selection.
 
 The rows of `values` are an
 estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end
