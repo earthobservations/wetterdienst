@@ -49,6 +49,11 @@ Types of changes:
   100 stations or fewer, so the answer of a cut of 100 was bigger than one of 101 and the search
   could stop at 99 for one `rank` while another kept 105. REST, the CLI and Python are not cut and
   unchanged. (GH-4520)
+- An MCP answer (`stations`, `values`, `interpolate`, `summarize`, `station_ids`, `statistics`) is
+  whole only if it would also fit with the note of a cut of it. An answer within about one station
+  of the budget is now cut, and noted, where it was whole, so a larger `rank` (or a longer
+  `timestamp` window or list of ids) never returns fewer stations than a smaller one: rank 113 kept
+  111 where rank 112 returned 112. REST, the CLI and Python are not cut and unchanged. (GH-4525)
 
 ## [0.202.0] - 2026-11-28
 

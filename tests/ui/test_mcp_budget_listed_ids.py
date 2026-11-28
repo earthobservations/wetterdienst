@@ -9,6 +9,7 @@ a count of every cut.
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
@@ -30,12 +31,13 @@ from tests.ui.test_mcp_budget import (
     _values_of,
 )
 from tests.ui.test_operations import _no_ambient_settings  # noqa: F401
+from tests.ui.test_station_ids import MANY, _client_size, _many, _tool_call
 from wetterdienst.ui import budget, restapi
 from wetterdienst.ui.budget import ANSWER_BUDGET, _largest
 from wetterdienst.ui.response_metadata import MAX_LISTED_STATION_IDS
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
 
 def _brute_force(low: int, high: int, fits: Callable[[int], bool]) -> int | None:
@@ -128,16 +130,17 @@ def test_a_rank_is_cut_to_the_most_that_fits_whatever_the_size_of_the_block(
     """Sweep the legend and the rank: the stations kept are the largest cut that fits, and more rank is never fewer.
 
     What is promised: every search of the budget finds the largest cut that fits (held to a count of its range), and
-    among the ranks that are cut, more rank never returns fewer stations. What is not: a rank whose answer is whole
-    carries no truncation note, so the next rank, cut with its note, may return fewer than it did (GH-4525).
+    more rank never returns fewer stations, an answer that is whole included (GH-4036, GH-4525): a whole answer is one
+    that would also fit with the note of a cut, so the next rank, cut with its note, keeps as many.
 
-    The legend decides where the budget falls, so the sweep puts the cut on either side of the 100-id step, and at it;
-    the rank decides the probes, through the digits of its note. `listing` is the stations the provider lists: 900
-    of which the rank asks for some, or the rank's own number of them.
+    The legend decides where the budget falls, so the sweep puts the cut on either side of the 100-id step, at it, and
+    the edge of what is whole; every rank in between is asked, since the digits of the note move with the rank.
+    `listing` is the stations the provider lists: 900 of which the rank asks for some, or the rank's own number.
     """
     searches = _checked_searches(monkeypatch)
-    ranks = (99, 100, 101, 102, 104, 108, 120)
+    ranks = range(95, 112)
     crossed = 0
+    whole_then_cut = 0
     for legend in (6_500, 7_500, 8_000, 8_500, 9_000):
         monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_, n=legend: _a_legend_of(n))
         kept: list[int] = []
@@ -146,14 +149,18 @@ def test_a_rank_is_cut_to_the_most_that_fits_whatever_the_size_of_the_block(
                 restapi, "get_stations", lambda rank=rank, **_kwargs: _stations_by_rank(listing or rank, rank)
             )
             kept.append(_the_stations_of_a_rank(rank, listed=listing or rank))
-        # the answer of a rank that is whole has no note and the cut one that follows may return fewer (GH-4525): only
-        # the ranks that are cut are held to the promise of GH-4036
-        cut = [count for count, rank in zip(kept, ranks, strict=True) if count < rank]
-        assert cut == sorted(cut), (legend, kept)
-        crossed += any(MAX_LISTED_STATION_IDS - 4 <= count <= MAX_LISTED_STATION_IDS + 4 for count in cut)
+        assert kept == sorted(kept), (legend, kept)
+        crossed += any(MAX_LISTED_STATION_IDS - 4 <= count <= MAX_LISTED_STATION_IDS + 4 for count in kept)
+        # a rank that is whole, followed by one that is cut: the pair that the note's room is for
+        whole_then_cut += any(
+            count == rank and later < rank + 1 for count, later, rank in zip(kept, kept[1:], ranks, strict=False)
+        )
     assert searches
     # the sweep does reach the step, or it holds nothing
     assert crossed >= 2
+    if listing is None:
+        # and the edge of what is whole, for the legends that put it in the ranks asked
+        assert whole_then_cut >= 2
 
 
 # --- the rows of an answer ----------------------------------------------------------------------------------------
@@ -200,3 +207,54 @@ def test_the_rows_of_one_timestamp_are_cut_to_the_most_that_fits_across_the_step
     assert len(searches) == 5
     assert listed == {True, False}, kept
     assert min(kept) <= MAX_LISTED_STATION_IDS < max(kept), kept
+
+
+# --- the other answers that are whole or cut, by the same rule (GH-4525) ---------------------------------------------
+
+
+def _whole_then_cut(kept: list[int], asked: Sequence[int]) -> int:
+    """Count the pairs of an answer that is whole (it keeps what was asked for) and the next one that is cut."""
+    return sum(count == ask and later < ask + 1 for count, later, ask in zip(kept, kept[1:], asked, strict=False))
+
+
+@pytest.mark.parametrize("legend", [None, 1_000, 2_500])
+def test_a_longer_window_never_keeps_fewer_timestamps_whole_answers_included(
+    monkeypatch: pytest.MonkeyPatch, legend: int | None
+) -> None:
+    """The timestamps kept grow with the window, the one that is whole and the first that is cut (GH-4525).
+
+    A series of `hours` timestamps whose answer only just fits has no note; the window of one more hour is cut and
+    carries one, so without room for the note in the whole answer it keeps fewer timestamps than the shorter window did.
+    The legend moves the edge of what is whole.
+    """
+    if legend is not None:
+        monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(legend))
+    hours = range(78, 104)
+    kept = []
+    for count in hours:
+        _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), count))
+        arguments = {**_VALUES, "with_metadata": legend is not None}
+        answer, size = _the_client_gets(_client_sees("values", arguments))
+        assert size <= ANSWER_BUDGET, (legend, count)
+        kept.append(len({row["timestamp"] for row in answer["values"]}))
+    assert kept == sorted(kept), (legend, kept)
+    # the sweep holds the edge of what is whole, or it holds nothing
+    assert _whole_then_cut(kept, hours) >= 1, (legend, kept)
+
+
+def test_a_longer_list_of_ids_never_keeps_fewer_stations_whole_answers_included(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`station_ids`: the stations kept grow with the ids asked for, the answer that is whole and the first cut."""
+    _many(monkeypatch)
+    asked = range(106, 118)
+    kept = []
+    for count in asked:
+        result = _tool_call({"wmo_id": ",".join(MANY[:count])})
+        assert not result.is_error, result.content
+        assert _client_size(result) <= ANSWER_BUDGET, count
+        assert result.structured_content is not None
+        data = result.structured_content.get("result", result.structured_content)
+        kept.append(len(data["stations"]))
+    assert kept == sorted(kept), kept
+    assert _whole_then_cut(kept, asked) >= 1, kept
