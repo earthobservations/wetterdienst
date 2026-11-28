@@ -19,6 +19,7 @@ const current = computed(() => REFERENCE.some(section => inSection(section, rout
       type="button"
       class="nav-tab"
       :data-current="current || undefined"
+      :aria-current="current ? 'true' : undefined"
       :aria-expanded="open"
       :aria-controls="open ? panelId : undefined"
       @click="open = !open"

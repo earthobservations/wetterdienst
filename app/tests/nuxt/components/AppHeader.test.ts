@@ -60,6 +60,24 @@ describe('the tool tabs of the header', () => {
   })
 })
 
+// The reference's button is marked as the tab of a page is where the page is one of the reference (GH-4511): by the bar under it (`data-current`)
+// and by `aria-current="true"`, which a screen reader says, as the phone bar's Menu does.
+describe('the reference button', () => {
+  const reference = (wrapper: Header) => wrapper.findAll('nav button').find(button => button.text() === 'Reference')!
+
+  it.each(['/providers', '/glossary', '/api'])('is marked on %s', async (path) => {
+    const button = reference(await mountHeader(path))
+    expect(button.attributes('data-current')).toBeDefined()
+    expect(button.attributes('aria-current')).toBe('true')
+  })
+
+  it.each(['/', '/radar', '/map'])('is not marked on %s', async (path) => {
+    const button = reference(await mountHeader(path))
+    expect(button.attributes('data-current')).toBeUndefined()
+    expect(button.attributes('aria-current')).toBeUndefined()
+  })
+})
+
 // The tabs that do not fit go into the "More" menu (GH-4500). The test's document has no layout, so the widths are given: a tab is 100 px, the
 // rest of the row (the line and the reference) 150 px, the "More" button 60 px, with no gap, and the room is what a test sets.
 describe('the tabs that do not fit', () => {
@@ -180,10 +198,13 @@ describe('the tabs that do not fit', () => {
     room = 800
     const inside = await mountHeader('/kostra')
     expect(more(inside).attributes('data-current')).toBeDefined()
+    // a screen reader hears it too, as it does of the phone bar's Menu (GH-4511)
+    expect(more(inside).attributes('aria-current')).toBe('true')
     // the tabs that are in the row are not marked: the page is not theirs
     expect(inside.findAll('nav ul a[aria-current="page"]')).toHaveLength(0)
     const outside = await mountHeader('/radar')
     expect(more(outside).attributes('data-current')).toBeUndefined()
+    expect(more(outside).attributes('aria-current')).toBeUndefined()
     expect(outside.findAll('nav ul a[aria-current="page"]').map(link => link.attributes('href'))).toEqual(['/radar'])
   })
 

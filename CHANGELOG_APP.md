@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The header's "More" and "Reference" buttons now say to a screen reader (`aria-current="true"`) that
+  the page is one of theirs, as the phone bar's Menu does; before, only the bar under the button
+  showed it. (GH-4511)
+- The map page on a phone ends exactly at the tab bar; a title of a fractional height left the map
+  up to 1 px short of it. (GH-4514)
+
 ## [0.61.0] - 2026-11-28
 
 Paired with backend 0.202.0; it needs no route newer than 0.195.0 (the Heavy-rainfall tool reads
