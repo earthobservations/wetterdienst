@@ -16,19 +16,22 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.203.0] - 2026-11-28
+
 ### Added
 
 - A `values` or `statistics` answer whose walk read no station now carries a `no-station-read`
   warning, where it carried none: every station of the selection begins after the window (named
-  by id, by `rank`, ECCC; the warning names them, and says naming them does not read them), or
-  the selection holds no station (a name, a box, a distance or a region with a record in the
-  window; `--sql` and `filter_by_sql` too). Not told where `stations-outside-window`,
-  `unknown-station`, `positions-unavailable` or `file-skipped` already explains it, nor for
-  `interpolate` and `summarize` (GH-4510)
-- Each entry of `with_metadata`'s `metadata.quality.source_flags` has its own `codes`, the levels
-  its dataset's DWD description lists (`null` where it lists none); the compact format's
-  `source quality flags` table has a `levels` column. The `legend`'s codes stay the union over the
-  datasets read. (GH-4507)
+  by id, by `rank`, ECCC; the warning names them, and for stations named by id says that naming
+  them does not read them), or the selection holds no station (a name, a box, a distance or a
+  region with a record in the window; `--sql` and `filter_by_sql` too). Not told where
+  `stations-outside-window`, `unknown-station`, `positions-unavailable` or `file-skipped` already
+  explains it, nor for `interpolate` and `summarize` (GH-4510)
+- Each entry of `with_metadata`'s `metadata.quality.source_flags` has its own `codes`: for DWD
+  observation the levels its dataset's description lists (`null` for a product DWD describes none
+  of); for another network the codes of its own flag, `null` where it lists none. The compact
+  format's `source quality flags` table has a `levels` column. The `legend`'s codes stay the union
+  over the datasets read. (GH-4507)
 
 ### Changed
 
@@ -8864,7 +8867,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.202.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.203.0...HEAD
+[0.203.0]: https://github.com/earthobservations/wetterdienst/compare/v0.202.0...v0.203.0
 [0.202.0]: https://github.com/earthobservations/wetterdienst/compare/v0.201.0...v0.202.0
 [0.201.0]: https://github.com/earthobservations/wetterdienst/compare/v0.200.0...v0.201.0
 [0.200.0]: https://github.com/earthobservations/wetterdienst/compare/v0.199.0...v0.200.0
